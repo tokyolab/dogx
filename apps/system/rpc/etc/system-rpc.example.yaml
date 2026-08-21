@@ -1,0 +1,26 @@
+Name: system-rpc
+ListenOn: 0.0.0.0:9001
+Mode: dev
+Timeout: 5000
+
+App:
+  ReadinessTimeout: 2s
+
+Postgres:
+  Host: 127.0.0.1
+  Port: 5432
+  User: dogx
+  Password: ${DOGX_POSTGRES_PASSWORD}
+  Database: dogx_dev
+  SSLMode: disable
+  TimeZone: Asia/Shanghai
+  MaxIdleConns: 10
+  MaxOpenConns: 50
+  ConnMaxLifetime: 1h
+
+RedisConf:
+  Host: 127.0.0.1:6379
+  Type: node
+  Pass: ${DOGX_REDIS_PASSWORD}
+  NonBlock: true
+  PingTimeout: 1s

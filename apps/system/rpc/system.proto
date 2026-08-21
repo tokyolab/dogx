@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package system;
+
+option go_package = "./system";
+
+message ReadyRequest {}
+
+message ReadyResponse {
+  string status = 1;
+}
+
+service System {
+  rpc CheckReady(ReadyRequest) returns (ReadyResponse);
+}

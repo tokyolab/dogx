@@ -1,0 +1,27 @@
+# Runtime configuration (may contain secrets)
+apps/**/etc/*.yaml
+!apps/**/etc/*.example.yaml
+apps/**/etc/*.yml
+!apps/**/etc/*.example.yml
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Build and test output
+bin/
+dist/
+coverage/
+*.out
+*.test
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log

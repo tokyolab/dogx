@@ -1,0 +1,15 @@
+Name: system-api
+Host: 0.0.0.0
+Port: 8001
+Mode: dev
+Timeout: 5000
+
+App:
+  Version: v0.1.0
+  ReadinessTimeout: 2s
+
+SystemRpc:
+  Endpoints:
+    - 127.0.0.1:9001
+  NonBlock: true
+  Timeout: 2000
