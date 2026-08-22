@@ -6,7 +6,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/api/internal/types"
 	"github.com/tokyolab/dogx/apps/system/rpc/systemclient"
-	"github.com/tokyolab/dogx/common/httperror"
+	"github.com/tokyolab/dogx/pkg/response"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -29,10 +29,10 @@ func (l *ReadyLogic) Ready() (*types.ReadyResp, error) {
 	checkCtx, cancel := context.WithTimeout(l.ctx, l.svcCtx.Config.App.ReadinessTimeout)
 	defer cancel()
 
-	response, err := l.svcCtx.SystemRpc.CheckReady(checkCtx, &systemclient.ReadyRequest{})
+	rpcResponse, err := l.svcCtx.SystemRpc.CheckReady(checkCtx, &systemclient.ReadyRequest{})
 	if err != nil {
-		return nil, httperror.ServiceUnavailable(err)
+		return nil, response.ServiceUnavailable(err)
 	}
 
-	return &types.ReadyResp{Status: response.Status}, nil
+	return &types.ReadyResp{Status: rpcResponse.Status}, nil
 }

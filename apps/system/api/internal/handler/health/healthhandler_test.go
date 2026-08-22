@@ -14,7 +14,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/api/internal/types"
 	"github.com/tokyolab/dogx/apps/system/rpc/systemclient"
-	"github.com/tokyolab/dogx/common/httperror"
+	commonresponse "github.com/tokyolab/dogx/pkg/response"
 
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"google.golang.org/grpc"
@@ -34,6 +34,8 @@ func (s handlerSystemRPCStub) CheckReady(
 }
 
 func TestHealthHandler(t *testing.T) {
+	setResponseHandlers(t)
+
 	svcCtx := &svc.ServiceContext{Config: config.Config{App: config.AppConf{Version: "v0.1.0"}}}
 	svcCtx.Config.Name = "system-api"
 
@@ -45,20 +47,21 @@ func TestHealthHandler(t *testing.T) {
 		t.Fatalf("unexpected status: %d", recorder.Code)
 	}
 
-	var response types.HealthResp
+	var response struct {
+		Code    uint32           `json:"code"`
+		Message string           `json:"message"`
+		Data    types.HealthResp `json:"data"`
+	}
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if response.Status != "ok" || response.Service != "system-api" {
+	if response.Code != commonresponse.SuccessCode || response.Data.Status != "ok" || response.Data.Service != "system-api" {
 		t.Fatalf("unexpected response: %+v", response)
 	}
 }
 
 func TestReadyHandlerReturns503WithoutLeakingCause(t *testing.T) {
-	httpx.SetErrorHandlerCtx(httperror.Handle)
-	t.Cleanup(func() {
-		httpx.SetErrorHandlerCtx(nil)
-	})
+	setResponseHandlers(t)
 
 	svcCtx := &svc.ServiceContext{
 		Config: config.Config{App: config.AppConf{ReadinessTimeout: time.Second}},
@@ -80,6 +83,8 @@ func TestReadyHandlerReturns503WithoutLeakingCause(t *testing.T) {
 }
 
 func TestReadyHandler(t *testing.T) {
+	setResponseHandlers(t)
+
 	svcCtx := &svc.ServiceContext{
 		Config: config.Config{App: config.AppConf{ReadinessTimeout: time.Second}},
 		SystemRpc: handlerSystemRPCStub{
@@ -95,11 +100,25 @@ func TestReadyHandler(t *testing.T) {
 		t.Fatalf("unexpected status: %d", recorder.Code)
 	}
 
-	var response types.ReadyResp
+	var response struct {
+		Code uint32          `json:"code"`
+		Data types.ReadyResp `json:"data"`
+	}
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if response.Status != "ready" {
+	if response.Code != commonresponse.SuccessCode || response.Data.Status != "ready" {
 		t.Fatalf("unexpected response: %+v", response)
 	}
+}
+
+func setResponseHandlers(t *testing.T) {
+	t.Helper()
+
+	httpx.SetOkHandler(commonresponse.HandleSuccess)
+	httpx.SetErrorHandlerCtx(commonresponse.HandleError)
+	t.Cleanup(func() {
+		httpx.SetOkHandler(nil)
+		httpx.SetErrorHandlerCtx(nil)
+	})
 }

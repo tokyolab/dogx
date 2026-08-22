@@ -7,7 +7,7 @@ DogX 使用 Goose 管理 PostgreSQL 结构，采用 Goose 官方推荐的混合�
 从仓库根目录执行：
 
 ```powershell
-go run ./apps/system/rpc/cmd/migrate create add_department
+go run ./apps/system/cmd/migrate create add_department
 ```
 
 命令默认创建时间戳迁移：
@@ -19,7 +19,7 @@ go run ./apps/system/rpc/cmd/migrate create add_department
 开发者在同一个迁移中实现 `Up` 和 `Down`，然后在本地执行：
 
 ```powershell
-go run ./apps/system/rpc/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' up
+go run ./apps/system/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' up
 ```
 
 时间戳降低了多个功能分支创建相同版本号的概率。不要手工创建下一个连续编号，也不要使用 `-allow-missing` 掩盖迁移顺序问题。
@@ -29,7 +29,7 @@ go run ./apps/system/rpc/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' up
 功能分支和日常开发提交保留时间戳文件。只有准备生成正式发布版本时，才在已经整合所有待发布迁移的分支执行：
 
 ```powershell
-go run ./apps/system/rpc/cmd/migrate fix
+go run ./apps/system/cmd/migrate fix
 ```
 
 `fix` 按时间戳顺序把尚未发布的迁移接在现有连续版本之后：
@@ -62,19 +62,19 @@ go run ./apps/system/rpc/cmd/migrate fix
 
 ```powershell
 # 创建开发迁移（时间戳版本）
-go run ./apps/system/rpc/cmd/migrate create <name>
+go run ./apps/system/cmd/migrate create <name>
 
 # 发布前转换成连续版本
-go run ./apps/system/rpc/cmd/migrate fix
+go run ./apps/system/cmd/migrate fix
 
 # 查看状态
-go run ./apps/system/rpc/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' status
+go run ./apps/system/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' status
 
 # 执行待处理迁移
-go run ./apps/system/rpc/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' up
+go run ./apps/system/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' up
 
 # 回滚最近一个迁移
-go run ./apps/system/rpc/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' down
+go run ./apps/system/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' down
 ```
 
 参考：[Goose Hybrid Versioning](https://github.com/pressly/goose#hybrid-versioning)。

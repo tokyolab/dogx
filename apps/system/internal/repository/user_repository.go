@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tokyolab/dogx/apps/system/rpc/internal/model"
+	"github.com/tokyolab/dogx/apps/system/internal/model"
 
 	"gorm.io/gorm"
 )

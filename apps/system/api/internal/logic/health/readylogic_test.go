@@ -9,7 +9,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/api/internal/config"
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/systemclient"
-	"github.com/tokyolab/dogx/common/httperror"
+	"github.com/tokyolab/dogx/pkg/response"
 	"google.golang.org/grpc"
 )
 
@@ -54,7 +54,7 @@ func TestReadyReturnsTypedUnavailableError(t *testing.T) {
 		t.Fatal("expected readiness error")
 	}
 
-	var apiErr *httperror.Error
+	var apiErr *response.Error
 	if !errors.As(err, &apiErr) {
 		t.Fatalf("expected typed HTTP error, got: %T", err)
 	}

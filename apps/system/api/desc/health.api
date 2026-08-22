@@ -1,0 +1,26 @@
+import "base.api"
+
+type (
+	HealthResp {
+		Status  string `json:"status"`
+		Service string `json:"service"`
+		Version string `json:"version"`
+	}
+
+	ReadyResp {
+		Status string `json:"status"`
+	}
+)
+
+@server (
+	group: health
+)
+service system-api {
+	@doc "Liveness probe"
+	@handler health
+	get /health returns (HealthResp)
+
+	@doc "Readiness probe"
+	@handler ready
+	get /ready returns (ReadyResp)
+}

@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 
+	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
+	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/health"
-	"github.com/tokyolab/dogx/apps/system/rpc/internal/repository"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -29,7 +29,7 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) (*ServiceContext, error) {
-	database, sqlDB, err := newPostgres(c.Postgres)
+	database, sqlDB, err := systemdb.OpenPostgres(c.Postgres)
 	if err != nil {
 		return nil, err
 	}
@@ -56,22 +56,4 @@ func (s *ServiceContext) Close() error {
 	}
 
 	return s.sqlDB.Close()
-}
-
-func newPostgres(c config.PostgresConf) (*gorm.DB, *sql.DB, error) {
-	database, err := gorm.Open(postgres.Open(c.DSN()), &gorm.Config{})
-	if err != nil {
-		return nil, nil, fmt.Errorf("connect postgres: %w", err)
-	}
-
-	sqlDB, err := database.DB()
-	if err != nil {
-		return nil, nil, fmt.Errorf("get postgres connection pool: %w", err)
-	}
-
-	sqlDB.SetMaxIdleConns(c.MaxIdleConns)
-	sqlDB.SetMaxOpenConns(c.MaxOpenConns)
-	sqlDB.SetConnMaxLifetime(c.ConnMaxLifetime)
-
-	return database, sqlDB, nil
 }

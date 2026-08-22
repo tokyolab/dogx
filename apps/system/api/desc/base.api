@@ -1,0 +1,30 @@
+syntax = "v1"
+
+info (
+	title:   "DogX System API"
+	desc:    "DogX system management service"
+	author:  "DogX"
+	version: "v0.1.0"
+)
+
+type (
+	IDReq {
+		Id int64 `json:"id"`
+	}
+
+	IDsReq {
+		Ids []int64 `json:"ids"`
+	}
+
+	PageReq {
+		Page     int64 `json:"page"`
+		PageSize int64 `json:"pageSize"`
+	}
+
+	PageMeta {
+		Total int64 `json:"total"`
+	}
+
+	EmptyResp {
+	}
+)

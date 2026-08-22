@@ -3,10 +3,30 @@
 
 package types
 
+type EmptyResp struct {
+}
+
 type HealthResp struct {
 	Status  string `json:"status"`
 	Service string `json:"service"`
 	Version string `json:"version"`
+}
+
+type IDReq struct {
+	Id int64 `json:"id"`
+}
+
+type IDsReq struct {
+	Ids []int64 `json:"ids"`
+}
+
+type PageMeta struct {
+	Total int64 `json:"total"`
+}
+
+type PageReq struct {
+	Page     int64 `json:"page"`
+	PageSize int64 `json:"pageSize"`
 }
 
 type ReadyResp struct {

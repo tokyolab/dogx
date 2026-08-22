@@ -18,12 +18,18 @@ DogX 是一套面向开源项目的通用 Go 后台管理骨架。后端采用 g
 ```text
 apps/
   system/
-    api/            对浏览器提供 HTTP JSON 接口的 API/BFF 进程
-    rpc/
-      cmd/migrate/  独立数据库迁移命令
-      internal/     RPC 逻辑、模型、仓储和基础设施
-      system.proto  内部 gRPC 契约
-common/             跨服务共享的少量基础能力
+    api/
+      system.api      HTTP API 唯一生成入口
+      desc/           按业务资源拆分的 HTTP 契约
+      internal/       API/BFF 进程私有实现
+    rpc/              RPC 进程、内部 gRPC 契约和进程私有实现
+    cmd/migrate/      独立数据库迁移命令
+    internal/
+      database/       System 域共享的 PostgreSQL 配置与连接工厂
+      model/          GORM 持久化模型及字段类型和常量
+      repository/     数据访问接口与实现
+      migration/      Goose 迁移及 SQL 文件
+pkg/                跨进程、跨业务域复用的稳定技术组件
 docs/               架构决策和开发文档
 ```
 
@@ -49,7 +55,7 @@ Copy-Item 'apps/system/rpc/etc/system-rpc.example.yaml' 'apps/system/rpc/etc/sys
 首次启动前先执行数据库迁移：
 
 ```powershell
-go run ./apps/system/rpc/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' up
+go run ./apps/system/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' up
 ```
 
 然后启动 RPC：
@@ -73,33 +79,33 @@ go run ./apps/system/api -f 'apps/system/api/etc/system-api.yaml'
 
 ## 数据库迁移
 
-迁移文件以 SQL 形式嵌入迁移命令，位于 `apps/system/rpc/internal/migration/migrations`。GORM 负责运行时数据访问，不在服务启动时自动修改数据库结构。
+迁移文件以 SQL 形式嵌入迁移命令，位于 `apps/system/internal/migration/migrations`。GORM 负责运行时数据访问，不在服务启动时自动修改数据库结构。
 
 ```powershell
 # 创建开发迁移，默认使用时间戳版本
-go run ./apps/system/rpc/cmd/migrate create add_department
+go run ./apps/system/cmd/migrate create add_department
 
 # 准备正式发布时转换成连续版本
-go run ./apps/system/rpc/cmd/migrate fix
+go run ./apps/system/cmd/migrate fix
 
 # 查看迁移状态
-go run ./apps/system/rpc/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' status
+go run ./apps/system/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' status
 
 # 执行所有待处理迁移
-go run ./apps/system/rpc/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' up
+go run ./apps/system/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' up
 
 # 查看当前数据库版本
-go run ./apps/system/rpc/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' version
+go run ./apps/system/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' version
 
 # 回滚最近一次迁移，会删除或改变数据库结构
-go run ./apps/system/rpc/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' down
+go run ./apps/system/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' down
 ```
 
 开发迁移使用时间戳，准备正式发布时通过 `fix` 转换成连续版本。已经在共享环境执行过的迁移文件不得修改；数据库结构变化必须增加一个新迁移。完整规则见 [数据库迁移规范](docs/development/database-migrations.md)。
 
 ## 契约生成
 
-修改 API 契约后，在 API 目录重新生成：
+修改 API 契约后，在 API 目录通过唯一入口重新生成；不要单独对 `desc/*.api` 执行 goctl：
 
 ```powershell
 Set-Location 'apps/system/api'
@@ -113,7 +119,7 @@ Set-Location 'apps/system/rpc'
 goctl rpc protoc system.proto --go_out=./types --go-grpc_out=./types --zrpc_out=. --style gozero
 ```
 
-生成命令会更新契约派生文件，但不会覆盖已有的 Logic。修改已有接口的输入或输出类型后，仍需手动同步 Logic 方法签名并运行测试。
+生成命令会更新契约派生文件，但不会覆盖已有的 Logic。修改已有接口的输入或输出类型后，仍需手动同步 Logic 方法签名并运行测试。包含 `DO NOT EDIT` 标记的文件禁止直接修改，完整规则见 [goctl 代码生成规范](docs/development/code-generation.md)。
 
 ## 测试
 
@@ -123,4 +129,4 @@ go test ./...
 
 测试默认不连接真实 PostgreSQL 或 Redis；外部依赖通过窄接口替换为测试桩。
 
-更多约定见 [架构决策](docs/adr/0001-dogx-v0.1-architecture.md) 和 [v0.1 功能边界](docs/roadmap/v0.1.md)。
+更多约定见 [架构决策](docs/adr/0001-dogx-v0.1-architecture.md)、[统一响应与 RPC 错误决策](docs/adr/0002-http-response-and-rpc-errors.md) 和 [v0.1 功能边界](docs/roadmap/v0.1.md)。

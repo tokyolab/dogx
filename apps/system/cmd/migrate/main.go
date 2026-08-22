@@ -10,8 +10,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
-	"github.com/tokyolab/dogx/apps/system/rpc/internal/migration"
+	"github.com/tokyolab/dogx/apps/system/internal/database"
+	"github.com/tokyolab/dogx/apps/system/internal/migration"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -20,11 +20,11 @@ import (
 
 const (
 	defaultConfigFile   = "apps/system/rpc/etc/system-rpc.yaml"
-	defaultMigrationDir = "apps/system/rpc/internal/migration/migrations"
+	defaultMigrationDir = "apps/system/internal/migration/migrations"
 )
 
 type migrateConfig struct {
-	Postgres config.PostgresConf
+	Postgres database.PostgresConf
 }
 
 func main() {
@@ -32,9 +32,9 @@ func main() {
 	migrationDir := flag.String("dir", defaultMigrationDir, "path to the migration source directory")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintln(flag.CommandLine.Output(), "Usage:")
-		_, _ = fmt.Fprintln(flag.CommandLine.Output(), "  go run ./apps/system/rpc/cmd/migrate [flags] <up|down|status|version>")
-		_, _ = fmt.Fprintln(flag.CommandLine.Output(), "  go run ./apps/system/rpc/cmd/migrate [flags] create <name>")
-		_, _ = fmt.Fprintln(flag.CommandLine.Output(), "  go run ./apps/system/rpc/cmd/migrate [flags] fix")
+		_, _ = fmt.Fprintln(flag.CommandLine.Output(), "  go run ./apps/system/cmd/migrate [flags] <up|down|status|version>")
+		_, _ = fmt.Fprintln(flag.CommandLine.Output(), "  go run ./apps/system/cmd/migrate [flags] create <name>")
+		_, _ = fmt.Fprintln(flag.CommandLine.Output(), "  go run ./apps/system/cmd/migrate [flags] fix")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
