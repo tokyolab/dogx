@@ -6,6 +6,7 @@ DogX 是一套面向开源项目的通用 Go 后台管理骨架。后端采用 g
 
 - Go 1.27
 - go-zero 1.10.3
+- goctl 1.10.2
 - Protobuf / gRPC
 - GORM
 - Goose（SQL 数据库迁移）
