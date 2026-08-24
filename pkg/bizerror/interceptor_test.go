@@ -23,8 +23,12 @@ func (errorHealthServer) Check(
 	in *healthpb.HealthCheckRequest,
 ) (*healthpb.HealthCheckResponse, error) {
 	switch in.Service {
+	case "success":
+		return &healthpb.HealthCheckResponse{Status: healthpb.HealthCheckResponse_SERVING}, nil
 	case "business":
 		return nil, New("username already exists")
+	case "invalid-business":
+		return nil, NewCode(1, "invalid business code")
 	case "standard":
 		return nil, status.Error(codes.FailedPrecondition, "standard precondition failure")
 	default:
@@ -63,12 +67,28 @@ func TestUnaryServerInterceptorAcrossGRPC(t *testing.T) {
 
 	client := healthpb.NewHealthClient(conn)
 
+	response, err := client.Check(context.Background(), &healthpb.HealthCheckRequest{Service: "success"})
+	if err != nil {
+		t.Fatalf("successful call returned error: %v", err)
+	}
+	if response.Status != healthpb.HealthCheckResponse_SERVING {
+		t.Fatalf("unexpected successful response: %+v", response)
+	}
+
 	_, err = client.Check(context.Background(), &healthpb.HealthCheckRequest{Service: "business"})
 	if got := uint32(status.Code(err)); got != DefaultCode {
 		t.Fatalf("business code = %d, want %d", got, DefaultCode)
 	}
 	if got := status.Convert(err).Message(); got != "username already exists" {
 		t.Fatalf("unexpected business message: %s", got)
+	}
+
+	_, err = client.Check(context.Background(), &healthpb.HealthCheckRequest{Service: "invalid-business"})
+	if got := status.Code(err); got != codes.Internal {
+		t.Fatalf("invalid business code mapped to %s, want %s", got, codes.Internal)
+	}
+	if got := status.Convert(err).Message(); got != "internal server error" {
+		t.Fatalf("unexpected invalid-code message: %s", got)
 	}
 
 	_, err = client.Check(context.Background(), &healthpb.HealthCheckRequest{Service: "standard"})

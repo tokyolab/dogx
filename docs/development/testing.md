@@ -130,7 +130,7 @@ Repository 测试优先为每个用例开启事务，并在 `t.Cleanup` 中回�
 
 - 只验证简单键值、过期时间和会话行为时，可以使用进程内 Redis Fake。
 - 使用 Lua、Stream、分布式锁或依赖 Redis 精确语义时，必须增加真实 Redis 集成测试。
-- 当前没有对应业务逻辑时，不提前引入 Redis 测试依赖。
+- 当前使用真实 Redis 验证 RPC `ServiceContext` 的依赖装配和就绪检查；尚无缓存业务时，不提前测试不存在的缓存行为。
 
 ## 端到端测试
 
@@ -150,8 +150,10 @@ Repository 测试优先为每个用例开启事务，并在 `t.Cleanup` 中回�
 apps/system/api/internal/logic/<resource>/*_test.go
 apps/system/api/internal/handler/<resource>/*_test.go
 apps/system/rpc/internal/logic/<resource>/*_test.go
+apps/system/rpc/internal/svc/*_integration_test.go
 apps/system/internal/repository/*_integration_test.go
 apps/system/internal/migration/*_integration_test.go
+apps/system/internal/migratecmd/*_test.go
 pkg/<component>/*_test.go
 ```
 
@@ -168,21 +170,20 @@ goctl api validate --api apps/system/api/system.api
 go test -race -shuffle=on -count=1 ./...
 ```
 
-集成测试使用独立 CI Job，启动 PostgreSQL 18 后执行：
+集成测试使用独立 CI Job，启动 PostgreSQL 18 和 Redis 7.4 后执行：
 
 ```shell
-go test -tags=integration -shuffle=on -count=1 -timeout=2m ./apps/system/internal/...
+go test -tags=integration -shuffle=on -count=1 -timeout=2m ./apps/system/internal/... ./apps/system/rpc/internal/svc
 ```
-
-Redis 在会话等真实业务出现后再加入对应的集成测试 Job，当前不为空能力提前启动服务。
 
 Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通单元测试，用于发现开发环境和生产环境之间的跨平台问题。
 
 ## 覆盖率策略
 
-- Linux 单元测试和 PostgreSQL 集成测试分别生成覆盖率文件，并使用 `unit`、`integration` 标记上传到 Codecov，由 Codecov 在同一提交下合并展示。
+- Linux 单元测试和依赖集成测试分别生成覆盖率文件，并使用 `unit`、`integration` 标记上传到 Codecov，由 Codecov 在同一提交下合并展示。
 - Codecov 通过 GitHub OIDC 验证上传身份，仓库不保存 `CODECOV_TOKEN`。
 - `codecov.yml` 排除 `*.pb.go`、生成的 Routes、Types、Server 转发代码和 RPC Client 等自动生成代码。
+- API/RPC/命令行的 `main` 只保留进程启动、信号处理和依赖装配，不纳入业务覆盖率；可测试的命令逻辑必须下沉到 `internal` 包并正常统计。
 - 初期只生成覆盖率报告，不立即用全局阈值阻断提交。
 - 新增核心 Logic 以 80% 以上为目标，但关键业务分支是否被验证优先于数字。
 - 登录、权限、金额、状态流转和数据隔离等高风险逻辑必须覆盖明确的成功与失败场景。
@@ -202,7 +203,7 @@ Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通�
 ## 落地顺序
 
 1. 固定本测试规范，并建立单元测试、Race 和覆盖率 CI。
-2. 建立 PostgreSQL 18、Goose 和 Repository 集成测试基础设施。
+2. 建立 PostgreSQL 18、Redis 7.4、Goose、Repository 和依赖装配集成测试基础设施。
 3. 以登录用例建立第一套完整的 RPC Logic、API Logic、Handler 和数据库测试样板。
 4. RBAC 开发时增加权限矩阵、策略同步和关键端到端测试。
-5. Redis、消息队列和 Job 等能力出现真实业务后，再分别增加相应测试设施。
+5. Redis 缓存业务、消息队列和 Job 等能力出现后，再分别增加对应的行为测试。

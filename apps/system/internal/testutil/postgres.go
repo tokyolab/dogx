@@ -30,10 +30,7 @@ var schemaSequence atomic.Uint64
 func OpenPostgres(t testing.TB) (*gorm.DB, *sql.DB) {
 	t.Helper()
 
-	dsn := strings.TrimSpace(os.Getenv(postgresDSNEnv))
-	if dsn == "" {
-		t.Fatalf("%s is required for PostgreSQL integration tests", postgresDSNEnv)
-	}
+	dsn := PostgresDSN(t)
 
 	baseConfig, err := pgx.ParseConfig(dsn)
 	if err != nil {
@@ -101,4 +98,25 @@ func OpenPostgres(t testing.TB) (*gorm.DB, *sql.DB) {
 	}
 
 	return gormDB, testDB
+}
+
+// PostgresDSN returns the explicitly configured integration-test DSN after
+// verifying that it targets a dedicated test database.
+func PostgresDSN(t testing.TB) string {
+	t.Helper()
+
+	dsn := strings.TrimSpace(os.Getenv(postgresDSNEnv))
+	if dsn == "" {
+		t.Fatalf("%s is required for PostgreSQL integration tests", postgresDSNEnv)
+	}
+
+	config, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		t.Fatalf("parse PostgreSQL integration test DSN: %v", err)
+	}
+	if !strings.HasSuffix(strings.ToLower(config.Database), "_test") {
+		t.Fatalf("refuse to use PostgreSQL database %q: test database name must end with _test", config.Database)
+	}
+
+	return dsn
 }

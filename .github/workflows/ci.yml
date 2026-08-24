@@ -82,7 +82,7 @@ jobs:
         run: go test -shuffle=on -count=1 ./...
 
   postgres-integration:
-    name: PostgreSQL 18 integration
+    name: PostgreSQL 18 and Redis 7.4 integration
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -104,8 +104,19 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      redis:
+        image: redis:7.4.11-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       DOGX_TEST_POSTGRES_DSN: postgres://dogx:dogx_test_password@127.0.0.1:5432/dogx_test?sslmode=disable
+      DOGX_TEST_REDIS_HOST: 127.0.0.1:6379
 
     steps:
       - name: Check out repository
@@ -118,10 +129,10 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Test PostgreSQL migrations and repositories
+      - name: Test service wiring, migrations and repositories
         run: |
           mkdir -p coverage
-          go test -tags=integration -shuffle=on -count=1 -timeout=2m -covermode=atomic -coverprofile=coverage/integration.txt ./apps/system/internal/...
+          go test -tags=integration -shuffle=on -count=1 -timeout=2m -covermode=atomic -coverprofile=coverage/integration.txt ./apps/system/internal/... ./apps/system/rpc/internal/svc
 
       - name: Upload integration coverage to Codecov
         uses: codecov/codecov-action@v7

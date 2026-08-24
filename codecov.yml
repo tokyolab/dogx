@@ -9,7 +9,10 @@ coverage:
 
 ignore:
   - "**/*.pb.go"
+  - "apps/**/api/*.go"
   - "apps/**/api/internal/handler/routes.go"
   - "apps/**/api/internal/types/types.go"
+  - "apps/**/rpc/*.go"
+  - "apps/**/cmd/**/main.go"
   - "apps/**/rpc/internal/server/**"
   - "apps/**/rpc/*client/**"
