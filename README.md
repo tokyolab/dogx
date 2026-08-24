@@ -130,4 +130,4 @@ go test ./...
 
 测试默认不连接真实 PostgreSQL 或 Redis；外部依赖通过窄接口替换为测试桩。
 
-更多约定见 [架构决策](docs/adr/0001-dogx-v0.1-architecture.md)、[统一响应与 RPC 错误决策](docs/adr/0002-http-response-and-rpc-errors.md) 和 [v0.1 功能边界](docs/roadmap/v0.1.md)。
+更多约定见 [测试方案](docs/development/testing.md)、[架构决策](docs/adr/0001-dogx-v0.1-architecture.md)、[统一响应与 RPC 错误决策](docs/adr/0002-http-response-and-rpc-errors.md) 和 [v0.1 功能边界](docs/roadmap/v0.1.md)。

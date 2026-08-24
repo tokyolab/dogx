@@ -102,9 +102,16 @@ GORM Repository 使用真实 PostgreSQL 测试，不使用 SQLite 代替 Postgre
 ```text
 apps/system/internal/repository/user_repository_integration_test.go
 apps/system/internal/migration/migration_integration_test.go
+apps/system/internal/testutil/postgres.go
 ```
 
 测试数据库必须使用独立名称，例如 `dogx_test`。测试辅助代码在清理数据或重建结构前必须校验数据库名，拒绝对不符合测试命名规则的数据库执行破坏性操作。
+
+PostgreSQL 集成测试通过 `DOGX_TEST_POSTGRES_DSN` 获取连接信息，数据库名必须以 `_test` 结尾。每个测试创建独立的 `dogx_it_` Schema，并在测试结束后通过 `t.Cleanup` 删除，禁止连接 `dogx_dev` 等开发或生产数据库。
+
+```shell
+DOGX_TEST_POSTGRES_DSN=postgres://dogx:password@127.0.0.1:5432/dogx_test?sslmode=disable
+```
 
 Repository 测试优先为每个用例开启事务，并在 `t.Cleanup` 中回滚。不能安全使用同一事务隔离的用例，使用独立 Schema 或独立数据库，且不得并行操作共享数据。
 
@@ -161,11 +168,13 @@ goctl api validate --api apps/system/api/system.api
 go test -race -shuffle=on -count=1 ./...
 ```
 
-集成测试使用独立 CI Job，启动 PostgreSQL 18 和 Redis 7.4 后执行：
+集成测试使用独立 CI Job，启动 PostgreSQL 18 后执行：
 
 ```shell
-go test -tags=integration -count=1 ./apps/system/internal/...
+go test -tags=integration -shuffle=on -count=1 -timeout=2m ./apps/system/internal/...
 ```
+
+Redis 在会话等真实业务出现后再加入对应的集成测试 Job，当前不为空能力提前启动服务。
 
 Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通单元测试，用于发现开发环境和生产环境之间的跨平台问题。
 
