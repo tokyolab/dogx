@@ -19,7 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	System_CheckReady_FullMethodName = "/system.System/CheckReady"
+	System_CheckReady_FullMethodName         = "/system.System/CheckReady"
+	System_Login_FullMethodName              = "/system.System/Login"
+	System_RefreshCredentials_FullMethodName = "/system.System/RefreshCredentials"
+	System_GetCurrentUser_FullMethodName     = "/system.System/GetCurrentUser"
+	System_RevokeSession_FullMethodName      = "/system.System/RevokeSession"
+	System_RevokeUserSessions_FullMethodName = "/system.System/RevokeUserSessions"
 )
 
 // SystemClient is the client API for System service.
@@ -27,6 +32,11 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SystemClient interface {
 	CheckReady(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error)
+	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
+	RefreshCredentials(ctx context.Context, in *RefreshCredentialsRequest, opts ...grpc.CallOption) (*LoginResponse, error)
+	GetCurrentUser(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*CurrentUserResponse, error)
+	RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 }
 
 type systemClient struct {
@@ -47,11 +57,66 @@ func (c *systemClient) CheckReady(ctx context.Context, in *ReadyRequest, opts ..
 	return out, nil
 }
 
+func (c *systemClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LoginResponse)
+	err := c.cc.Invoke(ctx, System_Login_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) RefreshCredentials(ctx context.Context, in *RefreshCredentialsRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LoginResponse)
+	err := c.cc.Invoke(ctx, System_RefreshCredentials_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) GetCurrentUser(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*CurrentUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CurrentUserResponse)
+	err := c.cc.Invoke(ctx, System_GetCurrentUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_RevokeSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_RevokeUserSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SystemServer is the server API for System service.
 // All implementations must embed UnimplementedSystemServer
 // for forward compatibility.
 type SystemServer interface {
 	CheckReady(context.Context, *ReadyRequest) (*ReadyResponse, error)
+	Login(context.Context, *LoginRequest) (*LoginResponse, error)
+	RefreshCredentials(context.Context, *RefreshCredentialsRequest) (*LoginResponse, error)
+	GetCurrentUser(context.Context, *CurrentUserRequest) (*CurrentUserResponse, error)
+	RevokeSession(context.Context, *RevokeSessionRequest) (*EmptyResponse, error)
+	RevokeUserSessions(context.Context, *RevokeUserSessionsRequest) (*EmptyResponse, error)
 	mustEmbedUnimplementedSystemServer()
 }
 
@@ -64,6 +129,21 @@ type UnimplementedSystemServer struct{}
 
 func (UnimplementedSystemServer) CheckReady(context.Context, *ReadyRequest) (*ReadyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CheckReady not implemented")
+}
+func (UnimplementedSystemServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Login not implemented")
+}
+func (UnimplementedSystemServer) RefreshCredentials(context.Context, *RefreshCredentialsRequest) (*LoginResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RefreshCredentials not implemented")
+}
+func (UnimplementedSystemServer) GetCurrentUser(context.Context, *CurrentUserRequest) (*CurrentUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCurrentUser not implemented")
+}
+func (UnimplementedSystemServer) RevokeSession(context.Context, *RevokeSessionRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeSession not implemented")
+}
+func (UnimplementedSystemServer) RevokeUserSessions(context.Context, *RevokeUserSessionsRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeUserSessions not implemented")
 }
 func (UnimplementedSystemServer) mustEmbedUnimplementedSystemServer() {}
 func (UnimplementedSystemServer) testEmbeddedByValue()                {}
@@ -104,6 +184,96 @@ func _System_CheckReady_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _System_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoginRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).Login(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_Login_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).Login(ctx, req.(*LoginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_RefreshCredentials_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RefreshCredentialsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).RefreshCredentials(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_RefreshCredentials_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).RefreshCredentials(ctx, req.(*RefreshCredentialsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_GetCurrentUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CurrentUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).GetCurrentUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_GetCurrentUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).GetCurrentUser(ctx, req.(*CurrentUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_RevokeSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).RevokeSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_RevokeSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).RevokeSession(ctx, req.(*RevokeSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_RevokeUserSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeUserSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).RevokeUserSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_RevokeUserSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).RevokeUserSessions(ctx, req.(*RevokeUserSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // System_ServiceDesc is the grpc.ServiceDesc for System service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -114,6 +284,26 @@ var System_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CheckReady",
 			Handler:    _System_CheckReady_Handler,
+		},
+		{
+			MethodName: "Login",
+			Handler:    _System_Login_Handler,
+		},
+		{
+			MethodName: "RefreshCredentials",
+			Handler:    _System_RefreshCredentials_Handler,
+		},
+		{
+			MethodName: "GetCurrentUser",
+			Handler:    _System_GetCurrentUser_Handler,
+		},
+		{
+			MethodName: "RevokeSession",
+			Handler:    _System_RevokeSession_Handler,
+		},
+		{
+			MethodName: "RevokeUserSessions",
+			Handler:    _System_RevokeUserSessions_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

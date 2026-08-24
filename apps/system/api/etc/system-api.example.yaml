@@ -8,6 +8,17 @@ App:
   Version: v0.1.0
   ReadinessTimeout: 2s
 
+Auth:
+  AccessSecret: ${DOGX_ACCESS_SECRET}
+  SessionKeyPrefix: dogx:auth:session
+
+RedisConf:
+  Host: 127.0.0.1:6379
+  Type: node
+  Pass: ${DOGX_REDIS_PASSWORD}
+  NonBlock: true
+  PingTimeout: 1s
+
 SystemRpc:
   Endpoints:
     - 127.0.0.1:9001

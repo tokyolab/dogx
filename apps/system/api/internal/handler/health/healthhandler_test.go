@@ -21,8 +21,17 @@ import (
 )
 
 type handlerSystemRPCStub struct {
+	systemclient.System
 	response *systemclient.ReadyResponse
 	err      error
+}
+
+type handlerRedisPingerStub struct {
+	ready bool
+}
+
+func (s handlerRedisPingerStub) PingCtx(context.Context) bool {
+	return s.ready
 }
 
 func (s handlerSystemRPCStub) CheckReady(
@@ -65,6 +74,7 @@ func TestReadyHandlerReturns503WithoutLeakingCause(t *testing.T) {
 
 	svcCtx := &svc.ServiceContext{
 		Config: config.Config{App: config.AppConf{ReadinessTimeout: time.Second}},
+		Redis:  handlerRedisPingerStub{ready: true},
 		SystemRpc: handlerSystemRPCStub{
 			err: errors.New("private dependency detail"),
 		},
@@ -87,6 +97,7 @@ func TestReadyHandler(t *testing.T) {
 
 	svcCtx := &svc.ServiceContext{
 		Config: config.Config{App: config.AppConf{ReadinessTimeout: time.Second}},
+		Redis:  handlerRedisPingerStub{ready: true},
 		SystemRpc: handlerSystemRPCStub{
 			response: &systemclient.ReadyResponse{Status: "ready"},
 		},

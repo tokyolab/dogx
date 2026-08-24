@@ -27,3 +27,28 @@ func (s *SystemServer) CheckReady(ctx context.Context, in *system.ReadyRequest) 
 	l := logic.NewCheckReadyLogic(ctx, s.svcCtx)
 	return l.CheckReady(in)
 }
+
+func (s *SystemServer) Login(ctx context.Context, in *system.LoginRequest) (*system.LoginResponse, error) {
+	l := logic.NewLoginLogic(ctx, s.svcCtx)
+	return l.Login(in)
+}
+
+func (s *SystemServer) RefreshCredentials(ctx context.Context, in *system.RefreshCredentialsRequest) (*system.LoginResponse, error) {
+	l := logic.NewRefreshCredentialsLogic(ctx, s.svcCtx)
+	return l.RefreshCredentials(in)
+}
+
+func (s *SystemServer) GetCurrentUser(ctx context.Context, in *system.CurrentUserRequest) (*system.CurrentUserResponse, error) {
+	l := logic.NewGetCurrentUserLogic(ctx, s.svcCtx)
+	return l.GetCurrentUser(in)
+}
+
+func (s *SystemServer) RevokeSession(ctx context.Context, in *system.RevokeSessionRequest) (*system.EmptyResponse, error) {
+	l := logic.NewRevokeSessionLogic(ctx, s.svcCtx)
+	return l.RevokeSession(in)
+}
+
+func (s *SystemServer) RevokeUserSessions(ctx context.Context, in *system.RevokeUserSessionsRequest) (*system.EmptyResponse, error) {
+	l := logic.NewRevokeUserSessionsLogic(ctx, s.svcCtx)
+	return l.RevokeUserSessions(in)
+}

@@ -1,2 +1,3 @@
 import "desc/base.api"
+import "desc/auth.api"
 import "desc/health.api"

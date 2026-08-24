@@ -14,11 +14,24 @@ import (
 )
 
 type (
-	ReadyRequest  = system.ReadyRequest
-	ReadyResponse = system.ReadyResponse
+	CurrentUserRequest        = system.CurrentUserRequest
+	CurrentUserResponse       = system.CurrentUserResponse
+	EmptyResponse             = system.EmptyResponse
+	LoginRequest              = system.LoginRequest
+	LoginResponse             = system.LoginResponse
+	ReadyRequest              = system.ReadyRequest
+	ReadyResponse             = system.ReadyResponse
+	RefreshCredentialsRequest = system.RefreshCredentialsRequest
+	RevokeSessionRequest      = system.RevokeSessionRequest
+	RevokeUserSessionsRequest = system.RevokeUserSessionsRequest
 
 	System interface {
 		CheckReady(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error)
+		Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
+		RefreshCredentials(ctx context.Context, in *RefreshCredentialsRequest, opts ...grpc.CallOption) (*LoginResponse, error)
+		GetCurrentUser(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*CurrentUserResponse, error)
+		RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	}
 
 	defaultSystem struct {
@@ -35,4 +48,29 @@ func NewSystem(cli zrpc.Client) System {
 func (m *defaultSystem) CheckReady(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error) {
 	client := system.NewSystemClient(m.cli.Conn())
 	return client.CheckReady(ctx, in, opts...)
+}
+
+func (m *defaultSystem) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.Login(ctx, in, opts...)
+}
+
+func (m *defaultSystem) RefreshCredentials(ctx context.Context, in *RefreshCredentialsRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.RefreshCredentials(ctx, in, opts...)
+}
+
+func (m *defaultSystem) GetCurrentUser(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*CurrentUserResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.GetCurrentUser(ctx, in, opts...)
+}
+
+func (m *defaultSystem) RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.RevokeSession(ctx, in, opts...)
+}
+
+func (m *defaultSystem) RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.RevokeUserSessions(ctx, in, opts...)
 }

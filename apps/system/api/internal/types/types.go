@@ -3,6 +3,12 @@
 
 package types
 
+type CurrentUserResp struct {
+	Id       int64  `json:"id"`
+	Username string `json:"username"`
+	Nickname string `json:"nickname"`
+}
+
 type EmptyResp struct {
 }
 
@@ -20,6 +26,17 @@ type IDsReq struct {
 	Ids []int64 `json:"ids"`
 }
 
+type LoginReq struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type LoginResp struct {
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+	ExpiresIn    int64  `json:"expiresIn"`
+}
+
 type PageMeta struct {
 	Total int64 `json:"total"`
 }
@@ -31,4 +48,8 @@ type PageReq struct {
 
 type ReadyResp struct {
 	Status string `json:"status"`
+}
+
+type RefreshTokenReq struct {
+	RefreshToken string `json:"refreshToken"`
 }

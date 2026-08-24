@@ -40,9 +40,10 @@ docs/               架构决策和开发文档
 
 ```text
 browser → system-api (HTTP JSON) → system-rpc (gRPC) → PostgreSQL / Redis
+                   └─ 只读认证 Session → Redis
 ```
 
-`system-api` 和 `system-rpc` 是两个独立进程。API 负责 HTTP 契约、参数处理和响应转换；RPC 负责业务逻辑以及 GORM、PostgreSQL、Redis 等后端依赖。两层都使用 goctl 生成的官方目录结构。
+`system-api` 和 `system-rpc` 是两个独立进程。API 负责 HTTP 契约、参数处理、响应转换，以及只读校验认证 Session；RPC 负责业务逻辑、Session 写操作以及 GORM、PostgreSQL 等后端依赖。API 不访问 PostgreSQL。两层都使用 goctl 生成的官方目录结构。
 
 ## 本地启动
 
@@ -66,19 +67,44 @@ go run ./apps/system/cmd/migrate -f 'apps/system/rpc/etc/system-rpc.yaml' up
 ```powershell
 $env:DOGX_POSTGRES_PASSWORD = '<postgres-password>'
 $env:DOGX_REDIS_PASSWORD = '<redis-password>'
+$env:DOGX_ACCESS_SECRET = '<at-least-32-byte-random-secret>'
 go run ./apps/system/rpc -f 'apps/system/rpc/etc/system-rpc.yaml'
 ```
 
 再打开另一个终端启动 API：
 
 ```powershell
+$env:DOGX_ACCESS_SECRET = '<same-secret-as-system-rpc>'
+$env:DOGX_REDIS_PASSWORD = '<redis-password>'
 go run ./apps/system/api -f 'apps/system/api/etc/system-api.yaml'
 ```
 
 服务启动后：
 
 - `GET /health`：仅检查 `system-api` 进程是否存活，不访问 RPC 或外部依赖。
-- `GET /ready`：由 `system-api` 调用 `system-rpc`；RPC 检查 PostgreSQL 和 Redis，任一依赖异常时 API 返回 HTTP 503。
+- `GET /ready`：`system-api` 先检查认证 Redis，再调用 `system-rpc` 检查 PostgreSQL 和 Redis；任一依赖异常时返回 HTTP 503。
+- `POST /auth/login`：使用账号密码登录，成功后返回访问令牌、刷新令牌和访问令牌有效秒数。
+- `POST /auth/refresh`：轮换刷新令牌并签发新的访问令牌。
+- `GET /auth/me`：返回当前用户信息；需要 `Authorization: Bearer <access-token>`。
+- `POST /auth/logout`：撤销当前设备 Session；需要访问令牌。
+- `POST /auth/logout-all`：撤销当前用户的全部 Session；需要访问令牌。
+
+API 与 RPC 必须使用完全相同的 `DOGX_ACCESS_SECRET`。受保护请求先由 API 本地验证 JWT，再由 API 通过精确 Redis `GET` 只读检查 Session，随后只调用一次业务 RPC；随机构造或已经过期的 JWT 不会触发 Redis 查询。Session 的创建、轮换和撤销仍只由 RPC 负责。
+
+## 初始化管理员
+
+数据库迁移完成后，可以创建第一个管理员账号。密码至少 12 字节，不通过命令行参数传递；未设置环境变量时，交互式终端会安全提示输入密码：
+
+```powershell
+$env:DOGX_ADMIN_PASSWORD = '<administrator-password>'
+go run ./apps/system/cmd/bootstrapadmin `
+  -f 'apps/system/rpc/etc/system-rpc.yaml' `
+  -username 'admin' `
+  -nickname 'Administrator'
+Remove-Item Env:DOGX_ADMIN_PASSWORD
+```
+
+密码使用 Argon2id 哈希后写入 `sys_user.password_hash`。同名活动用户已存在时命令会失败，不会覆盖现有账号。
 
 ## 数据库迁移
 
@@ -132,4 +158,4 @@ go test ./...
 
 测试默认不连接真实 PostgreSQL 或 Redis；外部依赖通过窄接口替换为测试桩。
 
-更多约定见 [测试方案](docs/development/testing.md)、[架构决策](docs/adr/0001-dogx-v0.1-architecture.md)、[统一响应与 RPC 错误决策](docs/adr/0002-http-response-and-rpc-errors.md) 和 [v0.1 功能边界](docs/roadmap/v0.1.md)。
+更多约定见 [测试方案](docs/development/testing.md)、[架构决策](docs/adr/0001-dogx-v0.1-architecture.md)、[统一响应与 RPC 错误决策](docs/adr/0002-http-response-and-rpc-errors.md)、[认证令牌与会话决策](docs/adr/0003-authentication-and-session.md) 和 [v0.1 功能边界](docs/roadmap/v0.1.md)。

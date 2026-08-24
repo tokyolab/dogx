@@ -130,7 +130,8 @@ Repository 测试优先为每个用例开启事务，并在 `t.Cleanup` 中回�
 
 - 只验证简单键值、过期时间和会话行为时，可以使用进程内 Redis Fake。
 - 使用 Lua、Stream、分布式锁或依赖 Redis 精确语义时，必须增加真实 Redis 集成测试。
-- 当前使用真实 Redis 验证 RPC `ServiceContext` 的依赖装配和就绪检查；尚无缓存业务时，不提前测试不存在的缓存行为。
+- 当前使用真实 Redis 验证 RPC `ServiceContext` 的依赖装配、就绪检查、刷新令牌原子轮换和旧令牌复用撤销。
+- Redis 集成测试使用唯一前缀隔离数据，并记录测试创建的精确键名进行清理；禁止使用 Redis `KEYS` 命令清理测试数据。
 
 ## 端到端测试
 
@@ -173,7 +174,7 @@ go test -race -shuffle=on -count=1 ./...
 集成测试使用独立 CI Job，启动 PostgreSQL 18 和 Redis 7.4 后执行：
 
 ```shell
-go test -tags=integration -shuffle=on -count=1 -timeout=2m ./apps/system/internal/... ./apps/system/rpc/internal/svc
+go test -tags=integration -shuffle=on -count=1 -timeout=2m ./apps/system/internal/... ./apps/system/rpc/internal/...
 ```
 
 Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通单元测试，用于发现开发环境和生产环境之间的跨平台问题。

@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"errors"
 
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/api/internal/types"
@@ -28,6 +29,9 @@ func NewReadyLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ReadyLogic 
 func (l *ReadyLogic) Ready() (*types.ReadyResp, error) {
 	checkCtx, cancel := context.WithTimeout(l.ctx, l.svcCtx.Config.App.ReadinessTimeout)
 	defer cancel()
+	if l.svcCtx.Redis == nil || !l.svcCtx.Redis.PingCtx(checkCtx) {
+		return nil, response.ServiceUnavailable(errors.New("API Redis is not ready"))
+	}
 
 	rpcResponse, err := l.svcCtx.SystemRpc.CheckReady(checkCtx, &systemclient.ReadyRequest{})
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/tokyolab/dogx/pkg/bizerror"
 
 	"github.com/zeromicro/go-zero/core/logc"
+	"github.com/zeromicro/go-zero/rest/httpx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -56,6 +57,14 @@ func HandleSuccess(_ context.Context, data any) any {
 		Message: "success",
 		Data:    data,
 	}
+}
+
+func HandleUnauthorized(w http.ResponseWriter, r *http.Request, _ error) {
+	httpx.WriteJsonCtx(r.Context(), w, http.StatusUnauthorized, Body{
+		Code:    http.StatusUnauthorized,
+		Message: "authentication required",
+		Data:    nil,
+	})
 }
 
 func HandleError(ctx context.Context, err error) (int, any) {

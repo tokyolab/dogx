@@ -40,6 +40,18 @@ func TestNewServiceContextWiresDependencies(t *testing.T) {
 	if ctx.UserRepo == nil {
 		t.Error("user repository was not initialized")
 	}
+	if ctx.Passwords == nil {
+		t.Error("password verifier was not initialized")
+	}
+	if ctx.Tokens == nil {
+		t.Error("credential issuer was not initialized")
+	}
+	if ctx.RefreshTokens == nil {
+		t.Error("credential refresher was not initialized")
+	}
+	if ctx.Sessions == nil {
+		t.Error("session store was not initialized")
+	}
 	if ctx.Readiness == nil {
 		t.Fatal("readiness checker was not initialized")
 	}
@@ -80,6 +92,14 @@ func testServiceConfig(t testing.TB) config.Config {
 	}
 
 	return config.Config{
+		Authentication: config.AuthenticationConf{
+			AccessSecret:          "0123456789abcdef0123456789abcdef",
+			AccessExpire:          15 * time.Minute,
+			RefreshExpire:         7 * 24 * time.Hour,
+			Issuer:                "dogx-test",
+			SessionKeyPrefix:      "dogx:test:auth:session",
+			UserSessionsKeyPrefix: "dogx:test:auth:user_sessions",
+		},
 		Postgres: systemdb.PostgresConf{
 			Host:            parsed.Host,
 			Port:            int(parsed.Port),

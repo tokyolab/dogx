@@ -10,6 +10,47 @@ message ReadyResponse {
   string status = 1;
 }
 
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3;
+}
+
+message RefreshCredentialsRequest {
+  string refresh_token = 1;
+}
+
+message EmptyResponse {}
+
+message CurrentUserRequest {
+  int64 user_id = 1;
+}
+
+message CurrentUserResponse {
+  int64 id = 1;
+  string username = 2;
+  string nickname = 3;
+}
+
+message RevokeSessionRequest {
+  int64 user_id = 1;
+  string session_id = 2;
+}
+
+message RevokeUserSessionsRequest {
+  int64 user_id = 1;
+}
+
 service System {
   rpc CheckReady(ReadyRequest) returns (ReadyResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc RefreshCredentials(RefreshCredentialsRequest) returns (LoginResponse);
+  rpc GetCurrentUser(CurrentUserRequest) returns (CurrentUserResponse);
+  rpc RevokeSession(RevokeSessionRequest) returns (EmptyResponse);
+  rpc RevokeUserSessions(RevokeUserSessionsRequest) returns (EmptyResponse);
 }

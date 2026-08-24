@@ -1,0 +1,56 @@
+import "base.api"
+
+type (
+	LoginReq {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	LoginResp {
+		AccessToken  string `json:"accessToken"`
+		RefreshToken string `json:"refreshToken"`
+		ExpiresIn    int64  `json:"expiresIn"`
+	}
+
+	RefreshTokenReq {
+		RefreshToken string `json:"refreshToken"`
+	}
+
+	CurrentUserResp {
+		Id       int64  `json:"id"`
+		Username string `json:"username"`
+		Nickname string `json:"nickname"`
+	}
+)
+
+@server (
+	group: auth
+)
+service system-api {
+	@doc "Sign in with username and password"
+	@handler login
+	post /auth/login (LoginReq) returns (LoginResp)
+
+	@doc "Rotate the refresh token and issue new credentials"
+	@handler refreshToken
+	post /auth/refresh (RefreshTokenReq) returns (LoginResp)
+}
+
+@server (
+	group:      auth
+	jwt:        Auth
+	middleware: SessionAuth
+)
+service system-api {
+	@doc "Return the current signed-in user"
+	@handler currentUser
+	get /auth/me returns (CurrentUserResp)
+
+	@doc "Revoke the current session"
+	@handler logout
+	post /auth/logout returns (EmptyResp)
+
+	@doc "Revoke all sessions of the current user"
+	@handler logoutAll
+	post /auth/logout-all returns (EmptyResp)
+}

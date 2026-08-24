@@ -3,11 +3,13 @@ package config
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/zeromicro/go-zero/core/conf"
 )
 
 func TestExampleConfigLoadsWithEnvironmentSecrets(t *testing.T) {
+	t.Setenv("DOGX_ACCESS_SECRET", "0123456789abcdef0123456789abcdef")
 	t.Setenv("DOGX_POSTGRES_PASSWORD", "postgres-test-password")
 	t.Setenv("DOGX_REDIS_PASSWORD", "redis-test-password")
 
@@ -25,5 +27,16 @@ func TestExampleConfigLoadsWithEnvironmentSecrets(t *testing.T) {
 	}
 	if loaded.RedisConf.Pass != "redis-test-password" {
 		t.Fatal("redis password was not expanded from the environment")
+	}
+	if loaded.Authentication.AccessSecret != "0123456789abcdef0123456789abcdef" {
+		t.Fatal("access token secret was not expanded from the environment")
+	}
+	if loaded.Authentication.AccessExpire != 15*time.Minute ||
+		loaded.Authentication.RefreshExpire != 7*24*time.Hour {
+		t.Fatalf("unexpected authentication expiry: %+v", loaded.Authentication)
+	}
+	if loaded.Authentication.SessionKeyPrefix != "dogx:auth:session" ||
+		loaded.Authentication.UserSessionsKeyPrefix != "dogx:auth:user_sessions" {
+		t.Fatalf("unexpected session key prefixes: %+v", loaded.Authentication)
 	}
 }

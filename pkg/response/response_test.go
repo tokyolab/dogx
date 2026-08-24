@@ -2,8 +2,10 @@ package response
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -24,6 +26,23 @@ func TestHandleSuccess(t *testing.T) {
 	}
 	if got := body.Data.(map[string]string)["status"]; got != "ok" {
 		t.Fatalf("unexpected success data: %+v", body.Data)
+	}
+}
+
+func TestHandleUnauthorized(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	recorder := httptest.NewRecorder()
+	HandleUnauthorized(recorder, request, errors.New("private JWT detail"))
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("unexpected status: %d", recorder.Code)
+	}
+	var body Body
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode unauthorized response: %v", err)
+	}
+	if body.Code != http.StatusUnauthorized || body.Message != "authentication required" || body.Data != nil {
+		t.Fatalf("unexpected unauthorized response: %+v", body)
 	}
 }
 

@@ -6,6 +6,7 @@ package handler
 import (
 	"net/http"
 
+	auth "github.com/tokyolab/dogx/apps/system/api/internal/handler/auth"
 	health "github.com/tokyolab/dogx/apps/system/api/internal/handler/health"
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
 
@@ -13,6 +14,50 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// Sign in with username and password
+				Method:  http.MethodPost,
+				Path:    "/auth/login",
+				Handler: auth.LoginHandler(serverCtx),
+			},
+			{
+				// Rotate the refresh token and issue new credentials
+				Method:  http.MethodPost,
+				Path:    "/auth/refresh",
+				Handler: auth.RefreshTokenHandler(serverCtx),
+			},
+		},
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth},
+			[]rest.Route{
+				{
+					// Revoke the current session
+					Method:  http.MethodPost,
+					Path:    "/auth/logout",
+					Handler: auth.LogoutHandler(serverCtx),
+				},
+				{
+					// Revoke all sessions of the current user
+					Method:  http.MethodPost,
+					Path:    "/auth/logout-all",
+					Handler: auth.LogoutAllHandler(serverCtx),
+				},
+				{
+					// Return the current signed-in user
+					Method:  http.MethodGet,
+					Path:    "/auth/me",
+					Handler: auth.CurrentUserHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+	)
+
 	server.AddRoutes(
 		[]rest.Route{
 			{
