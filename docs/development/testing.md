@@ -184,6 +184,7 @@ Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通�
 - Codecov 通过 GitHub OIDC 验证上传身份，仓库不保存 `CODECOV_TOKEN`。
 - `codecov.yml` 排除 `*.pb.go`、生成的 Routes、Types、Server 转发代码和 RPC Client 等自动生成代码。
 - API/RPC/命令行的 `main` 只保留进程启动、信号处理和依赖装配，不纳入业务覆盖率；可测试的命令逻辑必须下沉到 `internal` 包并正常统计。
+- `internal/testutil` 仅用于构造隔离测试环境，不属于产品代码，也不纳入产品覆盖率。
 - 初期只生成覆盖率报告，不立即用全局阈值阻断提交。
 - 新增核心 Logic 以 80% 以上为目标，但关键业务分支是否被验证优先于数字。
 - 登录、权限、金额、状态流转和数据隔离等高风险逻辑必须覆盖明确的成功与失败场景。

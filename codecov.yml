@@ -14,5 +14,6 @@ ignore:
   - "apps/**/api/internal/types/types.go"
   - "apps/**/rpc/*.go"
   - "apps/**/cmd/**/main.go"
+  - "apps/**/internal/testutil/**"
   - "apps/**/rpc/internal/server/**"
   - "apps/**/rpc/*client/**"
