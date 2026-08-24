@@ -180,7 +180,9 @@ Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通�
 
 ## 覆盖率策略
 
-- 覆盖率报告排除 `*.pb.go`、`*_grpc.pb.go`、生成的 Routes、Types、Server 转发代码和其他明确标记为自动生成的文件。
+- Linux 单元测试和 PostgreSQL 集成测试分别生成覆盖率文件，并使用 `unit`、`integration` 标记上传到 Codecov，由 Codecov 在同一提交下合并展示。
+- Codecov 通过 GitHub OIDC 验证上传身份，仓库不保存 `CODECOV_TOKEN`。
+- `codecov.yml` 排除 `*.pb.go`、生成的 Routes、Types、Server 转发代码和 RPC Client 等自动生成代码。
 - 初期只生成覆盖率报告，不立即用全局阈值阻断提交。
 - 新增核心 Logic 以 80% 以上为目标，但关键业务分支是否被验证优先于数字。
 - 登录、权限、金额、状态流转和数据隔离等高风险逻辑必须覆盖明确的成功与失败场景。

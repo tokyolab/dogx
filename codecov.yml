@@ -1,0 +1,15 @@
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+ignore:
+  - "**/*.pb.go"
+  - "apps/**/api/internal/handler/routes.go"
+  - "apps/**/api/internal/types/types.go"
+  - "apps/**/rpc/internal/server/**"
+  - "apps/**/rpc/*client/**"

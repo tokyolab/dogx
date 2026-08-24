@@ -20,6 +20,9 @@ jobs:
     name: Linux fast checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Check out repository
@@ -44,8 +47,20 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      - name: Test with race detector
-        run: go test -race -shuffle=on -count=1 ./...
+      - name: Test with race detector and coverage
+        run: |
+          mkdir -p coverage
+          go test -race -shuffle=on -count=1 -covermode=atomic -coverprofile=coverage/unit.txt ./...
+
+      - name: Upload unit coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          use_oidc: true
+          files: ./coverage/unit.txt
+          disable_search: true
+          flags: unit
+          name: dogx-unit
+          fail_ci_if_error: false
 
   windows:
     name: Windows tests
@@ -70,6 +85,9 @@ jobs:
     name: PostgreSQL 18 integration
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
 
     services:
       postgres:
@@ -101,4 +119,16 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Test PostgreSQL migrations and repositories
-        run: go test -tags=integration -shuffle=on -count=1 -timeout=2m ./apps/system/internal/...
+        run: |
+          mkdir -p coverage
+          go test -tags=integration -shuffle=on -count=1 -timeout=2m -covermode=atomic -coverprofile=coverage/integration.txt ./apps/system/internal/...
+
+      - name: Upload integration coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          use_oidc: true
+          files: ./coverage/integration.txt
+          disable_search: true
+          flags: integration
+          name: dogx-integration
+          fail_ci_if_error: false
