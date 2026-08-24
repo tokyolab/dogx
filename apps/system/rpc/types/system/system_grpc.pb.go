@@ -25,6 +25,7 @@ const (
 	System_GetCurrentUser_FullMethodName     = "/system.System/GetCurrentUser"
 	System_RevokeSession_FullMethodName      = "/system.System/RevokeSession"
 	System_RevokeUserSessions_FullMethodName = "/system.System/RevokeUserSessions"
+	System_ChangePassword_FullMethodName     = "/system.System/ChangePassword"
 )
 
 // SystemClient is the client API for System service.
@@ -37,6 +38,7 @@ type SystemClient interface {
 	GetCurrentUser(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*CurrentUserResponse, error)
 	RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 }
 
 type systemClient struct {
@@ -107,6 +109,16 @@ func (c *systemClient) RevokeUserSessions(ctx context.Context, in *RevokeUserSes
 	return out, nil
 }
 
+func (c *systemClient) ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_ChangePassword_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SystemServer is the server API for System service.
 // All implementations must embed UnimplementedSystemServer
 // for forward compatibility.
@@ -117,6 +129,7 @@ type SystemServer interface {
 	GetCurrentUser(context.Context, *CurrentUserRequest) (*CurrentUserResponse, error)
 	RevokeSession(context.Context, *RevokeSessionRequest) (*EmptyResponse, error)
 	RevokeUserSessions(context.Context, *RevokeUserSessionsRequest) (*EmptyResponse, error)
+	ChangePassword(context.Context, *ChangePasswordRequest) (*EmptyResponse, error)
 	mustEmbedUnimplementedSystemServer()
 }
 
@@ -144,6 +157,9 @@ func (UnimplementedSystemServer) RevokeSession(context.Context, *RevokeSessionRe
 }
 func (UnimplementedSystemServer) RevokeUserSessions(context.Context, *RevokeUserSessionsRequest) (*EmptyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevokeUserSessions not implemented")
+}
+func (UnimplementedSystemServer) ChangePassword(context.Context, *ChangePasswordRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ChangePassword not implemented")
 }
 func (UnimplementedSystemServer) mustEmbedUnimplementedSystemServer() {}
 func (UnimplementedSystemServer) testEmbeddedByValue()                {}
@@ -274,6 +290,24 @@ func _System_RevokeUserSessions_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _System_ChangePassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChangePasswordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ChangePassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ChangePassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ChangePassword(ctx, req.(*ChangePasswordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // System_ServiceDesc is the grpc.ServiceDesc for System service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -304,6 +338,10 @@ var System_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RevokeUserSessions",
 			Handler:    _System_RevokeUserSessions_Handler,
+		},
+		{
+			MethodName: "ChangePassword",
+			Handler:    _System_ChangePassword_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

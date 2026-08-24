@@ -20,10 +20,13 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 1 {
-		t.Fatalf("unexpected migration count: got %d, want 1", len(sources))
+	if len(sources) != 2 {
+		t.Fatalf("unexpected migration count: got %d, want 2", len(sources))
 	}
 	if sources[0].Version != 1 || sources[0].Path != "00001_init_system.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[0].Version, sources[0].Path)
+	}
+	if sources[1].Version != 20260824100845 || sources[1].Path != "20260824100845_add_login_log.sql" {
+		t.Fatalf("unexpected migration source: version=%d path=%s", sources[1].Version, sources[1].Path)
 	}
 }

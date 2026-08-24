@@ -26,8 +26,10 @@ func TestArgon2idHashAndVerify(t *testing.T) {
 
 func TestArgon2idRejectsEmptyPasswordAndMalformedHashes(t *testing.T) {
 	hasher := NewArgon2id()
-	if _, err := hasher.Hash(""); err == nil {
-		t.Fatal("expected empty password to be rejected")
+	for _, password := range []string{"", "short", strings.Repeat("a", MaxPasswordBytes+1)} {
+		if _, err := hasher.Hash(password); err == nil {
+			t.Fatalf("expected invalid password length to be rejected: %d", len(password))
+		}
 	}
 
 	invalid := []string{

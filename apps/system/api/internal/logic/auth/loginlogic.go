@@ -19,6 +19,11 @@ type LoginLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
+type LoginMetadata struct {
+	IPAddress string
+	UserAgent string
+}
+
 // Sign in with username and password
 func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic {
 	return &LoginLogic{
@@ -28,10 +33,12 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 	}
 }
 
-func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.LoginResp, err error) {
+func (l *LoginLogic) Login(req *types.LoginReq, metadata LoginMetadata) (resp *types.LoginResp, err error) {
 	result, err := l.svcCtx.SystemRpc.Login(l.ctx, &systemclient.LoginRequest{
-		Username: req.Username,
-		Password: req.Password,
+		Username:  req.Username,
+		Password:  req.Password,
+		IpAddress: metadata.IPAddress,
+		UserAgent: metadata.UserAgent,
 	})
 	if err != nil {
 		return nil, err

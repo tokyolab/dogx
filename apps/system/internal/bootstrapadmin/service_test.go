@@ -8,7 +8,6 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
-	"github.com/tokyolab/dogx/apps/system/internal/repository"
 )
 
 type userRepositoryStub struct {
@@ -71,7 +70,7 @@ func TestCreateValidatesInputAndDependencies(t *testing.T) {
 	valid := Input{Username: "admin", Password: "secure-password", Nickname: "Administrator"}
 	tests := []struct {
 		name   string
-		repo   repository.UserRepository
+		repo   userCreator
 		hasher authn.PasswordHasher
 		input  Input
 	}{

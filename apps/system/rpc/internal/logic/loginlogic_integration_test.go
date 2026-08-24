@@ -81,14 +81,17 @@ func TestLoginUsesPostgreSQLPasswordHashAndRedisSession(t *testing.T) {
 		t.Fatalf("create token issuer: %v", err)
 	}
 	login := NewLoginLogic(ctx, &svc.ServiceContext{
-		UserRepo:  userRepo,
-		Passwords: hasher,
-		Tokens:    tokens,
+		UserRepo:     userRepo,
+		LoginLogRepo: repository.NewLoginLogRepository(gormDB),
+		Passwords:    hasher,
+		Tokens:       tokens,
 	})
 
 	response, err := login.Login(&system.LoginRequest{
-		Username: "integrationadmin",
-		Password: "secure-password",
+		Username:  "integrationadmin",
+		Password:  "secure-password",
+		IpAddress: "192.0.2.1",
+		UserAgent: "DogX Integration Test",
 	})
 	if err != nil {
 		t.Fatalf("login: %v", err)
@@ -111,6 +114,22 @@ func TestLoginUsesPostgreSQLPasswordHashAndRedisSession(t *testing.T) {
 	if session.UserID != user.ID || session.RefreshTokenHash == "" {
 		t.Fatalf("unexpected stored login session: %+v", session)
 	}
+	updatedUser, err := userRepo.FindByID(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("load successful login user: %v", err)
+	}
+	if updatedUser.LastLoginAt == nil {
+		t.Fatal("successful login time was not persisted")
+	}
+	var successfulLog model.LoginLog
+	if err := gormDB.WithContext(ctx).
+		Where("user_id = ? AND success = ?", user.ID, true).
+		First(&successfulLog).Error; err != nil {
+		t.Fatalf("load successful login audit: %v", err)
+	}
+	if successfulLog.IPAddress != "192.0.2.1" || successfulLog.UserAgent != "DogX Integration Test" {
+		t.Fatalf("unexpected successful login audit: %+v", successfulLog)
+	}
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cleanupCancel()
@@ -130,5 +149,14 @@ func TestLoginUsesPostgreSQLPasswordHashAndRedisSession(t *testing.T) {
 	})
 	if _, ok := bizerror.From(err); !ok {
 		t.Fatalf("wrong password did not return business error: %v", err)
+	}
+	var failedLog model.LoginLog
+	if err := gormDB.WithContext(ctx).
+		Where("user_id = ? AND success = ?", user.ID, false).
+		First(&failedLog).Error; err != nil {
+		t.Fatalf("load failed login audit: %v", err)
+	}
+	if failedLog.FailureReason != model.LoginFailureInvalidCredentials {
+		t.Fatalf("unexpected failed login audit: %+v", failedLog)
 	}
 }

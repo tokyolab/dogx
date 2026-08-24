@@ -36,6 +36,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.SessionAuth},
 			[]rest.Route{
 				{
+					// Change the current user password and revoke all sessions
+					Method:  http.MethodPost,
+					Path:    "/auth/change-password",
+					Handler: auth.ChangePasswordHandler(serverCtx),
+				},
+				{
 					// Revoke the current session
 					Method:  http.MethodPost,
 					Path:    "/auth/logout",

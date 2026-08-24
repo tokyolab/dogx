@@ -13,6 +13,7 @@ func TestTableNames(t *testing.T) {
 		{name: "menu", got: (Menu{}).TableName(), want: "sys_menu"},
 		{name: "user role", got: (UserRole{}).TableName(), want: "sys_user_role"},
 		{name: "role menu", got: (RoleMenu{}).TableName(), want: "sys_role_menu"},
+		{name: "login log", got: (LoginLog{}).TableName(), want: "sys_login_log"},
 	}
 
 	for _, test := range tests {

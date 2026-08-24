@@ -8,12 +8,9 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
-	"github.com/tokyolab/dogx/apps/system/internal/repository"
 )
 
 const (
-	minPasswordBytes = 12
-	maxPasswordBytes = 128
 	maxUsernameBytes = 64
 	maxNicknameBytes = 64
 )
@@ -24,9 +21,13 @@ type Input struct {
 	Nickname string
 }
 
+type userCreator interface {
+	Create(ctx context.Context, user *model.User) error
+}
+
 func Create(
 	ctx context.Context,
-	repo repository.UserRepository,
+	repo userCreator,
 	hasher authn.PasswordHasher,
 	input Input,
 ) (*model.User, error) {
@@ -48,12 +49,8 @@ func Create(
 	if nickname == "" || len(nickname) > maxNicknameBytes {
 		return nil, fmt.Errorf("nickname must contain 1 to %d bytes", maxNicknameBytes)
 	}
-	if len(input.Password) < minPasswordBytes || len(input.Password) > maxPasswordBytes {
-		return nil, fmt.Errorf(
-			"password must contain %d to %d bytes",
-			minPasswordBytes,
-			maxPasswordBytes,
-		)
+	if err := authn.ValidatePassword(input.Password); err != nil {
+		return nil, err
 	}
 
 	passwordHash, err := hasher.Hash(input.Password)

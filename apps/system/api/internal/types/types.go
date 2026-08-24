@@ -3,6 +3,11 @@
 
 package types
 
+type ChangePasswordReq struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
 type CurrentUserResp struct {
 	Id       int64  `json:"id"`
 	Username string `json:"username"`

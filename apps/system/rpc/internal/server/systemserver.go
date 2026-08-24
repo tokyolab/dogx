@@ -52,3 +52,8 @@ func (s *SystemServer) RevokeUserSessions(ctx context.Context, in *system.Revoke
 	l := logic.NewRevokeUserSessionsLogic(ctx, s.svcCtx)
 	return l.RevokeUserSessions(in)
 }
+
+func (s *SystemServer) ChangePassword(ctx context.Context, in *system.ChangePasswordRequest) (*system.EmptyResponse, error) {
+	l := logic.NewChangePasswordLogic(ctx, s.svcCtx)
+	return l.ChangePassword(in)
+}

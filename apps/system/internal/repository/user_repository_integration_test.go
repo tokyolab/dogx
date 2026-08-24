@@ -58,6 +58,22 @@ func TestUserRepositoryCreatesAndFindsUserInPostgreSQL(t *testing.T) {
 	if byUsername.ID != user.ID {
 		t.Fatalf("unexpected user loaded by username: got ID %d, want %d", byUsername.ID, user.ID)
 	}
+
+	lastLoginAt := time.Date(2026, time.August, 24, 10, 30, 0, 0, time.UTC)
+	if err := repository.UpdateLastLoginAt(ctx, user.ID, lastLoginAt); err != nil {
+		t.Fatalf("update last login time: %v", err)
+	}
+	if err := repository.UpdatePasswordHash(ctx, user.ID, "updated-password-hash"); err != nil {
+		t.Fatalf("update password hash: %v", err)
+	}
+	updated, err := repository.FindByID(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("load updated user: %v", err)
+	}
+	if updated.LastLoginAt == nil || !updated.LastLoginAt.Equal(lastLoginAt) ||
+		updated.PasswordHash != "updated-password-hash" {
+		t.Fatalf("unexpected updated user: %+v", updated)
+	}
 }
 
 func TestUserRepositoryHonorsActiveUsernameUniquenessAndSoftDelete(t *testing.T) {

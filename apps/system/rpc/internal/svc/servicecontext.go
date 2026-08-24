@@ -24,7 +24,8 @@ type ServiceContext struct {
 	DB            *gorm.DB
 	Redis         *redis.Redis
 	UserRepo      repository.UserRepository
-	Passwords     authn.PasswordVerifier
+	LoginLogRepo  repository.LoginLogRepository
+	Passwords     authn.PasswordHasher
 	Tokens        authn.CredentialIssuer
 	RefreshTokens authn.CredentialRefresher
 	Sessions      authn.SessionStore
@@ -65,12 +66,15 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		return nil, fmt.Errorf("initialize token issuer: %w", err)
 	}
 
+	passwords := authn.NewArgon2id()
+
 	return &ServiceContext{
 		Config:        c,
 		DB:            database,
 		Redis:         redisClient,
 		UserRepo:      repository.NewUserRepository(database),
-		Passwords:     authn.NewArgon2id(),
+		LoginLogRepo:  repository.NewLoginLogRepository(database),
+		Passwords:     passwords,
 		Tokens:        tokenIssuer,
 		RefreshTokens: tokenIssuer,
 		Sessions:      sessionStore,

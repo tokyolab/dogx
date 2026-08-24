@@ -105,6 +105,8 @@ type LoginRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
 	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	IpAddress     string                 `protobuf:"bytes,3,opt,name=ip_address,json=ipAddress,proto3" json:"ip_address,omitempty"`
+	UserAgent     string                 `protobuf:"bytes,4,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -149,6 +151,20 @@ func (x *LoginRequest) GetUsername() string {
 func (x *LoginRequest) GetPassword() string {
 	if x != nil {
 		return x.Password
+	}
+	return ""
+}
+
+func (x *LoginRequest) GetIpAddress() string {
+	if x != nil {
+		return x.IpAddress
+	}
+	return ""
+}
+
+func (x *LoginRequest) GetUserAgent() string {
+	if x != nil {
+		return x.UserAgent
 	}
 	return ""
 }
@@ -493,6 +509,66 @@ func (x *RevokeUserSessionsRequest) GetUserId() int64 {
 	return 0
 }
 
+type ChangePasswordRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	UserId          int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	CurrentPassword string                 `protobuf:"bytes,2,opt,name=current_password,json=currentPassword,proto3" json:"current_password,omitempty"`
+	NewPassword     string                 `protobuf:"bytes,3,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ChangePasswordRequest) Reset() {
+	*x = ChangePasswordRequest{}
+	mi := &file_system_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangePasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangePasswordRequest) ProtoMessage() {}
+
+func (x *ChangePasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangePasswordRequest.ProtoReflect.Descriptor instead.
+func (*ChangePasswordRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ChangePasswordRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *ChangePasswordRequest) GetCurrentPassword() string {
+	if x != nil {
+		return x.CurrentPassword
+	}
+	return ""
+}
+
+func (x *ChangePasswordRequest) GetNewPassword() string {
+	if x != nil {
+		return x.NewPassword
+	}
+	return ""
+}
+
 var File_system_proto protoreflect.FileDescriptor
 
 const file_system_proto_rawDesc = "" +
@@ -500,10 +576,14 @@ const file_system_proto_rawDesc = "" +
 	"\fsystem.proto\x12\x06system\"\x0e\n" +
 	"\fReadyRequest\"'\n" +
 	"\rReadyResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status\"F\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"\x84\x01\n" +
 	"\fLoginRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\"v\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x1d\n" +
+	"\n" +
+	"ip_address\x18\x03 \x01(\tR\tipAddress\x12\x1d\n" +
+	"\n" +
+	"user_agent\x18\x04 \x01(\tR\tuserAgent\"v\n" +
 	"\rLoginResponse\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
 	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\x12\x1d\n" +
@@ -523,7 +603,11 @@ const file_system_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\"4\n" +
 	"\x19RevokeUserSessionsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\x03R\x06userId2\xaa\x03\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\"~\n" +
+	"\x15ChangePasswordRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12)\n" +
+	"\x10current_password\x18\x02 \x01(\tR\x0fcurrentPassword\x12!\n" +
+	"\fnew_password\x18\x03 \x01(\tR\vnewPassword2\xf2\x03\n" +
 	"\x06System\x129\n" +
 	"\n" +
 	"CheckReady\x12\x14.system.ReadyRequest\x1a\x15.system.ReadyResponse\x124\n" +
@@ -531,7 +615,8 @@ const file_system_proto_rawDesc = "" +
 	"\x12RefreshCredentials\x12!.system.RefreshCredentialsRequest\x1a\x15.system.LoginResponse\x12I\n" +
 	"\x0eGetCurrentUser\x12\x1a.system.CurrentUserRequest\x1a\x1b.system.CurrentUserResponse\x12D\n" +
 	"\rRevokeSession\x12\x1c.system.RevokeSessionRequest\x1a\x15.system.EmptyResponse\x12N\n" +
-	"\x12RevokeUserSessions\x12!.system.RevokeUserSessionsRequest\x1a\x15.system.EmptyResponseB\n" +
+	"\x12RevokeUserSessions\x12!.system.RevokeUserSessionsRequest\x1a\x15.system.EmptyResponse\x12F\n" +
+	"\x0eChangePassword\x12\x1d.system.ChangePasswordRequest\x1a\x15.system.EmptyResponseB\n" +
 	"Z\b./systemb\x06proto3"
 
 var (
@@ -546,7 +631,7 @@ func file_system_proto_rawDescGZIP() []byte {
 	return file_system_proto_rawDescData
 }
 
-var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_system_proto_goTypes = []any{
 	(*ReadyRequest)(nil),              // 0: system.ReadyRequest
 	(*ReadyResponse)(nil),             // 1: system.ReadyResponse
@@ -558,25 +643,28 @@ var file_system_proto_goTypes = []any{
 	(*CurrentUserResponse)(nil),       // 7: system.CurrentUserResponse
 	(*RevokeSessionRequest)(nil),      // 8: system.RevokeSessionRequest
 	(*RevokeUserSessionsRequest)(nil), // 9: system.RevokeUserSessionsRequest
+	(*ChangePasswordRequest)(nil),     // 10: system.ChangePasswordRequest
 }
 var file_system_proto_depIdxs = []int32{
-	0, // 0: system.System.CheckReady:input_type -> system.ReadyRequest
-	2, // 1: system.System.Login:input_type -> system.LoginRequest
-	4, // 2: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
-	6, // 3: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
-	8, // 4: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
-	9, // 5: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
-	1, // 6: system.System.CheckReady:output_type -> system.ReadyResponse
-	3, // 7: system.System.Login:output_type -> system.LoginResponse
-	3, // 8: system.System.RefreshCredentials:output_type -> system.LoginResponse
-	7, // 9: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
-	5, // 10: system.System.RevokeSession:output_type -> system.EmptyResponse
-	5, // 11: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
-	6, // [6:12] is the sub-list for method output_type
-	0, // [0:6] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0,  // 0: system.System.CheckReady:input_type -> system.ReadyRequest
+	2,  // 1: system.System.Login:input_type -> system.LoginRequest
+	4,  // 2: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
+	6,  // 3: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
+	8,  // 4: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
+	9,  // 5: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
+	10, // 6: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
+	1,  // 7: system.System.CheckReady:output_type -> system.ReadyResponse
+	3,  // 8: system.System.Login:output_type -> system.LoginResponse
+	3,  // 9: system.System.RefreshCredentials:output_type -> system.LoginResponse
+	7,  // 10: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
+	5,  // 11: system.System.RevokeSession:output_type -> system.EmptyResponse
+	5,  // 12: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
+	5,  // 13: system.System.ChangePassword:output_type -> system.EmptyResponse
+	7,  // [7:14] is the sub-list for method output_type
+	0,  // [0:7] is the sub-list for method input_type
+	0,  // [0:0] is the sub-list for extension type_name
+	0,  // [0:0] is the sub-list for extension extendee
+	0,  // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_system_proto_init() }
@@ -590,7 +678,7 @@ func file_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_system_proto_rawDesc), len(file_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

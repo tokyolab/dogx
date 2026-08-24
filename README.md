@@ -88,8 +88,9 @@ go run ./apps/system/api -f 'apps/system/api/etc/system-api.yaml'
 - `GET /auth/me`：返回当前用户信息；需要 `Authorization: Bearer <access-token>`。
 - `POST /auth/logout`：撤销当前设备 Session；需要访问令牌。
 - `POST /auth/logout-all`：撤销当前用户的全部 Session；需要访问令牌。
+- `POST /auth/change-password`：验证当前密码并修改密码，成功后撤销该用户的全部 Session；需要访问令牌。
 
-API 与 RPC 必须使用完全相同的 `DOGX_ACCESS_SECRET`。受保护请求先由 API 本地验证 JWT，再由 API 通过精确 Redis `GET` 只读检查 Session，随后只调用一次业务 RPC；随机构造或已经过期的 JWT 不会触发 Redis 查询。Session 的创建、轮换和撤销仍只由 RPC 负责。
+API 与 RPC 必须使用完全相同的 `DOGX_ACCESS_SECRET`。受保护请求先由 API 本地验证 JWT，再由 API 通过精确 Redis `GET` 只读检查 Session，随后只调用一次业务 RPC；随机构造或已经过期的 JWT 不会触发 Redis 查询。Session 的创建、轮换和撤销仍只由 RPC 负责。登录成功和失败会写入登录审计日志，成功登录同时更新用户的最后登录时间。
 
 ## 初始化管理员
 

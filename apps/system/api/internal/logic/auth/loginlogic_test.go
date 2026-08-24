@@ -14,14 +14,15 @@ import (
 
 type systemRPCStub struct {
 	systemclient.System
-	request             *systemclient.LoginRequest
-	refreshRequest      *systemclient.RefreshCredentialsRequest
-	currentUserRequest  *systemclient.CurrentUserRequest
-	revokeRequest       *systemclient.RevokeSessionRequest
-	revokeAllRequest    *systemclient.RevokeUserSessionsRequest
-	response            *systemclient.LoginResponse
-	currentUserResponse *systemclient.CurrentUserResponse
-	err                 error
+	request               *systemclient.LoginRequest
+	refreshRequest        *systemclient.RefreshCredentialsRequest
+	currentUserRequest    *systemclient.CurrentUserRequest
+	revokeRequest         *systemclient.RevokeSessionRequest
+	revokeAllRequest      *systemclient.RevokeUserSessionsRequest
+	changePasswordRequest *systemclient.ChangePasswordRequest
+	response              *systemclient.LoginResponse
+	currentUserResponse   *systemclient.CurrentUserResponse
+	err                   error
 }
 
 func (s *systemRPCStub) RefreshCredentials(
@@ -60,6 +61,15 @@ func (s *systemRPCStub) RevokeUserSessions(
 	return &systemclient.EmptyResponse{}, s.err
 }
 
+func (s *systemRPCStub) ChangePassword(
+	_ context.Context,
+	request *systemclient.ChangePasswordRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.EmptyResponse, error) {
+	s.changePasswordRequest = request
+	return &systemclient.EmptyResponse{}, s.err
+}
+
 func (s *systemRPCStub) Login(
 	_ context.Context,
 	request *systemclient.LoginRequest,
@@ -77,11 +87,15 @@ func TestLogin(t *testing.T) {
 	}}
 	logic := NewLoginLogic(context.Background(), &svc.ServiceContext{SystemRpc: rpc})
 
-	response, err := logic.Login(&types.LoginReq{Username: "admin", Password: "password"})
+	response, err := logic.Login(
+		&types.LoginReq{Username: "admin", Password: "password"},
+		LoginMetadata{IPAddress: "192.0.2.1", UserAgent: "DogX Test"},
+	)
 	if err != nil {
 		t.Fatalf("login returned error: %v", err)
 	}
-	if rpc.request.Username != "admin" || rpc.request.Password != "password" {
+	if rpc.request.Username != "admin" || rpc.request.Password != "password" ||
+		rpc.request.IpAddress != "192.0.2.1" || rpc.request.UserAgent != "DogX Test" {
 		t.Fatalf("unexpected RPC request: %+v", rpc.request)
 	}
 	if response.AccessToken != "access-token" || response.RefreshToken != "refresh-token" || response.ExpiresIn != 900 {
@@ -95,7 +109,10 @@ func TestLoginReturnsRPCError(t *testing.T) {
 		SystemRpc: &systemRPCStub{err: rpcErr},
 	})
 
-	if _, err := logic.Login(&types.LoginReq{Username: "admin", Password: "password"}); !errors.Is(err, rpcErr) {
+	if _, err := logic.Login(
+		&types.LoginReq{Username: "admin", Password: "password"},
+		LoginMetadata{},
+	); !errors.Is(err, rpcErr) {
 		t.Fatalf("expected RPC error, got: %v", err)
 	}
 }
@@ -146,12 +163,27 @@ func TestCurrentUserAndLogoutUseJWTIdentity(t *testing.T) {
 	if rpc.revokeAllRequest.UserId != 42 {
 		t.Fatalf("unexpected logout-all request: %+v", rpc.revokeAllRequest)
 	}
+	if _, err := NewChangePasswordLogic(ctx, svcCtx).ChangePassword(&types.ChangePasswordReq{
+		CurrentPassword: "current-password",
+		NewPassword:     "new-secure-password",
+	}); err != nil {
+		t.Fatalf("change password: %v", err)
+	}
+	if rpc.changePasswordRequest.UserId != 42 ||
+		rpc.changePasswordRequest.CurrentPassword != "current-password" ||
+		rpc.changePasswordRequest.NewPassword != "new-secure-password" {
+		t.Fatalf("unexpected change-password request: %+v", rpc.changePasswordRequest)
+	}
 }
 
 func TestProtectedLogicRejectsMissingIdentity(t *testing.T) {
 	logic := NewCurrentUserLogic(context.Background(), &svc.ServiceContext{SystemRpc: &systemRPCStub{}})
 	if _, err := logic.CurrentUser(); err == nil {
 		t.Fatal("expected missing JWT identity to be rejected")
+	}
+	changePassword := NewChangePasswordLogic(context.Background(), &svc.ServiceContext{SystemRpc: &systemRPCStub{}})
+	if _, err := changePassword.ChangePassword(&types.ChangePasswordReq{}); err == nil {
+		t.Fatal("expected missing JWT identity to reject password change")
 	}
 }
 

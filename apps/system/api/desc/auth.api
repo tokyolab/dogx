@@ -16,6 +16,11 @@ type (
 		RefreshToken string `json:"refreshToken"`
 	}
 
+	ChangePasswordReq {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
+
 	CurrentUserResp {
 		Id       int64  `json:"id"`
 		Username string `json:"username"`
@@ -53,4 +58,8 @@ service system-api {
 	@doc "Revoke all sessions of the current user"
 	@handler logoutAll
 	post /auth/logout-all returns (EmptyResp)
+
+	@doc "Change the current user password and revoke all sessions"
+	@handler changePassword
+	post /auth/change-password (ChangePasswordReq) returns (EmptyResp)
 }

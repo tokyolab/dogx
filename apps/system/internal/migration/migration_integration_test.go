@@ -24,14 +24,22 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 1 {
-		t.Fatalf("unexpected applied migration count: got %d, want 1", len(results))
+	if len(results) != 2 {
+		t.Fatalf("unexpected applied migration count: got %d, want 2", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
 			"unexpected applied migration: version=%d path=%s",
 			results[0].Source.Version,
 			results[0].Source.Path,
+		)
+	}
+	if results[1].Source.Version != 20260824100845 ||
+		results[1].Source.Path != "20260824100845_add_login_log.sql" {
+		t.Fatalf(
+			"unexpected applied migration: version=%d path=%s",
+			results[1].Source.Version,
+			results[1].Source.Path,
 		)
 	}
 
@@ -47,8 +55,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 1 {
-		t.Fatalf("unexpected Goose database version: got %d, want 1", version)
+	if version != 20260824100845 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260824100845", version)
 	}
 
 	expectedTables := map[string]string{
@@ -57,6 +65,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		"sys_menu":      "系统菜单与权限标识表",
 		"sys_user_role": "用户角色关联表",
 		"sys_role_menu": "角色菜单关联表",
+		"sys_login_log": "用户登录审计日志表",
 	}
 	for table, comment := range expectedTables {
 		assertTableComment(t, ctx, sqlDB, table, comment)
@@ -76,6 +85,9 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		"idx_sys_menu_permission",
 		"idx_sys_user_role_role_id",
 		"idx_sys_role_menu_menu_id",
+		"idx_sys_login_log_user_created_at",
+		"idx_sys_login_log_created_at",
+		"idx_sys_login_log_username_created_at",
 	} {
 		assertIndexExists(t, ctx, sqlDB, index)
 	}
@@ -86,6 +98,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		"sys_role":      {"ck_sys_role_status"},
 		"sys_user_role": {"fk_sys_user_role_user", "fk_sys_user_role_role"},
 		"sys_role_menu": {"fk_sys_role_menu_role", "fk_sys_role_menu_menu"},
+		"sys_login_log": {"fk_sys_login_log_user"},
 	} {
 		for _, constraint := range constraints {
 			assertConstraintExists(t, ctx, sqlDB, table, constraint)
@@ -150,11 +163,24 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 
 	userRole := model.UserRole{UserID: user.ID, RoleID: role.ID}
 	roleMenu := model.RoleMenu{RoleID: role.ID, MenuID: menu.ID}
+	loginLog := model.LoginLog{
+		UserID:    &user.ID,
+		Username:  user.Username,
+		Success:   true,
+		IPAddress: "192.0.2.1",
+		UserAgent: "DogX Migration Test",
+	}
 	if err := gormDB.WithContext(ctx).Create(&userRole).Error; err != nil {
 		t.Fatalf("create user-role relation through current GORM model: %v", err)
 	}
 	if err := gormDB.WithContext(ctx).Create(&roleMenu).Error; err != nil {
 		t.Fatalf("create role-menu relation through current GORM model: %v", err)
+	}
+	if err := gormDB.WithContext(ctx).Create(&loginLog).Error; err != nil {
+		t.Fatalf("create login log through current GORM model: %v", err)
+	}
+	if loginLog.ID == 0 || loginLog.CreatedAt.IsZero() {
+		t.Fatalf("login log timestamps or identity were not populated: %+v", loginLog)
 	}
 
 	var relationCount int64

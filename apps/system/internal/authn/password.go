@@ -13,6 +13,8 @@ import (
 )
 
 const (
+	MinPasswordBytes         = 12
+	MaxPasswordBytes         = 128
 	argon2Memory      uint32 = 64 * 1024
 	argon2Iterations  uint32 = 3
 	argon2Parallelism uint8  = 2
@@ -38,13 +40,24 @@ type PasswordHasher interface {
 
 type Argon2id struct{}
 
+func ValidatePassword(password string) error {
+	if len(password) < MinPasswordBytes || len(password) > MaxPasswordBytes {
+		return fmt.Errorf(
+			"password must contain %d to %d bytes",
+			MinPasswordBytes,
+			MaxPasswordBytes,
+		)
+	}
+	return nil
+}
+
 func NewArgon2id() *Argon2id {
 	return &Argon2id{}
 }
 
 func (a *Argon2id) Hash(password string) (string, error) {
-	if password == "" {
-		return "", errors.New("password is empty")
+	if err := ValidatePassword(password); err != nil {
+		return "", err
 	}
 
 	salt := make([]byte, argon2SaltLength)

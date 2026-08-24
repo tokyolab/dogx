@@ -14,6 +14,7 @@ import (
 )
 
 type (
+	ChangePasswordRequest     = system.ChangePasswordRequest
 	CurrentUserRequest        = system.CurrentUserRequest
 	CurrentUserResponse       = system.CurrentUserResponse
 	EmptyResponse             = system.EmptyResponse
@@ -32,6 +33,7 @@ type (
 		GetCurrentUser(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*CurrentUserResponse, error)
 		RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	}
 
 	defaultSystem struct {
@@ -73,4 +75,9 @@ func (m *defaultSystem) RevokeSession(ctx context.Context, in *RevokeSessionRequ
 func (m *defaultSystem) RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
 	client := system.NewSystemClient(m.cli.Conn())
 	return client.RevokeUserSessions(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ChangePassword(ctx, in, opts...)
 }

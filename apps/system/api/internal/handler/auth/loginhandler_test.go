@@ -59,6 +59,14 @@ func (s handlerSystemRPCStub) RevokeUserSessions(
 	return &systemclient.EmptyResponse{}, s.err
 }
 
+func (s handlerSystemRPCStub) ChangePassword(
+	context.Context,
+	*systemclient.ChangePasswordRequest,
+	...grpc.CallOption,
+) (*systemclient.EmptyResponse, error) {
+	return &systemclient.EmptyResponse{}, s.err
+}
+
 func (s handlerSystemRPCStub) Login(
 	context.Context,
 	*systemclient.LoginRequest,
@@ -185,6 +193,44 @@ func TestProtectedAuthHandlers(t *testing.T) {
 				t.Fatalf("unexpected response: status=%d body=%s", recorder.Code, recorder.Body.String())
 			}
 		})
+	}
+}
+
+func TestChangePasswordHandler(t *testing.T) {
+	setResponseHandlers(t)
+	ctx := context.WithValue(context.Background(), "userId", int64(42))
+	ctx = context.WithValue(ctx, "sessionId", "session-id")
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/change-password",
+		strings.NewReader(`{"currentPassword":"current-password","newPassword":"new-secure-password"}`),
+	).WithContext(ctx)
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	ChangePasswordHandler(&svc.ServiceContext{SystemRpc: handlerSystemRPCStub{}}).
+		ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected response: status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestClientIPAddress(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+	request.RemoteAddr = "192.0.2.10:54321"
+	if got := clientIPAddress(request); got != "192.0.2.10" {
+		t.Fatalf("unexpected remote address: %q", got)
+	}
+
+	request.Header.Set("X-Forwarded-For", "2001:db8::1, 192.0.2.20")
+	if got := clientIPAddress(request); got != "2001:db8::1" {
+		t.Fatalf("unexpected forwarded address: %q", got)
+	}
+
+	request.Header.Set("X-Forwarded-For", "not-an-ip")
+	if got := clientIPAddress(request); got != "" {
+		t.Fatalf("invalid client address was accepted: %q", got)
 	}
 }
 
