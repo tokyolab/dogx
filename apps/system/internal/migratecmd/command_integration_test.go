@@ -5,6 +5,7 @@ package migratecmd
 import (
 	"bytes"
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +23,10 @@ func TestRunCommandLifecycleInPostgreSQL(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	sources := provider.ListSources()
+	if len(sources) == 0 {
+		t.Fatal("migration provider has no sources")
+	}
 
 	assertCommand := func(command, wantContain string) {
 		t.Helper()
@@ -36,10 +41,12 @@ func TestRunCommandLifecycleInPostgreSQL(t *testing.T) {
 	}
 
 	assertCommand("status", "pending")
-	assertCommand("up", "00001_init_system.sql")
+	assertCommand("up", sources[len(sources)-1].Path)
 	assertCommand("up", "no pending migrations")
-	assertCommand("version", "1")
+	assertCommand("version", strconv.FormatInt(sources[len(sources)-1].Version, 10))
 	assertCommand("status", "applied")
-	assertCommand("down", "00001_init_system.sql")
+	for i := len(sources) - 1; i >= 0; i-- {
+		assertCommand("down", sources[i].Path)
+	}
 	assertCommand("down", "no applied migrations")
 }

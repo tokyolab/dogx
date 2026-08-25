@@ -74,7 +74,7 @@ func (s *RolePolicyService) ReplaceRoleAPIs(
 	if !ok {
 		return ReplaceResult{}, errors.New("unexpected transactional Casbin adapter")
 	}
-	txDB := txAdapter.GetDb()
+	txDB := newTransactionQueryDB(txAdapter.GetDb(), ctx)
 	lockName := "dogx:casbin:role:" + strconv.FormatInt(roleID, 10)
 	if err := txDB.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", lockName).Error; err != nil {
 		return ReplaceResult{}, fmt.Errorf("lock role policy: %w", err)
@@ -114,6 +114,17 @@ func (s *RolePolicyService) ReplaceRoleAPIs(
 		result.NotificationError = s.notifier.Update()
 	}
 	return result, nil
+}
+
+// newTransactionQueryDB keeps the Adapter transaction connection while
+// discarding its casbin_rule table scope so GORM can select business tables
+// from their models.
+func newTransactionQueryDB(adapterDB *gorm.DB, ctx context.Context) *gorm.DB {
+	return adapterDB.Session(&gorm.Session{
+		Context:     ctx,
+		Initialized: true,
+		NewDB:       true,
+	})
 }
 
 func loadTargetResources(

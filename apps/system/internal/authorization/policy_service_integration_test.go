@@ -26,6 +26,56 @@ func (s *notifierStub) Update() error {
 	return s.err
 }
 
+func TestNewTransactionQueryDBRetainsAdapterTransaction(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	adapter, err := NewGormAdapter(db)
+	if err != nil {
+		t.Fatalf("create Casbin Adapter: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	tx, err := adapter.BeginTransaction(ctx)
+	if err != nil {
+		t.Fatalf("begin Adapter transaction: %v", err)
+	}
+	rolledBack := false
+	defer func() {
+		if !rolledBack {
+			_ = tx.Rollback()
+		}
+	}()
+
+	txAdapter, ok := tx.GetAdapter().(*gormadapter.Adapter)
+	if !ok {
+		t.Fatal("unexpected transactional Casbin Adapter")
+	}
+	queryDB := newTransactionQueryDB(txAdapter.GetDb(), ctx)
+	role := model.Role{
+		Code:   "transaction_probe",
+		Name:   "Transaction Probe",
+		Status: model.RecordStatusEnabled,
+	}
+	if err := queryDB.Create(&role).Error; err != nil {
+		t.Fatalf("create role through reset transaction Session: %v", err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatalf("roll back Adapter transaction: %v", err)
+	}
+	rolledBack = true
+
+	var count int64
+	if err := db.Unscoped().
+		Model(&model.Role{}).
+		Where("code = ?", role.Code).
+		Count(&count).Error; err != nil {
+		t.Fatalf("count role after transaction rollback: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("reset transaction Session escaped Adapter transaction: role count = %d", count)
+	}
+}
+
 func TestRolePolicyServicePersistsOnlyTargetDifferenceAndRequiredAPIs(t *testing.T) {
 	db := newAuthorizationDatabase(t)
 	role, resources := seedAuthorizationResources(t, db)
@@ -83,6 +133,110 @@ func TestRolePolicyServicePersistsOnlyTargetDifferenceAndRequiredAPIs(t *testing
 	}
 	if unchanged.Changed() || notifier.calls.Load() != 2 {
 		t.Fatalf("unchanged policy generated writes or notification: result=%+v notifications=%d", unchanged, notifier.calls.Load())
+	}
+}
+
+func TestRolePolicyServiceRollsBackRemovedPoliciesWhenAddFails(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	role, resources := seedAuthorizationResources(t, db)
+	notifier := &notifierStub{}
+	service, err := NewRolePolicyService(db, notifier)
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{resources["a"].ID}); err != nil {
+		t.Fatalf("write initial role policy: %v", err)
+	}
+
+	if err := db.Exec(`
+		CREATE FUNCTION fail_casbin_policy_b_insert() RETURNS trigger AS $$
+		BEGIN
+			IF NEW.v1 = '/b' THEN
+				RAISE EXCEPTION 'forced Casbin policy insert failure';
+			END IF;
+			RETURN NEW;
+		END;
+		$$ LANGUAGE plpgsql
+	`).Error; err != nil {
+		t.Fatalf("create failing Casbin insert function: %v", err)
+	}
+	if err := db.Exec(`
+		CREATE TRIGGER fail_casbin_policy_b_insert
+		BEFORE INSERT ON casbin_rule
+		FOR EACH ROW EXECUTE FUNCTION fail_casbin_policy_b_insert()
+	`).Error; err != nil {
+		t.Fatalf("create failing Casbin insert trigger: %v", err)
+	}
+
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{resources["b"].ID}); err == nil {
+		t.Fatal("replace role policy succeeded despite forced Casbin insert failure")
+	}
+	if notifier.calls.Load() != 1 {
+		t.Fatalf("failed policy transaction published notification: calls = %d", notifier.calls.Load())
+	}
+
+	rules := loadRoleRules(t, db, role.ID)
+	paths := make(map[string]bool, len(rules))
+	for _, rule := range rules {
+		paths[rule.V1] = true
+	}
+	if len(paths) != 2 || !paths["/a"] || !paths["/required"] || paths["/b"] {
+		t.Fatalf("failed policy transaction was not rolled back: %+v", rules)
+	}
+}
+
+func TestRolePolicyServicePreservesPoliciesWhenRemoveFails(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	role, resources := seedAuthorizationResources(t, db)
+	notifier := &notifierStub{}
+	service, err := NewRolePolicyService(db, notifier)
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{resources["a"].ID}); err != nil {
+		t.Fatalf("write initial role policy: %v", err)
+	}
+
+	if err := db.Exec(`
+		CREATE FUNCTION fail_casbin_policy_a_delete() RETURNS trigger AS $$
+		BEGIN
+			IF OLD.v1 = '/a' THEN
+				RAISE EXCEPTION 'forced Casbin policy delete failure';
+			END IF;
+			RETURN OLD;
+		END;
+		$$ LANGUAGE plpgsql
+	`).Error; err != nil {
+		t.Fatalf("create failing Casbin delete function: %v", err)
+	}
+	if err := db.Exec(`
+		CREATE TRIGGER fail_casbin_policy_a_delete
+		BEFORE DELETE ON casbin_rule
+		FOR EACH ROW EXECUTE FUNCTION fail_casbin_policy_a_delete()
+	`).Error; err != nil {
+		t.Fatalf("create failing Casbin delete trigger: %v", err)
+	}
+
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, nil); err == nil {
+		t.Fatal("replace role policy succeeded despite forced Casbin delete failure")
+	}
+	if notifier.calls.Load() != 1 {
+		t.Fatalf("failed policy transaction published notification: calls = %d", notifier.calls.Load())
+	}
+
+	rules := loadRoleRules(t, db, role.ID)
+	paths := make(map[string]bool, len(rules))
+	for _, rule := range rules {
+		paths[rule.V1] = true
+	}
+	if len(paths) != 2 || !paths["/a"] || !paths["/required"] {
+		t.Fatalf("failed policy deletion changed persisted policies: %+v", rules)
 	}
 }
 
