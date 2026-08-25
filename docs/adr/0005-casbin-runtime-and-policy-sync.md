@@ -104,6 +104,8 @@ Session 撤销继续使用用户 Session Set 和 `SSCAN` 精确定位 Session ID
 
 菜单与页面元素授权只修改 `sys_role_menu`，不进入 Casbin API 策略。
 
+初始化迁移创建 `super_admin` 角色、权限管理 API 资源及该角色的首条管理策略。`bootstrapadmin` 在创建首个管理员时，必须在同一个 PostgreSQL 事务中写入用户和 `sys_user_role` 绑定，避免出现已创建账号却没有任何角色、无法完成首次授权的启动死锁。后续新增受保护接口时，迁移必须同时登记对应 `sys_api` 资源；是否默认授予 `super_admin` 由该接口的管理边界决定，不能把敏感管理接口标记成所有角色的必需 API。
+
 ### 多实例策略重载
 
 每个 `system-api` 实例使用：

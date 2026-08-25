@@ -57,3 +57,8 @@ func (s *SystemServer) ChangePassword(ctx context.Context, in *system.ChangePass
 	l := logic.NewChangePasswordLogic(ctx, s.svcCtx)
 	return l.ChangePassword(in)
 }
+
+func (s *SystemServer) ReplaceRoleAPIs(ctx context.Context, in *system.ReplaceRoleAPIsRequest) (*system.EmptyResponse, error) {
+	l := logic.NewReplaceRoleAPIsLogic(ctx, s.svcCtx)
+	return l.ReplaceRoleAPIs(in)
+}

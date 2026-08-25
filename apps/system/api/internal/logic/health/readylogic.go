@@ -29,6 +29,12 @@ func NewReadyLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ReadyLogic 
 func (l *ReadyLogic) Ready() (*types.ReadyResp, error) {
 	checkCtx, cancel := context.WithTimeout(l.ctx, l.svcCtx.Config.App.ReadinessTimeout)
 	defer cancel()
+	if l.svcCtx.AuthorizationReadiness == nil {
+		return nil, response.ServiceUnavailable(errors.New("API authorization is not ready"))
+	}
+	if err := l.svcCtx.AuthorizationReadiness.Check(checkCtx); err != nil {
+		return nil, response.ServiceUnavailable(err)
+	}
 	if l.svcCtx.Redis == nil || !l.svcCtx.Redis.PingCtx(checkCtx) {
 		return nil, response.ServiceUnavailable(errors.New("API Redis is not ready"))
 	}

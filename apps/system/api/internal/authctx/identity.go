@@ -11,6 +11,7 @@ import (
 const (
 	userIDClaimKey    = "userId"
 	sessionIDClaimKey = "sessionId"
+	roleIDsClaimKey   = "roleIds"
 )
 
 var ErrInvalidIdentity = errors.New("invalid authenticated identity")
@@ -18,6 +19,7 @@ var ErrInvalidIdentity = errors.New("invalid authenticated identity")
 type Identity struct {
 	UserID    int64
 	SessionID string
+	RoleIDs   []int64
 }
 
 func FromContext(ctx context.Context) (Identity, error) {
@@ -33,8 +35,51 @@ func FromContext(ctx context.Context) (Identity, error) {
 	if !ok || sessionID == "" {
 		return Identity{}, ErrInvalidIdentity
 	}
+	roleIDs, ok := claimInt64Slice(ctx.Value(roleIDsClaimKey))
+	if !ok {
+		return Identity{}, ErrInvalidIdentity
+	}
 
-	return Identity{UserID: userID, SessionID: sessionID}, nil
+	return Identity{UserID: userID, SessionID: sessionID, RoleIDs: roleIDs}, nil
+}
+
+func claimInt64Slice(value any) ([]int64, bool) {
+	if value == nil {
+		return []int64{}, true
+	}
+
+	var values []any
+	switch typed := value.(type) {
+	case []any:
+		values = typed
+	case []int64:
+		values = make([]any, len(typed))
+		for index, item := range typed {
+			values[index] = item
+		}
+	case []int:
+		values = make([]any, len(typed))
+		for index, item := range typed {
+			values[index] = item
+		}
+	default:
+		return nil, false
+	}
+
+	unique := make(map[int64]struct{}, len(values))
+	roleIDs := make([]int64, 0, len(values))
+	for _, value := range values {
+		roleID, ok := claimInt64(value)
+		if !ok || roleID <= 0 {
+			return nil, false
+		}
+		if _, exists := unique[roleID]; exists {
+			continue
+		}
+		unique[roleID] = struct{}{}
+		roleIDs = append(roleIDs, roleID)
+	}
+	return roleIDs, true
 }
 
 func claimInt64(value any) (int64, bool) {

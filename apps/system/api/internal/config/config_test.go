@@ -9,6 +9,7 @@ import (
 
 func TestExampleConfigLoads(t *testing.T) {
 	t.Setenv("DOGX_ACCESS_SECRET", "0123456789abcdef0123456789abcdef")
+	t.Setenv("DOGX_POSTGRES_PASSWORD", "postgres-test-password")
 	t.Setenv("DOGX_REDIS_PASSWORD", "redis-test-password")
 
 	var loaded Config
@@ -29,5 +30,10 @@ func TestExampleConfigLoads(t *testing.T) {
 	if loaded.Auth.SessionKeyPrefix != "dogx:auth:session" ||
 		loaded.RedisConf.Host != "127.0.0.1:6379" || loaded.RedisConf.Pass != "redis-test-password" {
 		t.Fatalf("unexpected API session Redis configuration: auth=%+v redis=%+v", loaded.Auth, loaded.RedisConf)
+	}
+	if loaded.Postgres.Password != "postgres-test-password" ||
+		loaded.Authorization.PolicyChannel != "dogx:authorization:policy" ||
+		loaded.Authorization.ReloadInterval.String() != "1m0s" {
+		t.Fatalf("unexpected authorization configuration: postgres=%+v authorization=%+v", loaded.Postgres, loaded.Authorization)
 	}
 }

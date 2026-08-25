@@ -20,8 +20,8 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 3 {
-		t.Fatalf("unexpected migration count: got %d, want 3", len(sources))
+	if len(sources) != 4 {
+		t.Fatalf("unexpected migration count: got %d, want 4", len(sources))
 	}
 	if sources[0].Version != 1 || sources[0].Path != "00001_init_system.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[0].Version, sources[0].Path)
@@ -31,5 +31,8 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 	if sources[2].Version != 20260825151501 || sources[2].Path != "20260825151501_add_api_authorization.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[2].Version, sources[2].Path)
+	}
+	if sources[3].Version != 20260825183427 || sources[3].Path != "20260825183427_seed_initial_authorization.sql" {
+		t.Fatalf("unexpected migration source: version=%d path=%s", sources[3].Version, sources[3].Path)
 	}
 }

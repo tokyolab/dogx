@@ -71,12 +71,16 @@ func TestLoginUsesPostgreSQLPasswordHashAndRedisSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create session store: %v", err)
 	}
+	roleRepo, err := repository.NewRoleRepository(gormDB)
+	if err != nil {
+		t.Fatalf("create role repository: %v", err)
+	}
 	tokens, err := authn.NewTokenIssuer(authn.TokenConfig{
 		AccessSecret:  "0123456789abcdef0123456789abcdef",
 		AccessExpire:  15 * time.Minute,
 		RefreshExpire: 7 * 24 * time.Hour,
 		Issuer:        "dogx-integration-test",
-	}, sessions)
+	}, sessions, roleRepo)
 	if err != nil {
 		t.Fatalf("create token issuer: %v", err)
 	}

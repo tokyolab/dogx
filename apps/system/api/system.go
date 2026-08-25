@@ -31,6 +31,11 @@ func main() {
 
 	svcCtx, err := svc.NewServiceContext(c)
 	logx.Must(err)
+	defer func() {
+		if err := svcCtx.Close(); err != nil {
+			logx.Errorf("close service context: %v", err)
+		}
+	}()
 	httpx.SetOkHandler(response.HandleSuccess)
 	httpx.SetErrorHandlerCtx(response.HandleError)
 	handler.RegisterHandlers(server, svcCtx)

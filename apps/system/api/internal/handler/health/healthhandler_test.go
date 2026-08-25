@@ -30,6 +30,12 @@ type handlerRedisPingerStub struct {
 	ready bool
 }
 
+type handlerReadinessStub struct{}
+
+func (handlerReadinessStub) Check(context.Context) error {
+	return nil
+}
+
 func (s handlerRedisPingerStub) PingCtx(context.Context) bool {
 	return s.ready
 }
@@ -73,8 +79,9 @@ func TestReadyHandlerReturns503WithoutLeakingCause(t *testing.T) {
 	setResponseHandlers(t)
 
 	svcCtx := &svc.ServiceContext{
-		Config: config.Config{App: config.AppConf{ReadinessTimeout: time.Second}},
-		Redis:  handlerRedisPingerStub{ready: true},
+		Config:                 config.Config{App: config.AppConf{ReadinessTimeout: time.Second}},
+		Redis:                  handlerRedisPingerStub{ready: true},
+		AuthorizationReadiness: handlerReadinessStub{},
 		SystemRpc: handlerSystemRPCStub{
 			err: errors.New("private dependency detail"),
 		},
@@ -96,8 +103,9 @@ func TestReadyHandler(t *testing.T) {
 	setResponseHandlers(t)
 
 	svcCtx := &svc.ServiceContext{
-		Config: config.Config{App: config.AppConf{ReadinessTimeout: time.Second}},
-		Redis:  handlerRedisPingerStub{ready: true},
+		Config:                 config.Config{App: config.AppConf{ReadinessTimeout: time.Second}},
+		Redis:                  handlerRedisPingerStub{ready: true},
+		AuthorizationReadiness: handlerReadinessStub{},
 		SystemRpc: handlerSystemRPCStub{
 			response: &systemclient.ReadyResponse{Status: "ready"},
 		},

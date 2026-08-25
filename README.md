@@ -14,7 +14,7 @@ DogX 是一套面向开源项目的通用 Go 后台管理骨架。后端采用 g
 - Goose（SQL 数据库迁移）
 - PostgreSQL 18（迁移脚本尽量兼容 PostgreSQL 17）
 - Redis 7.4（按需使用，不为普通 CRUD 自动加缓存）
-- Casbin（后续用于接口权限判定）
+- Casbin v3 + 官方 GORM Adapter + Redis Watcher（接口权限判定与多实例策略失效通知）
 
 ## 仓库结构
 
@@ -29,6 +29,7 @@ apps/
     cmd/migrate/      独立数据库迁移命令
     internal/
       database/       System 域共享的 PostgreSQL 配置与连接工厂
+      authorization/  Casbin 模型、Adapter、策略差量事务与重载机制
       model/          GORM 持久化模型及字段类型和常量
       repository/     数据访问接口与实现
       migration/      Goose 迁移及 SQL 文件
@@ -41,9 +42,10 @@ docs/               架构决策和开发文档
 ```text
 browser → system-api (HTTP JSON) → system-rpc (gRPC) → PostgreSQL / Redis
                    └─ 只读认证 Session → Redis
+                   └─ 只读 Casbin 策略 → PostgreSQL
 ```
 
-`system-api` 和 `system-rpc` 是两个独立进程。API 负责 HTTP 契约、参数处理、响应转换，以及只读校验认证 Session；RPC 负责业务逻辑、Session 写操作以及 GORM、PostgreSQL 等后端依赖。API 不访问 PostgreSQL。两层都使用 goctl 生成的官方目录结构。
+`system-api` 和 `system-rpc` 是两个独立进程。API 负责 HTTP 契约、参数处理、响应转换、只读校验认证 Session，以及从 PostgreSQL 只读加载本地 Casbin 策略；RPC 负责业务逻辑、Session 写操作和权限策略写操作。API 不查询普通业务表。两层都使用 goctl 生成的官方目录结构。
 
 ## 本地启动
 
@@ -76,21 +78,23 @@ go run ./apps/system/rpc -f 'apps/system/rpc/etc/system-rpc.yaml'
 ```powershell
 $env:DOGX_ACCESS_SECRET = '<same-secret-as-system-rpc>'
 $env:DOGX_REDIS_PASSWORD = '<redis-password>'
+$env:DOGX_POSTGRES_PASSWORD = '<postgres-password>'
 go run ./apps/system/api -f 'apps/system/api/etc/system-api.yaml'
 ```
 
 服务启动后：
 
 - `GET /health`：仅检查 `system-api` 进程是否存活，不访问 RPC 或外部依赖。
-- `GET /ready`：`system-api` 先检查认证 Redis，再调用 `system-rpc` 检查 PostgreSQL 和 Redis；任一依赖异常时返回 HTTP 503。
+- `GET /ready`：`system-api` 检查 Casbin 初始快照、权限 PostgreSQL 和认证 Redis，再调用 `system-rpc` 检查 PostgreSQL 和 Redis；任一依赖异常时返回 HTTP 503。
 - `POST /auth/login`：使用账号密码登录，成功后返回访问令牌、刷新令牌和访问令牌有效秒数。
 - `POST /auth/refresh`：轮换刷新令牌并签发新的访问令牌。
 - `POST /auth/me`：返回当前用户信息；需要 `Authorization: Bearer <access-token>`。
 - `POST /auth/logout`：撤销当前设备 Session；需要访问令牌。
 - `POST /auth/logout-all`：撤销当前用户的全部 Session；需要访问令牌。
 - `POST /auth/change-password`：验证当前密码并修改密码，成功后撤销该用户的全部 Session；需要访问令牌。
+- `POST /role/api/update`：提交角色完整 API ID 集合；需要有效 Session 和 Casbin 接口权限。
 
-API 与 RPC 必须使用完全相同的 `DOGX_ACCESS_SECRET`。受保护请求先由 API 本地验证 JWT，再由 API 通过精确 Redis `GET` 只读检查 Session，随后只调用一次业务 RPC；随机构造或已经过期的 JWT 不会触发 Redis 查询。Session 的创建、轮换和撤销仍只由 RPC 负责。登录成功和失败会写入登录审计日志，成功登录同时更新用户的最后登录时间。
+API 与 RPC 必须使用完全相同的 `DOGX_ACCESS_SECRET`。受保护请求先由 API 本地验证携带 `userId`、`sessionId` 和 `roleIds` 的 JWT，再通过精确 Redis `GET` 检查 Session，最后由本地 Casbin 快照判定接口权限；普通业务请求随后仍只调用一次业务 RPC。Session 的创建、轮换和撤销仍只由 RPC 负责。
 
 ## 初始化管理员
 
@@ -105,7 +109,7 @@ go run ./apps/system/cmd/bootstrapadmin `
 Remove-Item Env:DOGX_ADMIN_PASSWORD
 ```
 
-密码使用 Argon2id 哈希后写入 `sys_user.password_hash`。同名活动用户已存在时命令会失败，不会覆盖现有账号。
+密码使用 Argon2id 哈希后写入 `sys_user.password_hash`，并在同一 PostgreSQL 事务中把账号绑定到迁移创建的 `super_admin` 角色。该角色初始拥有权限管理接口策略。同名活动用户已存在时命令会失败，不会覆盖现有账号，也不会留下不完整的角色绑定。
 
 ## 数据库迁移
 

@@ -55,6 +55,9 @@ func TestNewServiceContextWiresDependencies(t *testing.T) {
 	if ctx.Sessions == nil {
 		t.Error("session store was not initialized")
 	}
+	if ctx.RolePolicies == nil {
+		t.Error("role policy service was not initialized")
+	}
 	if ctx.Readiness == nil {
 		t.Fatal("readiness checker was not initialized")
 	}
@@ -102,6 +105,9 @@ func testServiceConfig(t testing.TB) config.Config {
 			Issuer:                "dogx-test",
 			SessionKeyPrefix:      "dogx:test:auth:session",
 			UserSessionsKeyPrefix: "dogx:test:auth:user_sessions",
+		},
+		Authorization: config.AuthorizationConf{
+			PolicyChannel: "dogx:test:authorization:policy",
 		},
 		Postgres: systemdb.PostgresConf{
 			Host:            parsed.Host,

@@ -39,4 +39,7 @@ func TestExampleConfigLoadsWithEnvironmentSecrets(t *testing.T) {
 		loaded.Authentication.UserSessionsKeyPrefix != "dogx:auth:user_sessions" {
 		t.Fatalf("unexpected session key prefixes: %+v", loaded.Authentication)
 	}
+	if loaded.Authorization.PolicyChannel != "dogx:authorization:policy" {
+		t.Fatalf("unexpected authorization configuration: %+v", loaded.Authorization)
+	}
 }

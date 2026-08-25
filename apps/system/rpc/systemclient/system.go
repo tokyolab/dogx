@@ -23,6 +23,7 @@ type (
 	ReadyRequest              = system.ReadyRequest
 	ReadyResponse             = system.ReadyResponse
 	RefreshCredentialsRequest = system.RefreshCredentialsRequest
+	ReplaceRoleAPIsRequest    = system.ReplaceRoleAPIsRequest
 	RevokeSessionRequest      = system.RevokeSessionRequest
 	RevokeUserSessionsRequest = system.RevokeUserSessionsRequest
 
@@ -34,6 +35,7 @@ type (
 		RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	}
 
 	defaultSystem struct {
@@ -80,4 +82,9 @@ func (m *defaultSystem) RevokeUserSessions(ctx context.Context, in *RevokeUserSe
 func (m *defaultSystem) ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
 	client := system.NewSystemClient(m.cli.Conn())
 	return client.ChangePassword(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ReplaceRoleAPIs(ctx, in, opts...)
 }

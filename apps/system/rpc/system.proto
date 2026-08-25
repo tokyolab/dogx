@@ -54,6 +54,11 @@ message ChangePasswordRequest {
   string new_password = 3;
 }
 
+message ReplaceRoleAPIsRequest {
+  int64 role_id = 1;
+  repeated int64 api_ids = 2;
+}
+
 service System {
   rpc CheckReady(ReadyRequest) returns (ReadyResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
@@ -62,4 +67,5 @@ service System {
   rpc RevokeSession(RevokeSessionRequest) returns (EmptyResponse);
   rpc RevokeUserSessions(RevokeUserSessionsRequest) returns (EmptyResponse);
   rpc ChangePassword(ChangePasswordRequest) returns (EmptyResponse);
+  rpc ReplaceRoleAPIs(ReplaceRoleAPIsRequest) returns (EmptyResponse);
 }

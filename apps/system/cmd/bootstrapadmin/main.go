@@ -11,7 +11,6 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/bootstrapadmin"
 	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
-	"github.com/tokyolab/dogx/apps/system/internal/repository"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"golang.org/x/term"
@@ -52,9 +51,9 @@ func run() error {
 	}
 	defer sqlDB.Close()
 
-	user, err := bootstrapadmin.Create(
+	user, err := bootstrapadmin.CreateInitialAdministrator(
 		context.Background(),
-		repository.NewUserRepository(database),
+		database,
 		authn.NewArgon2id(),
 		bootstrapadmin.Input{
 			Username: *username,

@@ -14,6 +14,9 @@ Authentication:
   SessionKeyPrefix: dogx:auth:session
   UserSessionsKeyPrefix: dogx:auth:user_sessions
 
+Authorization:
+  PolicyChannel: dogx:authorization:policy
+
 Postgres:
   Host: 127.0.0.1
   Port: 5432

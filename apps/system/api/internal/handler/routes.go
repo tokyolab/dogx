@@ -8,6 +8,7 @@ import (
 
 	auth "github.com/tokyolab/dogx/apps/system/api/internal/handler/auth"
 	health "github.com/tokyolab/dogx/apps/system/api/internal/handler/health"
+	role "github.com/tokyolab/dogx/apps/system/api/internal/handler/role"
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -79,5 +80,20 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: health.ReadyHandler(serverCtx),
 			},
 		},
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					// Replace the complete API authorization set for a role
+					Method:  http.MethodPost,
+					Path:    "/role/api/update",
+					Handler: role.UpdateRoleAPIsHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
 	)
 }

@@ -112,3 +112,12 @@ func TestCreatePreservesHashAndRepositoryErrors(t *testing.T) {
 		t.Fatalf("expected repository error, got: %v", err)
 	}
 }
+
+func TestCreateInitialAdministratorValidatesInfrastructure(t *testing.T) {
+	if _, err := CreateInitialAdministrator(nil, nil, &passwordHasherStub{}, Input{}); err == nil {
+		t.Fatal("expected nil context to be rejected")
+	}
+	if _, err := CreateInitialAdministrator(context.Background(), nil, &passwordHasherStub{}, Input{}); err == nil {
+		t.Fatal("expected nil database to be rejected")
+	}
+}

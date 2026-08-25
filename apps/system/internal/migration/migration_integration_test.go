@@ -24,8 +24,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 3 {
-		t.Fatalf("unexpected applied migration count: got %d, want 3", len(results))
+	if len(results) != 4 {
+		t.Fatalf("unexpected applied migration count: got %d, want 4", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -50,6 +50,14 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 			results[2].Source.Path,
 		)
 	}
+	if results[3].Source.Version != 20260825183427 ||
+		results[3].Source.Path != "20260825183427_seed_initial_authorization.sql" {
+		t.Fatalf(
+			"unexpected applied migration: version=%d path=%s",
+			results[3].Source.Version,
+			results[3].Source.Path,
+		)
+	}
 
 	secondResults, err := provider.Up(ctx)
 	if err != nil {
@@ -63,8 +71,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260825151501 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260825151501", version)
+	if version != 20260825183427 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260825183427", version)
 	}
 
 	expectedTables := map[string]string{
@@ -125,9 +133,38 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		}
 	}
 
+	var seedCount int
+	if err := sqlDB.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM casbin_rule
+		WHERE ptype = 'p'
+		  AND v1 = '/role/api/update'
+		  AND v2 = 'POST'
+	`).Scan(&seedCount); err != nil {
+		t.Fatalf("query initial authorization policy: %v", err)
+	}
+	if seedCount != 1 {
+		t.Fatalf("unexpected initial authorization policy count: got %d, want 1", seedCount)
+	}
+
 	downResult, err := provider.Down(ctx)
 	if err != nil {
 		t.Fatalf("roll back latest migration: %v", err)
+	}
+	if downResult.Source.Version != 20260825183427 ||
+		downResult.Source.Path != "20260825183427_seed_initial_authorization.sql" {
+		t.Fatalf(
+			"unexpected rolled-back migration: version=%d path=%s",
+			downResult.Source.Version,
+			downResult.Source.Path,
+		)
+	}
+	assertTableExists(t, ctx, sqlDB, "sys_api")
+	assertTableExists(t, ctx, sqlDB, "casbin_rule")
+
+	downResult, err = provider.Down(ctx)
+	if err != nil {
+		t.Fatalf("roll back API authorization schema migration: %v", err)
 	}
 	if downResult.Source.Version != 20260825151501 ||
 		downResult.Source.Path != "20260825151501_add_api_authorization.sql" {
@@ -146,7 +183,9 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 1 || reapplyResults[0].Source.Version != 20260825151501 {
+	if len(reapplyResults) != 2 ||
+		reapplyResults[0].Source.Version != 20260825151501 ||
+		reapplyResults[1].Source.Version != 20260825183427 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 }

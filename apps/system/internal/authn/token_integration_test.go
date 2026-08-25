@@ -40,7 +40,7 @@ func TestRedisSessionRefreshRotationAndReuseRevocation(t *testing.T) {
 		AccessExpire:  time.Minute,
 		RefreshExpire: time.Hour,
 		Issuer:        "dogx-integration-test",
-	}, store)
+	}, store, &roleProviderStub{roleIDs: []int64{1}})
 	if err != nil {
 		t.Fatalf("create token issuer: %v", err)
 	}

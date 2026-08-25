@@ -569,6 +569,58 @@ func (x *ChangePasswordRequest) GetNewPassword() string {
 	return ""
 }
 
+type ReplaceRoleAPIsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoleId        int64                  `protobuf:"varint,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
+	ApiIds        []int64                `protobuf:"varint,2,rep,packed,name=api_ids,json=apiIds,proto3" json:"api_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceRoleAPIsRequest) Reset() {
+	*x = ReplaceRoleAPIsRequest{}
+	mi := &file_system_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceRoleAPIsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceRoleAPIsRequest) ProtoMessage() {}
+
+func (x *ReplaceRoleAPIsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceRoleAPIsRequest.ProtoReflect.Descriptor instead.
+func (*ReplaceRoleAPIsRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ReplaceRoleAPIsRequest) GetRoleId() int64 {
+	if x != nil {
+		return x.RoleId
+	}
+	return 0
+}
+
+func (x *ReplaceRoleAPIsRequest) GetApiIds() []int64 {
+	if x != nil {
+		return x.ApiIds
+	}
+	return nil
+}
+
 var File_system_proto protoreflect.FileDescriptor
 
 const file_system_proto_rawDesc = "" +
@@ -607,7 +659,10 @@ const file_system_proto_rawDesc = "" +
 	"\x15ChangePasswordRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12)\n" +
 	"\x10current_password\x18\x02 \x01(\tR\x0fcurrentPassword\x12!\n" +
-	"\fnew_password\x18\x03 \x01(\tR\vnewPassword2\xf2\x03\n" +
+	"\fnew_password\x18\x03 \x01(\tR\vnewPassword\"J\n" +
+	"\x16ReplaceRoleAPIsRequest\x12\x17\n" +
+	"\arole_id\x18\x01 \x01(\x03R\x06roleId\x12\x17\n" +
+	"\aapi_ids\x18\x02 \x03(\x03R\x06apiIds2\xbc\x04\n" +
 	"\x06System\x129\n" +
 	"\n" +
 	"CheckReady\x12\x14.system.ReadyRequest\x1a\x15.system.ReadyResponse\x124\n" +
@@ -616,7 +671,8 @@ const file_system_proto_rawDesc = "" +
 	"\x0eGetCurrentUser\x12\x1a.system.CurrentUserRequest\x1a\x1b.system.CurrentUserResponse\x12D\n" +
 	"\rRevokeSession\x12\x1c.system.RevokeSessionRequest\x1a\x15.system.EmptyResponse\x12N\n" +
 	"\x12RevokeUserSessions\x12!.system.RevokeUserSessionsRequest\x1a\x15.system.EmptyResponse\x12F\n" +
-	"\x0eChangePassword\x12\x1d.system.ChangePasswordRequest\x1a\x15.system.EmptyResponseB\n" +
+	"\x0eChangePassword\x12\x1d.system.ChangePasswordRequest\x1a\x15.system.EmptyResponse\x12H\n" +
+	"\x0fReplaceRoleAPIs\x12\x1e.system.ReplaceRoleAPIsRequest\x1a\x15.system.EmptyResponseB\n" +
 	"Z\b./systemb\x06proto3"
 
 var (
@@ -631,7 +687,7 @@ func file_system_proto_rawDescGZIP() []byte {
 	return file_system_proto_rawDescData
 }
 
-var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_system_proto_goTypes = []any{
 	(*ReadyRequest)(nil),              // 0: system.ReadyRequest
 	(*ReadyResponse)(nil),             // 1: system.ReadyResponse
@@ -644,6 +700,7 @@ var file_system_proto_goTypes = []any{
 	(*RevokeSessionRequest)(nil),      // 8: system.RevokeSessionRequest
 	(*RevokeUserSessionsRequest)(nil), // 9: system.RevokeUserSessionsRequest
 	(*ChangePasswordRequest)(nil),     // 10: system.ChangePasswordRequest
+	(*ReplaceRoleAPIsRequest)(nil),    // 11: system.ReplaceRoleAPIsRequest
 }
 var file_system_proto_depIdxs = []int32{
 	0,  // 0: system.System.CheckReady:input_type -> system.ReadyRequest
@@ -653,15 +710,17 @@ var file_system_proto_depIdxs = []int32{
 	8,  // 4: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
 	9,  // 5: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
 	10, // 6: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
-	1,  // 7: system.System.CheckReady:output_type -> system.ReadyResponse
-	3,  // 8: system.System.Login:output_type -> system.LoginResponse
-	3,  // 9: system.System.RefreshCredentials:output_type -> system.LoginResponse
-	7,  // 10: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
-	5,  // 11: system.System.RevokeSession:output_type -> system.EmptyResponse
-	5,  // 12: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
-	5,  // 13: system.System.ChangePassword:output_type -> system.EmptyResponse
-	7,  // [7:14] is the sub-list for method output_type
-	0,  // [0:7] is the sub-list for method input_type
+	11, // 7: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
+	1,  // 8: system.System.CheckReady:output_type -> system.ReadyResponse
+	3,  // 9: system.System.Login:output_type -> system.LoginResponse
+	3,  // 10: system.System.RefreshCredentials:output_type -> system.LoginResponse
+	7,  // 11: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
+	5,  // 12: system.System.RevokeSession:output_type -> system.EmptyResponse
+	5,  // 13: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
+	5,  // 14: system.System.ChangePassword:output_type -> system.EmptyResponse
+	5,  // 15: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
+	8,  // [8:16] is the sub-list for method output_type
+	0,  // [0:8] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name
@@ -678,7 +737,7 @@ func file_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_system_proto_rawDesc), len(file_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

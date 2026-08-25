@@ -10,6 +10,7 @@ import (
 func TestFromContext(t *testing.T) {
 	ctx := context.WithValue(context.Background(), userIDClaimKey, json.Number("42"))
 	ctx = context.WithValue(ctx, sessionIDClaimKey, "session-id")
+	ctx = context.WithValue(ctx, roleIDsClaimKey, []any{json.Number("2"), float64(7), float64(7)})
 
 	identity, err := FromContext(ctx)
 	if err != nil {
@@ -17,6 +18,25 @@ func TestFromContext(t *testing.T) {
 	}
 	if identity.UserID != 42 || identity.SessionID != "session-id" {
 		t.Fatalf("unexpected identity: %+v", identity)
+	}
+	if len(identity.RoleIDs) != 2 || identity.RoleIDs[0] != 2 || identity.RoleIDs[1] != 7 {
+		t.Fatalf("unexpected role identity: %+v", identity)
+	}
+}
+
+func TestFromContextRejectsInvalidRoleClaims(t *testing.T) {
+	for _, roleIDs := range []any{
+		"1",
+		[]any{float64(1.5)},
+		[]any{json.Number("0")},
+		[]any{json.Number("invalid")},
+	} {
+		ctx := context.WithValue(context.Background(), userIDClaimKey, json.Number("42"))
+		ctx = context.WithValue(ctx, sessionIDClaimKey, "session-id")
+		ctx = context.WithValue(ctx, roleIDsClaimKey, roleIDs)
+		if _, err := FromContext(ctx); !errors.Is(err, ErrInvalidIdentity) {
+			t.Fatalf("expected role claims %v to be rejected, got: %v", roleIDs, err)
+		}
 	}
 }
 

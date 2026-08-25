@@ -1,0 +1,17 @@
+import "base.api"
+
+type UpdateRoleAPIsReq {
+	RoleId int64   `json:"roleId"`
+	ApiIds []int64 `json:"apiIds"`
+}
+
+@server (
+	group:      role
+	jwt:        Auth
+	middleware: SessionAuth, Authorization
+)
+service system-api {
+	@doc "Replace the complete API authorization set for a role"
+	@handler updateRoleAPIs
+	post /role/api/update (UpdateRoleAPIsReq) returns (EmptyResp)
+}

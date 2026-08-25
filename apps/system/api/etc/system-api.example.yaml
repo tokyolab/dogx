@@ -12,6 +12,22 @@ Auth:
   AccessSecret: ${DOGX_ACCESS_SECRET}
   SessionKeyPrefix: dogx:auth:session
 
+Authorization:
+  PolicyChannel: dogx:authorization:policy
+  ReloadInterval: 60s
+
+Postgres:
+  Host: 127.0.0.1
+  Port: 5432
+  User: dogx
+  Password: ${DOGX_POSTGRES_PASSWORD}
+  Database: dogx_dev
+  SSLMode: disable
+  TimeZone: Asia/Shanghai
+  MaxIdleConns: 5
+  MaxOpenConns: 20
+  ConnMaxLifetime: 1h
+
 RedisConf:
   Host: 127.0.0.1:6379
   Type: node

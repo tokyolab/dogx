@@ -22,6 +22,19 @@ type sessionStoreStub struct {
 	revoked bool
 }
 
+type roleProviderStub struct {
+	roleIDs []int64
+	err     error
+}
+
+func (s *roleProviderStub) ListEnabledRoleIDs(context.Context, int64) ([]int64, error) {
+	return append([]int64(nil), s.roleIDs...), s.err
+}
+
+func testRoleProvider() RoleProvider {
+	return &roleProviderStub{roleIDs: []int64{2, 7}}
+}
+
 func (s *sessionStoreStub) Create(_ context.Context, session Session, ttl time.Duration) error {
 	s.session = session
 	s.ttl = ttl
@@ -81,7 +94,7 @@ func (s *sessionStoreStub) RevokeAll(_ context.Context, userID int64) error {
 
 func TestTokenIssuerIssue(t *testing.T) {
 	store := &sessionStoreStub{}
-	issuer, err := NewTokenIssuer(validTokenConfig(), store)
+	issuer, err := NewTokenIssuer(validTokenConfig(), store, testRoleProvider())
 	if err != nil {
 		t.Fatalf("create token issuer: %v", err)
 	}
@@ -129,6 +142,9 @@ func TestTokenIssuerIssue(t *testing.T) {
 	if claims.UserID != 42 || claims.SessionID != store.session.ID || claims.Issuer != "dogx-test" {
 		t.Fatalf("unexpected access claims: %+v", claims)
 	}
+	if len(claims.RoleIDs) != 2 || claims.RoleIDs[0] != 2 || claims.RoleIDs[1] != 7 {
+		t.Fatalf("unexpected access role claims: %v", claims.RoleIDs)
+	}
 	if claims.ExpiresAt == nil || !claims.ExpiresAt.Time.Equal(now.Add(15*time.Minute)) {
 		t.Fatalf("unexpected access expiry claim: %+v", claims.ExpiresAt)
 	}
@@ -136,7 +152,8 @@ func TestTokenIssuerIssue(t *testing.T) {
 
 func TestTokenIssuerRefreshRotatesTokenAndRejectsReuse(t *testing.T) {
 	store := &sessionStoreStub{}
-	issuer, err := NewTokenIssuer(validTokenConfig(), store)
+	roles := &roleProviderStub{roleIDs: []int64{2, 7}}
+	issuer, err := NewTokenIssuer(validTokenConfig(), store, roles)
 	if err != nil {
 		t.Fatalf("create token issuer: %v", err)
 	}
@@ -150,6 +167,7 @@ func TestTokenIssuerRefreshRotatesTokenAndRejectsReuse(t *testing.T) {
 
 	issuer.now = func() time.Time { return now.Add(time.Minute) }
 	issuer.random = bytes.NewReader(bytes.Repeat([]byte{1}, refreshSecretBytes+tokenIDBytes))
+	roles.roleIDs = []int64{9}
 	refreshed, err := issuer.Refresh(context.Background(), original.RefreshToken)
 	if err != nil {
 		t.Fatalf("refresh credentials: %v", err)
@@ -159,6 +177,17 @@ func TestTokenIssuerRefreshRotatesTokenAndRejectsReuse(t *testing.T) {
 	}
 	if !store.session.ExpiresAt.Equal(now.Add(time.Minute).Add(7 * 24 * time.Hour)) {
 		t.Fatalf("refresh expiry was not extended: %s", store.session.ExpiresAt)
+	}
+	parsed, err := jwt.NewParser(jwt.WithoutClaimsValidation()).ParseWithClaims(
+		refreshed.AccessToken,
+		&accessClaims{},
+		func(*jwt.Token) (any, error) { return []byte(testAccessSecret), nil },
+	)
+	if err != nil || !parsed.Valid {
+		t.Fatalf("parse refreshed access token: %v", err)
+	}
+	if refreshedClaims := parsed.Claims.(*accessClaims); len(refreshedClaims.RoleIDs) != 1 || refreshedClaims.RoleIDs[0] != 9 {
+		t.Fatalf("refresh did not use current role snapshot: %v", refreshedClaims.RoleIDs)
 	}
 
 	issuer.random = bytes.NewReader(bytes.Repeat([]byte{2}, refreshSecretBytes+tokenIDBytes))
@@ -172,7 +201,7 @@ func TestTokenIssuerRefreshRotatesTokenAndRejectsReuse(t *testing.T) {
 
 func TestTokenIssuerRejectsMalformedAndUnknownRefreshTokens(t *testing.T) {
 	store := &sessionStoreStub{}
-	issuer, err := NewTokenIssuer(validTokenConfig(), store)
+	issuer, err := NewTokenIssuer(validTokenConfig(), store, testRoleProvider())
 	if err != nil {
 		t.Fatalf("create token issuer: %v", err)
 	}
@@ -205,15 +234,18 @@ func TestTokenIssuerValidatesConfiguration(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config := validTokenConfig()
 			test.mutate(&config)
-			if _, err := NewTokenIssuer(config, test.store); err == nil {
+			if _, err := NewTokenIssuer(config, test.store, testRoleProvider()); err == nil {
 				t.Fatal("expected invalid configuration to be rejected")
 			}
 		})
 	}
+	if _, err := NewTokenIssuer(validTokenConfig(), &sessionStoreStub{}, nil); err == nil {
+		t.Fatal("expected nil role provider to be rejected")
+	}
 }
 
 func TestTokenIssuerReturnsGenerationAndStorageErrors(t *testing.T) {
-	issuer, err := NewTokenIssuer(validTokenConfig(), &sessionStoreStub{})
+	issuer, err := NewTokenIssuer(validTokenConfig(), &sessionStoreStub{}, testRoleProvider())
 	if err != nil {
 		t.Fatalf("create token issuer: %v", err)
 	}
@@ -226,12 +258,39 @@ func TestTokenIssuerReturnsGenerationAndStorageErrors(t *testing.T) {
 	}
 
 	storeErr := errors.New("session store unavailable")
-	issuer, err = NewTokenIssuer(validTokenConfig(), &sessionStoreStub{err: storeErr})
+	issuer, err = NewTokenIssuer(validTokenConfig(), &sessionStoreStub{err: storeErr}, testRoleProvider())
 	if err != nil {
 		t.Fatalf("create token issuer: %v", err)
 	}
 	if _, err := issuer.Issue(context.Background(), 1); !errors.Is(err, storeErr) {
 		t.Fatalf("expected session store error, got: %v", err)
+	}
+}
+
+func TestTokenIssuerRejectsInvalidRoleProviderData(t *testing.T) {
+	roleErr := errors.New("role store unavailable")
+	issuer, err := NewTokenIssuer(
+		validTokenConfig(),
+		&sessionStoreStub{},
+		&roleProviderStub{err: roleErr},
+	)
+	if err != nil {
+		t.Fatalf("create token issuer: %v", err)
+	}
+	if _, err := issuer.Issue(context.Background(), 1); !errors.Is(err, roleErr) {
+		t.Fatalf("expected role provider error, got: %v", err)
+	}
+
+	issuer, err = NewTokenIssuer(
+		validTokenConfig(),
+		&sessionStoreStub{},
+		&roleProviderStub{roleIDs: []int64{1, 0}},
+	)
+	if err != nil {
+		t.Fatalf("create token issuer: %v", err)
+	}
+	if _, err := issuer.Issue(context.Background(), 1); err == nil {
+		t.Fatal("expected invalid role id to be rejected")
 	}
 }
 

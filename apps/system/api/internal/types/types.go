@@ -58,3 +58,8 @@ type ReadyResp struct {
 type RefreshTokenReq struct {
 	RefreshToken string `json:"refreshToken"`
 }
+
+type UpdateRoleAPIsReq struct {
+	RoleId int64   `json:"roleId"`
+	ApiIds []int64 `json:"apiIds"`
+}

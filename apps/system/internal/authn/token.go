@@ -45,14 +45,19 @@ type CredentialRefresher interface {
 	Refresh(ctx context.Context, refreshToken string) (*Credentials, error)
 }
 
+type RoleProvider interface {
+	ListEnabledRoleIDs(ctx context.Context, userID int64) ([]int64, error)
+}
+
 type TokenIssuer struct {
 	config   TokenConfig
 	sessions SessionStore
+	roles    RoleProvider
 	now      func() time.Time
 	random   io.Reader
 }
 
-func NewTokenIssuer(config TokenConfig, sessions SessionStore) (*TokenIssuer, error) {
+func NewTokenIssuer(config TokenConfig, sessions SessionStore, roles RoleProvider) (*TokenIssuer, error) {
 	if len(config.AccessSecret) < 32 {
 		return nil, errors.New("access token secret must contain at least 32 bytes")
 	}
@@ -68,10 +73,14 @@ func NewTokenIssuer(config TokenConfig, sessions SessionStore) (*TokenIssuer, er
 	if sessions == nil {
 		return nil, errors.New("session store is nil")
 	}
+	if roles == nil {
+		return nil, errors.New("role provider is nil")
+	}
 
 	return &TokenIssuer{
 		config:   config,
 		sessions: sessions,
+		roles:    roles,
 		now:      time.Now,
 		random:   rand.Reader,
 	}, nil
@@ -82,6 +91,10 @@ func (i *TokenIssuer) Issue(ctx context.Context, userID int64) (*Credentials, er
 		return nil, errors.New("user id must be positive")
 	}
 
+	roleIDs, err := i.roleIDs(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
 	sessionID, err := randomString(i.random, sessionIDBytes)
 	if err != nil {
 		return nil, fmt.Errorf("generate session id: %w", err)
@@ -92,7 +105,7 @@ func (i *TokenIssuer) Issue(ctx context.Context, userID int64) (*Credentials, er
 	}
 
 	now := i.now().UTC()
-	accessToken, err := i.signAccessToken(userID, sessionID, now)
+	accessToken, err := i.signAccessToken(userID, sessionID, roleIDs, now)
 	if err != nil {
 		return nil, err
 	}
@@ -125,12 +138,16 @@ func (i *TokenIssuer) Refresh(ctx context.Context, refreshToken string) (*Creden
 		return nil, err
 	}
 
+	roleIDs, err := i.roleIDs(ctx, session.UserID)
+	if err != nil {
+		return nil, err
+	}
 	nextSecret, err := randomString(i.random, refreshSecretBytes)
 	if err != nil {
 		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
 	now := i.now().UTC()
-	accessToken, err := i.signAccessToken(session.UserID, sessionID, now)
+	accessToken, err := i.signAccessToken(session.UserID, sessionID, roleIDs, now)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +170,12 @@ func (i *TokenIssuer) Refresh(ctx context.Context, refreshToken string) (*Creden
 	return i.credentials(accessToken, sessionID, nextSecret), nil
 }
 
-func (i *TokenIssuer) signAccessToken(userID int64, sessionID string, now time.Time) (string, error) {
+func (i *TokenIssuer) signAccessToken(
+	userID int64,
+	sessionID string,
+	roleIDs []int64,
+	now time.Time,
+) (string, error) {
 	tokenID, err := randomString(i.random, tokenIDBytes)
 	if err != nil {
 		return "", fmt.Errorf("generate access token id: %w", err)
@@ -162,6 +184,7 @@ func (i *TokenIssuer) signAccessToken(userID int64, sessionID string, now time.T
 	claims := accessClaims{
 		UserID:    userID,
 		SessionID: sessionID,
+		RoleIDs:   roleIDs,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(i.config.AccessExpire)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -188,9 +211,30 @@ func (i *TokenIssuer) credentials(accessToken, sessionID, refreshSecret string) 
 }
 
 type accessClaims struct {
-	UserID    int64  `json:"userId"`
-	SessionID string `json:"sessionId"`
+	UserID    int64   `json:"userId"`
+	SessionID string  `json:"sessionId"`
+	RoleIDs   []int64 `json:"roleIds"`
 	jwt.RegisteredClaims
+}
+
+func (i *TokenIssuer) roleIDs(ctx context.Context, userID int64) ([]int64, error) {
+	roleIDs, err := i.roles.ListEnabledRoleIDs(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("load user roles: %w", err)
+	}
+	unique := make(map[int64]struct{}, len(roleIDs))
+	normalized := make([]int64, 0, len(roleIDs))
+	for _, roleID := range roleIDs {
+		if roleID <= 0 {
+			return nil, errors.New("role provider returned invalid role id")
+		}
+		if _, exists := unique[roleID]; exists {
+			continue
+		}
+		unique[roleID] = struct{}{}
+		normalized = append(normalized, roleID)
+	}
+	return normalized, nil
 }
 
 func parseRefreshToken(value string) (string, string, error) {

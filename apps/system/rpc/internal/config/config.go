@@ -13,6 +13,7 @@ type Config struct {
 	zrpc.RpcServerConf
 	App            AppConf
 	Authentication AuthenticationConf
+	Authorization  AuthorizationConf
 	Postgres       database.PostgresConf
 	RedisConf      redis.RedisConf
 }
@@ -28,4 +29,8 @@ type AuthenticationConf struct {
 	Issuer                string        `json:",default=dogx"`
 	SessionKeyPrefix      string        `json:",default=dogx:auth:session"`
 	UserSessionsKeyPrefix string        `json:",default=dogx:auth:user_sessions"`
+}
+
+type AuthorizationConf struct {
+	PolicyChannel string `json:",default=dogx:authorization:policy"`
 }
