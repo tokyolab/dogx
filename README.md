@@ -85,7 +85,7 @@ go run ./apps/system/api -f 'apps/system/api/etc/system-api.yaml'
 - `GET /ready`：`system-api` 先检查认证 Redis，再调用 `system-rpc` 检查 PostgreSQL 和 Redis；任一依赖异常时返回 HTTP 503。
 - `POST /auth/login`：使用账号密码登录，成功后返回访问令牌、刷新令牌和访问令牌有效秒数。
 - `POST /auth/refresh`：轮换刷新令牌并签发新的访问令牌。
-- `GET /auth/me`：返回当前用户信息；需要 `Authorization: Bearer <access-token>`。
+- `POST /auth/me`：返回当前用户信息；需要 `Authorization: Bearer <access-token>`。
 - `POST /auth/logout`：撤销当前设备 Session；需要访问令牌。
 - `POST /auth/logout-all`：撤销当前用户的全部 Session；需要访问令牌。
 - `POST /auth/change-password`：验证当前密码并修改密码，成功后撤销该用户的全部 Session；需要访问令牌。
@@ -159,4 +159,4 @@ go test ./...
 
 测试默认不连接真实 PostgreSQL 或 Redis；外部依赖通过窄接口替换为测试桩。
 
-更多约定见 [测试方案](docs/development/testing.md)、[架构决策](docs/adr/0001-dogx-v0.1-architecture.md)、[统一响应与 RPC 错误决策](docs/adr/0002-http-response-and-rpc-errors.md)、[认证令牌与会话决策](docs/adr/0003-authentication-and-session.md) 和 [v0.1 功能边界](docs/roadmap/v0.1.md)。
+更多约定见 [测试方案](docs/development/testing.md)、[架构决策](docs/adr/0001-dogx-v0.1-architecture.md)、[统一响应与 RPC 错误决策](docs/adr/0002-http-response-and-rpc-errors.md)、[认证令牌与会话决策](docs/adr/0003-authentication-and-session.md)、[单租户 RBAC 与接口权限决策](docs/adr/0004-single-tenant-rbac.md)、[Casbin 运行时与多实例同步决策](docs/adr/0005-casbin-runtime-and-policy-sync.md) 和 [v0.1 功能边界](docs/roadmap/v0.1.md)。

@@ -28,7 +28,8 @@ DogX 的浏览器请求先进入 `system-api`，业务逻辑由 `system-rpc` 执
 
 - 访问令牌使用 HS256 JWT，默认有效期 15 分钟。
 - JWT 由 `system-rpc` 签发，`system-api` 使用同一密钥验证。
-- 自定义 Claims 只保存 `userId` 和 `sessionId`；不在 JWT 中保存角色、菜单或按钮权限，避免权限变更后旧权限持续有效。
+- 自定义 Claims 保存 `userId`、`sessionId` 和 `roleIds`；不保存菜单、页面元素或具体 API 权限。
+- `roleIds` 是登录时从 `sys_user_role` 读取的角色快照。修改用户角色、停用角色或删除角色时必须撤销受影响用户的全部 Session，旧 JWT 因 Session 不存在而立即失效。
 - JWT 密钥只通过真实配置或环境变量提供，不提交到 Git；密钥至少 32 字节。
 - 受保护 HTTP 路由使用 go-zero `jwt: Auth` 先在 API 本地校验 JWT，签名无效或已过期的请求不会调用 RPC 或查询 Redis。
 - JWT 验签成功后，`SessionAuth` 中间件通过只读 `SessionReader` 精确读取 Redis Session；JWT 在这里是经过签名的 Session 凭证，而不是完全无状态的授权结果。
@@ -41,7 +42,7 @@ DogX 的浏览器请求先进入 `system-api`，业务逻辑由 `system-rpc` 执
 - 会话由 `system-rpc` 写入 Redis，键格式为 `<配置前缀>:<sessionId>`，值包含用户 ID、刷新令牌摘要和过期时间。
 - 每个用户同时维护 `<用户会话索引前缀>:<userId>` Set，成员是该用户的 Session ID，用于全部退出、账号停用和管理员强制下线；禁止通过 Redis `KEYS` 命令查找会话。
 - 刷新时同时轮换 Access Token 和 Refresh Token，并延长 Session 有效期；旧 Refresh Token 再次使用时撤销整个 Session。
-- 当前设备退出时删除一个 Session；全部退出、密码变更、账号停用和管理员强制下线时通过用户 Session Set 撤销该用户的全部 Session。
+- 当前设备退出时删除一个 Session；全部退出、密码变更、用户角色变更、账号停用和管理员强制下线时通过用户 Session Set 撤销该用户的全部 Session。
 - 按用户撤销时使用 `SSCAN` 分批读取显式索引并精确删除 Session，不全量扫描 Redis 键空间。
 
 ### 登录审计
@@ -56,11 +57,12 @@ DogX 的浏览器请求先进入 `system-api`，业务逻辑由 `system-rpc` 执
 ```text
 browser
   -> system-api：本地验证 JWT、从 Redis 只读检查 Session、解析 HTTP
+                RBAC 阶段从 PostgreSQL casbin_rule 加载只读 Casbin p 快照
   -> system-rpc：执行一次业务调用，查询用户、验证密码、管理会话、签发令牌
   -> PostgreSQL / Redis
 ```
 
-`system-api` 不连接 PostgreSQL，但直接连接 Redis，只通过窄接口读取认证 Session。Session 的创建、刷新和撤销规则仍由 RPC 层实现。这样普通受保护请求在完成本地 JWT 与 Session 校验后，只需调用一次业务 RPC。定时任务和其他内部进程直接按内部调用约定访问 RPC，不经过面向浏览器的 Session 中间件，也不伪造用户 JWT。
+认证阶段的 `system-api` 直接连接 Redis，只通过窄接口读取认证 Session，不查询 PostgreSQL。RBAC 阶段增加的 PostgreSQL 连接只读授权表，用于加载本地 Casbin 快照，不参与 Session 校验或普通业务查询。Session 的创建、刷新和撤销规则仍由 RPC 层实现。这样普通受保护请求在完成本地 JWT、Session 与 Casbin 校验后，仍只需调用一次业务 RPC。定时任务和其他内部进程直接按内部调用约定访问 RPC，不经过面向浏览器的 Session 中间件，也不伪造用户 JWT。
 
 ## 后果
 
@@ -70,4 +72,4 @@ browser
 - 认证请求减少了一次纯 Session 校验 RPC，但 API 与 RPC 都需要访问同一个认证 Redis；写能力仍集中在 RPC。
 - HS256 要求 API 与 RPC 安全共享密钥；如果未来存在不受信任的验签方，再迁移到非对称签名。
 - Redis 不可用时不能创建、校验、刷新或撤销会话，系统返回技术错误而不是降级为无状态令牌。
-- 后续 RBAC 权限不写入 JWT，通过服务端实时数据与明确的同步机制判定。
+- JWT 只携带角色 ID，不携带具体 RBAC 权限；Redis Session 不保存角色。角色 API 权限通过服务端 Casbin `p` 快照和 [ADR-0005](0005-casbin-runtime-and-policy-sync.md) 规定的 Redis 失效通知与串行周期重载判定。

@@ -1,15 +1,23 @@
 package model
 
+type MenuAppCode string
+
+const (
+	MenuAppAdminWeb    MenuAppCode = "admin_web"
+	MenuAppAdminMobile MenuAppCode = "admin_mobile"
+)
+
 type MenuType int16
 
 const (
 	MenuTypeDirectory MenuType = 1
 	MenuTypePage      MenuType = 2
-	MenuTypeButton    MenuType = 3
+	MenuTypeElement   MenuType = 3
 )
 
 type Menu struct {
 	Base
+	AppCode    MenuAppCode  `gorm:"column:app_code;size:64;not null"`
 	ParentID   *int64       `gorm:"column:parent_id"`
 	Type       MenuType     `gorm:"column:menu_type;not null"`
 	Name       string       `gorm:"column:name;size:64;not null"`

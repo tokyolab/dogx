@@ -38,7 +38,7 @@ func TestJWTRejectsRandomTokenBeforeRedisSessionLookup(t *testing.T) {
 		}),
 	)
 
-	request := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
+	request := httptest.NewRequest(http.MethodPost, "/auth/me", nil)
 	request.Header.Set("Authorization", "Bearer random-invalid-token")
 	recorder := httptest.NewRecorder()
 	protected.ServeHTTP(recorder, request)
@@ -73,7 +73,7 @@ func TestValidJWTChecksRedisSessionBeforeHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
 	}
-	request := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
+	request := httptest.NewRequest(http.MethodPost, "/auth/me", nil)
 	request.Header.Set("Authorization", "Bearer "+signed)
 	recorder := httptest.NewRecorder()
 	protected.ServeHTTP(recorder, request)
@@ -105,7 +105,7 @@ func TestInvalidOrUnavailableSessionDoesNotReachHandler(t *testing.T) {
 			})
 			ctx := context.WithValue(context.Background(), "userId", int64(42))
 			ctx = context.WithValue(ctx, "sessionId", "session-id")
-			request := httptest.NewRequest(http.MethodGet, "/auth/me", nil).WithContext(ctx)
+			request := httptest.NewRequest(http.MethodPost, "/auth/me", nil).WithContext(ctx)
 			recorder := httptest.NewRecorder()
 
 			middleware.ServeHTTP(recorder, request)

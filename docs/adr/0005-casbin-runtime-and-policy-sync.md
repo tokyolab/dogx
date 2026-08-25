@@ -1,0 +1,189 @@
+# ADR-0005：Casbin 运行时与多实例策略加载
+
+- 状态：已接受
+- 日期：2026-08-25
+
+## 背景
+
+ADR-0004 已确定菜单、页面元素和 API 分开授权。运行时还需要固定以下问题：
+
+- 每个 HTTP 请求如何取得用户角色并交给 Casbin，且不增加第二次权限 RPC；
+- `system-rpc` 如何通过官方 Adapter 持久化一个角色的 API 策略；
+- 多个 `system-api` 实例如何及时、可靠地取得 `casbin_rule` 中的最新策略；
+- 用户角色发生变化后，已经签发的 JWT 如何失效。
+
+方案继续满足以下约束：
+
+- `sys_user_role` 是用户与角色关系的唯一事实源；
+- `casbin_rule` 是角色 API 策略的唯一事实源，只保存 `p`，不增加 `sys_role_api`；
+- Redis Session 不保存角色或权限；
+- 普通受保护请求完成认证和授权后只调用一次业务 RPC；
+- 禁止使用 Redis `KEYS`；
+- PostgreSQL 是最终事实源，Redis 只传递策略失效通知，不承载权限事实。
+
+## 决策
+
+### Casbin 模型与请求主体
+
+Casbin 直接以角色作为请求主体，不维护用户到角色的 `g` 关系：
+
+```ini
+[request_definition]
+r = sub, obj, act
+
+[policy_definition]
+p = sub, obj, act
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = r.sub == p.sub && r.obj == p.obj && r.act == p.act
+```
+
+运行时标识约定为：
+
+```text
+角色主体：r:<roleId>
+接口策略：p, r:<roleId>, <path>, <METHOD>
+```
+
+HTTP 路径和大写 Method 使用精确匹配，不默认使用通配符。DogX 的业务参数主要通过 POST Body 传递，权限路径不包含资源 ID 等动态片段。
+
+JWT 自定义 Claims 保存：
+
+```text
+userId
+sessionId
+roleIds
+```
+
+登录时由 `system-rpc` 从 `sys_user_role` 读取用户当前拥有的全部启用角色，并把角色 ID 写入 JWT。Redis Session 仍然只保存会话数据，不重复保存角色。
+
+API 权限中间件在 JWT 验签和 Redis Session 校验通过后，为每个角色构造一条请求：
+
+```text
+BatchEnforce([
+  ["r:1", requestPath, requestMethod],
+  ["r:2", requestPath, requestMethod]
+])
+```
+
+任意角色允许即放行。没有角色、没有匹配策略或全部角色拒绝时默认拒绝。
+
+### 用户角色变化与令牌撤销
+
+JWT 中的 `roleIds` 是登录时的角色快照。以下变化必须撤销目标用户的全部 Redis Session：
+
+- 修改用户所属角色；
+- 停用或删除用户；
+- 修改密码；
+- 停用或删除角色时，撤销所有受影响用户的 Session。
+
+Session 撤销继续使用用户 Session Set 和 `SSCAN` 精确定位 Session ID，禁止使用 Redis `KEYS`。旧 JWT 即使签名和有效期仍然有效，也会因为 `sessionId` 不存在而在下一次请求时返回 HTTP 401。用户重新登录后，JWT 获得最新 `roleIds`。
+
+修改角色 API 策略、菜单授权、页面元素授权或角色名称时不撤销 Session，因为 JWT 不保存具体接口和菜单权限。
+
+### 官方 Adapter 与 PostgreSQL 持久化
+
+`system-api` 和 `system-rpc` 都使用 Casbin 官方 GORM Adapter v3 访问 `casbin_rule`。表结构由 Goose 管理，包含 `id` 主键、`ptype`、`v0` 至 `v5`，以及 `(ptype, v0, v1, v2, v3, v4, v5)` 唯一索引。两个进程都关闭 Adapter AutoMigrate。
+
+`system-api` 的 Adapter 只用于 `LoadPolicy()`，同时关闭 Casbin AutoSave，不调用任何 Add、Remove 或 Update Policy API，也不写权限表。
+
+角色授权界面提交完整的目标 API ID 集合。`system-rpc` 校验角色、启用的 API 资源和必需 API 后，将目标集合转换为 `p` 规则；随后在同一个 PostgreSQL 事务中完成：
+
+1. 串行化同一角色的并发授权更新；
+2. 通过官方 GORM Adapter 读取该角色当前 `p` 规则；
+3. 计算目标集合与当前集合的差集；
+4. 使用 Adapter 的批量 Remove/Add 能力只删除已取消规则、只插入新增规则；
+5. 提交事务。
+
+例如当前规则为 `A、B、C`，目标规则为 `B、C、D`，数据库只删除 `A`、新增 `D`。不全量重写 `casbin_rule`，也不先删除该角色全部规则再逐条插入。
+
+数据库事务提交成功后，`system-rpc` 调用官方 Redis Watcher v2 的普通 `Update()`。通知只表示“PostgreSQL 中的策略已经变化”，不携带 Add、Remove 或 Update 规则明细。通知失败不能回滚已经提交的数据库事务，由周期重载恢复各 API 实例。
+
+菜单与页面元素授权只修改 `sys_role_menu`，不进入 Casbin API 策略。
+
+### 多实例策略重载
+
+每个 `system-api` 实例使用：
+
+```text
+Casbin v3 SyncedEnforcer
+Casbin GORM Adapter v3
+Casbin Redis Watcher v2（普通 Update 通知）
+DogX PolicyReloader（串行重载与周期调度）
+```
+
+启动流程为：
+
+```text
+创建关闭 AutoMigrate 的只读 GORM Adapter
+→ 创建关闭 AutoSave 的 SyncedEnforcer
+→ 通过 PolicyReloader 串行执行第一次 LoadPolicy()
+→ 创建 Redis Watcher
+→ 显式把 Watcher 回调设置为 PolicyReloader.Reload()
+→ 启动 60 秒周期重载
+→ 初始策略加载成功后才进入就绪状态
+```
+
+Redis Watcher 收到普通 `Update()` 后，不解析增量规则，而是调用同一个 `PolicyReloader.Reload()`，从 PostgreSQL 完整加载当前全部 `p`。重复通知和乱序通知只会重复读取最终事实，不会把过期的增量事件应用到新状态之上。
+
+`PolicyReloader` 使用进程内互斥锁串行化初始加载、Watcher 回调和周期加载，防止两个数据库快照反向覆盖。所有重载错误都必须记录，不能像 `StartAutoLoadPolicy()` 一样被静默忽略。
+
+Casbin 在数据库读取和新 Model 构造期间允许正常 `Enforce` 继续并发执行，只在应用新 Model 时短暂持有写锁。请求只观察到完整的旧快照或完整的新快照。
+
+Redis Pub/Sub 是至多一次投递，实例断线时可能永久遗漏通知。因此每个 API 实例还通过同一个 `PolicyReloader` 每 60 秒完整加载一次。多实例权限语义为：
+
+```text
+system-rpc 事务内增量提交 casbin_rule
+→ Redis 普通 Update 通知在线 system-api 立即全量重载
+→ 通知遗漏时由下一个 60 秒周期重载恢复
+```
+
+### 失败规则
+
+- `system-api` 初次 `LoadPolicy()` 失败时不得进入就绪状态或提供受保护接口。
+- Redis Watcher 通知发布或订阅失败时记录错误和指标，不回滚已经提交的 PostgreSQL 策略；周期重载负责恢复。
+- 周期重载期间 PostgreSQL 暂时不可用时保留上一次成功快照，记录错误并在下一周期重试。
+- 就绪检查同时反映权限 PostgreSQL 连接和初始策略快照状态。
+- Casbin 判定为 `false` 返回 HTTP 403；Enforcer 或认证依赖发生技术错误返回 HTTP 503，不能降级为允许。
+- 用户角色变化时，如果 Session 撤销失败，变更操作必须失败关闭并记录审计日志，不能继续让携带旧角色的会话正常使用。
+- 登录、刷新令牌和健康检查等公开路由不进入 Casbin。只要求登录状态的用户自助接口可以只经过 JWT 与 Session 中间件。
+
+## 后果
+
+- 普通请求不查询 `sys_user_role`，也不增加权限 RPC；
+- JWT 保存角色 ID，但用户角色变化会强制撤销全部 Session，旧角色不会持续到 JWT 自然过期；
+- `casbin_rule` 只保存 `p`，不需要 Casbin `g`、组合 Adapter 或用户角色全量加载；
+- PostgreSQL 持久化只执行规则差量，避免全删全插；
+- Redis 消息只负责使本地快照失效，重复、乱序不会改变最终权限语义；
+- 每次策略变更和每个周期都会完整读取 `p`，这是用低频数据库查询换取简单、可恢复的一致性；
+- 通知遗漏时，旧权限最长可能保留一个配置周期，因此当前语义是有界最终一致而不是分布式强一致。
+
+## 不采用的方案
+
+- 不把 `sys_user_role` 加载为 Casbin `g`：需要组合 Adapter、内存同步和额外对账；
+- 不把 `g` 重复保存到 `casbin_rule`：会与 `sys_user_role` 形成双事实源；
+- 不把具体 API 或菜单权限写入 JWT：只写角色 ID，具体权限仍由服务端 Casbin 策略决定；
+- 不使用 WatcherEx 增量回调：Redis Pub/Sub 可能丢消息，多写实例的数据库提交顺序也不保证等于消息发布顺序，角色策略集合还可能需要拆成 Remove/Add 两条非原子消息；
+- 不使用 Dispatcher：官方 Go Raft Dispatcher 仍为 beta，依赖旧版 Casbin，并要求使用自己的 bbolt 存储，不能继续以 PostgreSQL Adapter 为事实源；
+- 不直接使用 `StartAutoLoadPolicy()`：它无条件周期加载、不能与 Watcher 回调共享 DogX 的串行入口，并且内部忽略加载错误；
+- 不使用已经从 Casbin 删除的 `LoadPolicyFast()`：当前 `LoadPolicy()` 已包含缩小锁范围的实现；
+- 第一版不增加 revision、策略哈希、Outbox 或 Redis Streams；当策略规模或变更频率达到现有方案的性能边界后，再通过基准和故障模型单独决策；
+- 不为每个请求增加 `Authorize` RPC，也不在请求热路径从数据库加载策略。
+
+## 测试要求
+
+实现时至少覆盖：
+
+- JWT 正确携带单角色和多角色 ID，不携带菜单或具体 API 权限；
+- 无角色默认拒绝，单角色允许和拒绝，多角色任一允许即放行；
+- 用户角色变化、用户停用、密码变更和角色停用后，相关 Session 被全部撤销；
+- 不使用 Redis `KEYS` 查找或撤销 Session；
+- 角色授权提交完整目标集合，但 PostgreSQL 只增量删除和新增差异规则；
+- 同一角色并发更新被串行化，不产生部分集合；
+- `system-api` 初次加载正确，普通 Watcher 通知触发全量重载，遗漏通知后周期重载能够观察到最新策略；
+- 初始、Watcher 和周期重载共享串行入口，不能发生旧快照覆盖新快照；
+- 并发 `Enforce` 在重载期间只观察到完整旧策略或完整新策略；
+- 初次加载失败、周期重载异常和 Enforcer 错误均按约定失败关闭。

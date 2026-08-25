@@ -55,7 +55,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					// Return the current signed-in user
-					Method:  http.MethodGet,
+					Method:  http.MethodPost,
 					Path:    "/auth/me",
 					Handler: auth.CurrentUserHandler(serverCtx),
 				},

@@ -24,8 +24,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 2 {
-		t.Fatalf("unexpected applied migration count: got %d, want 2", len(results))
+	if len(results) != 3 {
+		t.Fatalf("unexpected applied migration count: got %d, want 3", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -42,6 +42,14 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 			results[1].Source.Path,
 		)
 	}
+	if results[2].Source.Version != 20260825151501 ||
+		results[2].Source.Path != "20260825151501_add_api_authorization.sql" {
+		t.Fatalf(
+			"unexpected applied migration: version=%d path=%s",
+			results[2].Source.Version,
+			results[2].Source.Path,
+		)
+	}
 
 	secondResults, err := provider.Up(ctx)
 	if err != nil {
@@ -55,14 +63,16 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260824100845 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260824100845", version)
+	if version != 20260825151501 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260825151501", version)
 	}
 
 	expectedTables := map[string]string{
 		"sys_user":      "系统用户表",
 		"sys_role":      "系统角色表",
-		"sys_menu":      "系统菜单与权限标识表",
+		"sys_menu":      "系统多应用目录、页面与页面元素表",
+		"sys_api":       "系统接口授权资源目录表",
+		"casbin_rule":   "Casbin官方GORM Adapter策略持久化表",
 		"sys_user_role": "用户角色关联表",
 		"sys_role_menu": "角色菜单关联表",
 		"sys_login_log": "用户登录审计日志表",
@@ -83,8 +93,17 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		"idx_sys_menu_parent_id",
 		"idx_sys_menu_deleted_at",
 		"idx_sys_menu_permission",
+		"uk_sys_menu_id_app_code",
+		"uk_sys_menu_app_route_name_active",
+		"uk_sys_menu_app_path_active",
+		"idx_sys_menu_app_parent_sort",
 		"idx_sys_user_role_role_id",
 		"idx_sys_role_menu_menu_id",
+		"uk_sys_api_method_path_active",
+		"idx_sys_api_service_group",
+		"idx_sys_api_deleted_at",
+		"idx_casbin_rule",
+		"idx_casbin_rule_ptype_v0",
 		"idx_sys_login_log_user_created_at",
 		"idx_sys_login_log_created_at",
 		"idx_sys_login_log_username_created_at",
@@ -93,7 +112,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	}
 
 	for table, constraints := range map[string][]string{
-		"sys_menu":      {"ck_sys_menu_type", "ck_sys_menu_status", "fk_sys_menu_parent"},
+		"sys_menu":      {"ck_sys_menu_app_code_not_blank", "ck_sys_menu_type", "ck_sys_menu_element_permission", "ck_sys_menu_element_route", "ck_sys_menu_status", "uk_sys_menu_id_app_code", "fk_sys_menu_parent"},
+		"sys_api":       {"ck_sys_api_method_upper", "ck_sys_api_path", "ck_sys_api_status"},
 		"sys_user":      {"ck_sys_user_status"},
 		"sys_role":      {"ck_sys_role_status"},
 		"sys_user_role": {"fk_sys_user_role_user", "fk_sys_user_role_role"},
@@ -103,6 +123,31 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		for _, constraint := range constraints {
 			assertConstraintExists(t, ctx, sqlDB, table, constraint)
 		}
+	}
+
+	downResult, err := provider.Down(ctx)
+	if err != nil {
+		t.Fatalf("roll back latest migration: %v", err)
+	}
+	if downResult.Source.Version != 20260825151501 ||
+		downResult.Source.Path != "20260825151501_add_api_authorization.sql" {
+		t.Fatalf(
+			"unexpected rolled-back migration: version=%d path=%s",
+			downResult.Source.Version,
+			downResult.Source.Path,
+		)
+	}
+	assertTableNotExists(t, ctx, sqlDB, "sys_api")
+	assertTableNotExists(t, ctx, sqlDB, "casbin_rule")
+	assertColumnExists(t, ctx, sqlDB, "sys_menu", "permission")
+	assertColumnNotExists(t, ctx, sqlDB, "sys_menu", "app_code")
+
+	reapplyResults, err := provider.Up(ctx)
+	if err != nil {
+		t.Fatalf("reapply latest migration after rollback: %v", err)
+	}
+	if len(reapplyResults) != 1 || reapplyResults[0].Source.Version != 20260825151501 {
+		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 }
 
@@ -134,15 +179,25 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 		Status:      model.RecordStatusEnabled,
 	}
 	menu := model.Menu{
+		AppCode:    model.MenuAppAdminWeb,
 		Type:       model.MenuTypePage,
 		Name:       "Integration Menu",
 		RouteName:  "IntegrationMenu",
 		Path:       "/integration",
 		Component:  "system/integration/index",
-		Permission: "system:integration:list",
+		Permission: "",
 		Visible:    true,
 		Status:     model.RecordStatusEnabled,
 		Remark:     "migration integration test",
+	}
+	apiResource := model.API{
+		ServiceName: "system-api",
+		Group:       "integration",
+		Name:        "Integration API",
+		Path:        "/integration/get",
+		Method:      "POST",
+		Status:      model.RecordStatusEnabled,
+		Remark:      "migration integration test",
 	}
 
 	for _, entity := range []struct {
@@ -152,17 +207,101 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 		{name: "user", value: &user},
 		{name: "role", value: &role},
 		{name: "menu", value: &menu},
+		{name: "api", value: &apiResource},
 	} {
 		if err := gormDB.WithContext(ctx).Create(entity.value).Error; err != nil {
 			t.Fatalf("create %s through current GORM model: %v", entity.name, err)
 		}
 	}
-	if user.ID == 0 || role.ID == 0 || menu.ID == 0 {
-		t.Fatalf("identity values were not populated: user=%d role=%d menu=%d", user.ID, role.ID, menu.ID)
+	if user.ID == 0 || role.ID == 0 || menu.ID == 0 || apiResource.ID == 0 {
+		t.Fatalf(
+			"identity values were not populated: user=%d role=%d menu=%d api=%d",
+			user.ID,
+			role.ID,
+			menu.ID,
+			apiResource.ID,
+		)
+	}
+
+	element := model.Menu{
+		AppCode:    model.MenuAppAdminWeb,
+		ParentID:   &menu.ID,
+		Type:       model.MenuTypeElement,
+		Name:       "Integration Create Button",
+		Permission: "system:integration:create",
+		Status:     model.RecordStatusEnabled,
+		Remark:     "migration integration test",
+	}
+	if err := gormDB.WithContext(ctx).Create(&element).Error; err != nil {
+		t.Fatalf("create page element through current GORM model: %v", err)
+	}
+	if element.ID == 0 {
+		t.Fatal("page element identity value was not populated")
+	}
+
+	crossAppMenu := model.Menu{
+		AppCode:  model.MenuAppAdminMobile,
+		ParentID: &menu.ID,
+		Type:     model.MenuTypePage,
+		Name:     "Invalid Cross-App Child",
+		Path:     "/invalid-cross-app-child",
+		Visible:  true,
+		Status:   model.RecordStatusEnabled,
+	}
+	if err := gormDB.WithContext(ctx).Create(&crossAppMenu).Error; err == nil {
+		t.Fatal("create cross-app child menu succeeded, want composite foreign-key violation")
+	}
+
+	elementWithoutPermission := model.Menu{
+		AppCode:  model.MenuAppAdminWeb,
+		ParentID: &menu.ID,
+		Type:     model.MenuTypeElement,
+		Name:     "Invalid Element Without Permission",
+		Status:   model.RecordStatusEnabled,
+	}
+	if err := gormDB.WithContext(ctx).Create(&elementWithoutPermission).Error; err == nil {
+		t.Fatal("create page element without permission succeeded, want check-constraint violation")
+	}
+
+	lowercaseMethodAPI := model.API{
+		ServiceName: "system-api",
+		Group:       "integration",
+		Name:        "Invalid Lowercase Method API",
+		Path:        "/integration/lowercase-method",
+		Method:      "get",
+		Status:      model.RecordStatusEnabled,
+	}
+	if err := gormDB.WithContext(ctx).Create(&lowercaseMethodAPI).Error; err == nil {
+		t.Fatal("create API resource with lowercase method succeeded, want check-constraint violation")
+	}
+
+	const insertCasbinPolicy = "INSERT INTO casbin_rule (ptype, v0, v1, v2) VALUES ($1, $2, $3, $4)"
+	if _, err := sqlDB.ExecContext(
+		ctx,
+		insertCasbinPolicy,
+		"p",
+		"r:1",
+		apiResource.Path,
+		apiResource.Method,
+	); err != nil {
+		t.Fatalf("insert Casbin policy through adapter-compatible schema: %v", err)
+	}
+	if _, err := sqlDB.ExecContext(
+		ctx,
+		insertCasbinPolicy,
+		"p",
+		"r:1",
+		apiResource.Path,
+		apiResource.Method,
+	); err == nil {
+		t.Fatal("insert duplicate Casbin policy succeeded, want unique-index violation")
 	}
 
 	userRole := model.UserRole{UserID: user.ID, RoleID: role.ID}
-	roleMenu := model.RoleMenu{RoleID: role.ID, MenuID: menu.ID}
+	roleMenus := []model.RoleMenu{
+		{RoleID: role.ID, MenuID: menu.ID},
+		{RoleID: role.ID, MenuID: element.ID},
+	}
 	loginLog := model.LoginLog{
 		UserID:    &user.ID,
 		Username:  user.Username,
@@ -173,8 +312,8 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 	if err := gormDB.WithContext(ctx).Create(&userRole).Error; err != nil {
 		t.Fatalf("create user-role relation through current GORM model: %v", err)
 	}
-	if err := gormDB.WithContext(ctx).Create(&roleMenu).Error; err != nil {
-		t.Fatalf("create role-menu relation through current GORM model: %v", err)
+	if err := gormDB.WithContext(ctx).Create(&roleMenus).Error; err != nil {
+		t.Fatalf("create role-menu relations through current GORM model: %v", err)
 	}
 	if err := gormDB.WithContext(ctx).Create(&loginLog).Error; err != nil {
 		t.Fatalf("create login log through current GORM model: %v", err)
@@ -193,8 +332,8 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 	if err := gormDB.WithContext(ctx).Model(&model.RoleMenu{}).Count(&relationCount).Error; err != nil {
 		t.Fatalf("query role-menu relation through current GORM model: %v", err)
 	}
-	if relationCount != 1 {
-		t.Fatalf("unexpected role-menu relation count: got %d, want 1", relationCount)
+	if relationCount != 2 {
+		t.Fatalf("unexpected role-menu relation count: got %d, want 2", relationCount)
 	}
 }
 
@@ -217,6 +356,55 @@ func assertTableExists(t testing.TB, ctx context.Context, db *sql.DB, table stri
 	}
 	if !exists {
 		t.Errorf("table %s does not exist", table)
+	}
+}
+
+func assertTableNotExists(t testing.TB, ctx context.Context, db *sql.DB, table string) {
+	t.Helper()
+
+	var exists bool
+	if err := db.QueryRowContext(ctx, "SELECT to_regclass($1) IS NOT NULL", table).Scan(&exists); err != nil {
+		t.Fatalf("check table %s: %v", table, err)
+	}
+	if exists {
+		t.Errorf("table %s exists, want it to be absent", table)
+	}
+}
+
+func assertColumnExists(t testing.TB, ctx context.Context, db *sql.DB, table, column string) {
+	t.Helper()
+	assertColumnPresence(t, ctx, db, table, column, true)
+}
+
+func assertColumnNotExists(t testing.TB, ctx context.Context, db *sql.DB, table, column string) {
+	t.Helper()
+	assertColumnPresence(t, ctx, db, table, column, false)
+}
+
+func assertColumnPresence(
+	t testing.TB,
+	ctx context.Context,
+	db *sql.DB,
+	table string,
+	column string,
+	want bool,
+) {
+	t.Helper()
+
+	var exists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = current_schema()
+			  AND table_name = $1
+			  AND column_name = $2
+		)
+	`, table, column).Scan(&exists); err != nil {
+		t.Fatalf("check column %s.%s: %v", table, column, err)
+	}
+	if exists != want {
+		t.Errorf("column %s.%s existence: got %t, want %t", table, column, exists, want)
 	}
 }
 

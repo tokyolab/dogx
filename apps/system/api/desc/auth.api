@@ -49,7 +49,7 @@ service system-api {
 service system-api {
 	@doc "Return the current signed-in user"
 	@handler currentUser
-	get /auth/me returns (CurrentUserResp)
+	post /auth/me returns (CurrentUserResp)
 
 	@doc "Revoke the current session"
 	@handler logout

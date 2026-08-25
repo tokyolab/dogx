@@ -10,6 +10,7 @@ DogX 将 `.api` 和 `.proto` 作为契约源文件，生成文件提交到 Git�
 - `desc/base.api` 只保存跨多个业务资源复用的基础类型。
 - 每个业务资源的类型、路由和 Handler 声明放在对应的 `desc/<resource>.api`。
 - 只对 `system.api` 运行生成命令，不单独生成任何契约片段。
+- 业务路由采用 `/resource/action` 风格并默认统一使用 `POST`，查询和列表也不例外；只有协议或工具生态明确要求时才使用 `GET` 等其他 Method。
 
 在仓库根目录执行：
 
