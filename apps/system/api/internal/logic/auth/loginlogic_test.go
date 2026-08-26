@@ -187,6 +187,64 @@ func TestProtectedLogicRejectsMissingIdentity(t *testing.T) {
 	}
 }
 
+func TestAuthAPILogicsReturnRPCErrors(t *testing.T) {
+	rpcErr := errors.New("system RPC unavailable")
+	svcCtx := &svc.ServiceContext{SystemRpc: &systemRPCStub{err: rpcErr}}
+	ctx := authenticatedTestContext()
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "refresh token",
+			call: func() error {
+				_, err := NewRefreshTokenLogic(ctx, svcCtx).RefreshToken(
+					&types.RefreshTokenReq{RefreshToken: "refresh-token"},
+				)
+				return err
+			},
+		},
+		{
+			name: "current user",
+			call: func() error {
+				_, err := NewCurrentUserLogic(ctx, svcCtx).CurrentUser()
+				return err
+			},
+		},
+		{
+			name: "logout",
+			call: func() error {
+				_, err := NewLogoutLogic(ctx, svcCtx).Logout()
+				return err
+			},
+		},
+		{
+			name: "logout all",
+			call: func() error {
+				_, err := NewLogoutAllLogic(ctx, svcCtx).LogoutAll()
+				return err
+			},
+		},
+		{
+			name: "change password",
+			call: func() error {
+				_, err := NewChangePasswordLogic(ctx, svcCtx).ChangePassword(&types.ChangePasswordReq{
+					CurrentPassword: "current-password",
+					NewPassword:     "new-secure-password",
+				})
+				return err
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.call(); !errors.Is(err, rpcErr) {
+				t.Fatalf("error = %v, want RPC failure", err)
+			}
+		})
+	}
+}
+
 func authenticatedTestContext() context.Context {
 	ctx := context.WithValue(context.Background(), "userId", int64(42))
 	return context.WithValue(ctx, "sessionId", "session-id")

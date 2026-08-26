@@ -2,11 +2,13 @@ package logic
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 
@@ -141,4 +143,86 @@ func TestSessionRevocationLogics(t *testing.T) {
 	); status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected ownership mismatch to be forbidden, got: %v", err)
 	}
+}
+
+func TestAuthenticationLogicsRejectInvalidInputAndPropagateDependencyFailures(t *testing.T) {
+	dependencyErr := errors.New("dependency unavailable")
+
+	t.Run("refresh dependency failure", func(t *testing.T) {
+		logic := NewRefreshCredentialsLogic(context.Background(), &svc.ServiceContext{
+			RefreshTokens: &credentialRefresherStub{err: dependencyErr},
+		})
+		_, err := logic.RefreshCredentials(&system.RefreshCredentialsRequest{RefreshToken: "refresh-token"})
+		if !errors.Is(err, dependencyErr) {
+			t.Fatalf("refresh error = %v, want dependency failure", err)
+		}
+	})
+
+	t.Run("current user invalid request", func(t *testing.T) {
+		_, err := NewGetCurrentUserLogic(context.Background(), &svc.ServiceContext{}).GetCurrentUser(nil)
+		if status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("current-user error = %v, want invalid argument", err)
+		}
+	})
+
+	t.Run("current user missing", func(t *testing.T) {
+		logic := NewGetCurrentUserLogic(context.Background(), &svc.ServiceContext{
+			UserRepo: &userRepositoryStub{findByIDErr: repository.ErrUserNotFound},
+		})
+		_, err := logic.GetCurrentUser(&system.CurrentUserRequest{UserId: 42})
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("missing-user error = %v, want unauthenticated", err)
+		}
+	})
+
+	t.Run("current user repository failure", func(t *testing.T) {
+		logic := NewGetCurrentUserLogic(context.Background(), &svc.ServiceContext{
+			UserRepo: &userRepositoryStub{findByIDErr: dependencyErr},
+		})
+		_, err := logic.GetCurrentUser(&system.CurrentUserRequest{UserId: 42})
+		if !errors.Is(err, dependencyErr) {
+			t.Fatalf("current-user error = %v, want dependency failure", err)
+		}
+	})
+
+	t.Run("disabled user revocation failure", func(t *testing.T) {
+		user := enabledUser()
+		user.Status = model.RecordStatusDisabled
+		logic := NewGetCurrentUserLogic(context.Background(), &svc.ServiceContext{
+			UserRepo: &userRepositoryStub{user: user},
+			Sessions: &sessionStoreLogicStub{revokeAllErr: dependencyErr},
+		})
+		_, err := logic.GetCurrentUser(&system.CurrentUserRequest{UserId: 42})
+		if !errors.Is(err, dependencyErr) {
+			t.Fatalf("disabled-user error = %v, want revocation failure", err)
+		}
+	})
+
+	t.Run("single-session invalid request and dependency failure", func(t *testing.T) {
+		logic := NewRevokeSessionLogic(context.Background(), &svc.ServiceContext{})
+		if _, err := logic.RevokeSession(nil); status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("invalid revoke error = %v, want invalid argument", err)
+		}
+		logic = NewRevokeSessionLogic(context.Background(), &svc.ServiceContext{
+			Sessions: &sessionStoreLogicStub{revokeErr: dependencyErr},
+		})
+		_, err := logic.RevokeSession(&system.RevokeSessionRequest{UserId: 42, SessionId: "session-id"})
+		if !errors.Is(err, dependencyErr) {
+			t.Fatalf("revoke error = %v, want dependency failure", err)
+		}
+	})
+
+	t.Run("all-sessions invalid request and dependency failure", func(t *testing.T) {
+		logic := NewRevokeUserSessionsLogic(context.Background(), &svc.ServiceContext{})
+		if _, err := logic.RevokeUserSessions(nil); status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("invalid revoke-all error = %v, want invalid argument", err)
+		}
+		logic = NewRevokeUserSessionsLogic(context.Background(), &svc.ServiceContext{
+			Sessions: &sessionStoreLogicStub{revokeAllErr: dependencyErr},
+		})
+		_, err := logic.RevokeUserSessions(&system.RevokeUserSessionsRequest{UserId: 42})
+		if !errors.Is(err, dependencyErr) {
+			t.Fatalf("revoke-all error = %v, want dependency failure", err)
+		}
+	})
 }

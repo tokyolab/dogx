@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 )
@@ -14,14 +15,15 @@ type redisSessionClientStub struct {
 	sets   map[string]map[string]struct{}
 	ttls   map[string]int
 
-	setexErr  error
-	getErr    error
-	delErr    error
-	saddErr   error
-	sremErr   error
-	scanErr   error
-	expireErr error
-	evalErr   error
+	setexErr   error
+	getErr     error
+	delErr     error
+	saddErr    error
+	sremErr    error
+	scanErr    error
+	expireErr  error
+	evalErr    error
+	evalResult *int64
 }
 
 func newRedisSessionClientStub() *redisSessionClientStub {
@@ -142,6 +144,13 @@ func (s *redisSessionClientStub) EvalCtx(
 ) (any, error) {
 	if s.evalErr != nil {
 		return nil, s.evalErr
+	}
+	if s.evalResult != nil {
+		result := *s.evalResult
+		if result <= 0 {
+			delete(s.values, keys[0])
+		}
+		return result, nil
 	}
 	value := s.values[keys[0]]
 	if value == "" {
@@ -293,6 +302,209 @@ func TestRedisSessionStoreRejectsInvalidInputAndPropagatesErrors(t *testing.T) {
 	client.setexErr = redisErr
 	if err := store.Create(context.Background(), validSession("id", 1), time.Minute); !errors.Is(err, redisErr) {
 		t.Fatalf("expected Redis error, got: %v", err)
+	}
+}
+
+func TestRedisSessionStoreCreateRollsBackPartialWrites(t *testing.T) {
+	redisErr := errors.New("redis unavailable")
+	tests := []struct {
+		name      string
+		configure func(*redisSessionClientStub)
+	}{
+		{
+			name: "user index write fails",
+			configure: func(client *redisSessionClientStub) {
+				client.saddErr = redisErr
+			},
+		},
+		{
+			name: "user index expiry fails",
+			configure: func(client *redisSessionClientStub) {
+				client.expireErr = redisErr
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := newRedisSessionClientStub()
+			test.configure(client)
+			store, _ := NewRedisSessionStore(client, "session", "users")
+
+			err := store.Create(context.Background(), validSession("session-id", 42), time.Hour)
+			if !errors.Is(err, redisErr) {
+				t.Fatalf("create error = %v, want Redis failure", err)
+			}
+			if _, exists := client.values["session:session-id"]; exists {
+				t.Fatal("partially created session was not removed")
+			}
+			if _, exists := client.sets["users:42"]["session-id"]; exists {
+				t.Fatal("partially created user session index was not removed")
+			}
+		})
+	}
+}
+
+func TestRedisSessionReaderRejectsCorruptOrMismatchedData(t *testing.T) {
+	client := newRedisSessionClientStub()
+	store, _ := NewRedisSessionStore(client, "session", "users")
+	client.values["session:session-id"] = "not-json"
+
+	if _, err := store.Get(context.Background(), "session-id"); err == nil ||
+		!strings.Contains(err.Error(), "decode session") {
+		t.Fatalf("corrupt stored session error = %v", err)
+	}
+
+	mismatched := validSession("different-id", 42)
+	encoded, err := json.Marshal(mismatched)
+	if err != nil {
+		t.Fatalf("encode mismatched session: %v", err)
+	}
+	client.values["session:session-id"] = string(encoded)
+	if _, err := store.Get(context.Background(), "session-id"); err == nil ||
+		!strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("mismatched stored session error = %v", err)
+	}
+}
+
+func TestRedisSessionStoreRotationCleansIndexAfterAtomicRace(t *testing.T) {
+	tests := []struct {
+		name   string
+		result int64
+		want   error
+	}{
+		{name: "refresh hash changed concurrently", result: -1, want: ErrRefreshTokenMismatch},
+		{name: "session disappeared concurrently", result: 0, want: ErrSessionNotFound},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := newRedisSessionClientStub()
+			client.evalResult = &test.result
+			store, _ := NewRedisSessionStore(client, "session", "users")
+			session := validSession("session-id", 42)
+			if err := store.Create(context.Background(), session, time.Hour); err != nil {
+				t.Fatalf("create session: %v", err)
+			}
+
+			_, err := store.RotateRefreshToken(
+				context.Background(),
+				session.ID,
+				session.RefreshTokenHash,
+				"next-hash",
+				session.ExpiresAt.Add(time.Hour),
+				2*time.Hour,
+			)
+			if !errors.Is(err, test.want) {
+				t.Fatalf("rotation error = %v, want %v", err, test.want)
+			}
+			if _, exists := client.sets["users:42"][session.ID]; exists {
+				t.Fatal("failed atomic rotation left a stale user session index")
+			}
+		})
+	}
+}
+
+func TestRedisSessionStorePropagatesRotationAndRevocationFailures(t *testing.T) {
+	redisErr := errors.New("redis unavailable")
+
+	t.Run("atomic rotation failure", func(t *testing.T) {
+		client := newRedisSessionClientStub()
+		store, _ := NewRedisSessionStore(client, "session", "users")
+		session := validSession("session-id", 42)
+		if err := store.Create(context.Background(), session, time.Hour); err != nil {
+			t.Fatalf("create session: %v", err)
+		}
+		client.evalErr = redisErr
+		_, err := store.RotateRefreshToken(
+			context.Background(),
+			session.ID,
+			session.RefreshTokenHash,
+			"next-hash",
+			session.ExpiresAt.Add(time.Hour),
+			2*time.Hour,
+		)
+		if !errors.Is(err, redisErr) {
+			t.Fatalf("rotation error = %v, want Redis failure", err)
+		}
+	})
+
+	t.Run("refresh reuse revocation failure", func(t *testing.T) {
+		client := newRedisSessionClientStub()
+		store, _ := NewRedisSessionStore(client, "session", "users")
+		session := validSession("session-id", 42)
+		if err := store.Create(context.Background(), session, time.Hour); err != nil {
+			t.Fatalf("create session: %v", err)
+		}
+		client.delErr = redisErr
+		_, err := store.RotateRefreshToken(
+			context.Background(),
+			session.ID,
+			"reused-old-hash",
+			"next-hash",
+			session.ExpiresAt.Add(time.Hour),
+			2*time.Hour,
+		)
+		if !errors.Is(err, redisErr) || !strings.Contains(err.Error(), "revoke session") {
+			t.Fatalf("reuse revocation error = %v, want Redis failure", err)
+		}
+	})
+
+	t.Run("session ownership mismatch", func(t *testing.T) {
+		client := newRedisSessionClientStub()
+		store, _ := NewRedisSessionStore(client, "session", "users")
+		session := validSession("session-id", 42)
+		if err := store.Create(context.Background(), session, time.Hour); err != nil {
+			t.Fatalf("create session: %v", err)
+		}
+		if err := store.Revoke(context.Background(), 7, session.ID); !errors.Is(err, ErrSessionUserMismatch) {
+			t.Fatalf("ownership error = %v, want %v", err, ErrSessionUserMismatch)
+		}
+		if _, exists := client.values["session:"+session.ID]; !exists {
+			t.Fatal("ownership mismatch deleted another user's session")
+		}
+	})
+}
+
+func TestRedisSessionStoreRevokeAllPropagatesScanAndDeleteFailures(t *testing.T) {
+	redisErr := errors.New("redis unavailable")
+	tests := []struct {
+		name      string
+		configure func(*redisSessionClientStub)
+		seed      bool
+	}{
+		{
+			name: "scan fails",
+			configure: func(client *redisSessionClientStub) {
+				client.scanErr = redisErr
+			},
+		},
+		{
+			name: "session batch delete fails",
+			seed: true,
+			configure: func(client *redisSessionClientStub) {
+				client.delErr = redisErr
+			},
+		},
+		{
+			name: "user index delete fails",
+			configure: func(client *redisSessionClientStub) {
+				client.delErr = redisErr
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := newRedisSessionClientStub()
+			store, _ := NewRedisSessionStore(client, "session", "users")
+			if test.seed {
+				if err := store.Create(context.Background(), validSession("session-id", 42), time.Hour); err != nil {
+					t.Fatalf("create session: %v", err)
+				}
+			}
+			test.configure(client)
+			if err := store.RevokeAll(context.Background(), 42); !errors.Is(err, redisErr) {
+				t.Fatalf("revoke-all error = %v, want Redis failure", err)
+			}
+		})
 	}
 }
 

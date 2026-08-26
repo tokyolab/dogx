@@ -53,11 +53,16 @@ func TestReplaceRoleAPIsValidatesAndMapsKnownErrors(t *testing.T) {
 		ReplaceRoleAPIs(nil); status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("unexpected nil request error: %v", err)
 	}
+	if _, err := NewReplaceRoleAPIsLogic(context.Background(), &svc.ServiceContext{}).
+		ReplaceRoleAPIs(&system.ReplaceRoleAPIsRequest{RoleId: 1}); err == nil {
+		t.Fatal("expected missing role policy service to be rejected")
+	}
 
 	tests := []struct {
 		name string
 		err  error
 	}{
+		{name: "invalid role id", err: authorization.ErrInvalidRoleID},
 		{name: "role unavailable", err: authorization.ErrRoleUnavailable},
 		{name: "API unavailable", err: authorization.ErrAPIUnavailable},
 		{name: "storage unavailable", err: errors.New("postgres unavailable")},

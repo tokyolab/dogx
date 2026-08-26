@@ -4,6 +4,7 @@ package authorization
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -133,6 +134,54 @@ func TestRolePolicyServicePersistsOnlyTargetDifferenceAndRequiredAPIs(t *testing
 	}
 	if unchanged.Changed() || notifier.calls.Load() != 2 {
 		t.Fatalf("unchanged policy generated writes or notification: result=%+v notifications=%d", unchanged, notifier.calls.Load())
+	}
+}
+
+func TestRolePolicyServiceRejectsUnavailableResourcesAndKeepsRequiredAPIs(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	role, resources := seedAuthorizationResources(t, db)
+	notifier := &notifierStub{}
+	service, err := NewRolePolicyService(db, notifier)
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID+1000000, nil); !errors.Is(err, ErrRoleUnavailable) {
+		t.Fatalf("missing role error = %v, want %v", err, ErrRoleUnavailable)
+	}
+	if err := db.Model(&role).Update("status", model.RecordStatusDisabled).Error; err != nil {
+		t.Fatalf("disable role: %v", err)
+	}
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, nil); !errors.Is(err, ErrRoleUnavailable) {
+		t.Fatalf("disabled role error = %v, want %v", err, ErrRoleUnavailable)
+	}
+	if err := db.Model(&role).Update("status", model.RecordStatusEnabled).Error; err != nil {
+		t.Fatalf("enable role: %v", err)
+	}
+
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{resources["a"].ID + 1000000}); !errors.Is(err, ErrAPIUnavailable) {
+		t.Fatalf("missing API error = %v, want %v", err, ErrAPIUnavailable)
+	}
+	disabledAPI := resources["a"]
+	if err := db.Model(&disabledAPI).Update("status", model.RecordStatusDisabled).Error; err != nil {
+		t.Fatalf("disable API: %v", err)
+	}
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{disabledAPI.ID}); !errors.Is(err, ErrAPIUnavailable) {
+		t.Fatalf("disabled API error = %v, want %v", err, ErrAPIUnavailable)
+	}
+
+	result, err := service.ReplaceRoleAPIs(ctx, role.ID, nil)
+	if err != nil {
+		t.Fatalf("persist required-only role policy: %v", err)
+	}
+	if result.Added != 1 || result.Removed != 0 || notifier.calls.Load() != 1 {
+		t.Fatalf("unexpected required-only result: result=%+v notifications=%d", result, notifier.calls.Load())
+	}
+	rules := loadRoleRules(t, db, role.ID)
+	if len(rules) != 1 || rules[0].V1 != "/required" || rules[0].V2 != "POST" {
+		t.Fatalf("unexpected required-only role policies: %+v", rules)
 	}
 }
 

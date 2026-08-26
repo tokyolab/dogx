@@ -154,3 +154,56 @@ func TestChangePasswordReportsUpdateFailureAfterRevocation(t *testing.T) {
 		t.Fatalf("unexpected update failure: err=%v revoked=%d", err, sessions.revokedUserID)
 	}
 }
+
+func TestChangePasswordPropagatesAuthenticationDependencyFailures(t *testing.T) {
+	dependencyErr := errors.New("dependency unavailable")
+	request := &system.ChangePasswordRequest{
+		UserId:          42,
+		CurrentPassword: "current-password",
+		NewPassword:     "new-secure-password",
+	}
+	tests := []struct {
+		name   string
+		svcCtx *svc.ServiceContext
+	}{
+		{
+			name: "load user",
+			svcCtx: &svc.ServiceContext{
+				UserRepo: &userRepositoryStub{findByIDErr: dependencyErr},
+			},
+		},
+		{
+			name: "revoke disabled user",
+			svcCtx: func() *svc.ServiceContext {
+				user := enabledUser()
+				user.Status = model.RecordStatusDisabled
+				return &svc.ServiceContext{
+					UserRepo: &userRepositoryStub{user: user},
+					Sessions: &sessionStoreLogicStub{revokeAllErr: dependencyErr},
+				}
+			}(),
+		},
+		{
+			name: "verify current password",
+			svcCtx: &svc.ServiceContext{
+				UserRepo:  &userRepositoryStub{user: enabledUser()},
+				Passwords: &passwordVerifierStub{err: dependencyErr},
+			},
+		},
+		{
+			name: "hash new password",
+			svcCtx: &svc.ServiceContext{
+				UserRepo:  &userRepositoryStub{user: enabledUser()},
+				Passwords: &passwordVerifierStub{hashErr: dependencyErr},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := NewChangePasswordLogic(context.Background(), test.svcCtx).ChangePassword(request)
+			if !errors.Is(err, dependencyErr) {
+				t.Fatalf("error = %v, want dependency failure", err)
+			}
+		})
+	}
+}
