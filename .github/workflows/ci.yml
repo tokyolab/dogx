@@ -132,7 +132,7 @@ jobs:
       - name: Test service wiring, migrations and repositories
         run: |
           mkdir -p coverage
-          go test -tags=integration -shuffle=on -count=1 -timeout=2m -covermode=atomic -coverprofile=coverage/integration.txt ./apps/system/internal/... ./apps/system/rpc/internal/...
+          go test -tags=integration -shuffle=on -count=1 -timeout=2m -covermode=atomic -coverprofile=coverage/integration.txt ./apps/system/api/internal/... ./apps/system/internal/... ./apps/system/rpc/internal/...
 
       - name: Upload integration coverage to Codecov
         uses: codecov/codecov-action@v7
