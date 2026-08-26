@@ -6,6 +6,7 @@ package handler
 import (
 	"net/http"
 
+	api "github.com/tokyolab/dogx/apps/system/api/internal/handler/api"
 	auth "github.com/tokyolab/dogx/apps/system/api/internal/handler/auth"
 	health "github.com/tokyolab/dogx/apps/system/api/internal/handler/health"
 	role "github.com/tokyolab/dogx/apps/system/api/internal/handler/role"
@@ -15,6 +16,21 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					// List API authorization resources
+					Method:  http.MethodPost,
+					Path:    "/api/list",
+					Handler: api.ListAPIsHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+	)
+
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -87,10 +103,28 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
 			[]rest.Route{
 				{
+					// Get API authorizations assigned to a role
+					Method:  http.MethodPost,
+					Path:    "/role/api/get",
+					Handler: role.GetRoleAPIsHandler(serverCtx),
+				},
+				{
 					// Replace the complete API authorization set for a role
 					Method:  http.MethodPost,
 					Path:    "/role/api/update",
 					Handler: role.UpdateRoleAPIsHandler(serverCtx),
+				},
+				{
+					// Get a role
+					Method:  http.MethodPost,
+					Path:    "/role/get",
+					Handler: role.GetRoleHandler(serverCtx),
+				},
+				{
+					// List roles
+					Method:  http.MethodPost,
+					Path:    "/role/list",
+					Handler: role.ListRolesHandler(serverCtx),
 				},
 			}...,
 		),

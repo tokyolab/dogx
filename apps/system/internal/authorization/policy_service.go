@@ -28,6 +28,7 @@ func (r ReplaceResult) Changed() bool {
 }
 
 type RolePolicyService struct {
+	db       *gorm.DB
 	adapter  *gormadapter.Adapter
 	notifier PolicyNotifier
 }
@@ -40,7 +41,34 @@ func NewRolePolicyService(db *gorm.DB, notifier PolicyNotifier) (*RolePolicyServ
 	if err != nil {
 		return nil, err
 	}
-	return &RolePolicyService{adapter: adapter, notifier: notifier}, nil
+	return &RolePolicyService{db: db, adapter: adapter, notifier: notifier}, nil
+}
+
+func (s *RolePolicyService) ListRoleAPIIDs(ctx context.Context, roleID int64) ([]int64, error) {
+	if ctx == nil {
+		return nil, errors.New("list role API ids context is nil")
+	}
+	subject, err := RoleSubject(roleID)
+	if err != nil {
+		return nil, err
+	}
+
+	apiIDs := make([]int64, 0)
+	if err := s.db.WithContext(ctx).
+		Model(&model.API{}).
+		Distinct("sys_api.id").
+		Joins(`
+			JOIN casbin_rule
+			  ON casbin_rule.ptype = 'p'
+			 AND casbin_rule.v0 = ?
+			 AND casbin_rule.v1 = sys_api.path
+			 AND casbin_rule.v2 = sys_api.method
+		`, subject).
+		Order("sys_api.id ASC").
+		Pluck("sys_api.id", &apiIDs).Error; err != nil {
+		return nil, fmt.Errorf("list role API ids: %w", err)
+	}
+	return apiIDs, nil
 }
 
 func (s *RolePolicyService) ReplaceRoleAPIs(

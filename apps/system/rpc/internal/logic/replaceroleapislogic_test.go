@@ -13,10 +13,17 @@ import (
 )
 
 type rolePolicyWriterStub struct {
-	roleID int64
-	apiIDs []int64
-	result authorization.ReplaceResult
-	err    error
+	roleID  int64
+	apiIDs  []int64
+	result  authorization.ReplaceResult
+	err     error
+	listed  []int64
+	listErr error
+}
+
+func (s *rolePolicyWriterStub) ListRoleAPIIDs(_ context.Context, roleID int64) ([]int64, error) {
+	s.roleID = roleID
+	return append([]int64(nil), s.listed...), s.listErr
 }
 
 func (s *rolePolicyWriterStub) ReplaceRoleAPIs(

@@ -59,6 +59,66 @@ message ReplaceRoleAPIsRequest {
   repeated int64 api_ids = 2;
 }
 
+message ListRolesRequest {
+  int64 page = 1;
+  int64 page_size = 2;
+  string keyword = 3;
+}
+
+message RoleInfo {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  string description = 4;
+  int32 sort = 5;
+  int32 status = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message ListRolesResponse {
+  repeated RoleInfo items = 1;
+  int64 total = 2;
+}
+
+message GetRoleRequest {
+  int64 id = 1;
+}
+
+message GetRoleResponse {
+  RoleInfo role = 1;
+}
+
+message ListAPIsRequest {
+  string keyword = 1;
+  string service_name = 2;
+  string api_group = 3;
+}
+
+message APIInfo {
+  int64 id = 1;
+  string service_name = 2;
+  string api_group = 3;
+  string name = 4;
+  string path = 5;
+  string method = 6;
+  bool is_required = 7;
+  int32 status = 8;
+  string remark = 9;
+}
+
+message ListAPIsResponse {
+  repeated APIInfo items = 1;
+}
+
+message GetRoleAPIsRequest {
+  int64 role_id = 1;
+}
+
+message GetRoleAPIsResponse {
+  repeated int64 api_ids = 1;
+}
+
 service System {
   rpc CheckReady(ReadyRequest) returns (ReadyResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
@@ -67,5 +127,9 @@ service System {
   rpc RevokeSession(RevokeSessionRequest) returns (EmptyResponse);
   rpc RevokeUserSessions(RevokeUserSessionsRequest) returns (EmptyResponse);
   rpc ChangePassword(ChangePasswordRequest) returns (EmptyResponse);
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+  rpc GetRole(GetRoleRequest) returns (GetRoleResponse);
+  rpc ListAPIs(ListAPIsRequest) returns (ListAPIsResponse);
+  rpc GetRoleAPIs(GetRoleAPIsRequest) returns (GetRoleAPIsResponse);
   rpc ReplaceRoleAPIs(ReplaceRoleAPIsRequest) returns (EmptyResponse);
 }

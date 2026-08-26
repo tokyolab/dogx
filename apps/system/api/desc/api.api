@@ -1,0 +1,36 @@
+import "base.api"
+
+type (
+	APIListReq {
+		Keyword     string `json:"keyword,optional"`
+		ServiceName string `json:"serviceName,optional"`
+		Group       string `json:"group,optional"`
+	}
+
+	APIItem {
+		Id          int64  `json:"id"`
+		ServiceName string `json:"serviceName"`
+		Group       string `json:"group"`
+		Name        string `json:"name"`
+		Path        string `json:"path"`
+		Method      string `json:"method"`
+		IsRequired  bool   `json:"isRequired"`
+		Status      int64  `json:"status"`
+		Remark      string `json:"remark"`
+	}
+
+	APIListResp {
+		Items []APIItem `json:"items"`
+	}
+)
+
+@server (
+	group:      api
+	jwt:        Auth
+	middleware: SessionAuth, Authorization
+)
+service system-api {
+	@doc "List API authorization resources"
+	@handler listAPIs
+	post /api/list (APIListReq) returns (APIListResp)
+}

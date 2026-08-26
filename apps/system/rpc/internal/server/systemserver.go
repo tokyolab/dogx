@@ -58,6 +58,26 @@ func (s *SystemServer) ChangePassword(ctx context.Context, in *system.ChangePass
 	return l.ChangePassword(in)
 }
 
+func (s *SystemServer) ListRoles(ctx context.Context, in *system.ListRolesRequest) (*system.ListRolesResponse, error) {
+	l := logic.NewListRolesLogic(ctx, s.svcCtx)
+	return l.ListRoles(in)
+}
+
+func (s *SystemServer) GetRole(ctx context.Context, in *system.GetRoleRequest) (*system.GetRoleResponse, error) {
+	l := logic.NewGetRoleLogic(ctx, s.svcCtx)
+	return l.GetRole(in)
+}
+
+func (s *SystemServer) ListAPIs(ctx context.Context, in *system.ListAPIsRequest) (*system.ListAPIsResponse, error) {
+	l := logic.NewListAPIsLogic(ctx, s.svcCtx)
+	return l.ListAPIs(in)
+}
+
+func (s *SystemServer) GetRoleAPIs(ctx context.Context, in *system.GetRoleAPIsRequest) (*system.GetRoleAPIsResponse, error) {
+	l := logic.NewGetRoleAPIsLogic(ctx, s.svcCtx)
+	return l.GetRoleAPIs(in)
+}
+
 func (s *SystemServer) ReplaceRoleAPIs(ctx context.Context, in *system.ReplaceRoleAPIsRequest) (*system.EmptyResponse, error) {
 	l := logic.NewReplaceRoleAPIsLogic(ctx, s.svcCtx)
 	return l.ReplaceRoleAPIs(in)

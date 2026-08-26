@@ -5,6 +5,7 @@ package authorization
 import (
 	"context"
 	"errors"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -134,6 +135,57 @@ func TestRolePolicyServicePersistsOnlyTargetDifferenceAndRequiredAPIs(t *testing
 	}
 	if unchanged.Changed() || notifier.calls.Load() != 2 {
 		t.Fatalf("unchanged policy generated writes or notification: result=%+v notifications=%d", unchanged, notifier.calls.Load())
+	}
+}
+
+func TestRolePolicyServiceListsAssignedAPIIDs(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	role, resources := seedAuthorizationResources(t, db)
+	service, err := NewRolePolicyService(db, &notifierStub{})
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{
+		resources["a"].ID,
+		resources["b"].ID,
+	}); err != nil {
+		t.Fatalf("write role policies: %v", err)
+	}
+
+	apiIDs, err := service.ListRoleAPIIDs(ctx, role.ID)
+	if err != nil {
+		t.Fatalf("list role API ids: %v", err)
+	}
+	want := []int64{resources["a"].ID, resources["b"].ID, resources["required"].ID}
+	sort.Slice(want, func(i, j int) bool { return want[i] < want[j] })
+	if len(apiIDs) != len(want) {
+		t.Fatalf("unexpected role API ids: got %v, want %v", apiIDs, want)
+	}
+	for index := range want {
+		if apiIDs[index] != want[index] {
+			t.Fatalf("unexpected role API ids: got %v, want %v", apiIDs, want)
+		}
+	}
+
+	disabled := resources["a"]
+	if err := db.Model(&disabled).Update("status", model.RecordStatusDisabled).Error; err != nil {
+		t.Fatalf("disable assigned API: %v", err)
+	}
+	deleted := resources["b"]
+	if err := db.Delete(&deleted).Error; err != nil {
+		t.Fatalf("soft delete assigned API: %v", err)
+	}
+	apiIDs, err = service.ListRoleAPIIDs(ctx, role.ID)
+	if err != nil {
+		t.Fatalf("list role API ids after resource state changes: %v", err)
+	}
+	want = []int64{resources["a"].ID, resources["required"].ID}
+	sort.Slice(want, func(i, j int) bool { return want[i] < want[j] })
+	if len(apiIDs) != len(want) || apiIDs[0] != want[0] || apiIDs[1] != want[1] {
+		t.Fatalf("unexpected API ids after resource state changes: got %v, want %v", apiIDs, want)
 	}
 }
 

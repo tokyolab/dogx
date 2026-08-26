@@ -3,6 +3,28 @@
 
 package types
 
+type APIItem struct {
+	Id          int64  `json:"id"`
+	ServiceName string `json:"serviceName"`
+	Group       string `json:"group"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Method      string `json:"method"`
+	IsRequired  bool   `json:"isRequired"`
+	Status      int64  `json:"status"`
+	Remark      string `json:"remark"`
+}
+
+type APIListReq struct {
+	Keyword     string `json:"keyword,optional"`
+	ServiceName string `json:"serviceName,optional"`
+	Group       string `json:"group,optional"`
+}
+
+type APIListResp struct {
+	Items []APIItem `json:"items"`
+}
+
 type ChangePasswordReq struct {
 	CurrentPassword string `json:"currentPassword"`
 	NewPassword     string `json:"newPassword"`
@@ -15,6 +37,14 @@ type CurrentUserResp struct {
 }
 
 type EmptyResp struct {
+}
+
+type GetRoleAPIsReq struct {
+	RoleId int64 `json:"roleId"`
+}
+
+type GetRoleAPIsResp struct {
+	ApiIds []int64 `json:"apiIds"`
 }
 
 type HealthResp struct {
@@ -57,6 +87,28 @@ type ReadyResp struct {
 
 type RefreshTokenReq struct {
 	RefreshToken string `json:"refreshToken"`
+}
+
+type RoleItem struct {
+	Id          int64  `json:"id"`
+	Code        string `json:"code"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Sort        int64  `json:"sort"`
+	Status      int64  `json:"status"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+type RoleListReq struct {
+	Page     int64  `json:"page"`
+	PageSize int64  `json:"pageSize"`
+	Keyword  string `json:"keyword,optional"`
+}
+
+type RoleListResp struct {
+	Items []RoleItem `json:"items"`
+	Total int64      `json:"total"`
 }
 
 type UpdateRoleAPIsReq struct {

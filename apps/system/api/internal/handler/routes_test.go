@@ -53,8 +53,13 @@ func (s *routeEnforcerStub) BatchEnforce(requests [][]interface{}) ([]bool, erro
 
 type routeSystemRPCStub struct {
 	systemclient.System
-	order   *[]string
-	request *systemclient.ReplaceRoleAPIsRequest
+	order              *[]string
+	called             string
+	request            *systemclient.ReplaceRoleAPIsRequest
+	listRolesRequest   *systemclient.ListRolesRequest
+	getRoleRequest     *systemclient.GetRoleRequest
+	listAPIsRequest    *systemclient.ListAPIsRequest
+	getRoleAPIsRequest *systemclient.GetRoleAPIsRequest
 }
 
 func (s *routeSystemRPCStub) ReplaceRoleAPIs(
@@ -63,24 +68,138 @@ func (s *routeSystemRPCStub) ReplaceRoleAPIs(
 	_ ...grpc.CallOption,
 ) (*systemclient.EmptyResponse, error) {
 	*s.order = append(*s.order, "rpc")
+	s.called = "ReplaceRoleAPIs"
 	s.request = request
 	return &systemclient.EmptyResponse{}, nil
 }
 
-func TestRegisteredRoleRouteRequiresJWTBeforeSessionLookup(t *testing.T) {
-	order := []string{}
-	sessions := &routeSessionReaderStub{order: &order}
-	enforcer := &routeEnforcerStub{order: &order}
-	rpc := &routeSystemRPCStub{order: &order}
-	server := newRouteTestServer(t, sessions, enforcer, rpc)
+func (s *routeSystemRPCStub) ListRoles(
+	_ context.Context,
+	request *systemclient.ListRolesRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.ListRolesResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "ListRoles"
+	s.listRolesRequest = request
+	return &systemclient.ListRolesResponse{
+		Items: []*systemclient.RoleInfo{{Id: 7, Code: "operator", Name: "Operator"}},
+		Total: 1,
+	}, nil
+}
 
-	request := newRoleRouteRequest(t, "")
-	recorder := httptest.NewRecorder()
-	server.Serve(recorder, request)
+func (s *routeSystemRPCStub) GetRole(
+	_ context.Context,
+	request *systemclient.GetRoleRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.GetRoleResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "GetRole"
+	s.getRoleRequest = request
+	return &systemclient.GetRoleResponse{
+		Role: &systemclient.RoleInfo{Id: request.Id, Code: "operator", Name: "Operator"},
+	}, nil
+}
 
-	assertRouteResponseCode(t, recorder, http.StatusUnauthorized, http.StatusUnauthorized)
-	if len(order) != 0 || rpc.request != nil {
-		t.Fatalf("request without JWT reached protected dependencies: order=%v request=%+v", order, rpc.request)
+func (s *routeSystemRPCStub) ListAPIs(
+	_ context.Context,
+	request *systemclient.ListAPIsRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.ListAPIsResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "ListAPIs"
+	s.listAPIsRequest = request
+	return &systemclient.ListAPIsResponse{
+		Items: []*systemclient.APIInfo{{
+			Id:          11,
+			ServiceName: "system-api",
+			ApiGroup:    "角色管理",
+			Name:        "查询角色",
+			Path:        "/role/get",
+			Method:      http.MethodPost,
+			Status:      1,
+		}},
+	}, nil
+}
+
+func (s *routeSystemRPCStub) GetRoleAPIs(
+	_ context.Context,
+	request *systemclient.GetRoleAPIsRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.GetRoleAPIsResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "GetRoleAPIs"
+	s.getRoleAPIsRequest = request
+	return &systemclient.GetRoleAPIsResponse{ApiIds: []int64{11, 12}}, nil
+}
+
+type routeSecurityLevel int
+
+const (
+	routePublic routeSecurityLevel = iota
+	routeAuthenticated
+	routeAuthorized
+)
+
+type routeSecurityCase struct {
+	name         string
+	method       string
+	path         string
+	body         string
+	level        routeSecurityLevel
+	publicStatus int
+	rpcMethod    string
+}
+
+var routeSecurityMatrix = []routeSecurityCase{
+	{name: "login", method: http.MethodPost, path: "/auth/login", body: `{"username":`, level: routePublic, publicStatus: http.StatusBadRequest},
+	{name: "refresh", method: http.MethodPost, path: "/auth/refresh", body: `{"refreshToken":`, level: routePublic, publicStatus: http.StatusBadRequest},
+	{name: "health", method: http.MethodGet, path: "/health", level: routePublic, publicStatus: http.StatusOK},
+	{name: "ready", method: http.MethodGet, path: "/ready", level: routePublic, publicStatus: http.StatusServiceUnavailable},
+	{name: "current user", method: http.MethodPost, path: "/auth/me", level: routeAuthenticated},
+	{name: "logout", method: http.MethodPost, path: "/auth/logout", level: routeAuthenticated},
+	{name: "logout all", method: http.MethodPost, path: "/auth/logout-all", level: routeAuthenticated},
+	{name: "change password", method: http.MethodPost, path: "/auth/change-password", body: `{}`, level: routeAuthenticated},
+	{name: "API list", method: http.MethodPost, path: "/api/list", body: `{}`, level: routeAuthorized, rpcMethod: "ListAPIs"},
+	{name: "role list", method: http.MethodPost, path: "/role/list", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListRoles"},
+	{name: "role get", method: http.MethodPost, path: "/role/get", body: `{"id":9}`, level: routeAuthorized, rpcMethod: "GetRole"},
+	{name: "role API get", method: http.MethodPost, path: "/role/api/get", body: `{"roleId":9}`, level: routeAuthorized, rpcMethod: "GetRoleAPIs"},
+	{name: "role API update", method: http.MethodPost, path: "/role/api/update", body: `{"roleId":9,"apiIds":[11,12]}`, level: routeAuthorized, rpcMethod: "ReplaceRoleAPIs"},
+}
+
+func TestRegisteredRoutesRespectSecurityMatrix(t *testing.T) {
+	for _, test := range routeSecurityMatrix {
+		t.Run(test.name, func(t *testing.T) {
+			order := []string{}
+			rpc := &routeSystemRPCStub{order: &order}
+			server := newRouteTestServer(
+				t,
+				validRouteSessionReader(&order),
+				&routeEnforcerStub{order: &order},
+				rpc,
+			)
+			recorder := httptest.NewRecorder()
+			server.Serve(recorder, newSecurityRouteRequest(test, ""))
+
+			if test.level == routePublic {
+				if recorder.Code != test.publicStatus {
+					t.Fatalf(
+						"public route status = %d, want %d body=%s",
+						recorder.Code,
+						test.publicStatus,
+						recorder.Body.String(),
+					)
+				}
+			} else {
+				assertRouteResponseCode(t, recorder, http.StatusUnauthorized, http.StatusUnauthorized)
+			}
+			if len(order) != 0 || rpc.request != nil {
+				t.Fatalf(
+					"unauthenticated route reached protected dependencies: order=%v request=%+v",
+					order,
+					rpc.request,
+				)
+			}
+		})
 	}
 }
 
@@ -101,45 +220,76 @@ func TestRegisteredRoleRouteChecksSessionBeforeAuthorization(t *testing.T) {
 	}
 }
 
-func TestRegisteredRoleRouteRejectsUnauthorizedRoleBeforeRPC(t *testing.T) {
-	order := []string{}
-	sessions := validRouteSessionReader(&order)
-	enforcer := &routeEnforcerStub{order: &order, allowed: false}
-	rpc := &routeSystemRPCStub{order: &order}
-	server := newRouteTestServer(t, sessions, enforcer, rpc)
+func TestAuthorizedRoutesRejectDeniedRoleBeforeRPC(t *testing.T) {
+	for _, test := range routeSecurityMatrix {
+		if test.level != routeAuthorized {
+			continue
+		}
+		t.Run(test.name, func(t *testing.T) {
+			order := []string{}
+			enforcer := &routeEnforcerStub{order: &order, allowed: false}
+			rpc := &routeSystemRPCStub{order: &order}
+			server := newRouteTestServer(t, validRouteSessionReader(&order), enforcer, rpc)
+			recorder := httptest.NewRecorder()
+			server.Serve(
+				recorder,
+				newSecurityRouteRequest(
+					test,
+					signedRouteToken(t, 42, "session-id", []int64{7}),
+				),
+			)
 
-	request := newRoleRouteRequest(t, signedRouteToken(t, 42, "session-id", []int64{7}))
-	recorder := httptest.NewRecorder()
-	server.Serve(recorder, request)
-
-	assertRouteResponseCode(t, recorder, http.StatusForbidden, http.StatusForbidden)
-	if strings.Join(order, ",") != "session,authorization" || rpc.request != nil {
-		t.Fatalf("denied role reached RPC: order=%v request=%+v", order, rpc.request)
-	}
-	if len(enforcer.requests) != 1 || enforcer.requests[0][0] != "r:7" ||
-		enforcer.requests[0][1] != "/role/api/update" || enforcer.requests[0][2] != http.MethodPost {
-		t.Fatalf("unexpected authorization request: %v", enforcer.requests)
+			assertRouteResponseCode(t, recorder, http.StatusForbidden, http.StatusForbidden)
+			if strings.Join(order, ",") != "session,authorization" || rpc.request != nil {
+				t.Fatalf("denied role reached RPC: order=%v request=%+v", order, rpc.request)
+			}
+			if len(enforcer.requests) != 1 || enforcer.requests[0][0] != "r:7" ||
+				enforcer.requests[0][1] != test.path ||
+				enforcer.requests[0][2] != test.method {
+				t.Fatalf("unexpected authorization request: %v", enforcer.requests)
+			}
+		})
 	}
 }
 
-func TestRegisteredRoleRouteAllowsAuthorizedRole(t *testing.T) {
-	order := []string{}
-	sessions := validRouteSessionReader(&order)
-	enforcer := &routeEnforcerStub{order: &order, allowed: true}
-	rpc := &routeSystemRPCStub{order: &order}
-	server := newRouteTestServer(t, sessions, enforcer, rpc)
+func TestAuthorizedRoutesAllowAuthorizedRole(t *testing.T) {
+	for _, test := range routeSecurityMatrix {
+		if test.level != routeAuthorized {
+			continue
+		}
+		t.Run(test.name, func(t *testing.T) {
+			order := []string{}
+			rpc := &routeSystemRPCStub{order: &order}
+			server := newRouteTestServer(
+				t,
+				validRouteSessionReader(&order),
+				&routeEnforcerStub{order: &order, allowed: true},
+				rpc,
+			)
+			recorder := httptest.NewRecorder()
+			server.Serve(
+				recorder,
+				newSecurityRouteRequest(
+					test,
+					signedRouteToken(t, 42, "session-id", []int64{7}),
+				),
+			)
 
-	request := newRoleRouteRequest(t, signedRouteToken(t, 42, "session-id", []int64{7}))
-	recorder := httptest.NewRecorder()
-	server.Serve(recorder, request)
-
-	assertRouteResponseCode(t, recorder, http.StatusOK, commonresponse.SuccessCode)
-	if strings.Join(order, ",") != "session,authorization,rpc" {
-		t.Fatalf("unexpected protected route execution order: %v", order)
-	}
-	if rpc.request == nil || rpc.request.RoleId != 9 || len(rpc.request.ApiIds) != 2 ||
-		rpc.request.ApiIds[0] != 11 || rpc.request.ApiIds[1] != 12 {
-		t.Fatalf("unexpected role policy RPC request: %+v", rpc.request)
+			assertRouteResponseCode(t, recorder, http.StatusOK, commonresponse.SuccessCode)
+			if strings.Join(order, ",") != "session,authorization,rpc" {
+				t.Fatalf("unexpected protected route execution order: %v", order)
+			}
+			if rpc.called != test.rpcMethod {
+				t.Fatalf("called RPC = %q, want %q", rpc.called, test.rpcMethod)
+			}
+			if test.rpcMethod == "ReplaceRoleAPIs" &&
+				(rpc.request == nil || rpc.request.RoleId != 9 ||
+					len(rpc.request.ApiIds) != 2 ||
+					rpc.request.ApiIds[0] != 11 ||
+					rpc.request.ApiIds[1] != 12) {
+				t.Fatalf("unexpected role policy RPC request: %+v", rpc.request)
+			}
+		})
 	}
 }
 
@@ -219,6 +369,17 @@ func newRoleRouteRequest(t testing.TB, token string) *http.Request {
 		strings.NewReader(`{"roleId":9,"apiIds":[11,12]}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	return request
+}
+
+func newSecurityRouteRequest(test routeSecurityCase, token string) *http.Request {
+	request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
+	if test.body != "" {
+		request.Header.Set("Content-Type", "application/json")
+	}
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
 	}

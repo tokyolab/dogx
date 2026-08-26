@@ -1,4 +1,5 @@
 import "desc/base.api"
 import "desc/auth.api"
+import "desc/api.api"
 import "desc/health.api"
 import "desc/role.api"

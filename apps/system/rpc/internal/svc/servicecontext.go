@@ -20,8 +20,9 @@ type ReadinessChecker interface {
 	Check(ctx context.Context) error
 }
 
-type RolePolicyWriter interface {
+type RolePolicyService interface {
 	ReplaceRoleAPIs(ctx context.Context, roleID int64, apiIDs []int64) (authorization.ReplaceResult, error)
+	ListRoleAPIIDs(ctx context.Context, roleID int64) ([]int64, error)
 }
 
 type ServiceContext struct {
@@ -29,12 +30,14 @@ type ServiceContext struct {
 	DB            *gorm.DB
 	Redis         *redis.Redis
 	UserRepo      repository.UserRepository
+	RoleRepo      repository.RoleRepository
+	APIRepo       repository.APIRepository
 	LoginLogRepo  repository.LoginLogRepository
 	Passwords     authn.PasswordHasher
 	Tokens        authn.CredentialIssuer
 	RefreshTokens authn.CredentialRefresher
 	Sessions      authn.SessionStore
-	RolePolicies  RolePolicyWriter
+	RolePolicies  RolePolicyService
 	Readiness     ReadinessChecker
 
 	policyPublisher authorization.PolicyWatcher
@@ -87,6 +90,11 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("initialize role repository: %w", err)
 	}
+	apiRepo, err := repository.NewAPIRepository(database)
+	if err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("initialize API repository: %w", err)
+	}
 	tokenIssuer, err := authn.NewTokenIssuer(authn.TokenConfig{
 		AccessSecret:  c.Authentication.AccessSecret,
 		AccessExpire:  c.Authentication.AccessExpire,
@@ -104,6 +112,8 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		DB:              database,
 		Redis:           redisClient,
 		UserRepo:        repository.NewUserRepository(database),
+		RoleRepo:        roleRepo,
+		APIRepo:         apiRepo,
 		LoginLogRepo:    repository.NewLoginLogRepository(database),
 		Passwords:       passwords,
 		Tokens:          tokenIssuer,

@@ -40,6 +40,12 @@ func TestNewServiceContextWiresDependencies(t *testing.T) {
 	if ctx.UserRepo == nil {
 		t.Error("user repository was not initialized")
 	}
+	if ctx.RoleRepo == nil {
+		t.Error("role repository was not initialized")
+	}
+	if ctx.APIRepo == nil {
+		t.Error("API repository was not initialized")
+	}
 	if ctx.LoginLogRepo == nil {
 		t.Error("login log repository was not initialized")
 	}

@@ -1,9 +1,41 @@
 import "base.api"
 
-type UpdateRoleAPIsReq {
-	RoleId int64   `json:"roleId"`
-	ApiIds []int64 `json:"apiIds"`
-}
+type (
+	RoleListReq {
+		Page     int64  `json:"page"`
+		PageSize int64  `json:"pageSize"`
+		Keyword  string `json:"keyword,optional"`
+	}
+
+	RoleItem {
+		Id          int64  `json:"id"`
+		Code        string `json:"code"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Sort        int64  `json:"sort"`
+		Status      int64  `json:"status"`
+		CreatedAt   string `json:"createdAt"`
+		UpdatedAt   string `json:"updatedAt"`
+	}
+
+	RoleListResp {
+		Items []RoleItem `json:"items"`
+		Total int64      `json:"total"`
+	}
+
+	GetRoleAPIsReq {
+		RoleId int64 `json:"roleId"`
+	}
+
+	GetRoleAPIsResp {
+		ApiIds []int64 `json:"apiIds"`
+	}
+
+	UpdateRoleAPIsReq {
+		RoleId int64   `json:"roleId"`
+		ApiIds []int64 `json:"apiIds"`
+	}
+)
 
 @server (
 	group:      role
@@ -11,6 +43,18 @@ type UpdateRoleAPIsReq {
 	middleware: SessionAuth, Authorization
 )
 service system-api {
+	@doc "List roles"
+	@handler listRoles
+	post /role/list (RoleListReq) returns (RoleListResp)
+
+	@doc "Get a role"
+	@handler getRole
+	post /role/get (IDReq) returns (RoleItem)
+
+	@doc "Get API authorizations assigned to a role"
+	@handler getRoleAPIs
+	post /role/api/get (GetRoleAPIsReq) returns (GetRoleAPIsResp)
+
 	@doc "Replace the complete API authorization set for a role"
 	@handler updateRoleAPIs
 	post /role/api/update (UpdateRoleAPIsReq) returns (EmptyResp)

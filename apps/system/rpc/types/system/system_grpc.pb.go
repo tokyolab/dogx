@@ -26,6 +26,10 @@ const (
 	System_RevokeSession_FullMethodName      = "/system.System/RevokeSession"
 	System_RevokeUserSessions_FullMethodName = "/system.System/RevokeUserSessions"
 	System_ChangePassword_FullMethodName     = "/system.System/ChangePassword"
+	System_ListRoles_FullMethodName          = "/system.System/ListRoles"
+	System_GetRole_FullMethodName            = "/system.System/GetRole"
+	System_ListAPIs_FullMethodName           = "/system.System/ListAPIs"
+	System_GetRoleAPIs_FullMethodName        = "/system.System/GetRoleAPIs"
 	System_ReplaceRoleAPIs_FullMethodName    = "/system.System/ReplaceRoleAPIs"
 )
 
@@ -40,6 +44,10 @@ type SystemClient interface {
 	RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error)
+	GetRole(ctx context.Context, in *GetRoleRequest, opts ...grpc.CallOption) (*GetRoleResponse, error)
+	ListAPIs(ctx context.Context, in *ListAPIsRequest, opts ...grpc.CallOption) (*ListAPIsResponse, error)
+	GetRoleAPIs(ctx context.Context, in *GetRoleAPIsRequest, opts ...grpc.CallOption) (*GetRoleAPIsResponse, error)
 	ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 }
 
@@ -121,6 +129,46 @@ func (c *systemClient) ChangePassword(ctx context.Context, in *ChangePasswordReq
 	return out, nil
 }
 
+func (c *systemClient) ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRolesResponse)
+	err := c.cc.Invoke(ctx, System_ListRoles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) GetRole(ctx context.Context, in *GetRoleRequest, opts ...grpc.CallOption) (*GetRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRoleResponse)
+	err := c.cc.Invoke(ctx, System_GetRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) ListAPIs(ctx context.Context, in *ListAPIsRequest, opts ...grpc.CallOption) (*ListAPIsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAPIsResponse)
+	err := c.cc.Invoke(ctx, System_ListAPIs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) GetRoleAPIs(ctx context.Context, in *GetRoleAPIsRequest, opts ...grpc.CallOption) (*GetRoleAPIsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRoleAPIsResponse)
+	err := c.cc.Invoke(ctx, System_GetRoleAPIs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *systemClient) ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(EmptyResponse)
@@ -142,6 +190,10 @@ type SystemServer interface {
 	RevokeSession(context.Context, *RevokeSessionRequest) (*EmptyResponse, error)
 	RevokeUserSessions(context.Context, *RevokeUserSessionsRequest) (*EmptyResponse, error)
 	ChangePassword(context.Context, *ChangePasswordRequest) (*EmptyResponse, error)
+	ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error)
+	GetRole(context.Context, *GetRoleRequest) (*GetRoleResponse, error)
+	ListAPIs(context.Context, *ListAPIsRequest) (*ListAPIsResponse, error)
+	GetRoleAPIs(context.Context, *GetRoleAPIsRequest) (*GetRoleAPIsResponse, error)
 	ReplaceRoleAPIs(context.Context, *ReplaceRoleAPIsRequest) (*EmptyResponse, error)
 	mustEmbedUnimplementedSystemServer()
 }
@@ -173,6 +225,18 @@ func (UnimplementedSystemServer) RevokeUserSessions(context.Context, *RevokeUser
 }
 func (UnimplementedSystemServer) ChangePassword(context.Context, *ChangePasswordRequest) (*EmptyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ChangePassword not implemented")
+}
+func (UnimplementedSystemServer) ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRoles not implemented")
+}
+func (UnimplementedSystemServer) GetRole(context.Context, *GetRoleRequest) (*GetRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRole not implemented")
+}
+func (UnimplementedSystemServer) ListAPIs(context.Context, *ListAPIsRequest) (*ListAPIsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAPIs not implemented")
+}
+func (UnimplementedSystemServer) GetRoleAPIs(context.Context, *GetRoleAPIsRequest) (*GetRoleAPIsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRoleAPIs not implemented")
 }
 func (UnimplementedSystemServer) ReplaceRoleAPIs(context.Context, *ReplaceRoleAPIsRequest) (*EmptyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReplaceRoleAPIs not implemented")
@@ -324,6 +388,78 @@ func _System_ChangePassword_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _System_ListRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRolesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ListRoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ListRoles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ListRoles(ctx, req.(*ListRolesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_GetRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).GetRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_GetRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).GetRole(ctx, req.(*GetRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_ListAPIs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAPIsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ListAPIs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ListAPIs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ListAPIs(ctx, req.(*ListAPIsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_GetRoleAPIs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRoleAPIsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).GetRoleAPIs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_GetRoleAPIs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).GetRoleAPIs(ctx, req.(*GetRoleAPIsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _System_ReplaceRoleAPIs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ReplaceRoleAPIsRequest)
 	if err := dec(in); err != nil {
@@ -376,6 +512,22 @@ var System_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ChangePassword",
 			Handler:    _System_ChangePassword_Handler,
+		},
+		{
+			MethodName: "ListRoles",
+			Handler:    _System_ListRoles_Handler,
+		},
+		{
+			MethodName: "GetRole",
+			Handler:    _System_GetRole_Handler,
+		},
+		{
+			MethodName: "ListAPIs",
+			Handler:    _System_ListAPIs_Handler,
+		},
+		{
+			MethodName: "GetRoleAPIs",
+			Handler:    _System_GetRoleAPIs_Handler,
 		},
 		{
 			MethodName: "ReplaceRoleAPIs",

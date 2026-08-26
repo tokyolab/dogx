@@ -14,10 +14,19 @@ import (
 )
 
 type (
+	APIInfo                   = system.APIInfo
 	ChangePasswordRequest     = system.ChangePasswordRequest
 	CurrentUserRequest        = system.CurrentUserRequest
 	CurrentUserResponse       = system.CurrentUserResponse
 	EmptyResponse             = system.EmptyResponse
+	GetRoleAPIsRequest        = system.GetRoleAPIsRequest
+	GetRoleAPIsResponse       = system.GetRoleAPIsResponse
+	GetRoleRequest            = system.GetRoleRequest
+	GetRoleResponse           = system.GetRoleResponse
+	ListAPIsRequest           = system.ListAPIsRequest
+	ListAPIsResponse          = system.ListAPIsResponse
+	ListRolesRequest          = system.ListRolesRequest
+	ListRolesResponse         = system.ListRolesResponse
 	LoginRequest              = system.LoginRequest
 	LoginResponse             = system.LoginResponse
 	ReadyRequest              = system.ReadyRequest
@@ -26,6 +35,7 @@ type (
 	ReplaceRoleAPIsRequest    = system.ReplaceRoleAPIsRequest
 	RevokeSessionRequest      = system.RevokeSessionRequest
 	RevokeUserSessionsRequest = system.RevokeUserSessionsRequest
+	RoleInfo                  = system.RoleInfo
 
 	System interface {
 		CheckReady(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error)
@@ -35,6 +45,10 @@ type (
 		RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error)
+		GetRole(ctx context.Context, in *GetRoleRequest, opts ...grpc.CallOption) (*GetRoleResponse, error)
+		ListAPIs(ctx context.Context, in *ListAPIsRequest, opts ...grpc.CallOption) (*ListAPIsResponse, error)
+		GetRoleAPIs(ctx context.Context, in *GetRoleAPIsRequest, opts ...grpc.CallOption) (*GetRoleAPIsResponse, error)
 		ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	}
 
@@ -82,6 +96,26 @@ func (m *defaultSystem) RevokeUserSessions(ctx context.Context, in *RevokeUserSe
 func (m *defaultSystem) ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
 	client := system.NewSystemClient(m.cli.Conn())
 	return client.ChangePassword(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ListRoles(ctx, in, opts...)
+}
+
+func (m *defaultSystem) GetRole(ctx context.Context, in *GetRoleRequest, opts ...grpc.CallOption) (*GetRoleResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.GetRole(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ListAPIs(ctx context.Context, in *ListAPIsRequest, opts ...grpc.CallOption) (*ListAPIsResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ListAPIs(ctx, in, opts...)
+}
+
+func (m *defaultSystem) GetRoleAPIs(ctx context.Context, in *GetRoleAPIsRequest, opts ...grpc.CallOption) (*GetRoleAPIsResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.GetRoleAPIs(ctx, in, opts...)
 }
 
 func (m *defaultSystem) ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
