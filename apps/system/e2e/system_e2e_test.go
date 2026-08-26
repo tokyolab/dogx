@@ -212,7 +212,7 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	})
 	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
 	statusCode, envelope = postJSON(t, client, baseURL+"/auth/me", roleCredentials.AccessToken, nil)
-	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, "unauthorized")
+	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, "authentication required")
 
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/status/update", credentials.AccessToken, map[string]any{
 		"id": createdRole.ID, "status": 1,
@@ -241,7 +241,7 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	})
 	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
 	statusCode, envelope = postJSON(t, client, baseURL+"/auth/me", roleCredentials.AccessToken, nil)
-	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, "unauthorized")
+	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, "authentication required")
 	assertRoleDeletionPersisted(t, gormDB, createdRole.ID)
 
 	updateRequest := map[string]any{"roleId": role.ID, "apiIds": []int64{}}
