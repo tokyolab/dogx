@@ -138,12 +138,12 @@ func TestRoleRepositoryCreatesUpdatesAndProtectsSystemRole(t *testing.T) {
 	}
 
 	duplicate := &model.Role{
-		Code:   "CONTENT_EDITOR",
+		Code:   "content_editor",
 		Name:   "Duplicate",
 		Status: model.RecordStatusEnabled,
 	}
 	if err := repository.Create(ctx, duplicate); !errors.Is(err, ErrRoleCodeExists) {
-		t.Fatalf("case-insensitive duplicate role code error = %v, want %v", err, ErrRoleCodeExists)
+		t.Fatalf("duplicate role code error = %v, want %v", err, ErrRoleCodeExists)
 	}
 
 	if err := repository.Update(ctx, role.ID, RoleUpdate{

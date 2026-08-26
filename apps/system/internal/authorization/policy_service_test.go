@@ -40,4 +40,21 @@ func TestNewTransactionQueryDBClearsAdapterTableScope(t *testing.T) {
 	if !strings.Contains(query, `FROM "sys_role"`) || strings.Contains(query, `FROM "casbin_rule"`) {
 		t.Fatalf("query retained Casbin Adapter table scope: %s", query)
 	}
+
+	var userIDs []int64
+	relationStatement := queryDB.
+		Model(&model.UserRole{}).
+		Where("role_id = ?", int64(1)).
+		Order("user_id ASC").
+		Pluck("user_id", &userIDs).
+		Statement
+	relationQuery := relationStatement.SQL.String()
+	if relationStatement.Table != (model.UserRole{}).TableName() {
+		t.Fatalf("second query table = %q, want %q", relationStatement.Table, (model.UserRole{}).TableName())
+	}
+	if !strings.Contains(relationQuery, `FROM "sys_user_role"`) ||
+		strings.Contains(relationQuery, `FROM "sys_role"`) ||
+		strings.Contains(relationQuery, `FROM "casbin_rule"`) {
+		t.Fatalf("second query retained a previous table scope: %s", relationQuery)
+	}
 }

@@ -311,9 +311,8 @@ func revokeRoleUserSessions(
 // from their models.
 func newTransactionQueryDB(adapterDB *gorm.DB, ctx context.Context) *gorm.DB {
 	return adapterDB.Session(&gorm.Session{
-		Context:     ctx,
-		Initialized: true,
-		NewDB:       true,
+		Context: ctx,
+		NewDB:   true,
 	})
 }
 
