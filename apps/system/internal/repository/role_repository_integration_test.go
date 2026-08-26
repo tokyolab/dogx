@@ -113,3 +113,76 @@ func TestRoleRepositoryListsPagesAndEscapesKeywordWildcards(t *testing.T) {
 		t.Fatalf("soft-deleted role error = %v, want %v", err, ErrRoleNotFound)
 	}
 }
+
+func TestRoleRepositoryCreatesUpdatesAndProtectsSystemRole(t *testing.T) {
+	_, db := newPostgreSQLUserRepository(t)
+	repository, err := NewRoleRepository(db)
+	if err != nil {
+		t.Fatalf("create role repository: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	role := &model.Role{
+		Code:        "content_editor",
+		Name:        "Content Editor",
+		Description: "Creates content",
+		Sort:        20,
+		Status:      model.RecordStatusEnabled,
+	}
+	if err := repository.Create(ctx, role); err != nil {
+		t.Fatalf("create role: %v", err)
+	}
+	if role.ID <= 0 || role.IsSystem || role.CreatedAt.IsZero() || role.UpdatedAt.IsZero() {
+		t.Fatalf("unexpected created role: %+v", role)
+	}
+
+	duplicate := &model.Role{
+		Code:   "CONTENT_EDITOR",
+		Name:   "Duplicate",
+		Status: model.RecordStatusEnabled,
+	}
+	if err := repository.Create(ctx, duplicate); !errors.Is(err, ErrRoleCodeExists) {
+		t.Fatalf("case-insensitive duplicate role code error = %v, want %v", err, ErrRoleCodeExists)
+	}
+
+	if err := repository.Update(ctx, role.ID, RoleUpdate{
+		Code:        "content_reviewer",
+		Name:        "Content Reviewer",
+		Description: "Reviews content",
+		Sort:        10,
+	}); err != nil {
+		t.Fatalf("update role: %v", err)
+	}
+	updated, err := repository.FindByID(ctx, role.ID)
+	if err != nil {
+		t.Fatalf("load updated role: %v", err)
+	}
+	if updated.Code != "content_reviewer" || updated.Name != "Content Reviewer" ||
+		updated.Description != "Reviews content" || updated.Sort != 10 {
+		t.Fatalf("unexpected updated role: %+v", updated)
+	}
+
+	var systemRole model.Role
+	if err := db.WithContext(ctx).Where("code = ?", "super_admin").First(&systemRole).Error; err != nil {
+		t.Fatalf("load system role: %v", err)
+	}
+	if !systemRole.IsSystem {
+		t.Fatalf("seeded system role is not protected: %+v", systemRole)
+	}
+	if err := repository.Update(ctx, systemRole.ID, RoleUpdate{
+		Code: "renamed_super_admin",
+		Name: systemRole.Name,
+		Sort: systemRole.Sort,
+	}); !errors.Is(err, ErrSystemRoleProtected) {
+		t.Fatalf("system role code update error = %v, want %v", err, ErrSystemRoleProtected)
+	}
+	if err := repository.Update(ctx, systemRole.ID, RoleUpdate{
+		Code:        systemRole.Code,
+		Name:        "平台超级管理员",
+		Description: systemRole.Description,
+		Sort:        systemRole.Sort,
+	}); err != nil {
+		t.Fatalf("update allowed system role metadata: %v", err)
+	}
+}

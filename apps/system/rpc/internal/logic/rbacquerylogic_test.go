@@ -70,6 +70,7 @@ func TestListRolesReturnsPageAndStableContract(t *testing.T) {
 			Description: "Operations role",
 			Sort:        12,
 			Status:      model.RecordStatusDisabled,
+			IsSystem:    true,
 		}},
 		total: 3,
 	}
@@ -91,6 +92,7 @@ func TestListRolesReturnsPageAndStableContract(t *testing.T) {
 	if response.Total != 3 || len(response.Items) != 1 ||
 		response.Items[0].Id != 7 ||
 		response.Items[0].Status != int32(model.RecordStatusDisabled) ||
+		!response.Items[0].IsSystem ||
 		response.Items[0].CreatedAt != createdAt.Format(time.RFC3339Nano) {
 		t.Fatalf("unexpected role list response: %+v", response)
 	}

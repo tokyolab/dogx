@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
+	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"google.golang.org/grpc/codes"
@@ -13,12 +14,15 @@ import (
 )
 
 type rolePolicyWriterStub struct {
-	roleID  int64
-	apiIDs  []int64
-	result  authorization.ReplaceResult
-	err     error
-	listed  []int64
-	listErr error
+	roleID       int64
+	apiIDs       []int64
+	result       authorization.ReplaceResult
+	err          error
+	listed       []int64
+	listErr      error
+	status       int32
+	deleted      bool
+	deleteResult authorization.DeleteRoleResult
 }
 
 func (s *rolePolicyWriterStub) ListRoleAPIIDs(_ context.Context, roleID int64) ([]int64, error) {
@@ -34,6 +38,27 @@ func (s *rolePolicyWriterStub) ReplaceRoleAPIs(
 	s.roleID = roleID
 	s.apiIDs = append([]int64(nil), apiIDs...)
 	return s.result, s.err
+}
+
+func (s *rolePolicyWriterStub) UpdateRoleStatus(
+	_ context.Context,
+	roleID int64,
+	roleStatus model.RecordStatus,
+	_ authorization.UserSessionRevoker,
+) error {
+	s.roleID = roleID
+	s.status = int32(roleStatus)
+	return s.err
+}
+
+func (s *rolePolicyWriterStub) DeleteRole(
+	_ context.Context,
+	roleID int64,
+	_ authorization.UserSessionRevoker,
+) (authorization.DeleteRoleResult, error) {
+	s.roleID = roleID
+	s.deleted = true
+	return s.deleteResult, s.err
 }
 
 func TestReplaceRoleAPIsDelegatesCompleteTargetSet(t *testing.T) {

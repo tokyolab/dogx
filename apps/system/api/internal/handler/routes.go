@@ -115,6 +115,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: role.UpdateRoleAPIsHandler(serverCtx),
 				},
 				{
+					// Create a role
+					Method:  http.MethodPost,
+					Path:    "/role/create",
+					Handler: role.CreateRoleHandler(serverCtx),
+				},
+				{
+					// Delete a role
+					Method:  http.MethodPost,
+					Path:    "/role/delete",
+					Handler: role.DeleteRoleHandler(serverCtx),
+				},
+				{
 					// Get a role
 					Method:  http.MethodPost,
 					Path:    "/role/get",
@@ -125,6 +137,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/role/list",
 					Handler: role.ListRolesHandler(serverCtx),
+				},
+				{
+					// Enable or disable a role
+					Method:  http.MethodPost,
+					Path:    "/role/status/update",
+					Handler: role.UpdateRoleStatusHandler(serverCtx),
+				},
+				{
+					// Update role metadata
+					Method:  http.MethodPost,
+					Path:    "/role/update",
+					Handler: role.UpdateRoleHandler(serverCtx),
 				},
 			}...,
 		),

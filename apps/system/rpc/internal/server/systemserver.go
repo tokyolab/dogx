@@ -58,6 +58,11 @@ func (s *SystemServer) ChangePassword(ctx context.Context, in *system.ChangePass
 	return l.ChangePassword(in)
 }
 
+func (s *SystemServer) CreateRole(ctx context.Context, in *system.CreateRoleRequest) (*system.CreateRoleResponse, error) {
+	l := logic.NewCreateRoleLogic(ctx, s.svcCtx)
+	return l.CreateRole(in)
+}
+
 func (s *SystemServer) ListRoles(ctx context.Context, in *system.ListRolesRequest) (*system.ListRolesResponse, error) {
 	l := logic.NewListRolesLogic(ctx, s.svcCtx)
 	return l.ListRoles(in)
@@ -66,6 +71,21 @@ func (s *SystemServer) ListRoles(ctx context.Context, in *system.ListRolesReques
 func (s *SystemServer) GetRole(ctx context.Context, in *system.GetRoleRequest) (*system.GetRoleResponse, error) {
 	l := logic.NewGetRoleLogic(ctx, s.svcCtx)
 	return l.GetRole(in)
+}
+
+func (s *SystemServer) UpdateRole(ctx context.Context, in *system.UpdateRoleRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateRoleLogic(ctx, s.svcCtx)
+	return l.UpdateRole(in)
+}
+
+func (s *SystemServer) UpdateRoleStatus(ctx context.Context, in *system.UpdateRoleStatusRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateRoleStatusLogic(ctx, s.svcCtx)
+	return l.UpdateRoleStatus(in)
+}
+
+func (s *SystemServer) DeleteRole(ctx context.Context, in *system.DeleteRoleRequest) (*system.EmptyResponse, error) {
+	l := logic.NewDeleteRoleLogic(ctx, s.svcCtx)
+	return l.DeleteRole(in)
 }
 
 func (s *SystemServer) ListAPIs(ctx context.Context, in *system.ListAPIsRequest) (*system.ListAPIsResponse, error) {

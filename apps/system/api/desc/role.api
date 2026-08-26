@@ -14,8 +14,34 @@ type (
 		Description string `json:"description"`
 		Sort        int64  `json:"sort"`
 		Status      int64  `json:"status"`
+		IsSystem    bool   `json:"isSystem"`
 		CreatedAt   string `json:"createdAt"`
 		UpdatedAt   string `json:"updatedAt"`
+	}
+
+	CreateRoleReq {
+		Code        string `json:"code"`
+		Name        string `json:"name"`
+		Description string `json:"description,optional"`
+		Sort        int64  `json:"sort"`
+		Status      int64  `json:"status"`
+	}
+
+	CreateRoleResp {
+		Id int64 `json:"id"`
+	}
+
+	UpdateRoleReq {
+		Id          int64  `json:"id"`
+		Code        string `json:"code"`
+		Name        string `json:"name"`
+		Description string `json:"description,optional"`
+		Sort        int64  `json:"sort"`
+	}
+
+	UpdateRoleStatusReq {
+		Id     int64 `json:"id"`
+		Status int64 `json:"status"`
 	}
 
 	RoleListResp {
@@ -43,6 +69,10 @@ type (
 	middleware: SessionAuth, Authorization
 )
 service system-api {
+	@doc "Create a role"
+	@handler createRole
+	post /role/create (CreateRoleReq) returns (CreateRoleResp)
+
 	@doc "List roles"
 	@handler listRoles
 	post /role/list (RoleListReq) returns (RoleListResp)
@@ -50,6 +80,18 @@ service system-api {
 	@doc "Get a role"
 	@handler getRole
 	post /role/get (IDReq) returns (RoleItem)
+
+	@doc "Update role metadata"
+	@handler updateRole
+	post /role/update (UpdateRoleReq) returns (EmptyResp)
+
+	@doc "Enable or disable a role"
+	@handler updateRoleStatus
+	post /role/status/update (UpdateRoleStatusReq) returns (EmptyResp)
+
+	@doc "Delete a role"
+	@handler deleteRole
+	post /role/delete (IDReq) returns (EmptyResp)
 
 	@doc "Get API authorizations assigned to a role"
 	@handler getRoleAPIs

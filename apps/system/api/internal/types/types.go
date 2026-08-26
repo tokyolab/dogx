@@ -30,6 +30,18 @@ type ChangePasswordReq struct {
 	NewPassword     string `json:"newPassword"`
 }
 
+type CreateRoleReq struct {
+	Code        string `json:"code"`
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
+	Sort        int64  `json:"sort"`
+	Status      int64  `json:"status"`
+}
+
+type CreateRoleResp struct {
+	Id int64 `json:"id"`
+}
+
 type CurrentUserResp struct {
 	Id       int64  `json:"id"`
 	Username string `json:"username"`
@@ -96,6 +108,7 @@ type RoleItem struct {
 	Description string `json:"description"`
 	Sort        int64  `json:"sort"`
 	Status      int64  `json:"status"`
+	IsSystem    bool   `json:"isSystem"`
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`
 }
@@ -114,4 +127,17 @@ type RoleListResp struct {
 type UpdateRoleAPIsReq struct {
 	RoleId int64   `json:"roleId"`
 	ApiIds []int64 `json:"apiIds"`
+}
+
+type UpdateRoleReq struct {
+	Id          int64  `json:"id"`
+	Code        string `json:"code"`
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
+	Sort        int64  `json:"sort"`
+}
+
+type UpdateRoleStatusReq struct {
+	Id     int64 `json:"id"`
+	Status int64 `json:"status"`
 }

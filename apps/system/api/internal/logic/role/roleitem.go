@@ -16,6 +16,7 @@ func toRoleItem(role *systemclient.RoleInfo) *types.RoleItem {
 		Description: role.Description,
 		Sort:        int64(role.Sort),
 		Status:      int64(role.Status),
+		IsSystem:    role.IsSystem,
 		CreatedAt:   role.CreatedAt,
 		UpdatedAt:   role.UpdatedAt,
 	}

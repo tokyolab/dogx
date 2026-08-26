@@ -60,6 +60,7 @@ func TestListRolesCallsSystemRPCAndMapsResponse(t *testing.T) {
 			Description: "Operations role",
 			Sort:        3,
 			Status:      1,
+			IsSystem:    true,
 			CreatedAt:   "2026-08-26T01:02:03Z",
 			UpdatedAt:   "2026-08-26T01:03:03Z",
 		}},
@@ -76,7 +77,7 @@ func TestListRolesCallsSystemRPCAndMapsResponse(t *testing.T) {
 		t.Fatalf("unexpected role list RPC request: %+v", rpc.listRequest)
 	}
 	if response.Total != 2 || len(response.Items) != 1 ||
-		response.Items[0].Id != 7 || response.Items[0].Sort != 3 {
+		response.Items[0].Id != 7 || response.Items[0].Sort != 3 || !response.Items[0].IsSystem {
 		t.Fatalf("unexpected role list response: %+v", response)
 	}
 }

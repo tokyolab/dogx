@@ -62,6 +62,46 @@ type routeSystemRPCStub struct {
 	getRoleAPIsRequest *systemclient.GetRoleAPIsRequest
 }
 
+func (s *routeSystemRPCStub) CreateRole(
+	_ context.Context,
+	_ *systemclient.CreateRoleRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.CreateRoleResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "CreateRole"
+	return &systemclient.CreateRoleResponse{Id: 13}, nil
+}
+
+func (s *routeSystemRPCStub) UpdateRole(
+	_ context.Context,
+	_ *systemclient.UpdateRoleRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "UpdateRole"
+	return &systemclient.EmptyResponse{}, nil
+}
+
+func (s *routeSystemRPCStub) UpdateRoleStatus(
+	_ context.Context,
+	_ *systemclient.UpdateRoleStatusRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "UpdateRoleStatus"
+	return &systemclient.EmptyResponse{}, nil
+}
+
+func (s *routeSystemRPCStub) DeleteRole(
+	_ context.Context,
+	_ *systemclient.DeleteRoleRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "DeleteRole"
+	return &systemclient.EmptyResponse{}, nil
+}
+
 func (s *routeSystemRPCStub) ReplaceRoleAPIs(
 	_ context.Context,
 	request *systemclient.ReplaceRoleAPIsRequest,
@@ -160,8 +200,12 @@ var routeSecurityMatrix = []routeSecurityCase{
 	{name: "logout all", method: http.MethodPost, path: "/auth/logout-all", level: routeAuthenticated},
 	{name: "change password", method: http.MethodPost, path: "/auth/change-password", body: `{}`, level: routeAuthenticated},
 	{name: "API list", method: http.MethodPost, path: "/api/list", body: `{}`, level: routeAuthorized, rpcMethod: "ListAPIs"},
+	{name: "role create", method: http.MethodPost, path: "/role/create", body: `{"code":"operator","name":"Operator","sort":10,"status":1}`, level: routeAuthorized, rpcMethod: "CreateRole"},
 	{name: "role list", method: http.MethodPost, path: "/role/list", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListRoles"},
 	{name: "role get", method: http.MethodPost, path: "/role/get", body: `{"id":9}`, level: routeAuthorized, rpcMethod: "GetRole"},
+	{name: "role update", method: http.MethodPost, path: "/role/update", body: `{"id":9,"code":"operator","name":"Operator","sort":10}`, level: routeAuthorized, rpcMethod: "UpdateRole"},
+	{name: "role status update", method: http.MethodPost, path: "/role/status/update", body: `{"id":9,"status":0}`, level: routeAuthorized, rpcMethod: "UpdateRoleStatus"},
+	{name: "role delete", method: http.MethodPost, path: "/role/delete", body: `{"id":9}`, level: routeAuthorized, rpcMethod: "DeleteRole"},
 	{name: "role API get", method: http.MethodPost, path: "/role/api/get", body: `{"roleId":9}`, level: routeAuthorized, rpcMethod: "GetRoleAPIs"},
 	{name: "role API update", method: http.MethodPost, path: "/role/api/update", body: `{"roleId":9,"apiIds":[11,12]}`, level: routeAuthorized, rpcMethod: "ReplaceRoleAPIs"},
 }

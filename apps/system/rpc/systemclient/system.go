@@ -16,8 +16,11 @@ import (
 type (
 	APIInfo                   = system.APIInfo
 	ChangePasswordRequest     = system.ChangePasswordRequest
+	CreateRoleRequest         = system.CreateRoleRequest
+	CreateRoleResponse        = system.CreateRoleResponse
 	CurrentUserRequest        = system.CurrentUserRequest
 	CurrentUserResponse       = system.CurrentUserResponse
+	DeleteRoleRequest         = system.DeleteRoleRequest
 	EmptyResponse             = system.EmptyResponse
 	GetRoleAPIsRequest        = system.GetRoleAPIsRequest
 	GetRoleAPIsResponse       = system.GetRoleAPIsResponse
@@ -36,6 +39,8 @@ type (
 	RevokeSessionRequest      = system.RevokeSessionRequest
 	RevokeUserSessionsRequest = system.RevokeUserSessionsRequest
 	RoleInfo                  = system.RoleInfo
+	UpdateRoleRequest         = system.UpdateRoleRequest
+	UpdateRoleStatusRequest   = system.UpdateRoleStatusRequest
 
 	System interface {
 		CheckReady(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error)
@@ -45,8 +50,12 @@ type (
 		RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		CreateRole(ctx context.Context, in *CreateRoleRequest, opts ...grpc.CallOption) (*CreateRoleResponse, error)
 		ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error)
 		GetRole(ctx context.Context, in *GetRoleRequest, opts ...grpc.CallOption) (*GetRoleResponse, error)
+		UpdateRole(ctx context.Context, in *UpdateRoleRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		UpdateRoleStatus(ctx context.Context, in *UpdateRoleStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		ListAPIs(ctx context.Context, in *ListAPIsRequest, opts ...grpc.CallOption) (*ListAPIsResponse, error)
 		GetRoleAPIs(ctx context.Context, in *GetRoleAPIsRequest, opts ...grpc.CallOption) (*GetRoleAPIsResponse, error)
 		ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
@@ -98,6 +107,11 @@ func (m *defaultSystem) ChangePassword(ctx context.Context, in *ChangePasswordRe
 	return client.ChangePassword(ctx, in, opts...)
 }
 
+func (m *defaultSystem) CreateRole(ctx context.Context, in *CreateRoleRequest, opts ...grpc.CallOption) (*CreateRoleResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.CreateRole(ctx, in, opts...)
+}
+
 func (m *defaultSystem) ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error) {
 	client := system.NewSystemClient(m.cli.Conn())
 	return client.ListRoles(ctx, in, opts...)
@@ -106,6 +120,21 @@ func (m *defaultSystem) ListRoles(ctx context.Context, in *ListRolesRequest, opt
 func (m *defaultSystem) GetRole(ctx context.Context, in *GetRoleRequest, opts ...grpc.CallOption) (*GetRoleResponse, error) {
 	client := system.NewSystemClient(m.cli.Conn())
 	return client.GetRole(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateRole(ctx context.Context, in *UpdateRoleRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateRole(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateRoleStatus(ctx context.Context, in *UpdateRoleStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateRoleStatus(ctx, in, opts...)
+}
+
+func (m *defaultSystem) DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.DeleteRole(ctx, in, opts...)
 }
 
 func (m *defaultSystem) ListAPIs(ctx context.Context, in *ListAPIsRequest, opts ...grpc.CallOption) (*ListAPIsResponse, error) {

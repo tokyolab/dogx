@@ -24,7 +24,47 @@ type roleHandlerSystemRPCStub struct {
 	listRequest    *systemclient.ListRolesRequest
 	getRequest     *systemclient.GetRoleRequest
 	getAPIsRequest *systemclient.GetRoleAPIsRequest
+	createRequest  *systemclient.CreateRoleRequest
+	updateRequest  *systemclient.UpdateRoleRequest
+	statusRequest  *systemclient.UpdateRoleStatusRequest
+	deleteRequest  *systemclient.DeleteRoleRequest
 	err            error
+}
+
+func (s *roleHandlerSystemRPCStub) CreateRole(
+	_ context.Context,
+	request *systemclient.CreateRoleRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.CreateRoleResponse, error) {
+	s.createRequest = request
+	return &systemclient.CreateRoleResponse{Id: 17}, s.err
+}
+
+func (s *roleHandlerSystemRPCStub) UpdateRole(
+	_ context.Context,
+	request *systemclient.UpdateRoleRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.EmptyResponse, error) {
+	s.updateRequest = request
+	return &systemclient.EmptyResponse{}, s.err
+}
+
+func (s *roleHandlerSystemRPCStub) UpdateRoleStatus(
+	_ context.Context,
+	request *systemclient.UpdateRoleStatusRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.EmptyResponse, error) {
+	s.statusRequest = request
+	return &systemclient.EmptyResponse{}, s.err
+}
+
+func (s *roleHandlerSystemRPCStub) DeleteRole(
+	_ context.Context,
+	request *systemclient.DeleteRoleRequest,
+	_ ...grpc.CallOption,
+) (*systemclient.EmptyResponse, error) {
+	s.deleteRequest = request
+	return &systemclient.EmptyResponse{}, s.err
 }
 
 func (s *roleHandlerSystemRPCStub) ReplaceRoleAPIs(
@@ -231,6 +271,101 @@ func TestRoleQueryHandlersRejectInvalidJSON(t *testing.T) {
 					recorder.Code,
 					recorder.Body.String(),
 				)
+			}
+		})
+	}
+}
+
+func TestRoleMutationHandlersCoverSuccessParseAndLogicErrors(t *testing.T) {
+	setRoleResponseHandlers(t)
+	tests := []struct {
+		name    string
+		path    string
+		body    string
+		handler func(*svc.ServiceContext) http.HandlerFunc
+		assert  func(*testing.T, *roleHandlerSystemRPCStub)
+	}{
+		{
+			name: "create", path: "/role/create",
+			body:    `{"code":"operator","name":"Operator","sort":10,"status":1}`,
+			handler: CreateRoleHandler,
+			assert: func(t *testing.T, rpc *roleHandlerSystemRPCStub) {
+				if rpc.createRequest == nil || rpc.createRequest.Code != "operator" {
+					t.Fatalf("unexpected create request: %+v", rpc.createRequest)
+				}
+			},
+		},
+		{
+			name: "update", path: "/role/update",
+			body:    `{"id":17,"code":"auditor","name":"Auditor","sort":20}`,
+			handler: UpdateRoleHandler,
+			assert: func(t *testing.T, rpc *roleHandlerSystemRPCStub) {
+				if rpc.updateRequest == nil || rpc.updateRequest.Id != 17 || rpc.updateRequest.Code != "auditor" {
+					t.Fatalf("unexpected update request: %+v", rpc.updateRequest)
+				}
+			},
+		},
+		{
+			name: "status", path: "/role/status/update", body: `{"id":17,"status":0}`,
+			handler: UpdateRoleStatusHandler,
+			assert: func(t *testing.T, rpc *roleHandlerSystemRPCStub) {
+				if rpc.statusRequest == nil || rpc.statusRequest.Id != 17 || rpc.statusRequest.Status != 0 {
+					t.Fatalf("unexpected status request: %+v", rpc.statusRequest)
+				}
+			},
+		},
+		{
+			name: "delete", path: "/role/delete", body: `{"id":17}`,
+			handler: DeleteRoleHandler,
+			assert: func(t *testing.T, rpc *roleHandlerSystemRPCStub) {
+				if rpc.deleteRequest == nil || rpc.deleteRequest.Id != 17 {
+					t.Fatalf("unexpected delete request: %+v", rpc.deleteRequest)
+				}
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name+" success", func(t *testing.T) {
+			rpc := &roleHandlerSystemRPCStub{}
+			recorder := httptest.NewRecorder()
+			test.handler(&svc.ServiceContext{SystemRpc: rpc}).ServeHTTP(
+				recorder,
+				newRoleHandlerRequest(test.path, test.body),
+			)
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("unexpected status: %d body=%s", recorder.Code, recorder.Body.String())
+			}
+			test.assert(t, rpc)
+		})
+
+		t.Run(test.name+" invalid JSON", func(t *testing.T) {
+			rpc := &roleHandlerSystemRPCStub{}
+			recorder := httptest.NewRecorder()
+			test.handler(&svc.ServiceContext{SystemRpc: rpc}).ServeHTTP(
+				recorder,
+				newRoleHandlerRequest(test.path, `{"invalid":`),
+			)
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("invalid JSON status: %d body=%s", recorder.Code, recorder.Body.String())
+			}
+		})
+
+		t.Run(test.name+" business error", func(t *testing.T) {
+			rpc := &roleHandlerSystemRPCStub{err: status.Error(codes.Code(bizerror.DefaultCode), "角色操作失败")}
+			recorder := httptest.NewRecorder()
+			test.handler(&svc.ServiceContext{SystemRpc: rpc}).ServeHTTP(
+				recorder,
+				newRoleHandlerRequest(test.path, test.body),
+			)
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("business error status: %d body=%s", recorder.Code, recorder.Body.String())
+			}
+			var response commonresponse.Body
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatalf("decode business error: %v", err)
+			}
+			if response.Code != bizerror.DefaultCode || response.Message != "角色操作失败" {
+				t.Fatalf("unexpected business error: %+v", response)
 			}
 		})
 	}

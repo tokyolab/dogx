@@ -74,6 +74,36 @@ message RoleInfo {
   int32 status = 6;
   string created_at = 7;
   string updated_at = 8;
+  bool is_system = 9;
+}
+
+message CreateRoleRequest {
+  string code = 1;
+  string name = 2;
+  string description = 3;
+  int32 sort = 4;
+  int32 status = 5;
+}
+
+message CreateRoleResponse {
+  int64 id = 1;
+}
+
+message UpdateRoleRequest {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  string description = 4;
+  int32 sort = 5;
+}
+
+message UpdateRoleStatusRequest {
+  int64 id = 1;
+  int32 status = 2;
+}
+
+message DeleteRoleRequest {
+  int64 id = 1;
 }
 
 message ListRolesResponse {
@@ -127,8 +157,12 @@ service System {
   rpc RevokeSession(RevokeSessionRequest) returns (EmptyResponse);
   rpc RevokeUserSessions(RevokeUserSessionsRequest) returns (EmptyResponse);
   rpc ChangePassword(ChangePasswordRequest) returns (EmptyResponse);
+  rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse);
   rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
   rpc GetRole(GetRoleRequest) returns (GetRoleResponse);
+  rpc UpdateRole(UpdateRoleRequest) returns (EmptyResponse);
+  rpc UpdateRoleStatus(UpdateRoleStatusRequest) returns (EmptyResponse);
+  rpc DeleteRole(DeleteRoleRequest) returns (EmptyResponse);
   rpc ListAPIs(ListAPIsRequest) returns (ListAPIsResponse);
   rpc GetRoleAPIs(GetRoleAPIsRequest) returns (GetRoleAPIsResponse);
   rpc ReplaceRoleAPIs(ReplaceRoleAPIsRequest) returns (EmptyResponse);

@@ -143,10 +143,11 @@ Repository 测试优先为每个用例开启事务，并在 `t.Cleanup` 中回�
 - 用户绑定角色后获得对应应用的页面菜单与页面元素权限。
 - 角色菜单权限与接口权限互不自动授予。
 - 权限策略变更后旧权限失效。
+- 角色新增、修改、停用和删除形成闭环；停用/删除撤销关联用户 Session，删除不残留关联数据或 Casbin 策略。
 
 端到端测试启动真实 API、RPC、PostgreSQL 和 Redis，通过公开 HTTP 接口观察结果，不直接读取业务内部变量。服务就绪通过健康检查判断，不使用固定 `time.Sleep` 猜测启动时间。
 
-跨进程端到端测试放在 `apps/system/e2e`，使用 `integration && e2e` 构建标签。CI 先从当前源码构建 API 和 RPC 二进制，再通过 `DOGX_E2E_API_BINARY`、`DOGX_E2E_RPC_BINARY` 指定测试进程；测试生成临时配置并为子进程设置隔离 Schema，不复用开发配置文件。当前基线验证登录、当前用户、Session，以及角色接口权限变更经 Redis Watcher 实时传播后旧 JWT 被拒绝。
+跨进程端到端测试放在 `apps/system/e2e`，使用 `integration && e2e` 构建标签。CI 先从当前源码构建 API 和 RPC 二进制，再通过 `DOGX_E2E_API_BINARY`、`DOGX_E2E_RPC_BINARY` 指定测试进程；测试生成临时配置并为子进程设置隔离 Schema，不复用开发配置文件。当前基线验证登录、当前用户、角色 CRUD、停用/删除角色后的 Session 撤销和数据清理，以及角色接口权限变更经 Redis Watcher 实时传播后旧 JWT 被拒绝。
 
 ## 测试目录
 

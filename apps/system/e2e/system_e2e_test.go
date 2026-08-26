@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/jackc/pgx/v5"
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
@@ -51,6 +52,20 @@ type currentUserData struct {
 	Nickname string `json:"nickname"`
 }
 
+type createdRoleData struct {
+	ID int64 `json:"id"`
+}
+
+type roleData struct {
+	ID          int64  `json:"id"`
+	Code        string `json:"code"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Sort        int64  `json:"sort"`
+	Status      int64  `json:"status"`
+	IsSystem    bool   `json:"isSystem"`
+}
+
 func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	rpcBinary := requiredBinary(t, "DOGX_E2E_RPC_BINARY")
 	apiBinary := requiredBinary(t, "DOGX_E2E_API_BINARY")
@@ -77,12 +92,16 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create end-to-end Redis client: %v", err)
 	}
-	var sessionID string
+	cleanupUserIDs := []int64{user.ID}
+	cleanupSessionIDs := make([]string, 0, 3)
 	t.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		keys := []string{userSessionsPrefix + ":" + strconv.FormatInt(user.ID, 10)}
-		if sessionID != "" {
+		keys := make([]string, 0, len(cleanupUserIDs)+len(cleanupSessionIDs))
+		for _, userID := range cleanupUserIDs {
+			keys = append(keys, userSessionsPrefix+":"+strconv.FormatInt(userID, 10))
+		}
+		for _, sessionID := range cleanupSessionIDs {
 			keys = append(keys, sessionPrefix+":"+sessionID)
 		}
 		if _, err := redisClient.DelCtx(cleanupCtx, keys...); err != nil {
@@ -130,10 +149,11 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	if credentials.AccessToken == "" || credentials.RefreshToken == "" || credentials.ExpiresIn <= 0 {
 		t.Fatalf("login returned incomplete credentials: %+v", credentials)
 	}
-	sessionID, _, _ = strings.Cut(credentials.RefreshToken, ".")
+	sessionID, _, _ := strings.Cut(credentials.RefreshToken, ".")
 	if sessionID == "" || sessionID == credentials.RefreshToken {
 		t.Fatal("login returned an invalid refresh token")
 	}
+	cleanupSessionIDs = append(cleanupSessionIDs, sessionID)
 
 	statusCode, envelope = postJSON(t, client, baseURL+"/auth/me", credentials.AccessToken, nil)
 	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
@@ -148,6 +168,81 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 			user.Nickname,
 		)
 	}
+
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/create", credentials.AccessToken, map[string]any{
+		"code": "e2e_operator", "name": "E2E Operator", "description": "end-to-end role", "sort": 20, "status": 1,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	var createdRole createdRoleData
+	decodeData(t, envelope, &createdRole)
+	if createdRole.ID <= 0 {
+		t.Fatalf("create role returned invalid id: %+v", createdRole)
+	}
+
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/update", credentials.AccessToken, map[string]any{
+		"id": createdRole.ID, "code": "e2e_auditor", "name": "E2E Auditor", "description": "updated role", "sort": 10,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/get", credentials.AccessToken, map[string]any{
+		"id": createdRole.ID,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	var loadedRole roleData
+	decodeData(t, envelope, &loadedRole)
+	if loadedRole.ID != createdRole.ID || loadedRole.Code != "e2e_auditor" ||
+		loadedRole.Name != "E2E Auditor" || loadedRole.Description != "updated role" ||
+		loadedRole.Sort != 10 || loadedRole.Status != 1 || loadedRole.IsSystem {
+		t.Fatalf("unexpected updated role: %+v", loadedRole)
+	}
+
+	roleUser := seedUserWithRole(t, gormDB, createdRole.ID, "dogx-e2e-role-user")
+	cleanupUserIDs = append(cleanupUserIDs, roleUser.ID)
+	statusCode, envelope = postJSON(t, client, baseURL+"/auth/login", "", map[string]any{
+		"username": roleUser.Username,
+		"password": e2ePassword,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	var roleCredentials loginData
+	decodeData(t, envelope, &roleCredentials)
+	roleSessionID, _, _ := strings.Cut(roleCredentials.RefreshToken, ".")
+	cleanupSessionIDs = append(cleanupSessionIDs, roleSessionID)
+
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/status/update", credentials.AccessToken, map[string]any{
+		"id": createdRole.ID, "status": 0,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	statusCode, envelope = postJSON(t, client, baseURL+"/auth/me", roleCredentials.AccessToken, nil)
+	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, "unauthorized")
+
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/status/update", credentials.AccessToken, map[string]any{
+		"id": createdRole.ID, "status": 1,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	statusCode, envelope = postJSON(t, client, baseURL+"/auth/login", "", map[string]any{
+		"username": roleUser.Username,
+		"password": e2ePassword,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	decodeData(t, envelope, &roleCredentials)
+	roleSessionID, _, _ = strings.Cut(roleCredentials.RefreshToken, ".")
+	cleanupSessionIDs = append(cleanupSessionIDs, roleSessionID)
+
+	var roleGetAPI model.API
+	if err := gormDB.Where("path = ? AND method = ?", "/role/get", http.MethodPost).
+		First(&roleGetAPI).Error; err != nil {
+		t.Fatalf("load role get API resource: %v", err)
+	}
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/api/update", credentials.AccessToken, map[string]any{
+		"roleId": createdRole.ID, "apiIds": []int64{roleGetAPI.ID},
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/delete", credentials.AccessToken, map[string]any{
+		"id": createdRole.ID,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	statusCode, envelope = postJSON(t, client, baseURL+"/auth/me", roleCredentials.AccessToken, nil)
+	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, "unauthorized")
+	assertRoleDeletionPersisted(t, gormDB, createdRole.ID)
 
 	updateRequest := map[string]any{"roleId": role.ID, "apiIds": []int64{}}
 	statusCode, envelope = postJSON(
@@ -167,6 +262,47 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 		updateRequest,
 		apiProcess,
 	)
+}
+
+func seedUserWithRole(t testing.TB, db *gorm.DB, roleID int64, username string) model.User {
+	t.Helper()
+	passwordHash, err := authn.NewArgon2id().Hash(e2ePassword)
+	if err != nil {
+		t.Fatalf("hash role user password: %v", err)
+	}
+	user := model.User{
+		Username: username, PasswordHash: passwordHash, Nickname: "DogX E2E Role User",
+		Status: model.RecordStatusEnabled,
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create role user: %v", err)
+	}
+	if err := db.Create(&model.UserRole{UserID: user.ID, RoleID: roleID}).Error; err != nil {
+		t.Fatalf("bind role user: %v", err)
+	}
+	return user
+}
+
+func assertRoleDeletionPersisted(t testing.TB, db *gorm.DB, roleID int64) {
+	t.Helper()
+	var count int64
+	checks := []struct {
+		name  string
+		query *gorm.DB
+	}{
+		{name: "active role", query: db.Model(&model.Role{}).Where("id = ?", roleID)},
+		{name: "user role", query: db.Model(&model.UserRole{}).Where("role_id = ?", roleID)},
+		{name: "role menu", query: db.Model(&model.RoleMenu{}).Where("role_id = ?", roleID)},
+		{name: "Casbin policy", query: db.Model(&gormadapter.CasbinRule{}).Where("ptype = ? AND v0 = ?", "p", "r:"+strconv.FormatInt(roleID, 10))},
+	}
+	for _, check := range checks {
+		if err := check.query.Count(&count).Error; err != nil {
+			t.Fatalf("count deleted role %s records: %v", check.name, err)
+		}
+		if count != 0 {
+			t.Fatalf("deleted role %s records remain: %d", check.name, count)
+		}
+	}
 }
 
 func applyMigrations(t testing.TB, db *sql.DB) {

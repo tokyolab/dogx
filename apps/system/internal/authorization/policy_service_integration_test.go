@@ -14,6 +14,7 @@ import (
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/internal/testutil"
 	"gorm.io/gorm"
 )
@@ -21,6 +22,16 @@ import (
 type notifierStub struct {
 	calls atomic.Int32
 	err   error
+}
+
+type userSessionRevokerStub struct {
+	userIDs []int64
+	err     error
+}
+
+func (s *userSessionRevokerStub) RevokeAll(_ context.Context, userID int64) error {
+	s.userIDs = append(s.userIDs, userID)
+	return s.err
 }
 
 func (s *notifierStub) Update() error {
@@ -386,6 +397,191 @@ func TestRolePolicyServiceSerializesConcurrentUpdatesForSameRole(t *testing.T) {
 	secondComplete := !paths["/a"] && !paths["/b"] && paths["/c"] && paths["/d"]
 	if len(paths) != 3 || (!firstComplete && !secondComplete) || !paths["/required"] {
 		t.Fatalf("concurrent updates left a partial target set: %+v", rules)
+	}
+}
+
+func TestRolePolicyServiceDisablesRoleAndRevokesAssignedUsers(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	role, _ := seedAuthorizationResources(t, db)
+	users := []model.User{
+		{Username: "role-status-a", PasswordHash: "hash", Nickname: "A", Status: model.RecordStatusEnabled},
+		{Username: "role-status-b", PasswordHash: "hash", Nickname: "B", Status: model.RecordStatusEnabled},
+	}
+	if err := db.Create(&users).Error; err != nil {
+		t.Fatalf("create role users: %v", err)
+	}
+	for _, user := range users {
+		if err := db.Create(&model.UserRole{UserID: user.ID, RoleID: role.ID}).Error; err != nil {
+			t.Fatalf("assign role to user %d: %v", user.ID, err)
+		}
+	}
+	service, err := NewRolePolicyService(db, &notifierStub{})
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	revoker := &userSessionRevokerStub{}
+
+	if err := service.UpdateRoleStatus(
+		ctx,
+		role.ID,
+		model.RecordStatusDisabled,
+		revoker,
+	); err != nil {
+		t.Fatalf("disable role: %v", err)
+	}
+	if len(revoker.userIDs) != 2 || revoker.userIDs[0] != users[0].ID || revoker.userIDs[1] != users[1].ID {
+		t.Fatalf("unexpected revoked role users: %v", revoker.userIDs)
+	}
+	var disabled model.Role
+	if err := db.First(&disabled, role.ID).Error; err != nil {
+		t.Fatalf("load disabled role: %v", err)
+	}
+	if disabled.Status != model.RecordStatusDisabled {
+		t.Fatalf("role status = %d, want disabled", disabled.Status)
+	}
+
+	if err := service.UpdateRoleStatus(ctx, role.ID, model.RecordStatusEnabled, revoker); err != nil {
+		t.Fatalf("enable role: %v", err)
+	}
+	if len(revoker.userIDs) != 2 {
+		t.Fatalf("enabling role unexpectedly revoked sessions: %v", revoker.userIDs)
+	}
+}
+
+func TestRolePolicyServiceRollsBackStatusWhenSessionRevocationFails(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	role, _ := seedAuthorizationResources(t, db)
+	user := model.User{
+		Username:     "role-status-failure",
+		PasswordHash: "hash",
+		Nickname:     "Failure",
+		Status:       model.RecordStatusEnabled,
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create role user: %v", err)
+	}
+	if err := db.Create(&model.UserRole{UserID: user.ID, RoleID: role.ID}).Error; err != nil {
+		t.Fatalf("assign role: %v", err)
+	}
+	service, err := NewRolePolicyService(db, &notifierStub{})
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	revokeErr := errors.New("redis unavailable")
+	if err := service.UpdateRoleStatus(
+		ctx,
+		role.ID,
+		model.RecordStatusDisabled,
+		&userSessionRevokerStub{err: revokeErr},
+	); !errors.Is(err, revokeErr) {
+		t.Fatalf("disable role error = %v, want wrapped %v", err, revokeErr)
+	}
+	var retained model.Role
+	if err := db.First(&retained, role.ID).Error; err != nil {
+		t.Fatalf("load role after failed status change: %v", err)
+	}
+	if retained.Status != model.RecordStatusEnabled {
+		t.Fatalf("failed session revocation changed role status: %d", retained.Status)
+	}
+}
+
+func TestRolePolicyServiceDeletesRoleAssociationsAndPoliciesAtomically(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	role, resources := seedAuthorizationResources(t, db)
+	notifier := &notifierStub{}
+	service, err := NewRolePolicyService(db, notifier)
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{resources["a"].ID}); err != nil {
+		t.Fatalf("seed role policies: %v", err)
+	}
+	user := model.User{
+		Username:     "role-delete-user",
+		PasswordHash: "hash",
+		Nickname:     "Delete User",
+		Status:       model.RecordStatusEnabled,
+	}
+	menu := model.Menu{
+		AppCode: model.MenuAppAdminWeb,
+		Type:    model.MenuTypePage,
+		Name:    "Delete Role Menu",
+		Path:    "/delete-role-menu",
+		Visible: true,
+		Status:  model.RecordStatusEnabled,
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create role user: %v", err)
+	}
+	if err := db.Create(&menu).Error; err != nil {
+		t.Fatalf("create role menu: %v", err)
+	}
+	if err := db.Create(&model.UserRole{UserID: user.ID, RoleID: role.ID}).Error; err != nil {
+		t.Fatalf("assign role to user: %v", err)
+	}
+	if err := db.Create(&model.RoleMenu{RoleID: role.ID, MenuID: menu.ID}).Error; err != nil {
+		t.Fatalf("assign menu to role: %v", err)
+	}
+	revoker := &userSessionRevokerStub{}
+
+	result, err := service.DeleteRole(ctx, role.ID, revoker)
+	if err != nil {
+		t.Fatalf("delete role: %v", err)
+	}
+	if result.RemovedPolicies != 2 || result.RevokedUsers != 1 ||
+		len(revoker.userIDs) != 1 || revoker.userIDs[0] != user.ID {
+		t.Fatalf("unexpected role deletion result: result=%+v users=%v", result, revoker.userIDs)
+	}
+	if notifier.calls.Load() != 2 {
+		t.Fatalf("unexpected policy notification count: %d", notifier.calls.Load())
+	}
+	var count int64
+	if err := db.Model(&model.Role{}).Where("id = ?", role.ID).Count(&count).Error; err != nil || count != 0 {
+		t.Fatalf("deleted role remains active: count=%d error=%v", count, err)
+	}
+	if err := db.Model(&model.UserRole{}).Where("role_id = ?", role.ID).Count(&count).Error; err != nil || count != 0 {
+		t.Fatalf("deleted role user assignments remain: count=%d error=%v", count, err)
+	}
+	if err := db.Model(&model.RoleMenu{}).Where("role_id = ?", role.ID).Count(&count).Error; err != nil || count != 0 {
+		t.Fatalf("deleted role menu assignments remain: count=%d error=%v", count, err)
+	}
+	if rules := loadRoleRules(t, db, role.ID); len(rules) != 0 {
+		t.Fatalf("deleted role policies remain: %+v", rules)
+	}
+}
+
+func TestRolePolicyServiceProtectsSystemRoleLifecycle(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	service, err := NewRolePolicyService(db, &notifierStub{})
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	var systemRole model.Role
+	if err := db.Where("code = ?", "super_admin").First(&systemRole).Error; err != nil {
+		t.Fatalf("load system role: %v", err)
+	}
+	revoker := &userSessionRevokerStub{}
+	if err := service.UpdateRoleStatus(
+		ctx,
+		systemRole.ID,
+		model.RecordStatusDisabled,
+		revoker,
+	); !errors.Is(err, repository.ErrSystemRoleProtected) {
+		t.Fatalf("disable system role error = %v, want %v", err, repository.ErrSystemRoleProtected)
+	}
+	if _, err := service.DeleteRole(ctx, systemRole.ID, revoker); !errors.Is(err, repository.ErrSystemRoleProtected) {
+		t.Fatalf("delete system role error = %v, want %v", err, repository.ErrSystemRoleProtected)
+	}
+	if len(revoker.userIDs) != 0 {
+		t.Fatalf("protected system role revoked sessions: %v", revoker.userIDs)
 	}
 }
 

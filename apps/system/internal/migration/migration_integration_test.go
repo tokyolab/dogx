@@ -24,8 +24,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 5 {
-		t.Fatalf("unexpected applied migration count: got %d, want 5", len(results))
+	if len(results) != 6 {
+		t.Fatalf("unexpected applied migration count: got %d, want 6", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -66,6 +66,14 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 			results[4].Source.Path,
 		)
 	}
+	if results[5].Source.Version != 20260826112413 ||
+		results[5].Source.Path != "20260826112413_add_role_management.sql" {
+		t.Fatalf(
+			"unexpected applied migration: version=%d path=%s",
+			results[5].Source.Version,
+			results[5].Source.Path,
+		)
+	}
 
 	secondResults, err := provider.Up(ctx)
 	if err != nil {
@@ -79,8 +87,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260826104035 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260826104035", version)
+	if version != 20260826112413 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260826112413", version)
 	}
 
 	expectedTables := map[string]string{
@@ -131,7 +139,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		"sys_menu":      {"ck_sys_menu_app_code_not_blank", "ck_sys_menu_type", "ck_sys_menu_element_permission", "ck_sys_menu_element_route", "ck_sys_menu_status", "uk_sys_menu_id_app_code", "fk_sys_menu_parent"},
 		"sys_api":       {"ck_sys_api_method_upper", "ck_sys_api_path", "ck_sys_api_status"},
 		"sys_user":      {"ck_sys_user_status"},
-		"sys_role":      {"ck_sys_role_status"},
+		"sys_role":      {"ck_sys_role_status", "ck_sys_role_code_format", "ck_sys_role_name_not_blank", "ck_sys_role_sort"},
 		"sys_user_role": {"fk_sys_user_role_user", "fk_sys_user_role_role"},
 		"sys_role_menu": {"fk_sys_role_menu_role", "fk_sys_role_menu_menu"},
 		"sys_login_log": {"fk_sys_login_log_user"},
@@ -169,12 +177,68 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		t.Fatalf("query RBAC management authorization policies: %v", err)
 	}
 	if seedCount != 5 {
-		t.Fatalf("unexpected RBAC management policy count: got %d, want 5", seedCount)
+		t.Fatalf("unexpected RBAC query policy count: got %d, want 5", seedCount)
+	}
+	if err := sqlDB.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM casbin_rule
+		WHERE ptype = 'p'
+		  AND (v1, v2) IN (
+		      ('/role/create', 'POST'),
+		      ('/role/update', 'POST'),
+		      ('/role/status/update', 'POST'),
+		      ('/role/delete', 'POST')
+		  )
+	`).Scan(&seedCount); err != nil {
+		t.Fatalf("query role management authorization policies: %v", err)
+	}
+	if seedCount != 4 {
+		t.Fatalf("unexpected role management policy count: got %d, want 4", seedCount)
+	}
+	var systemRole bool
+	if err := sqlDB.QueryRowContext(ctx, `
+		SELECT is_system
+		FROM sys_role
+		WHERE code = 'super_admin' AND deleted_at IS NULL
+	`).Scan(&systemRole); err != nil {
+		t.Fatalf("query built-in role marker: %v", err)
+	}
+	if !systemRole {
+		t.Fatal("super_admin role was not marked as a system role")
 	}
 
 	downResult, err := provider.Down(ctx)
 	if err != nil {
 		t.Fatalf("roll back latest migration: %v", err)
+	}
+	if downResult.Source.Version != 20260826112413 ||
+		downResult.Source.Path != "20260826112413_add_role_management.sql" {
+		t.Fatalf(
+			"unexpected rolled-back migration: version=%d path=%s",
+			downResult.Source.Version,
+			downResult.Source.Path,
+		)
+	}
+	assertColumnNotExists(t, ctx, sqlDB, "sys_role", "is_system")
+	if err := sqlDB.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM sys_api
+		WHERE (path, method) IN (
+		    ('/role/create', 'POST'),
+		    ('/role/update', 'POST'),
+		    ('/role/status/update', 'POST'),
+		    ('/role/delete', 'POST')
+		)
+	`).Scan(&seedCount); err != nil {
+		t.Fatalf("query rolled-back role management API resources: %v", err)
+	}
+	if seedCount != 0 {
+		t.Fatalf("role management API resources remained after rollback: %d", seedCount)
+	}
+
+	downResult, err = provider.Down(ctx)
+	if err != nil {
+		t.Fatalf("roll back RBAC query seed migration: %v", err)
 	}
 	if downResult.Source.Version != 20260826104035 ||
 		downResult.Source.Path != "20260826104035_seed_rbac_query_apis.sql" {
@@ -247,10 +311,11 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 3 ||
+	if len(reapplyResults) != 4 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
-		reapplyResults[2].Source.Version != 20260826104035 {
+		reapplyResults[2].Source.Version != 20260826104035 ||
+		reapplyResults[3].Source.Version != 20260826112413 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 }

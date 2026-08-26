@@ -15,6 +15,7 @@ func toRoleInfo(role model.Role) *system.RoleInfo {
 		Description: role.Description,
 		Sort:        role.Sort,
 		Status:      int32(role.Status),
+		IsSystem:    role.IsSystem,
 		CreatedAt:   role.CreatedAt.UTC().Format(time.RFC3339Nano),
 		UpdatedAt:   role.UpdatedAt.UTC().Format(time.RFC3339Nano),
 	}

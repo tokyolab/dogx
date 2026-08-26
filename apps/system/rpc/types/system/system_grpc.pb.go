@@ -26,8 +26,12 @@ const (
 	System_RevokeSession_FullMethodName      = "/system.System/RevokeSession"
 	System_RevokeUserSessions_FullMethodName = "/system.System/RevokeUserSessions"
 	System_ChangePassword_FullMethodName     = "/system.System/ChangePassword"
+	System_CreateRole_FullMethodName         = "/system.System/CreateRole"
 	System_ListRoles_FullMethodName          = "/system.System/ListRoles"
 	System_GetRole_FullMethodName            = "/system.System/GetRole"
+	System_UpdateRole_FullMethodName         = "/system.System/UpdateRole"
+	System_UpdateRoleStatus_FullMethodName   = "/system.System/UpdateRoleStatus"
+	System_DeleteRole_FullMethodName         = "/system.System/DeleteRole"
 	System_ListAPIs_FullMethodName           = "/system.System/ListAPIs"
 	System_GetRoleAPIs_FullMethodName        = "/system.System/GetRoleAPIs"
 	System_ReplaceRoleAPIs_FullMethodName    = "/system.System/ReplaceRoleAPIs"
@@ -44,8 +48,12 @@ type SystemClient interface {
 	RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	RevokeUserSessions(ctx context.Context, in *RevokeUserSessionsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	CreateRole(ctx context.Context, in *CreateRoleRequest, opts ...grpc.CallOption) (*CreateRoleResponse, error)
 	ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error)
 	GetRole(ctx context.Context, in *GetRoleRequest, opts ...grpc.CallOption) (*GetRoleResponse, error)
+	UpdateRole(ctx context.Context, in *UpdateRoleRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	UpdateRoleStatus(ctx context.Context, in *UpdateRoleStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	ListAPIs(ctx context.Context, in *ListAPIsRequest, opts ...grpc.CallOption) (*ListAPIsResponse, error)
 	GetRoleAPIs(ctx context.Context, in *GetRoleAPIsRequest, opts ...grpc.CallOption) (*GetRoleAPIsResponse, error)
 	ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
@@ -129,6 +137,16 @@ func (c *systemClient) ChangePassword(ctx context.Context, in *ChangePasswordReq
 	return out, nil
 }
 
+func (c *systemClient) CreateRole(ctx context.Context, in *CreateRoleRequest, opts ...grpc.CallOption) (*CreateRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateRoleResponse)
+	err := c.cc.Invoke(ctx, System_CreateRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *systemClient) ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListRolesResponse)
@@ -143,6 +161,36 @@ func (c *systemClient) GetRole(ctx context.Context, in *GetRoleRequest, opts ...
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetRoleResponse)
 	err := c.cc.Invoke(ctx, System_GetRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateRole(ctx context.Context, in *UpdateRoleRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateRoleStatus(ctx context.Context, in *UpdateRoleStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateRoleStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_DeleteRole_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -190,8 +238,12 @@ type SystemServer interface {
 	RevokeSession(context.Context, *RevokeSessionRequest) (*EmptyResponse, error)
 	RevokeUserSessions(context.Context, *RevokeUserSessionsRequest) (*EmptyResponse, error)
 	ChangePassword(context.Context, *ChangePasswordRequest) (*EmptyResponse, error)
+	CreateRole(context.Context, *CreateRoleRequest) (*CreateRoleResponse, error)
 	ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error)
 	GetRole(context.Context, *GetRoleRequest) (*GetRoleResponse, error)
+	UpdateRole(context.Context, *UpdateRoleRequest) (*EmptyResponse, error)
+	UpdateRoleStatus(context.Context, *UpdateRoleStatusRequest) (*EmptyResponse, error)
+	DeleteRole(context.Context, *DeleteRoleRequest) (*EmptyResponse, error)
 	ListAPIs(context.Context, *ListAPIsRequest) (*ListAPIsResponse, error)
 	GetRoleAPIs(context.Context, *GetRoleAPIsRequest) (*GetRoleAPIsResponse, error)
 	ReplaceRoleAPIs(context.Context, *ReplaceRoleAPIsRequest) (*EmptyResponse, error)
@@ -226,11 +278,23 @@ func (UnimplementedSystemServer) RevokeUserSessions(context.Context, *RevokeUser
 func (UnimplementedSystemServer) ChangePassword(context.Context, *ChangePasswordRequest) (*EmptyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ChangePassword not implemented")
 }
+func (UnimplementedSystemServer) CreateRole(context.Context, *CreateRoleRequest) (*CreateRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateRole not implemented")
+}
 func (UnimplementedSystemServer) ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListRoles not implemented")
 }
 func (UnimplementedSystemServer) GetRole(context.Context, *GetRoleRequest) (*GetRoleResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetRole not implemented")
+}
+func (UnimplementedSystemServer) UpdateRole(context.Context, *UpdateRoleRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateRole not implemented")
+}
+func (UnimplementedSystemServer) UpdateRoleStatus(context.Context, *UpdateRoleStatusRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateRoleStatus not implemented")
+}
+func (UnimplementedSystemServer) DeleteRole(context.Context, *DeleteRoleRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteRole not implemented")
 }
 func (UnimplementedSystemServer) ListAPIs(context.Context, *ListAPIsRequest) (*ListAPIsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListAPIs not implemented")
@@ -388,6 +452,24 @@ func _System_ChangePassword_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _System_CreateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).CreateRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_CreateRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).CreateRole(ctx, req.(*CreateRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _System_ListRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListRolesRequest)
 	if err := dec(in); err != nil {
@@ -420,6 +502,60 @@ func _System_GetRole_Handler(srv interface{}, ctx context.Context, dec func(inte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SystemServer).GetRole(ctx, req.(*GetRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateRole(ctx, req.(*UpdateRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateRoleStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRoleStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateRoleStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateRoleStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateRoleStatus(ctx, req.(*UpdateRoleStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_DeleteRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).DeleteRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_DeleteRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).DeleteRole(ctx, req.(*DeleteRoleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -514,12 +650,28 @@ var System_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _System_ChangePassword_Handler,
 		},
 		{
+			MethodName: "CreateRole",
+			Handler:    _System_CreateRole_Handler,
+		},
+		{
 			MethodName: "ListRoles",
 			Handler:    _System_ListRoles_Handler,
 		},
 		{
 			MethodName: "GetRole",
 			Handler:    _System_GetRole_Handler,
+		},
+		{
+			MethodName: "UpdateRole",
+			Handler:    _System_UpdateRole_Handler,
+		},
+		{
+			MethodName: "UpdateRoleStatus",
+			Handler:    _System_UpdateRoleStatus_Handler,
+		},
+		{
+			MethodName: "DeleteRole",
+			Handler:    _System_DeleteRole_Handler,
 		},
 		{
 			MethodName: "ListAPIs",

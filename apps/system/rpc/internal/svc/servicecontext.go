@@ -8,6 +8,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
 	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
+	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/health"
@@ -23,6 +24,17 @@ type ReadinessChecker interface {
 type RolePolicyService interface {
 	ReplaceRoleAPIs(ctx context.Context, roleID int64, apiIDs []int64) (authorization.ReplaceResult, error)
 	ListRoleAPIIDs(ctx context.Context, roleID int64) ([]int64, error)
+	UpdateRoleStatus(
+		ctx context.Context,
+		roleID int64,
+		status model.RecordStatus,
+		sessions authorization.UserSessionRevoker,
+	) error
+	DeleteRole(
+		ctx context.Context,
+		roleID int64,
+		sessions authorization.UserSessionRevoker,
+	) (authorization.DeleteRoleResult, error)
 }
 
 type ServiceContext struct {
@@ -31,6 +43,7 @@ type ServiceContext struct {
 	Redis         *redis.Redis
 	UserRepo      repository.UserRepository
 	RoleRepo      repository.RoleRepository
+	RoleWriter    repository.RoleWriter
 	APIRepo       repository.APIRepository
 	LoginLogRepo  repository.LoginLogRepository
 	Passwords     authn.PasswordHasher
@@ -113,6 +126,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		Redis:           redisClient,
 		UserRepo:        repository.NewUserRepository(database),
 		RoleRepo:        roleRepo,
+		RoleWriter:      roleRepo,
 		APIRepo:         apiRepo,
 		LoginLogRepo:    repository.NewLoginLogRepository(database),
 		Passwords:       passwords,

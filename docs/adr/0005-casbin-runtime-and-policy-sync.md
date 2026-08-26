@@ -84,6 +84,10 @@ Session 撤销继续使用用户 Session Set 和 `SSCAN` 精确定位 Session ID
 
 修改角色 API 策略、菜单授权、页面元素授权或角色名称时不撤销 Session，因为 JWT 不保存具体接口和菜单权限。
 
+角色停用事务锁定目标角色，按 `sys_user_role` 精确列出关联用户并逐个调用 Session Set 的撤销流程；任一撤销失败则回滚角色状态变更。重新启用角色不主动恢复或创建 Session，用户必须重新登录取得最新角色快照。
+
+普通角色删除也先锁定目标角色并撤销全部关联用户 Session，然后在同一个 PostgreSQL/Casbin Adapter 事务中删除 `sys_user_role`、`sys_role_menu`、该角色全部 `p` 策略并软删除 `sys_role`。数据库提交失败时 Session 可能已经被安全地提前撤销，但角色和策略不会只提交一部分。删除策略成功提交后发布普通 Watcher 通知；通知失败仍由周期重载恢复。`is_system = true` 的系统内置角色拒绝停用和删除，且其角色编码不可修改。
+
 ### 官方 Adapter 与 PostgreSQL 持久化
 
 `system-api` 和 `system-rpc` 都使用 Casbin 官方 GORM Adapter v3 访问 `casbin_rule`。表结构由 Goose 管理，包含 `id` 主键、`ptype`、`v0` 至 `v5`，以及 `(ptype, v0, v1, v2, v3, v4, v5)` 唯一索引。两个进程都关闭 Adapter AutoMigrate。
@@ -182,6 +186,7 @@ system-rpc 事务内增量提交 casbin_rule
 - JWT 正确携带单角色和多角色 ID，不携带菜单或具体 API 权限；
 - 无角色默认拒绝，单角色允许和拒绝，多角色任一允许即放行；
 - 用户角色变化、用户停用、密码变更和角色停用后，相关 Session 被全部撤销；
+- 系统内置角色生命周期受保护，普通角色删除会原子清理关联表和 Casbin 策略；
 - 不使用 Redis `KEYS` 查找或撤销 Session；
 - 角色授权提交完整目标集合，但 PostgreSQL 只增量删除和新增差异规则；
 - 同一角色并发更新被串行化，不产生部分集合；

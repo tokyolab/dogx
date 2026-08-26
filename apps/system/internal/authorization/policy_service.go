@@ -9,7 +9,9 @@ import (
 
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -20,6 +22,16 @@ var (
 type ReplaceResult struct {
 	Added             int
 	Removed           int
+	NotificationError error
+}
+
+type UserSessionRevoker interface {
+	RevokeAll(ctx context.Context, userID int64) error
+}
+
+type DeleteRoleResult struct {
+	RemovedPolicies   int
+	RevokedUsers      int
 	NotificationError error
 }
 
@@ -142,6 +154,156 @@ func (s *RolePolicyService) ReplaceRoleAPIs(
 		result.NotificationError = s.notifier.Update()
 	}
 	return result, nil
+}
+
+func (s *RolePolicyService) UpdateRoleStatus(
+	ctx context.Context,
+	roleID int64,
+	roleStatus model.RecordStatus,
+	sessions UserSessionRevoker,
+) error {
+	if ctx == nil {
+		return errors.New("update role status context is nil")
+	}
+	if roleID <= 0 ||
+		(roleStatus != model.RecordStatusDisabled && roleStatus != model.RecordStatusEnabled) {
+		return ErrInvalidRoleID
+	}
+	if sessions == nil {
+		return errors.New("user session revoker is nil")
+	}
+
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var role model.Role
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&role, roleID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return repository.ErrRoleNotFound
+			}
+			return fmt.Errorf("lock role for status update: %w", err)
+		}
+		if role.IsSystem && roleStatus == model.RecordStatusDisabled {
+			return repository.ErrSystemRoleProtected
+		}
+		if role.Status == roleStatus {
+			return nil
+		}
+
+		if roleStatus == model.RecordStatusDisabled {
+			if _, err := revokeRoleUserSessions(ctx, tx, roleID, sessions); err != nil {
+				return err
+			}
+		}
+		if err := tx.Model(&role).Update("status", roleStatus).Error; err != nil {
+			return fmt.Errorf("update role status: %w", err)
+		}
+		return nil
+	})
+}
+
+func (s *RolePolicyService) DeleteRole(
+	ctx context.Context,
+	roleID int64,
+	sessions UserSessionRevoker,
+) (DeleteRoleResult, error) {
+	if ctx == nil {
+		return DeleteRoleResult{}, errors.New("delete role context is nil")
+	}
+	if roleID <= 0 {
+		return DeleteRoleResult{}, ErrInvalidRoleID
+	}
+	if sessions == nil {
+		return DeleteRoleResult{}, errors.New("user session revoker is nil")
+	}
+
+	tx, err := s.adapter.BeginTransaction(ctx)
+	if err != nil {
+		return DeleteRoleResult{}, fmt.Errorf("begin role deletion transaction: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	txAdapter, ok := tx.GetAdapter().(*gormadapter.Adapter)
+	if !ok {
+		return DeleteRoleResult{}, errors.New("unexpected transactional Casbin adapter")
+	}
+	txDB := newTransactionQueryDB(txAdapter.GetDb(), ctx)
+	lockName := "dogx:casbin:role:" + strconv.FormatInt(roleID, 10)
+	if err := txDB.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", lockName).Error; err != nil {
+		return DeleteRoleResult{}, fmt.Errorf("lock role deletion: %w", err)
+	}
+
+	var role model.Role
+	if err := txDB.Clauses(clause.Locking{Strength: "UPDATE"}).First(&role, roleID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return DeleteRoleResult{}, repository.ErrRoleNotFound
+		}
+		return DeleteRoleResult{}, fmt.Errorf("load role for deletion: %w", err)
+	}
+	if role.IsSystem {
+		return DeleteRoleResult{}, repository.ErrSystemRoleProtected
+	}
+
+	revokedUsers, err := revokeRoleUserSessions(ctx, txDB, roleID, sessions)
+	if err != nil {
+		return DeleteRoleResult{}, err
+	}
+	current, err := loadCurrentRules(txAdapter, roleID)
+	if err != nil {
+		return DeleteRoleResult{}, err
+	}
+	if len(current) > 0 {
+		if err := txAdapter.RemovePoliciesCtx(ctx, "p", "p", current); err != nil {
+			return DeleteRoleResult{}, fmt.Errorf("remove deleted role policies: %w", err)
+		}
+	}
+	if err := txDB.Where("role_id = ?", roleID).Delete(&model.RoleMenu{}).Error; err != nil {
+		return DeleteRoleResult{}, fmt.Errorf("delete role menu assignments: %w", err)
+	}
+	if err := txDB.Where("role_id = ?", roleID).Delete(&model.UserRole{}).Error; err != nil {
+		return DeleteRoleResult{}, fmt.Errorf("delete user role assignments: %w", err)
+	}
+	if err := txDB.Delete(&role).Error; err != nil {
+		return DeleteRoleResult{}, fmt.Errorf("soft delete role: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return DeleteRoleResult{}, fmt.Errorf("commit role deletion transaction: %w", err)
+	}
+	committed = true
+
+	result := DeleteRoleResult{
+		RemovedPolicies: len(current),
+		RevokedUsers:    revokedUsers,
+	}
+	if result.RemovedPolicies > 0 {
+		result.NotificationError = s.notifier.Update()
+	}
+	return result, nil
+}
+
+func revokeRoleUserSessions(
+	ctx context.Context,
+	db *gorm.DB,
+	roleID int64,
+	sessions UserSessionRevoker,
+) (int, error) {
+	userIDs := make([]int64, 0)
+	if err := db.WithContext(ctx).
+		Model(&model.UserRole{}).
+		Where("role_id = ?", roleID).
+		Order("user_id ASC").
+		Pluck("user_id", &userIDs).Error; err != nil {
+		return 0, fmt.Errorf("list role users for session revocation: %w", err)
+	}
+	for _, userID := range userIDs {
+		if err := sessions.RevokeAll(ctx, userID); err != nil {
+			return 0, fmt.Errorf("revoke sessions for role user %d: %w", userID, err)
+		}
+	}
+	return len(userIDs), nil
 }
 
 // newTransactionQueryDB keeps the Adapter transaction connection while

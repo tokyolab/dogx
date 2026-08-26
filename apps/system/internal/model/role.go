@@ -7,6 +7,7 @@ type Role struct {
 	Description string       `gorm:"column:description;size:500;not null"`
 	Sort        int32        `gorm:"column:sort;not null"`
 	Status      RecordStatus `gorm:"column:status;not null"`
+	IsSystem    bool         `gorm:"column:is_system;not null"`
 }
 
 func (Role) TableName() string {

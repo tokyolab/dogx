@@ -20,8 +20,8 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 5 {
-		t.Fatalf("unexpected migration count: got %d, want 5", len(sources))
+	if len(sources) != 6 {
+		t.Fatalf("unexpected migration count: got %d, want 6", len(sources))
 	}
 	if sources[0].Version != 1 || sources[0].Path != "00001_init_system.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[0].Version, sources[0].Path)
@@ -37,5 +37,8 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 	if sources[4].Version != 20260826104035 || sources[4].Path != "20260826104035_seed_rbac_query_apis.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[4].Version, sources[4].Path)
+	}
+	if sources[5].Version != 20260826112413 || sources[5].Path != "20260826112413_add_role_management.sql" {
+		t.Fatalf("unexpected migration source: version=%d path=%s", sources[5].Version, sources[5].Path)
 	}
 }
