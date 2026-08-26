@@ -134,6 +134,16 @@ jobs:
           mkdir -p coverage
           go test -tags=integration -shuffle=on -count=1 -timeout=2m -covermode=atomic -coverprofile=coverage/integration.txt ./apps/system/api/internal/... ./apps/system/internal/... ./apps/system/rpc/internal/...
 
+      - name: Test authentication and RBAC end to end
+        env:
+          DOGX_E2E_RPC_BINARY: ${{ runner.temp }}/dogx-bin/system-rpc
+          DOGX_E2E_API_BINARY: ${{ runner.temp }}/dogx-bin/system-api
+        run: |
+          mkdir -p "${{ runner.temp }}/dogx-bin"
+          go build -o "$DOGX_E2E_RPC_BINARY" ./apps/system/rpc
+          go build -o "$DOGX_E2E_API_BINARY" ./apps/system/api
+          go test -tags=integration,e2e -shuffle=on -count=1 -timeout=3m ./apps/system/e2e
+
       - name: Upload integration coverage to Codecov
         uses: codecov/codecov-action@v7
         with:

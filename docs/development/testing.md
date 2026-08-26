@@ -144,6 +144,8 @@ Repository 测试优先为每个用例开启事务，并在 `t.Cleanup` 中回�
 
 端到端测试启动真实 API、RPC、PostgreSQL 和 Redis，通过公开 HTTP 接口观察结果，不直接读取业务内部变量。服务就绪通过健康检查判断，不使用固定 `time.Sleep` 猜测启动时间。
 
+跨进程端到端测试放在 `apps/system/e2e`，使用 `integration && e2e` 构建标签。CI 先从当前源码构建 API 和 RPC 二进制，再通过 `DOGX_E2E_API_BINARY`、`DOGX_E2E_RPC_BINARY` 指定测试进程；测试生成临时配置并为子进程设置隔离 Schema，不复用开发配置文件。当前基线验证登录、当前用户、Session，以及角色接口权限变更经 Redis Watcher 实时传播后旧 JWT 被拒绝。
+
 ## 测试目录
 
 测试尽量与被测代码放在同一个包，保持业务代码与测试高内聚：
@@ -156,6 +158,7 @@ apps/system/rpc/internal/svc/*_integration_test.go
 apps/system/internal/repository/*_integration_test.go
 apps/system/internal/migration/*_integration_test.go
 apps/system/internal/migratecmd/*_test.go
+apps/system/e2e/*_test.go
 pkg/<component>/*_test.go
 ```
 
@@ -176,6 +179,16 @@ go test -race -shuffle=on -count=1 ./...
 
 ```shell
 go test -tags=integration -shuffle=on -count=1 -timeout=2m ./apps/system/internal/... ./apps/system/rpc/internal/...
+```
+
+同一集成测试 Job 在依赖就绪后另外执行真实进程端到端测试：
+
+```shell
+go build -o /tmp/dogx-bin/system-rpc ./apps/system/rpc
+go build -o /tmp/dogx-bin/system-api ./apps/system/api
+DOGX_E2E_RPC_BINARY=/tmp/dogx-bin/system-rpc \
+DOGX_E2E_API_BINARY=/tmp/dogx-bin/system-api \
+go test -tags=integration,e2e -shuffle=on -count=1 -timeout=3m ./apps/system/e2e
 ```
 
 Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通单元测试，用于发现开发环境和生产环境之间的跨平台问题。
