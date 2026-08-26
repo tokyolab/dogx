@@ -28,7 +28,7 @@ func TestNewTransactionQueryDBClearsAdapterTableScope(t *testing.T) {
 		t.Fatal("query database did not retain Adapter transaction connection")
 	}
 	var role model.Role
-	statement := queryDB.
+	statement := queryDB.WithContext(context.Background()).
 		Where("id = ? AND status = ?", int64(1), model.RecordStatusEnabled).
 		First(&role).
 		Statement
@@ -42,7 +42,7 @@ func TestNewTransactionQueryDBClearsAdapterTableScope(t *testing.T) {
 	}
 
 	var userIDs []int64
-	relationStatement := queryDB.
+	relationStatement := queryDB.WithContext(context.Background()).
 		Model(&model.UserRole{}).
 		Where("role_id = ?", int64(1)).
 		Order("user_id ASC").

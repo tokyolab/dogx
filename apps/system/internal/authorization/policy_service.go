@@ -310,7 +310,10 @@ func revokeRoleUserSessions(
 // discarding its casbin_rule table scope so GORM can select business tables
 // from their models.
 func newTransactionQueryDB(adapterDB *gorm.DB, ctx context.Context) *gorm.DB {
-	return adapterDB.Session(&gorm.Session{
+	cleanDB := adapterDB.
+		Session(&gorm.Session{NewDB: true}).
+		Table("")
+	return cleanDB.Session(&gorm.Session{
 		Context: ctx,
 		NewDB:   true,
 	})
