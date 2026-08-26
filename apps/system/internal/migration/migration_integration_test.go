@@ -342,7 +342,7 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 		Remark:       "migration integration test",
 	}
 	role := model.Role{
-		Code:        "integration-role",
+		Code:        "integration_role",
 		Name:        "Integration Role",
 		Description: "migration integration test",
 		Status:      model.RecordStatusEnabled,
@@ -442,6 +442,32 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 	}
 	if err := gormDB.WithContext(ctx).Create(&lowercaseMethodAPI).Error; err == nil {
 		t.Fatal("create API resource with lowercase method succeeded, want check-constraint violation")
+	}
+
+	invalidRoleCode := model.Role{
+		Code:   "invalid-role-code",
+		Name:   "Invalid Role Code",
+		Status: model.RecordStatusEnabled,
+	}
+	if err := gormDB.WithContext(ctx).Create(&invalidRoleCode).Error; err == nil {
+		t.Fatal("create role with invalid code succeeded, want check-constraint violation")
+	}
+	blankRoleName := model.Role{
+		Code:   "blank_role_name",
+		Name:   "   ",
+		Status: model.RecordStatusEnabled,
+	}
+	if err := gormDB.WithContext(ctx).Create(&blankRoleName).Error; err == nil {
+		t.Fatal("create role with blank name succeeded, want check-constraint violation")
+	}
+	negativeRoleSort := model.Role{
+		Code:   "negative_role_sort",
+		Name:   "Negative Role Sort",
+		Sort:   -1,
+		Status: model.RecordStatusEnabled,
+	}
+	if err := gormDB.WithContext(ctx).Create(&negativeRoleSort).Error; err == nil {
+		t.Fatal("create role with negative sort succeeded, want check-constraint violation")
 	}
 
 	const insertCasbinPolicy = "INSERT INTO casbin_rule (ptype, v0, v1, v2) VALUES ($1, $2, $3, $4)"

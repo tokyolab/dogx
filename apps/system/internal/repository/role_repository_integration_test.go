@@ -52,10 +52,10 @@ func TestRoleRepositoryReturnsOnlyEnabledActiveUserRoles(t *testing.T) {
 func TestRoleRepositoryListsPagesAndEscapesKeywordWildcards(t *testing.T) {
 	_, db := newPostgreSQLUserRepository(t)
 	roles := []model.Role{
-		{Code: "paged-role-later", Name: "Paged Later", Sort: 20, Status: model.RecordStatusEnabled},
-		{Code: "paged-role-first", Name: "Paged First", Sort: 10, Status: model.RecordStatusDisabled},
-		{Code: "deleted-paged-role", Name: "Deleted Paged Role", Sort: 5, Status: model.RecordStatusEnabled},
-		{Code: "literal-percent-role", Name: "Literal % Role", Sort: 30, Status: model.RecordStatusEnabled},
+		{Code: "paged_role_later", Name: "Paged Later", Sort: 20, Status: model.RecordStatusEnabled},
+		{Code: "paged_role_first", Name: "Paged First", Sort: 10, Status: model.RecordStatusDisabled},
+		{Code: "deleted_paged_role", Name: "Deleted Paged Role", Sort: 5, Status: model.RecordStatusEnabled},
+		{Code: "literal_percent_role", Name: "Literal % Role", Sort: 30, Status: model.RecordStatusEnabled},
 	}
 	if err := db.Create(&roles).Error; err != nil {
 		t.Fatalf("create role query fixtures: %v", err)
@@ -72,7 +72,7 @@ func TestRoleRepositoryListsPagesAndEscapesKeywordWildcards(t *testing.T) {
 	defer cancel()
 
 	firstPage, total, err := repository.List(ctx, RoleListQuery{
-		Keyword: "paged-role",
+		Keyword: "paged_role",
 		Offset:  0,
 		Limit:   1,
 	})
@@ -83,7 +83,7 @@ func TestRoleRepositoryListsPagesAndEscapesKeywordWildcards(t *testing.T) {
 		t.Fatalf("unexpected first role page: total=%d roles=%+v", total, firstPage)
 	}
 	secondPage, total, err := repository.List(ctx, RoleListQuery{
-		Keyword: "paged-role",
+		Keyword: "paged_role",
 		Offset:  1,
 		Limit:   1,
 	})
