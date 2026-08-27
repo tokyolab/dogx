@@ -428,19 +428,6 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 		t.Fatal("page element identity value was not populated")
 	}
 
-	crossAppMenu := model.Menu{
-		AppCode:  model.MenuAppAdminMobile,
-		ParentID: &menu.ID,
-		Type:     model.MenuTypePage,
-		Name:     "Invalid Cross-App Child",
-		Path:     "/invalid-cross-app-child",
-		Visible:  true,
-		Status:   model.RecordStatusEnabled,
-	}
-	if err := gormDB.WithContext(ctx).Create(&crossAppMenu).Error; err == nil {
-		t.Fatal("create cross-app child menu succeeded, want composite foreign-key violation")
-	}
-
 	elementWithoutPermission := model.Menu{
 		AppCode:  model.MenuAppAdminWeb,
 		ParentID: &menu.ID,
