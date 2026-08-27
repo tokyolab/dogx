@@ -31,7 +31,6 @@ type UserSessionRevoker interface {
 
 type DeleteRoleResult struct {
 	RemovedPolicies   int
-	RevokedUsers      int
 	NotificationError error
 }
 
@@ -41,19 +40,17 @@ func (r ReplaceResult) Changed() bool {
 
 type RolePolicyService struct {
 	db       *gorm.DB
-	adapter  *gormadapter.Adapter
 	notifier PolicyNotifier
 }
 
 func NewRolePolicyService(db *gorm.DB, notifier PolicyNotifier) (*RolePolicyService, error) {
+	if db == nil {
+		return nil, errors.New("role policy database is nil")
+	}
 	if notifier == nil {
 		return nil, errors.New("policy notifier is nil")
 	}
-	adapter, err := NewGormAdapter(db)
-	if err != nil {
-		return nil, err
-	}
-	return &RolePolicyService{db: db, adapter: adapter, notifier: notifier}, nil
+	return &RolePolicyService{db: db, notifier: notifier}, nil
 }
 
 func (s *RolePolicyService) ListRoleAPIIDs(ctx context.Context, roleID int64) ([]int64, error) {
@@ -99,57 +96,54 @@ func (s *RolePolicyService) ReplaceRoleAPIs(
 		return ReplaceResult{}, err
 	}
 
-	tx, err := s.adapter.BeginTransaction(ctx)
-	if err != nil {
-		return ReplaceResult{}, fmt.Errorf("begin role policy transaction: %w", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
+	result := ReplaceResult{}
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		lockName := "dogx:casbin:role:" + strconv.FormatInt(roleID, 10)
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", lockName).Error; err != nil {
+			return fmt.Errorf("lock role policy: %w", err)
 		}
-	}()
 
-	txAdapter, ok := tx.GetAdapter().(*gormadapter.Adapter)
-	if !ok {
-		return ReplaceResult{}, errors.New("unexpected transactional Casbin adapter")
-	}
-	txDB := newTransactionQueryDB(txAdapter.GetDb(), ctx)
-	lockName := "dogx:casbin:role:" + strconv.FormatInt(roleID, 10)
-	if err := txDB.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", lockName).Error; err != nil {
-		return ReplaceResult{}, fmt.Errorf("lock role policy: %w", err)
-	}
+		resources, err := loadTargetResources(ctx, tx, roleID, targetIDs)
+		if err != nil {
+			return err
+		}
+		txAdapter, err := NewGormAdapter(tx)
+		if err != nil {
+			return err
+		}
+		current, err := loadCurrentRules(txAdapter, roleID)
+		if err != nil {
+			return err
+		}
+		target, err := resourceRules(roleID, resources)
+		if err != nil {
+			return err
+		}
 
-	resources, err := loadTargetResources(ctx, txDB, roleID, targetIDs)
+		removed, added := policyDifference(current, target)
+		result = ReplaceResult{Added: len(added), Removed: len(removed)}
+		if !result.Changed() {
+			return nil
+		}
+
+		subject, err := RoleSubject(roleID)
+		if err != nil {
+			return err
+		}
+		if err := txAdapter.RemoveFilteredPolicyCtx(ctx, "p", "p", 0, subject); err != nil {
+			return fmt.Errorf("remove role policies: %w", err)
+		}
+		if len(target) > 0 {
+			if err := txAdapter.AddPoliciesCtx(ctx, "p", "p", target); err != nil {
+				return fmt.Errorf("add role policies: %w", err)
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return ReplaceResult{}, err
 	}
-	current, err := loadCurrentRules(txAdapter, roleID)
-	if err != nil {
-		return ReplaceResult{}, err
-	}
-	target, err := resourceRules(roleID, resources)
-	if err != nil {
-		return ReplaceResult{}, err
-	}
 
-	removed, added := policyDifference(current, target)
-	if len(removed) > 0 {
-		if err := txAdapter.RemovePoliciesCtx(ctx, "p", "p", removed); err != nil {
-			return ReplaceResult{}, fmt.Errorf("remove role policies: %w", err)
-		}
-	}
-	if len(added) > 0 {
-		if err := txAdapter.AddPoliciesCtx(ctx, "p", "p", added); err != nil {
-			return ReplaceResult{}, fmt.Errorf("add role policies: %w", err)
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return ReplaceResult{}, fmt.Errorf("commit role policy transaction: %w", err)
-	}
-	committed = true
-
-	result := ReplaceResult{Added: len(added), Removed: len(removed)}
 	if result.Changed() {
 		result.NotificationError = s.notifier.Update()
 	}
@@ -203,7 +197,6 @@ func (s *RolePolicyService) UpdateRoleStatus(
 func (s *RolePolicyService) DeleteRole(
 	ctx context.Context,
 	roleID int64,
-	sessions UserSessionRevoker,
 ) (DeleteRoleResult, error) {
 	if ctx == nil {
 		return DeleteRoleResult{}, errors.New("delete role context is nil")
@@ -211,73 +204,71 @@ func (s *RolePolicyService) DeleteRole(
 	if roleID <= 0 {
 		return DeleteRoleResult{}, ErrInvalidRoleID
 	}
-	if sessions == nil {
-		return DeleteRoleResult{}, errors.New("user session revoker is nil")
-	}
-
-	tx, err := s.adapter.BeginTransaction(ctx)
-	if err != nil {
-		return DeleteRoleResult{}, fmt.Errorf("begin role deletion transaction: %w", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
+	result := DeleteRoleResult{}
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		lockName := "dogx:casbin:role:" + strconv.FormatInt(roleID, 10)
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", lockName).Error; err != nil {
+			return fmt.Errorf("lock role deletion: %w", err)
 		}
-	}()
 
-	txAdapter, ok := tx.GetAdapter().(*gormadapter.Adapter)
-	if !ok {
-		return DeleteRoleResult{}, errors.New("unexpected transactional Casbin adapter")
-	}
-	txDB := newTransactionQueryDB(txAdapter.GetDb(), ctx)
-	lockName := "dogx:casbin:role:" + strconv.FormatInt(roleID, 10)
-	if err := txDB.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", lockName).Error; err != nil {
-		return DeleteRoleResult{}, fmt.Errorf("lock role deletion: %w", err)
-	}
-
-	var role model.Role
-	if err := txDB.Clauses(clause.Locking{Strength: "UPDATE"}).First(&role, roleID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return DeleteRoleResult{}, repository.ErrRoleNotFound
+		var role model.Role
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&role, roleID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return repository.ErrRoleNotFound
+			}
+			return fmt.Errorf("load role for deletion: %w", err)
 		}
-		return DeleteRoleResult{}, fmt.Errorf("load role for deletion: %w", err)
-	}
-	if role.IsSystem {
-		return DeleteRoleResult{}, repository.ErrSystemRoleProtected
-	}
+		if role.IsSystem {
+			return repository.ErrSystemRoleProtected
+		}
 
-	revokedUsers, err := revokeRoleUserSessions(ctx, txDB, roleID, sessions)
+		var assignedUser model.User
+		err := tx.
+			Model(&model.User{}).
+			Select("sys_user.id").
+			Joins("JOIN sys_user_role ON sys_user_role.user_id = sys_user.id").
+			Where("sys_user_role.role_id = ?", roleID).
+			Take(&assignedUser).Error
+		switch {
+		case err == nil:
+			return repository.ErrRoleInUse
+		case !errors.Is(err, gorm.ErrRecordNotFound):
+			return fmt.Errorf("check role user assignments: %w", err)
+		}
+
+		txAdapter, err := NewGormAdapter(tx)
+		if err != nil {
+			return err
+		}
+		current, err := loadCurrentRules(txAdapter, roleID)
+		if err != nil {
+			return err
+		}
+		if len(current) > 0 {
+			subject, err := RoleSubject(roleID)
+			if err != nil {
+				return err
+			}
+			if err := txAdapter.RemoveFilteredPolicyCtx(ctx, "p", "p", 0, subject); err != nil {
+				return fmt.Errorf("remove deleted role policies: %w", err)
+			}
+		}
+		if err := tx.Where("role_id = ?", roleID).Delete(&model.RoleMenu{}).Error; err != nil {
+			return fmt.Errorf("delete role menu assignments: %w", err)
+		}
+		if err := tx.Where("role_id = ?", roleID).Delete(&model.UserRole{}).Error; err != nil {
+			return fmt.Errorf("delete user role assignments: %w", err)
+		}
+		if err := tx.Delete(&role).Error; err != nil {
+			return fmt.Errorf("soft delete role: %w", err)
+		}
+		result.RemovedPolicies = len(current)
+		return nil
+	})
 	if err != nil {
 		return DeleteRoleResult{}, err
 	}
-	current, err := loadCurrentRules(txAdapter, roleID)
-	if err != nil {
-		return DeleteRoleResult{}, err
-	}
-	if len(current) > 0 {
-		if err := txAdapter.RemovePoliciesCtx(ctx, "p", "p", current); err != nil {
-			return DeleteRoleResult{}, fmt.Errorf("remove deleted role policies: %w", err)
-		}
-	}
-	if err := txDB.Where("role_id = ?", roleID).Delete(&model.RoleMenu{}).Error; err != nil {
-		return DeleteRoleResult{}, fmt.Errorf("delete role menu assignments: %w", err)
-	}
-	if err := txDB.Where("role_id = ?", roleID).Delete(&model.UserRole{}).Error; err != nil {
-		return DeleteRoleResult{}, fmt.Errorf("delete user role assignments: %w", err)
-	}
-	if err := txDB.Delete(&role).Error; err != nil {
-		return DeleteRoleResult{}, fmt.Errorf("soft delete role: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return DeleteRoleResult{}, fmt.Errorf("commit role deletion transaction: %w", err)
-	}
-	committed = true
 
-	result := DeleteRoleResult{
-		RemovedPolicies: len(current),
-		RevokedUsers:    revokedUsers,
-	}
 	if result.RemovedPolicies > 0 {
 		result.NotificationError = s.notifier.Update()
 	}
@@ -304,19 +295,6 @@ func revokeRoleUserSessions(
 		}
 	}
 	return len(userIDs), nil
-}
-
-// newTransactionQueryDB keeps the Adapter transaction connection while
-// discarding its casbin_rule table scope so GORM can select business tables
-// from their models.
-func newTransactionQueryDB(adapterDB *gorm.DB, ctx context.Context) *gorm.DB {
-	cleanDB := adapterDB.
-		Session(&gorm.Session{NewDB: true}).
-		Table("")
-	return cleanDB.Session(&gorm.Session{
-		Context: ctx,
-		NewDB:   true,
-	})
 }
 
 func loadTargetResources(

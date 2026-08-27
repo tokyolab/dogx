@@ -33,7 +33,6 @@ type RolePolicyService interface {
 	DeleteRole(
 		ctx context.Context,
 		roleID int64,
-		sessions authorization.UserSessionRevoker,
 	) (authorization.DeleteRoleResult, error)
 }
 

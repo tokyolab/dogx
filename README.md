@@ -29,7 +29,7 @@ apps/
     cmd/migrate/      独立数据库迁移命令
     internal/
       database/       System 域共享的 PostgreSQL 配置与连接工厂
-      authorization/  Casbin 模型、Adapter、策略差量事务与重载机制
+      authorization/  Casbin 模型、Adapter、角色策略替换事务与重载机制
       model/          GORM 持久化模型及字段类型和常量
       repository/     数据访问接口与实现
       migration/      Goose 迁移及 SQL 文件
@@ -97,7 +97,7 @@ go run ./apps/system/api -f 'apps/system/api/etc/system-api.yaml'
 - `POST /role/get`：查询角色详情；需要有效 Session 和 Casbin 接口权限。
 - `POST /role/update`：修改角色编码、名称、描述和排序；系统内置角色的编码不可修改；需要有效 Session 和 Casbin 接口权限。
 - `POST /role/status/update`：启用或停用角色；停用时撤销关联用户的全部 Session，系统内置角色不可停用；需要有效 Session 和 Casbin 接口权限。
-- `POST /role/delete`：软删除角色，并清理用户/菜单关联和 Casbin 策略；系统内置角色不可删除；需要有效 Session 和 Casbin 接口权限。
+- `POST /role/delete`：存在未软删除用户引用时拒绝删除且保持原样；否则软删除角色并清理历史用户关联、菜单关联和 Casbin 策略；系统内置角色不可删除；需要有效 Session 和 Casbin 接口权限。
 - `POST /api/list`：按服务、分组和关键字查询接口授权资源；需要有效 Session 和 Casbin 接口权限。
 - `POST /role/api/get`：查询角色当前获授的 API ID；需要有效 Session 和 Casbin 接口权限。
 - `POST /role/api/update`：提交角色完整 API ID 集合；需要有效 Session 和 Casbin 接口权限。

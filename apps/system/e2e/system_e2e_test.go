@@ -25,6 +25,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/testutil"
+	"github.com/tokyolab/dogx/pkg/bizerror"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"gorm.io/gorm"
 )
@@ -236,6 +237,13 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 		"roleId": createdRole.ID, "apiIds": []int64{roleGetAPI.ID},
 	})
 	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/delete", credentials.AccessToken, map[string]any{
+		"id": createdRole.ID,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, bizerror.DefaultCode, "角色已被用户使用，不能删除")
+	if err := gormDB.Delete(&roleUser).Error; err != nil {
+		t.Fatalf("soft delete assigned role user: %v", err)
+	}
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/delete", credentials.AccessToken, map[string]any{
 		"id": createdRole.ID,
 	})

@@ -29,7 +29,7 @@ DogX 的浏览器请求先进入 `system-api`，业务逻辑由 `system-rpc` 执
 - 访问令牌使用 HS256 JWT，默认有效期 15 分钟。
 - JWT 由 `system-rpc` 签发，`system-api` 使用同一密钥验证。
 - 自定义 Claims 保存 `userId`、`sessionId` 和 `roleIds`；不保存菜单、页面元素或具体 API 权限。
-- `roleIds` 是登录时从 `sys_user_role` 读取的角色快照。修改用户角色、停用角色或删除角色时必须撤销受影响用户的全部 Session，旧 JWT 因 Session 不存在而立即失效。
+- `roleIds` 是登录时从 `sys_user_role` 读取的角色快照。修改用户角色或停用角色时必须撤销受影响用户的全部 Session，旧 JWT 因 Session 不存在而立即失效。仍被未软删除用户引用的角色禁止删除。
 - JWT 密钥只通过真实配置或环境变量提供，不提交到 Git；密钥至少 32 字节。
 - 受保护 HTTP 路由使用 go-zero `jwt: Auth` 先在 API 本地校验 JWT，签名无效或已过期的请求不会调用 RPC 或查询 Redis。
 - JWT 验签成功后，`SessionAuth` 中间件通过只读 `SessionReader` 精确读取 Redis Session；JWT 在这里是经过签名的 Session 凭证，而不是完全无状态的授权结果。

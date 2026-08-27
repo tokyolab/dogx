@@ -155,6 +155,7 @@ func TestRoleLifecycleLogicRejectsInvalidRequestsAndMapsKnownErrors(t *testing.T
 	sessions := &sessionStoreLogicStub{}
 	for _, dependencyErr := range []error{
 		repository.ErrRoleNotFound,
+		repository.ErrRoleInUse,
 		repository.ErrSystemRoleProtected,
 		authorization.ErrInvalidRoleID,
 		errors.New("postgres unavailable"),

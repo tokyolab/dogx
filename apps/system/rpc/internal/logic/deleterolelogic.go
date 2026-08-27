@@ -34,14 +34,16 @@ func (l *DeleteRoleLogic) DeleteRole(in *system.DeleteRoleRequest) (*system.Empt
 	if in == nil || in.Id <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "invalid delete role request")
 	}
-	if l.svcCtx.RolePolicies == nil || l.svcCtx.Sessions == nil {
-		return nil, errors.New("role lifecycle dependencies are unavailable")
+	if l.svcCtx.RolePolicies == nil {
+		return nil, errors.New("role policy service is unavailable")
 	}
 
-	result, err := l.svcCtx.RolePolicies.DeleteRole(l.ctx, in.Id, l.svcCtx.Sessions)
+	result, err := l.svcCtx.RolePolicies.DeleteRole(l.ctx, in.Id)
 	switch {
 	case errors.Is(err, repository.ErrRoleNotFound):
 		return nil, bizerror.New("角色不存在")
+	case errors.Is(err, repository.ErrRoleInUse):
+		return nil, bizerror.New("角色已被用户使用，不能删除")
 	case errors.Is(err, repository.ErrSystemRoleProtected):
 		return nil, bizerror.New("系统内置角色不能删除")
 	case errors.Is(err, authorization.ErrInvalidRoleID):

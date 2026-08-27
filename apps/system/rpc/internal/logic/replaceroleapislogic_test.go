@@ -54,7 +54,6 @@ func (s *rolePolicyWriterStub) UpdateRoleStatus(
 func (s *rolePolicyWriterStub) DeleteRole(
 	_ context.Context,
 	roleID int64,
-	_ authorization.UserSessionRevoker,
 ) (authorization.DeleteRoleResult, error) {
 	s.roleID = roleID
 	s.deleted = true

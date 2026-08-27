@@ -15,6 +15,7 @@ import (
 var (
 	ErrRoleNotFound        = errors.New("role not found")
 	ErrRoleCodeExists      = errors.New("role code already exists")
+	ErrRoleInUse           = errors.New("role is assigned to users")
 	ErrSystemRoleProtected = errors.New("system role is protected")
 )
 

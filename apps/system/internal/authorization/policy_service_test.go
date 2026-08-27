@@ -1,60 +1,33 @@
 package authorization
 
 import (
-	"context"
-	"strings"
 	"testing"
 
-	"github.com/tokyolab/dogx/apps/system/internal/model"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-func TestNewTransactionQueryDBClearsAdapterTableScope(t *testing.T) {
-	db, err := gorm.Open(postgres.New(postgres.Config{
-		DSN:                  "host=localhost user=test dbname=test sslmode=disable",
-		PreferSimpleProtocol: true,
-	}), &gorm.Config{
-		DisableAutomaticPing: true,
-		DryRun:               true,
-	})
-	if err != nil {
-		t.Fatalf("create dry-run database: %v", err)
-	}
+type policyServiceNotifierStub struct{}
 
-	adapterDB := db.Table("casbin_rule")
-	queryDB := newTransactionQueryDB(adapterDB, context.Background())
-	if queryDB.Statement.ConnPool != adapterDB.Statement.ConnPool {
-		t.Fatal("query database did not retain Adapter transaction connection")
-	}
-	var role model.Role
-	statement := queryDB.WithContext(context.Background()).
-		Where("id = ? AND status = ?", int64(1), model.RecordStatusEnabled).
-		First(&role).
-		Statement
+func (policyServiceNotifierStub) Update() error { return nil }
 
-	if statement.Table != role.TableName() {
-		t.Fatalf("query table = %q, want %q", statement.Table, role.TableName())
+func TestNewRolePolicyServiceRejectsMissingDependencies(t *testing.T) {
+	if _, err := NewRolePolicyService(nil, policyServiceNotifierStub{}); err == nil {
+		t.Fatal("nil database was accepted")
 	}
-	query := statement.SQL.String()
-	if !strings.Contains(query, `FROM "sys_role"`) || strings.Contains(query, `FROM "casbin_rule"`) {
-		t.Fatalf("query retained Casbin Adapter table scope: %s", query)
+	if _, err := NewRolePolicyService(&gorm.DB{}, nil); err == nil {
+		t.Fatal("nil notifier was accepted")
 	}
+}
 
-	var userIDs []int64
-	relationStatement := queryDB.WithContext(context.Background()).
-		Model(&model.UserRole{}).
-		Where("role_id = ?", int64(1)).
-		Order("user_id ASC").
-		Pluck("user_id", &userIDs).
-		Statement
-	relationQuery := relationStatement.SQL.String()
-	if relationStatement.Table != (model.UserRole{}).TableName() {
-		t.Fatalf("second query table = %q, want %q", relationStatement.Table, (model.UserRole{}).TableName())
+func TestPolicyDifferenceReportsChangedRules(t *testing.T) {
+	current := [][]string{{"r:1", "/a", "POST"}, {"r:1", "/b", "POST"}}
+	target := [][]string{{"r:1", "/b", "POST"}, {"r:1", "/c", "POST"}}
+
+	removed, added := policyDifference(current, target)
+	if len(removed) != 1 || len(added) != 1 {
+		t.Fatalf("unexpected difference: removed=%v added=%v", removed, added)
 	}
-	if !strings.Contains(relationQuery, `FROM "sys_user_role"`) ||
-		strings.Contains(relationQuery, `FROM "sys_role"`) ||
-		strings.Contains(relationQuery, `FROM "casbin_rule"`) {
-		t.Fatalf("second query retained a previous table scope: %s", relationQuery)
+	if removed[0][1] != "/a" || added[0][1] != "/c" {
+		t.Fatalf("unexpected changed rules: removed=%v added=%v", removed, added)
 	}
 }

@@ -162,6 +162,27 @@ func TestRoleRepositoryCreatesUpdatesAndProtectsSystemRole(t *testing.T) {
 		updated.Description != "Reviews content" || updated.Sort != 10 {
 		t.Fatalf("unexpected updated role: %+v", updated)
 	}
+	if err := repository.Update(ctx, role.ID, RoleUpdate{
+		Code:        "super_admin",
+		Name:        updated.Name,
+		Description: updated.Description,
+		Sort:        updated.Sort,
+	}); !errors.Is(err, ErrRoleCodeExists) {
+		t.Fatalf("duplicate role code update error = %v, want %v", err, ErrRoleCodeExists)
+	}
+	afterDuplicate, err := repository.FindByID(ctx, role.ID)
+	if err != nil {
+		t.Fatalf("load role after duplicate code update: %v", err)
+	}
+	if afterDuplicate.Code != updated.Code {
+		t.Fatalf("duplicate code update changed role code: %q", afterDuplicate.Code)
+	}
+	if err := repository.Update(ctx, int64(1<<62), RoleUpdate{
+		Code: "missing_role",
+		Name: "Missing Role",
+	}); !errors.Is(err, ErrRoleNotFound) {
+		t.Fatalf("missing role update error = %v, want %v", err, ErrRoleNotFound)
+	}
 
 	var systemRole model.Role
 	if err := db.WithContext(ctx).Where("code = ?", "super_admin").First(&systemRole).Error; err != nil {

@@ -39,57 +39,58 @@ func (s *notifierStub) Update() error {
 	return s.err
 }
 
-func TestNewTransactionQueryDBRetainsAdapterTransaction(t *testing.T) {
+func TestTransactionBoundAdapterSharesBusinessTransaction(t *testing.T) {
 	db := newAuthorizationDatabase(t)
-	adapter, err := NewGormAdapter(db)
-	if err != nil {
-		t.Fatalf("create Casbin Adapter: %v", err)
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	tx, err := adapter.BeginTransaction(ctx)
-	if err != nil {
-		t.Fatalf("begin Adapter transaction: %v", err)
-	}
-	rolledBack := false
-	defer func() {
-		if !rolledBack {
-			_ = tx.Rollback()
+	rollbackErr := errors.New("force shared transaction rollback")
+	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txAdapter, err := NewGormAdapter(tx)
+		if err != nil {
+			return err
 		}
-	}()
-
-	txAdapter, ok := tx.GetAdapter().(*gormadapter.Adapter)
-	if !ok {
-		t.Fatal("unexpected transactional Casbin Adapter")
+		role := model.Role{
+			Code:   "transaction_probe",
+			Name:   "Transaction Probe",
+			Status: model.RecordStatusEnabled,
+		}
+		if err := tx.Create(&role).Error; err != nil {
+			return err
+		}
+		rule, err := PolicyRule(role.ID, "/transaction-probe", "POST")
+		if err != nil {
+			return err
+		}
+		if err := txAdapter.AddPoliciesCtx(ctx, "p", "p", [][]string{rule}); err != nil {
+			return err
+		}
+		return rollbackErr
+	})
+	if !errors.Is(err, rollbackErr) {
+		t.Fatalf("shared transaction error = %v, want %v", err, rollbackErr)
 	}
-	queryDB := newTransactionQueryDB(txAdapter.GetDb(), ctx)
-	role := model.Role{
-		Code:   "transaction_probe",
-		Name:   "Transaction Probe",
-		Status: model.RecordStatusEnabled,
-	}
-	if err := queryDB.Create(&role).Error; err != nil {
-		t.Fatalf("create role through reset transaction Session: %v", err)
-	}
-	if err := tx.Rollback(); err != nil {
-		t.Fatalf("roll back Adapter transaction: %v", err)
-	}
-	rolledBack = true
 
 	var count int64
 	if err := db.Unscoped().
 		Model(&model.Role{}).
-		Where("code = ?", role.Code).
+		Where("code = ?", "transaction_probe").
 		Count(&count).Error; err != nil {
 		t.Fatalf("count role after transaction rollback: %v", err)
 	}
 	if count != 0 {
-		t.Fatalf("reset transaction Session escaped Adapter transaction: role count = %d", count)
+		t.Fatalf("business write escaped shared transaction: role count = %d", count)
+	}
+	if err := db.Model(&gormadapter.CasbinRule{}).
+		Where("v1 = ?", "/transaction-probe").
+		Count(&count).Error; err != nil {
+		t.Fatalf("count policy after transaction rollback: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("policy write escaped shared transaction: policy count = %d", count)
 	}
 }
 
-func TestRolePolicyServicePersistsOnlyTargetDifferenceAndRequiredAPIs(t *testing.T) {
+func TestRolePolicyServiceReportsTargetDifferenceAndPersistsRequiredAPIs(t *testing.T) {
 	db := newAuthorizationDatabase(t)
 	role, resources := seedAuthorizationResources(t, db)
 	notifier := &notifierStub{}
@@ -121,7 +122,7 @@ func TestRolePolicyServicePersistsOnlyTargetDifferenceAndRequiredAPIs(t *testing
 		t.Fatalf("replace role policy: %v", err)
 	}
 	if second.Added != 1 || second.Removed != 1 {
-		t.Fatalf("role policy was not persisted as a difference: %+v", second)
+		t.Fatalf("unexpected reported role policy difference: %+v", second)
 	}
 	if notifier.calls.Load() != 2 {
 		t.Fatalf("unexpected policy notification count: %d", notifier.calls.Load())
@@ -146,6 +147,73 @@ func TestRolePolicyServicePersistsOnlyTargetDifferenceAndRequiredAPIs(t *testing
 	}
 	if unchanged.Changed() || notifier.calls.Load() != 2 {
 		t.Fatalf("unchanged policy generated writes or notification: result=%+v notifications=%d", unchanged, notifier.calls.Load())
+	}
+}
+
+func TestRolePolicyServiceReplacesChangedRoleWithOneDeleteAndOneBatchInsert(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	role, resources := seedAuthorizationResources(t, db)
+	service, err := NewRolePolicyService(db, &notifierStub{})
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{
+		resources["a"].ID,
+		resources["b"].ID,
+		resources["c"].ID,
+		resources["d"].ID,
+	}); err != nil {
+		t.Fatalf("write initial role policies: %v", err)
+	}
+
+	statements := []string{
+		`CREATE TABLE casbin_statement_audit (operation text NOT NULL)`,
+		`CREATE FUNCTION audit_casbin_statement() RETURNS trigger AS $$
+		BEGIN
+			INSERT INTO casbin_statement_audit(operation) VALUES (TG_OP);
+			RETURN NULL;
+		END;
+		$$ LANGUAGE plpgsql`,
+		`CREATE TRIGGER audit_casbin_statement
+		AFTER INSERT OR DELETE ON casbin_rule
+		FOR EACH STATEMENT EXECUTE FUNCTION audit_casbin_statement()`,
+	}
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil {
+			t.Fatalf("install Casbin statement audit: %v", err)
+		}
+	}
+
+	result, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{resources["d"].ID})
+	if err != nil {
+		t.Fatalf("replace role policies: %v", err)
+	}
+	if result.Added != 0 || result.Removed != 3 {
+		t.Fatalf("unexpected reported difference: %+v", result)
+	}
+
+	var operations []string
+	if err := db.Model(&struct{ Operation string }{}).
+		Table("casbin_statement_audit").
+		Order("operation ASC").
+		Pluck("operation", &operations).Error; err != nil {
+		t.Fatalf("load Casbin statement audit: %v", err)
+	}
+	if len(operations) != 2 || operations[0] != "DELETE" || operations[1] != "INSERT" {
+		t.Fatalf("changed role policy used unexpected write statements: %v", operations)
+	}
+
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{resources["d"].ID}); err != nil {
+		t.Fatalf("repeat unchanged role policies: %v", err)
+	}
+	var count int64
+	if err := db.Table("casbin_statement_audit").Count(&count).Error; err != nil {
+		t.Fatalf("count Casbin statement audit: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("unchanged role policy generated writes: statement count = %d", count)
 	}
 }
 
@@ -448,6 +516,12 @@ func TestRolePolicyServiceDisablesRoleAndRevokesAssignedUsers(t *testing.T) {
 	if len(revoker.userIDs) != 2 {
 		t.Fatalf("enabling role unexpectedly revoked sessions: %v", revoker.userIDs)
 	}
+	if err := service.UpdateRoleStatus(ctx, role.ID, model.RecordStatusEnabled, revoker); err != nil {
+		t.Fatalf("repeat enabled role status: %v", err)
+	}
+	if len(revoker.userIDs) != 2 {
+		t.Fatalf("idempotent role status update unexpectedly revoked sessions: %v", revoker.userIDs)
+	}
 }
 
 func TestRolePolicyServiceRollsBackStatusWhenSessionRevocationFails(t *testing.T) {
@@ -489,7 +563,7 @@ func TestRolePolicyServiceRollsBackStatusWhenSessionRevocationFails(t *testing.T
 	}
 }
 
-func TestRolePolicyServiceDeletesRoleAssociationsAndPoliciesAtomically(t *testing.T) {
+func TestRolePolicyServiceRejectsAssignedRoleAndIgnoresSoftDeletedUsers(t *testing.T) {
 	db := newAuthorizationDatabase(t)
 	role, resources := seedAuthorizationResources(t, db)
 	notifier := &notifierStub{}
@@ -528,20 +602,39 @@ func TestRolePolicyServiceDeletesRoleAssociationsAndPoliciesAtomically(t *testin
 	if err := db.Create(&model.RoleMenu{RoleID: role.ID, MenuID: menu.ID}).Error; err != nil {
 		t.Fatalf("assign menu to role: %v", err)
 	}
-	revoker := &userSessionRevokerStub{}
-
-	result, err := service.DeleteRole(ctx, role.ID, revoker)
-	if err != nil {
-		t.Fatalf("delete role: %v", err)
+	if _, err := service.DeleteRole(ctx, role.ID); !errors.Is(err, repository.ErrRoleInUse) {
+		t.Fatalf("assigned role deletion error = %v, want %v", err, repository.ErrRoleInUse)
 	}
-	if result.RemovedPolicies != 2 || result.RevokedUsers != 1 ||
-		len(revoker.userIDs) != 1 || revoker.userIDs[0] != user.ID {
-		t.Fatalf("unexpected role deletion result: result=%+v users=%v", result, revoker.userIDs)
+	if notifier.calls.Load() != 1 {
+		t.Fatalf("rejected deletion published policy notification: %d", notifier.calls.Load())
+	}
+	var count int64
+	if err := db.Model(&model.Role{}).Where("id = ?", role.ID).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("rejected deletion changed role: count=%d error=%v", count, err)
+	}
+	if err := db.Model(&model.UserRole{}).Where("role_id = ?", role.ID).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("rejected deletion changed user assignments: count=%d error=%v", count, err)
+	}
+	if err := db.Model(&model.RoleMenu{}).Where("role_id = ?", role.ID).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("rejected deletion changed menu assignments: count=%d error=%v", count, err)
+	}
+	if rules := loadRoleRules(t, db, role.ID); len(rules) != 2 {
+		t.Fatalf("rejected deletion changed role policies: %+v", rules)
+	}
+
+	if err := db.Delete(&user).Error; err != nil {
+		t.Fatalf("soft delete assigned user: %v", err)
+	}
+	result, err := service.DeleteRole(ctx, role.ID)
+	if err != nil {
+		t.Fatalf("delete role referenced only by soft-deleted user: %v", err)
+	}
+	if result.RemovedPolicies != 2 {
+		t.Fatalf("unexpected role deletion result: %+v", result)
 	}
 	if notifier.calls.Load() != 2 {
 		t.Fatalf("unexpected policy notification count: %d", notifier.calls.Load())
 	}
-	var count int64
 	if err := db.Model(&model.Role{}).Where("id = ?", role.ID).Count(&count).Error; err != nil || count != 0 {
 		t.Fatalf("deleted role remains active: count=%d error=%v", count, err)
 	}
@@ -553,6 +646,91 @@ func TestRolePolicyServiceDeletesRoleAssociationsAndPoliciesAtomically(t *testin
 	}
 	if rules := loadRoleRules(t, db, role.ID); len(rules) != 0 {
 		t.Fatalf("deleted role policies remain: %+v", rules)
+	}
+}
+
+func TestRolePolicyServiceRollsBackPoliciesAndAssociationsWhenRoleDeleteFails(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	role, resources := seedAuthorizationResources(t, db)
+	notifier := &notifierStub{}
+	service, err := NewRolePolicyService(db, notifier)
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{resources["a"].ID}); err != nil {
+		t.Fatalf("seed role policies: %v", err)
+	}
+
+	user := model.User{
+		Username:     "role-delete-rollback-user",
+		PasswordHash: "hash",
+		Nickname:     "Rollback User",
+		Status:       model.RecordStatusEnabled,
+	}
+	menu := model.Menu{
+		AppCode: model.MenuAppAdminWeb,
+		Type:    model.MenuTypePage,
+		Name:    "Rollback Role Menu",
+		Path:    "/rollback-role-menu",
+		Visible: true,
+		Status:  model.RecordStatusEnabled,
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create role user: %v", err)
+	}
+	if err := db.Create(&menu).Error; err != nil {
+		t.Fatalf("create role menu: %v", err)
+	}
+	if err := db.Create(&model.UserRole{UserID: user.ID, RoleID: role.ID}).Error; err != nil {
+		t.Fatalf("assign role to user: %v", err)
+	}
+	if err := db.Create(&model.RoleMenu{RoleID: role.ID, MenuID: menu.ID}).Error; err != nil {
+		t.Fatalf("assign menu to role: %v", err)
+	}
+	if err := db.Delete(&user).Error; err != nil {
+		t.Fatalf("soft delete assigned user: %v", err)
+	}
+
+	if err := db.Exec(`
+		CREATE FUNCTION fail_role_soft_delete() RETURNS trigger AS $$
+		BEGIN
+			IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
+				RAISE EXCEPTION 'forced role soft-delete failure';
+			END IF;
+			RETURN NEW;
+		END;
+		$$ LANGUAGE plpgsql
+	`).Error; err != nil {
+		t.Fatalf("create failing role delete function: %v", err)
+	}
+	if err := db.Exec(`
+		CREATE TRIGGER fail_role_soft_delete
+		BEFORE UPDATE ON sys_role
+		FOR EACH ROW EXECUTE FUNCTION fail_role_soft_delete()
+	`).Error; err != nil {
+		t.Fatalf("create failing role delete trigger: %v", err)
+	}
+
+	if _, err := service.DeleteRole(ctx, role.ID); err == nil {
+		t.Fatal("role deletion succeeded despite forced soft-delete failure")
+	}
+	if notifier.calls.Load() != 1 {
+		t.Fatalf("failed role deletion published policy notification: %d", notifier.calls.Load())
+	}
+	var count int64
+	if err := db.Model(&model.Role{}).Where("id = ?", role.ID).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("failed deletion changed role: count=%d error=%v", count, err)
+	}
+	if err := db.Model(&model.UserRole{}).Where("role_id = ?", role.ID).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("failed deletion changed user assignments: count=%d error=%v", count, err)
+	}
+	if err := db.Model(&model.RoleMenu{}).Where("role_id = ?", role.ID).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("failed deletion changed menu assignments: count=%d error=%v", count, err)
+	}
+	if rules := loadRoleRules(t, db, role.ID); len(rules) != 2 {
+		t.Fatalf("failed deletion changed role policies: %+v", rules)
 	}
 }
 
@@ -577,11 +755,38 @@ func TestRolePolicyServiceProtectsSystemRoleLifecycle(t *testing.T) {
 	); !errors.Is(err, repository.ErrSystemRoleProtected) {
 		t.Fatalf("disable system role error = %v, want %v", err, repository.ErrSystemRoleProtected)
 	}
-	if _, err := service.DeleteRole(ctx, systemRole.ID, revoker); !errors.Is(err, repository.ErrSystemRoleProtected) {
+	if _, err := service.DeleteRole(ctx, systemRole.ID); !errors.Is(err, repository.ErrSystemRoleProtected) {
 		t.Fatalf("delete system role error = %v, want %v", err, repository.ErrSystemRoleProtected)
 	}
 	if len(revoker.userIDs) != 0 {
 		t.Fatalf("protected system role revoked sessions: %v", revoker.userIDs)
+	}
+}
+
+func TestRolePolicyServiceReturnsNotFoundForMissingRoleLifecycle(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	service, err := NewRolePolicyService(db, &notifierStub{})
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	revoker := &userSessionRevokerStub{}
+	const missingRoleID = int64(1 << 62)
+
+	if err := service.UpdateRoleStatus(
+		ctx,
+		missingRoleID,
+		model.RecordStatusDisabled,
+		revoker,
+	); !errors.Is(err, repository.ErrRoleNotFound) {
+		t.Fatalf("missing role status error = %v, want %v", err, repository.ErrRoleNotFound)
+	}
+	if _, err := service.DeleteRole(ctx, missingRoleID); !errors.Is(err, repository.ErrRoleNotFound) {
+		t.Fatalf("missing role deletion error = %v, want %v", err, repository.ErrRoleNotFound)
+	}
+	if len(revoker.userIDs) != 0 {
+		t.Fatalf("missing role lifecycle revoked sessions: %v", revoker.userIDs)
 	}
 }
 

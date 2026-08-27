@@ -78,7 +78,7 @@ JWT 中的 `roleIds` 是登录时的角色快照。以下变化必须撤销目�
 - 修改用户所属角色；
 - 停用或删除用户；
 - 修改密码；
-- 停用或删除角色时，撤销所有受影响用户的 Session。
+- 停用角色时，撤销所有受影响用户的 Session。
 
 Session 撤销继续使用用户 Session Set 和 `SSCAN` 精确定位 Session ID，禁止使用 Redis `KEYS`。旧 JWT 即使签名和有效期仍然有效，也会因为 `sessionId` 不存在而在下一次请求时返回 HTTP 401。用户重新登录后，JWT 获得最新 `roleIds`。
 
@@ -86,7 +86,7 @@ Session 撤销继续使用用户 Session Set 和 `SSCAN` 精确定位 Session ID
 
 角色停用事务锁定目标角色，按 `sys_user_role` 精确列出关联用户并逐个调用 Session Set 的撤销流程；任一撤销失败则回滚角色状态变更。重新启用角色不主动恢复或创建 Session，用户必须重新登录取得最新角色快照。
 
-普通角色删除也先锁定目标角色并撤销全部关联用户 Session，然后在同一个 PostgreSQL/Casbin Adapter 事务中删除 `sys_user_role`、`sys_role_menu`、该角色全部 `p` 策略并软删除 `sys_role`。数据库提交失败时 Session 可能已经被安全地提前撤销，但角色和策略不会只提交一部分。删除策略成功提交后发布普通 Watcher 通知；通知失败仍由周期重载恢复。`is_system = true` 的系统内置角色拒绝停用和删除，且其角色编码不可修改。
+普通角色删除先锁定目标角色，并查询是否存在通过 `sys_user_role` 引用该角色的未软删除用户；存在引用时返回业务错误，角色、关联、策略和 Session 全部保持原样。没有引用时，以普通 GORM 事务作为事务边界，并在该事务上创建临时官方 Adapter；业务表始终使用原始 `tx`，Adapter 只删除该角色全部 `p` 策略。软删除用户遗留的 `sys_user_role`、`sys_role_menu`、角色策略和 `sys_role` 软删除由同一个 PostgreSQL 事务原子提交。提交后发布普通 Watcher 通知；通知失败仍由周期重载恢复。`is_system = true` 的系统内置角色拒绝停用和删除，且其角色编码不可修改。
 
 ### 官方 Adapter 与 PostgreSQL 持久化
 
@@ -97,12 +97,15 @@ Session 撤销继续使用用户 Session Set 和 `SSCAN` 精确定位 Session ID
 角色授权界面提交完整的目标 API ID 集合。`system-rpc` 校验角色、启用的 API 资源和必需 API 后，将目标集合转换为 `p` 规则；随后在同一个 PostgreSQL 事务中完成：
 
 1. 串行化同一角色的并发授权更新；
-2. 通过官方 GORM Adapter 读取该角色当前 `p` 规则；
-3. 计算目标集合与当前集合的差集；
-4. 使用 Adapter 的批量 Remove/Add 能力只删除已取消规则、只插入新增规则；
-5. 提交事务。
+2. 业务查询只使用原始 GORM `tx`，不从 Adapter 反向取得或清洗 `*gorm.DB`；
+3. 在同一个 `tx` 上创建关闭 AutoMigrate 的临时官方 Adapter，读取该角色当前 `p` 规则；
+4. 计算目标集合与当前集合的差异；完全相同时不写数据库、不通知 Watcher；
+5. 有变化时，通过 `RemoveFilteredPolicyCtx` 一次删除该角色全部 `p`，再通过 `AddPoliciesCtx` 批量写入完整目标策略；
+6. 提交事务。
 
-例如当前规则为 `A、B、C`，目标规则为 `B、C、D`，数据库只删除 `A`、新增 `D`。不全量重写 `casbin_rule`，也不先删除该角色全部规则再逐条插入。
+例如当前规则为 `A、B、C`，目标规则为 `B、C、D`，对外仍报告删除一条、新增一条；持久化使用一条按角色过滤的 `DELETE` 和一次批量 `INSERT`，两者处于同一事务，外部不会观察到空策略窗口。禁止使用官方 Adapter 当前会逐条删除且吞掉单条错误的 `RemovePoliciesCtx`；也不使用新增阶段逐条写入的 `UpdateFilteredPolicies`。
+
+普通 GORM 事务是业务事务的唯一主人。临时 Adapter 只在事务回调内使用，不保存、不返回、不传入 goroutine；业务代码禁止调用 Adapter `GetDb()` 操作业务表。这样既保留官方 Adapter 的 Policy 映射与加载能力，也隔离其 `casbin_rule` Table Scope。
 
 数据库事务提交成功后，`system-rpc` 调用官方 Redis Watcher v2 的普通 `Update()`。通知只表示“PostgreSQL 中的策略已经变化”，不携带 Add、Remove 或 Update 规则明细。通知失败不能回滚已经提交的数据库事务，由周期重载恢复各 API 实例。
 
@@ -142,7 +145,7 @@ Casbin 在数据库读取和新 Model 构造期间允许正常 `Enforce` 继续�
 Redis Pub/Sub 是至多一次投递，实例断线时可能永久遗漏通知。因此每个 API 实例还通过同一个 `PolicyReloader` 每 60 秒完整加载一次。多实例权限语义为：
 
 ```text
-system-rpc 事务内增量提交 casbin_rule
+system-rpc 事务内按角色原子替换 casbin_rule
 → Redis 普通 Update 通知在线 system-api 立即全量重载
 → 通知遗漏时由下一个 60 秒周期重载恢复
 ```
@@ -162,7 +165,7 @@ system-rpc 事务内增量提交 casbin_rule
 - 普通请求不查询 `sys_user_role`，也不增加权限 RPC；
 - JWT 保存角色 ID，但用户角色变化会强制撤销全部 Session，旧角色不会持续到 JWT 自然过期；
 - `casbin_rule` 只保存 `p`，不需要 Casbin `g`、组合 Adapter 或用户角色全量加载；
-- PostgreSQL 持久化只执行规则差量，避免全删全插；
+- PostgreSQL 先判断规则差异；有变化时固定使用一次角色过滤删除和一次批量插入，避免逐条删除或逐条新增；
 - Redis 消息只负责使本地快照失效，重复、乱序不会改变最终权限语义；
 - 每次策略变更和每个周期都会完整读取 `p`，这是用低频数据库查询换取简单、可恢复的一致性；
 - 通知遗漏时，旧权限最长可能保留一个配置周期，因此当前语义是有界最终一致而不是分布式强一致。
@@ -188,7 +191,7 @@ system-rpc 事务内增量提交 casbin_rule
 - 用户角色变化、用户停用、密码变更和角色停用后，相关 Session 被全部撤销；
 - 系统内置角色生命周期受保护，普通角色删除会原子清理关联表和 Casbin 策略；
 - 不使用 Redis `KEYS` 查找或撤销 Session；
-- 角色授权提交完整目标集合，但 PostgreSQL 只增量删除和新增差异规则；
+- 角色授权提交完整目标集合；无变化时不写，有变化时使用一条角色过滤 DELETE 和一次批量 INSERT，并验证两者与业务写入共享同一事务；
 - 同一角色并发更新被串行化，不产生部分集合；
 - `system-api` 初次加载正确，普通 Watcher 通知触发全量重载，遗漏通知后周期重载能够观察到最新策略；
 - 初始、Watcher 和周期重载共享串行入口，不能发生旧快照覆盖新快照；
