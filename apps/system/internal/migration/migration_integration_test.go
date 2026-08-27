@@ -5,6 +5,7 @@ package migration
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,8 +25,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 7 {
-		t.Fatalf("unexpected applied migration count: got %d, want 7", len(results))
+	if len(results) != 8 {
+		t.Fatalf("unexpected applied migration count: got %d, want 8", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -82,6 +83,14 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 			results[6].Source.Path,
 		)
 	}
+	if results[7].Source.Version != 20260827152932 ||
+		results[7].Source.Path != "20260827152932_optimize_system_indexes.sql" {
+		t.Fatalf(
+			"unexpected applied migration: version=%d path=%s",
+			results[7].Source.Version,
+			results[7].Source.Path,
+		)
+	}
 
 	secondResults, err := provider.Up(ctx)
 	if err != nil {
@@ -95,8 +104,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260827131521 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260827131521", version)
+	if version != 20260827152932 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260827152932", version)
 	}
 
 	expectedTables := map[string]string{
@@ -119,12 +128,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		"uk_sys_user_username_active",
 		"uk_sys_user_email_active",
 		"uk_sys_user_phone_active",
-		"idx_sys_user_deleted_at",
 		"uk_sys_role_code_active",
-		"idx_sys_role_deleted_at",
 		"idx_sys_menu_parent_id",
-		"idx_sys_menu_deleted_at",
-		"idx_sys_menu_permission",
 		"uk_sys_menu_app_route_name_active",
 		"uk_sys_menu_app_path_active",
 		"idx_sys_menu_app_parent_sort",
@@ -132,7 +137,6 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		"idx_sys_role_menu_menu_id",
 		"uk_sys_api_method_path_active",
 		"idx_sys_api_service_group",
-		"idx_sys_api_deleted_at",
 		"idx_casbin_rule",
 		"idx_casbin_rule_ptype_v0",
 		"idx_sys_login_log_user_created_at",
@@ -141,6 +145,30 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	} {
 		assertIndexExists(t, ctx, sqlDB, index)
 	}
+	for _, index := range []string{
+		"idx_sys_user_deleted_at",
+		"idx_sys_role_deleted_at",
+		"idx_sys_menu_deleted_at",
+		"idx_sys_menu_permission",
+		"idx_sys_api_deleted_at",
+	} {
+		assertIndexNotExists(t, ctx, sqlDB, index)
+	}
+	assertIndexDefinitionContains(
+		t,
+		ctx,
+		sqlDB,
+		"uk_sys_role_code_active",
+		"(code)",
+		"where (deleted_at is null)",
+	)
+	assertIndexDefinitionContains(
+		t,
+		ctx,
+		sqlDB,
+		"idx_sys_user_role_role_id",
+		"(role_id, user_id)",
+	)
 
 	for table, constraints := range map[string][]string{
 		"sys_menu": {"ck_sys_menu_app_code_not_blank", "ck_sys_menu_type", "ck_sys_menu_element_permission", "ck_sys_menu_element_route", "ck_sys_menu_status"},
@@ -216,6 +244,42 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	downResult, err := provider.Down(ctx)
 	if err != nil {
 		t.Fatalf("roll back latest migration: %v", err)
+	}
+	if downResult.Source.Version != 20260827152932 ||
+		downResult.Source.Path != "20260827152932_optimize_system_indexes.sql" {
+		t.Fatalf(
+			"unexpected rolled-back migration: version=%d path=%s",
+			downResult.Source.Version,
+			downResult.Source.Path,
+		)
+	}
+	for _, index := range []string{
+		"idx_sys_user_deleted_at",
+		"idx_sys_role_deleted_at",
+		"idx_sys_menu_deleted_at",
+		"idx_sys_menu_permission",
+		"idx_sys_api_deleted_at",
+	} {
+		assertIndexExists(t, ctx, sqlDB, index)
+	}
+	assertIndexDefinitionContains(
+		t,
+		ctx,
+		sqlDB,
+		"uk_sys_role_code_active",
+		"lower((code)::text)",
+	)
+	assertIndexDefinitionContains(
+		t,
+		ctx,
+		sqlDB,
+		"idx_sys_user_role_role_id",
+		"(role_id)",
+	)
+
+	downResult, err = provider.Down(ctx)
+	if err != nil {
+		t.Fatalf("roll back foreign key migration: %v", err)
 	}
 	if downResult.Source.Version != 20260827131521 ||
 		downResult.Source.Path != "20260827131521_drop_foreign_keys.sql" {
@@ -330,12 +394,13 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 5 ||
+	if len(reapplyResults) != 6 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
 		reapplyResults[3].Source.Version != 20260826112413 ||
-		reapplyResults[4].Source.Version != 20260827131521 {
+		reapplyResults[4].Source.Version != 20260827131521 ||
+		reapplyResults[5].Source.Version != 20260827152932 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 }
@@ -662,6 +727,50 @@ func assertIndexExists(t testing.TB, ctx context.Context, db *sql.DB, index stri
 	}
 	if !exists {
 		t.Errorf("index %s does not exist", index)
+	}
+}
+
+func assertIndexNotExists(t testing.TB, ctx context.Context, db *sql.DB, index string) {
+	t.Helper()
+
+	var exists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM pg_indexes
+			WHERE schemaname = current_schema()
+			  AND indexname = $1
+		)
+	`, index).Scan(&exists); err != nil {
+		t.Fatalf("check absent index %s: %v", index, err)
+	}
+	if exists {
+		t.Errorf("index %s exists, want it to be absent", index)
+	}
+}
+
+func assertIndexDefinitionContains(
+	t testing.TB,
+	ctx context.Context,
+	db *sql.DB,
+	index string,
+	wantFragments ...string,
+) {
+	t.Helper()
+
+	var definition string
+	if err := db.QueryRowContext(
+		ctx,
+		"SELECT pg_get_indexdef(to_regclass($1))",
+		index,
+	).Scan(&definition); err != nil {
+		t.Fatalf("read index definition %s: %v", index, err)
+	}
+	definition = strings.ToLower(definition)
+	for _, fragment := range wantFragments {
+		if !strings.Contains(definition, strings.ToLower(fragment)) {
+			t.Errorf("index %s definition %q does not contain %q", index, definition, fragment)
+		}
 	}
 }
 

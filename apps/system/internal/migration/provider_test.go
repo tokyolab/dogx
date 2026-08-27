@@ -20,8 +20,8 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 7 {
-		t.Fatalf("unexpected migration count: got %d, want 7", len(sources))
+	if len(sources) != 8 {
+		t.Fatalf("unexpected migration count: got %d, want 8", len(sources))
 	}
 	if sources[0].Version != 1 || sources[0].Path != "00001_init_system.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[0].Version, sources[0].Path)
@@ -43,5 +43,8 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 	if sources[6].Version != 20260827131521 || sources[6].Path != "20260827131521_drop_foreign_keys.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[6].Version, sources[6].Path)
+	}
+	if sources[7].Version != 20260827152932 || sources[7].Path != "20260827152932_optimize_system_indexes.sql" {
+		t.Fatalf("unexpected migration source: version=%d path=%s", sources[7].Version, sources[7].Path)
 	}
 }

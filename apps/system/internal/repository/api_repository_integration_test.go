@@ -59,7 +59,7 @@ func TestAPIRepositoryListsFilteredResourcesInStableOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list filtered APIs: %v", err)
 	}
-	if len(items) != 2 || items[0].ID != resources[1].ID || items[1].ID != resources[0].ID {
+	if len(items) != 2 || items[0].ID != resources[0].ID || items[1].ID != resources[1].ID {
 		t.Fatalf("unexpected API ordering or filtering: %+v", items)
 	}
 

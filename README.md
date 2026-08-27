@@ -171,4 +171,4 @@ go test ./...
 
 测试默认不连接真实 PostgreSQL 或 Redis；外部依赖通过窄接口替换为测试桩。
 
-更多约定见 [测试方案](docs/development/testing.md)、[架构决策](docs/adr/0001-dogx-v0.1-architecture.md)、[统一响应与 RPC 错误决策](docs/adr/0002-http-response-and-rpc-errors.md)、[认证令牌与会话决策](docs/adr/0003-authentication-and-session.md)、[单租户 RBAC 与接口权限决策](docs/adr/0004-single-tenant-rbac.md)、[Casbin 运行时与多实例同步决策](docs/adr/0005-casbin-runtime-and-policy-sync.md) 和 [v0.1 功能边界](docs/roadmap/v0.1.md)。
+更多约定见 [测试方案](docs/development/testing.md)、[PostgreSQL 索引设计与审计规范](docs/development/database-indexes.md)、[架构决策](docs/adr/0001-dogx-v0.1-architecture.md)、[统一响应与 RPC 错误决策](docs/adr/0002-http-response-and-rpc-errors.md)、[认证令牌与会话决策](docs/adr/0003-authentication-and-session.md)、[单租户 RBAC 与接口权限决策](docs/adr/0004-single-tenant-rbac.md)、[Casbin 运行时与多实例同步决策](docs/adr/0005-casbin-runtime-and-policy-sync.md) 和 [v0.1 功能边界](docs/roadmap/v0.1.md)。

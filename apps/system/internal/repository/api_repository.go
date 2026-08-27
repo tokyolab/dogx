@@ -55,7 +55,7 @@ func (r *apiRepository) List(ctx context.Context, query APIListQuery) ([]model.A
 
 	resources := make([]model.API, 0)
 	if err := database.
-		Order("service_name ASC, api_group ASC, name ASC, id ASC").
+		Order("service_name ASC, api_group ASC, id ASC").
 		Find(&resources).Error; err != nil {
 		return nil, fmt.Errorf("list APIs: %w", err)
 	}
