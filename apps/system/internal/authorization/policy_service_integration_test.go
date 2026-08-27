@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -646,6 +647,53 @@ func TestRolePolicyServiceRejectsAssignedRoleAndIgnoresSoftDeletedUsers(t *testi
 	}
 	if rules := loadRoleRules(t, db, role.ID); len(rules) != 0 {
 		t.Fatalf("deleted role policies remain: %+v", rules)
+	}
+}
+
+func TestRolePolicyServicePreservesRoleWhenPolicyRemovalDuringDeleteFails(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	role, resources := seedAuthorizationResources(t, db)
+	notifier := &notifierStub{}
+	service, err := NewRolePolicyService(db, notifier)
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{resources["a"].ID}); err != nil {
+		t.Fatalf("seed role policies: %v", err)
+	}
+
+	if err := db.Exec(`
+		CREATE FUNCTION fail_deleted_role_policy_delete() RETURNS trigger AS $$
+		BEGIN
+			RAISE EXCEPTION 'forced deleted-role policy removal failure';
+		END;
+		$$ LANGUAGE plpgsql
+	`).Error; err != nil {
+		t.Fatalf("create failing policy delete function: %v", err)
+	}
+	if err := db.Exec(`
+		CREATE TRIGGER fail_deleted_role_policy_delete
+		BEFORE DELETE ON casbin_rule
+		FOR EACH ROW EXECUTE FUNCTION fail_deleted_role_policy_delete()
+	`).Error; err != nil {
+		t.Fatalf("create failing policy delete trigger: %v", err)
+	}
+
+	if _, err := service.DeleteRole(ctx, role.ID); err == nil ||
+		!strings.Contains(err.Error(), "remove deleted role policies") {
+		t.Fatalf("role deletion error = %v, want policy removal failure", err)
+	}
+	if notifier.calls.Load() != 1 {
+		t.Fatalf("failed role deletion published policy notification: %d", notifier.calls.Load())
+	}
+	var count int64
+	if err := db.Model(&model.Role{}).Where("id = ?", role.ID).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("failed policy removal changed role: count=%d error=%v", count, err)
+	}
+	if rules := loadRoleRules(t, db, role.ID); len(rules) != 2 {
+		t.Fatalf("failed policy removal changed role policies: %+v", rules)
 	}
 }
 

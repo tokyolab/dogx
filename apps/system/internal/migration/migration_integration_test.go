@@ -24,8 +24,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 6 {
-		t.Fatalf("unexpected applied migration count: got %d, want 6", len(results))
+	if len(results) != 7 {
+		t.Fatalf("unexpected applied migration count: got %d, want 7", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -74,6 +74,14 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 			results[5].Source.Path,
 		)
 	}
+	if results[6].Source.Version != 20260827131521 ||
+		results[6].Source.Path != "20260827131521_drop_foreign_keys.sql" {
+		t.Fatalf(
+			"unexpected applied migration: version=%d path=%s",
+			results[6].Source.Version,
+			results[6].Source.Path,
+		)
+	}
 
 	secondResults, err := provider.Up(ctx)
 	if err != nil {
@@ -87,8 +95,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260826112413 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260826112413", version)
+	if version != 20260827131521 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260827131521", version)
 	}
 
 	expectedTables := map[string]string{
@@ -117,7 +125,6 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		"idx_sys_menu_parent_id",
 		"idx_sys_menu_deleted_at",
 		"idx_sys_menu_permission",
-		"uk_sys_menu_id_app_code",
 		"uk_sys_menu_app_route_name_active",
 		"uk_sys_menu_app_path_active",
 		"idx_sys_menu_app_parent_sort",
@@ -136,18 +143,17 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	}
 
 	for table, constraints := range map[string][]string{
-		"sys_menu":      {"ck_sys_menu_app_code_not_blank", "ck_sys_menu_type", "ck_sys_menu_element_permission", "ck_sys_menu_element_route", "ck_sys_menu_status", "uk_sys_menu_id_app_code", "fk_sys_menu_parent"},
-		"sys_api":       {"ck_sys_api_method_upper", "ck_sys_api_path", "ck_sys_api_status"},
-		"sys_user":      {"ck_sys_user_status"},
-		"sys_role":      {"ck_sys_role_status", "ck_sys_role_code_format", "ck_sys_role_name_not_blank", "ck_sys_role_sort"},
-		"sys_user_role": {"fk_sys_user_role_user", "fk_sys_user_role_role"},
-		"sys_role_menu": {"fk_sys_role_menu_role", "fk_sys_role_menu_menu"},
-		"sys_login_log": {"fk_sys_login_log_user"},
+		"sys_menu": {"ck_sys_menu_app_code_not_blank", "ck_sys_menu_type", "ck_sys_menu_element_permission", "ck_sys_menu_element_route", "ck_sys_menu_status"},
+		"sys_api":  {"ck_sys_api_method_upper", "ck_sys_api_path", "ck_sys_api_status"},
+		"sys_user": {"ck_sys_user_status"},
+		"sys_role": {"ck_sys_role_status", "ck_sys_role_code_format", "ck_sys_role_name_not_blank", "ck_sys_role_sort"},
 	} {
 		for _, constraint := range constraints {
 			assertConstraintExists(t, ctx, sqlDB, table, constraint)
 		}
 	}
+	assertConstraintNotExists(t, ctx, sqlDB, "sys_menu", "uk_sys_menu_id_app_code")
+	assertNoForeignKeys(t, ctx, sqlDB)
 
 	var seedCount int
 	if err := sqlDB.QueryRowContext(ctx, `
@@ -210,6 +216,19 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	downResult, err := provider.Down(ctx)
 	if err != nil {
 		t.Fatalf("roll back latest migration: %v", err)
+	}
+	if downResult.Source.Version != 20260827131521 ||
+		downResult.Source.Path != "20260827131521_drop_foreign_keys.sql" {
+		t.Fatalf(
+			"unexpected rolled-back migration: version=%d path=%s",
+			downResult.Source.Version,
+			downResult.Source.Path,
+		)
+	}
+
+	downResult, err = provider.Down(ctx)
+	if err != nil {
+		t.Fatalf("roll back role management migration: %v", err)
 	}
 	if downResult.Source.Version != 20260826112413 ||
 		downResult.Source.Path != "20260826112413_add_role_management.sql" {
@@ -311,11 +330,12 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 4 ||
+	if len(reapplyResults) != 5 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
-		reapplyResults[3].Source.Version != 20260826112413 {
+		reapplyResults[3].Source.Version != 20260826112413 ||
+		reapplyResults[4].Source.Version != 20260827131521 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 }
@@ -674,5 +694,41 @@ func assertConstraintExists(t testing.TB, ctx context.Context, db *sql.DB, table
 	}
 	if !exists {
 		t.Errorf("constraint %s does not exist on table %s", constraint, table)
+	}
+}
+
+func assertConstraintNotExists(t testing.TB, ctx context.Context, db *sql.DB, table, constraint string) {
+	t.Helper()
+
+	var exists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM pg_constraint
+			WHERE conrelid = to_regclass($1)
+			  AND conname = $2
+		)
+	`, table, constraint).Scan(&exists); err != nil {
+		t.Fatalf("check absent constraint %s on %s: %v", constraint, table, err)
+	}
+	if exists {
+		t.Errorf("constraint %s unexpectedly exists on table %s", constraint, table)
+	}
+}
+
+func assertNoForeignKeys(t testing.TB, ctx context.Context, db *sql.DB) {
+	t.Helper()
+
+	var count int
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM pg_constraint
+		WHERE contype = 'f'
+		  AND connamespace = current_schema()::regnamespace
+	`).Scan(&count); err != nil {
+		t.Fatalf("count foreign key constraints: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("current schema has %d foreign key constraints, want 0", count)
 	}
 }

@@ -12,7 +12,7 @@ DogX 是一套面向开源项目的通用 Go 后台管理骨架。后端采用 g
 - Protobuf / gRPC
 - GORM
 - Goose（SQL 数据库迁移）
-- PostgreSQL 18（迁移脚本尽量兼容 PostgreSQL 17）
+- PostgreSQL 18（唯一支持的关系型数据库，迁移脚本尽量兼容 PostgreSQL 17）
 - Redis 7.4（按需使用，不为普通 CRUD 自动加缓存）
 - Casbin v3 + 官方 GORM Adapter + Redis Watcher（接口权限判定与多实例策略失效通知）
 
