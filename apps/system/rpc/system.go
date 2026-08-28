@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/tokyolab/dogx/apps/system/internal/rpclog"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/server"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
@@ -25,6 +26,7 @@ func main() {
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c, conf.UseEnv())
+	rpclog.ProtectServerContent(&c.RpcServerConf)
 	ctx, err := svc.NewServiceContext(c)
 	logx.Must(err)
 	defer func() {

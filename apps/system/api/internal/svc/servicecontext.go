@@ -10,6 +10,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
 	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
+	"github.com/tokyolab/dogx/apps/system/internal/rpclog"
 	"github.com/tokyolab/dogx/apps/system/rpc/systemclient"
 
 	"github.com/casbin/casbin/v3"
@@ -44,6 +45,7 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) (*ServiceContext, error) {
+	rpclog.ProtectClientContent()
 	systemRPC := systemclient.NewSystem(zrpc.MustNewClient(c.SystemRpc))
 	redisClient, err := redis.NewRedis(c.RedisConf)
 	if err != nil {
