@@ -212,3 +212,37 @@ func TestHandleOrdinaryErrorAsInvalidRequest(t *testing.T) {
 		t.Fatalf("unexpected ordinary response: status=%d body=%+v", httpStatus, body)
 	}
 }
+
+func TestTranslateFallsBackWithoutExposingMissingKey(t *testing.T) {
+	ctx := i18n.WithLocale(context.Background(), i18n.EnUS)
+	message := translate(ctx, "system.missing.translation", subcode.BusinessError)
+	if message != "Business operation failed" {
+		t.Fatalf("unexpected fallback message: %q", message)
+	}
+}
+
+func TestHTTPStatusSubcode(t *testing.T) {
+	tests := []struct {
+		statusCode int
+		subcode    string
+	}{
+		{statusCode: http.StatusBadRequest, subcode: subcode.InvalidRequest},
+		{statusCode: http.StatusUnprocessableEntity, subcode: subcode.InvalidRequest},
+		{statusCode: http.StatusUnauthorized, subcode: subcode.AuthenticationRequired},
+		{statusCode: http.StatusForbidden, subcode: subcode.PermissionDenied},
+		{statusCode: http.StatusNotFound, subcode: subcode.ResourceNotFound},
+		{statusCode: http.StatusConflict, subcode: subcode.RequestConflict},
+		{statusCode: http.StatusTooManyRequests, subcode: subcode.TooManyRequests},
+		{statusCode: http.StatusNotImplemented, subcode: subcode.NotImplemented},
+		{statusCode: http.StatusServiceUnavailable, subcode: subcode.ServiceUnavailable},
+		{statusCode: http.StatusGatewayTimeout, subcode: subcode.RequestTimeout},
+		{statusCode: http.StatusRequestTimeout, subcode: subcode.RequestTimeout},
+		{statusCode: http.StatusTeapot, subcode: subcode.InternalError},
+	}
+
+	for _, test := range tests {
+		if got := httpStatusSubcode(test.statusCode); got != test.subcode {
+			t.Errorf("status %d mapped to %q, want %q", test.statusCode, got, test.subcode)
+		}
+	}
+}
