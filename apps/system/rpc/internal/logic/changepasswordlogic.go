@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -33,14 +35,14 @@ func NewChangePasswordLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Ch
 
 func (l *ChangePasswordLogic) ChangePassword(in *system.ChangePasswordRequest) (*system.EmptyResponse, error) {
 	if in == nil || in.UserId <= 0 || in.CurrentPassword == "" ||
-		len(in.CurrentPassword) > authn.MaxPasswordBytes {
+		utf8.RuneCountInString(in.CurrentPassword) > authn.MaxPasswordCharacters {
 		return nil, status.Error(codes.InvalidArgument, "invalid change password request")
 	}
 	if err := authn.ValidatePassword(in.NewPassword); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid new password")
 	}
 	if in.CurrentPassword == in.NewPassword {
-		return nil, bizerror.New("新密码不能与当前密码相同")
+		return nil, bizerror.New(systemsubcode.AuthNewPasswordUnchanged, "新密码不能与当前密码相同")
 	}
 
 	user, err := l.svcCtx.UserRepo.FindByID(l.ctx, in.UserId)
@@ -59,7 +61,7 @@ func (l *ChangePasswordLogic) ChangePassword(in *system.ChangePasswordRequest) (
 	}
 	if err := l.svcCtx.Passwords.Verify(user.PasswordHash, in.CurrentPassword); err != nil {
 		if errors.Is(err, authn.ErrPasswordMismatch) {
-			return nil, bizerror.New("当前密码错误")
+			return nil, bizerror.New(systemsubcode.AuthCurrentPasswordWrong, "当前密码错误")
 		}
 		return nil, fmt.Errorf("verify current password: %w", err)
 	}

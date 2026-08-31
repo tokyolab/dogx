@@ -24,8 +24,10 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/internal/testutil"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	commonsubcode "github.com/tokyolab/dogx/pkg/subcode"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"gorm.io/gorm"
 )
@@ -37,6 +39,7 @@ const (
 
 type responseEnvelope struct {
 	Code    uint32          `json:"code"`
+	Subcode string          `json:"subcode"`
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data"`
 }
@@ -144,7 +147,7 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 		"username": user.Username,
 		"password": e2ePassword,
 	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	var credentials loginData
 	decodeData(t, envelope, &credentials)
 	if credentials.AccessToken == "" || credentials.RefreshToken == "" || credentials.ExpiresIn <= 0 {
@@ -157,7 +160,7 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	cleanupSessionIDs = append(cleanupSessionIDs, sessionID)
 
 	statusCode, envelope = postJSON(t, client, baseURL+"/auth/me", credentials.AccessToken, nil)
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	var currentUser currentUserData
 	decodeData(t, envelope, &currentUser)
 	if currentUser.ID != user.ID || currentUser.Username != user.Username || currentUser.Nickname != user.Nickname {
@@ -173,7 +176,7 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/create", credentials.AccessToken, map[string]any{
 		"code": "e2e_operator", "name": "E2E Operator", "description": "end-to-end role", "sort": 20, "status": 1,
 	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	var createdRole createdRoleData
 	decodeData(t, envelope, &createdRole)
 	if createdRole.ID <= 0 {
@@ -183,11 +186,11 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/update", credentials.AccessToken, map[string]any{
 		"id": createdRole.ID, "code": "e2e_auditor", "name": "E2E Auditor", "description": "updated role", "sort": 10,
 	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/get", credentials.AccessToken, map[string]any{
 		"id": createdRole.ID,
 	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	var loadedRole roleData
 	decodeData(t, envelope, &loadedRole)
 	if loadedRole.ID != createdRole.ID || loadedRole.Code != "e2e_auditor" ||
@@ -202,7 +205,7 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 		"username": roleUser.Username,
 		"password": e2ePassword,
 	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	var roleCredentials loginData
 	decodeData(t, envelope, &roleCredentials)
 	roleSessionID, _, _ := strings.Cut(roleCredentials.RefreshToken, ".")
@@ -211,19 +214,19 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/status/update", credentials.AccessToken, map[string]any{
 		"id": createdRole.ID, "status": 0,
 	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	statusCode, envelope = postJSON(t, client, baseURL+"/auth/me", roleCredentials.AccessToken, nil)
-	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, "authentication required")
+	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, commonsubcode.AuthenticationRequired)
 
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/status/update", credentials.AccessToken, map[string]any{
 		"id": createdRole.ID, "status": 1,
 	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	statusCode, envelope = postJSON(t, client, baseURL+"/auth/login", "", map[string]any{
 		"username": roleUser.Username,
 		"password": e2ePassword,
 	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	decodeData(t, envelope, &roleCredentials)
 	roleSessionID, _, _ = strings.Cut(roleCredentials.RefreshToken, ".")
 	cleanupSessionIDs = append(cleanupSessionIDs, roleSessionID)
@@ -241,7 +244,7 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/api/update", credentials.AccessToken, map[string]any{
 		"roleId": createdRole.ID, "apiIds": []int64{roleGetAPI.ID, roleUpdateAPI.ID},
 	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	waitForPermissionGrant(
 		t,
 		client,
@@ -258,7 +261,7 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 		roleCredentials.AccessToken,
 		updateRequest,
 	)
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	waitForPermissionRevocation(
 		t,
 		client,
@@ -271,16 +274,16 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/delete", credentials.AccessToken, map[string]any{
 		"id": createdRole.ID,
 	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, bizerror.DefaultCode, "角色已被用户使用，不能删除")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, bizerror.DefaultCode, systemsubcode.RoleInUse)
 	if err := gormDB.Delete(&roleUser).Error; err != nil {
 		t.Fatalf("soft delete assigned role user: %v", err)
 	}
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/delete", credentials.AccessToken, map[string]any{
 		"id": createdRole.ID,
 	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	statusCode, envelope = postJSON(t, client, baseURL+"/auth/me", roleCredentials.AccessToken, nil)
-	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, "authentication required")
+	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, commonsubcode.AuthenticationRequired)
 	assertRoleDeletionPersisted(t, gormDB, createdRole.ID)
 
 	statusCode, envelope = postJSON(
@@ -296,7 +299,7 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 		envelope,
 		http.StatusOK,
 		bizerror.DefaultCode,
-		"超级管理员拥有全部接口权限，不能配置接口权限",
+		systemsubcode.RoleSuperAdminAPIProtected,
 	)
 }
 
@@ -689,17 +692,17 @@ func assertEnvelope(
 	envelope responseEnvelope,
 	wantStatus int,
 	wantCode uint32,
-	wantMessage string,
+	wantSubcode string,
 ) {
 	t.Helper()
-	if statusCode != wantStatus || envelope.Code != wantCode || envelope.Message != wantMessage {
+	if statusCode != wantStatus || envelope.Code != wantCode || envelope.Subcode != wantSubcode {
 		t.Fatalf(
-			"unexpected HTTP response: status=%d envelope=%+v, want status=%d code=%d message=%q",
+			"unexpected HTTP response: status=%d envelope=%+v, want status=%d code=%d subcode=%q",
 			statusCode,
 			envelope,
 			wantStatus,
 			wantCode,
-			wantMessage,
+			wantSubcode,
 		)
 	}
 }
@@ -735,7 +738,7 @@ func waitForPermissionRevocation(
 		statusCode, envelope := postJSON(t, client, url, accessToken, requestBody)
 		if statusCode == http.StatusForbidden &&
 			envelope.Code == http.StatusForbidden &&
-			envelope.Message == "permission denied" {
+			envelope.Subcode == commonsubcode.PermissionDenied {
 			return
 		}
 		if statusCode != http.StatusOK || envelope.Code != 0 {
@@ -784,7 +787,7 @@ func waitForPermissionGrant(
 		}
 		if statusCode != http.StatusForbidden ||
 			envelope.Code != http.StatusForbidden ||
-			envelope.Message != "permission denied" {
+			envelope.Subcode != commonsubcode.PermissionDenied {
 			t.Fatalf(
 				"unexpected response while waiting for permission grant: status=%d envelope=%+v",
 				statusCode,

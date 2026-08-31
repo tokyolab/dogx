@@ -26,6 +26,8 @@ goctl api go --api system.api --dir . --style gozero
 
 DogX 使用 goctl 默认 Handler 的 `httpx.ErrorCtx` 和 `httpx.OkJsonCtx`，不维护自定义 Handler 模板。所有对外 API 必须声明响应类型，否则成功响应不会经过全局 JSON 成功处理器。
 
+API 字段校验标签必须写入 `.api` 契约源文件，由 goctl 生成到 Types。进程启动时通过 `httpx.SetValidator` 注册全局 Validator，生成 Handler 中已有的 `httpx.Parse` 会自动执行校验；不得为接入校验手工修改生成 Handler 或 Types。校验标签只允许使用 `go-playground/validator` 官方内置 Tag，不注册项目自定义 Tag。
+
 ## RPC 契约
 
 源文件：`apps/system/rpc/system.proto`

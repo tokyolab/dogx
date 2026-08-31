@@ -9,16 +9,16 @@ info (
 
 type (
 	IDReq {
-		Id int64 `json:"id"`
+		Id int64 `json:"id" validate:"gt=0"`
 	}
 
 	IDsReq {
-		Ids []int64 `json:"ids"`
+		Ids []int64 `json:"ids" validate:"min=1,dive,gt=0"`
 	}
 
 	PageReq {
-		Page     int64 `json:"page"`
-		PageSize int64 `json:"pageSize"`
+		Page     int64 `json:"page" validate:"gte=1"`
+		PageSize int64 `json:"pageSize" validate:"gte=1,lte=100"`
 	}
 
 	PageMeta {

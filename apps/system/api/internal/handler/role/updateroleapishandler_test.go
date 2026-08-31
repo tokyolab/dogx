@@ -9,10 +9,14 @@ import (
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/systemclient"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	"github.com/tokyolab/dogx/pkg/requestvalidator"
 	commonresponse "github.com/tokyolab/dogx/pkg/response"
+	commonsubcode "github.com/tokyolab/dogx/pkg/subcode"
 	"github.com/zeromicro/go-zero/rest/httpx"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -156,10 +160,32 @@ func TestUpdateRoleAPIsHandlerRejectsInvalidRoleID(t *testing.T) {
 	}
 }
 
+func TestCreateRoleHandlerUsesGlobalValidator(t *testing.T) {
+	setRoleResponseHandlers(t)
+	rpc := &roleHandlerSystemRPCStub{}
+	request := newRoleHandlerRequest(
+		"/role/create",
+		`{"code":"operator","name":"`+strings.Repeat("a", 65)+`","sort":0,"status":1}`,
+	)
+	request.Header.Set("Accept-Language", "en-US")
+	recorder := httptest.NewRecorder()
+
+	CreateRoleHandler(&svc.ServiceContext{SystemRpc: rpc}).ServeHTTP(recorder, request)
+
+	var response commonresponse.Body
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode validation response: %v", err)
+	}
+	if recorder.Code != http.StatusBadRequest || response.Code != http.StatusBadRequest ||
+		response.Subcode != commonsubcode.InvalidRequest || response.Message == "" || rpc.createRequest != nil {
+		t.Fatalf("unexpected validation response: status=%d body=%+v request=%+v", recorder.Code, response, rpc.createRequest)
+	}
+}
+
 func TestUpdateRoleAPIsHandlerReturnsBusinessError(t *testing.T) {
 	setRoleResponseHandlers(t)
 	rpc := &roleHandlerSystemRPCStub{
-		err: status.Error(codes.Code(bizerror.DefaultCode), "角色不存在或已停用"),
+		err: newRoleHandlerBusinessError(t, systemsubcode.RoleUnavailable, "角色不存在或已停用"),
 	}
 	request := newUpdateRoleAPIsRequest(`{"roleId":7,"apiIds":[11]}`)
 	recorder := httptest.NewRecorder()
@@ -173,7 +199,7 @@ func TestUpdateRoleAPIsHandlerReturnsBusinessError(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode business error response: %v", err)
 	}
-	if response.Code != bizerror.DefaultCode || response.Message != "角色不存在或已停用" {
+	if response.Code != bizerror.DefaultCode || response.Subcode != systemsubcode.RoleUnavailable {
 		t.Fatalf("unexpected business error response: %+v", response)
 	}
 }
@@ -351,7 +377,9 @@ func TestRoleMutationHandlersCoverSuccessParseAndLogicErrors(t *testing.T) {
 		})
 
 		t.Run(test.name+" business error", func(t *testing.T) {
-			rpc := &roleHandlerSystemRPCStub{err: status.Error(codes.Code(bizerror.DefaultCode), "角色操作失败")}
+			rpc := &roleHandlerSystemRPCStub{
+				err: newRoleHandlerBusinessError(t, systemsubcode.RoleNotFound, "角色操作失败"),
+			}
 			recorder := httptest.NewRecorder()
 			test.handler(&svc.ServiceContext{SystemRpc: rpc}).ServeHTTP(
 				recorder,
@@ -364,7 +392,7 @@ func TestRoleMutationHandlersCoverSuccessParseAndLogicErrors(t *testing.T) {
 			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 				t.Fatalf("decode business error: %v", err)
 			}
-			if response.Code != bizerror.DefaultCode || response.Message != "角色操作失败" {
+			if response.Code != bizerror.DefaultCode || response.Subcode != systemsubcode.RoleNotFound {
 				t.Fatalf("unexpected business error: %+v", response)
 			}
 		})
@@ -385,8 +413,21 @@ func setRoleResponseHandlers(t *testing.T) {
 	t.Helper()
 	httpx.SetOkHandler(commonresponse.HandleSuccess)
 	httpx.SetErrorHandlerCtx(commonresponse.HandleError)
+	httpx.SetValidator(requestvalidator.New())
 	t.Cleanup(func() {
 		httpx.SetOkHandler(nil)
 		httpx.SetErrorHandlerCtx(nil)
+		httpx.SetValidator(nil)
 	})
+}
+
+func newRoleHandlerBusinessError(t testing.TB, businessSubcode, message string) error {
+	t.Helper()
+	st, err := status.New(codes.Code(bizerror.DefaultCode), message).WithDetails(
+		&errdetails.ErrorInfo{Reason: businessSubcode},
+	)
+	if err != nil {
+		t.Fatalf("attach business ErrorInfo: %v", err)
+	}
+	return st.Err()
 }

@@ -9,8 +9,10 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	"github.com/tokyolab/dogx/pkg/bizerror"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -84,9 +86,14 @@ func TestCreateRoleRejectsInvalidInputAndMapsDuplicateCode(t *testing.T) {
 	}
 	if _, err := NewCreateRoleLogic(context.Background(), &svc.ServiceContext{
 		RoleWriter: &roleWriterStub{err: repository.ErrReservedRoleCode},
-	}).CreateRole(&system.CreateRoleRequest{Code: "super_admin", Name: "Super Admin", Status: 1}); err == nil || err.Error() != "角色编码为系统保留，不能使用" {
+	}).CreateRole(&system.CreateRoleRequest{Code: "super_admin", Name: "Super Admin", Status: 1}); !hasBusinessSubcode(err, systemsubcode.RoleCodeReserved) {
 		t.Fatalf("reserved role code error = %v", err)
 	}
+}
+
+func hasBusinessSubcode(err error, want string) bool {
+	businessErr, ok := bizerror.From(err)
+	return ok && businessErr.Subcode() == want
 }
 
 func TestUpdateRoleDelegatesNormalizedMetadataAndMapsErrors(t *testing.T) {

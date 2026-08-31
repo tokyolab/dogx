@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -44,11 +45,11 @@ func (l *ReplaceRoleAPIsLogic) ReplaceRoleAPIs(in *system.ReplaceRoleAPIsRequest
 	case errors.Is(err, authorization.ErrInvalidRoleID):
 		return nil, status.Error(codes.InvalidArgument, "invalid role API authorization request")
 	case errors.Is(err, authorization.ErrRoleUnavailable):
-		return nil, bizerror.New("角色不存在或已停用")
+		return nil, bizerror.New(systemsubcode.RoleUnavailable, "角色不存在或已停用")
 	case errors.Is(err, authorization.ErrAPIUnavailable):
-		return nil, bizerror.New("接口资源不存在或已停用")
+		return nil, bizerror.New(systemsubcode.RoleAPIUnavailable, "接口资源不存在或已停用")
 	case errors.Is(err, authorization.ErrSuperAdminPolicyProtected):
-		return nil, bizerror.New("超级管理员拥有全部接口权限，不能配置接口权限")
+		return nil, bizerror.New(systemsubcode.RoleSuperAdminAPIProtected, "超级管理员拥有全部接口权限，不能配置接口权限")
 	case err != nil:
 		return nil, fmt.Errorf("replace role API policies: %w", err)
 	}

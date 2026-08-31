@@ -2,9 +2,9 @@ import "base.api"
 
 type (
 	APIListReq {
-		Keyword     string `json:"keyword,optional"`
-		ServiceName string `json:"serviceName,optional"`
-		Group       string `json:"group,optional"`
+		Keyword     string `json:"keyword,optional" validate:"max=128"`
+		ServiceName string `json:"serviceName,optional" validate:"max=64"`
+		Group       string `json:"group,optional" validate:"max=64"`
 	}
 
 	APIItem {

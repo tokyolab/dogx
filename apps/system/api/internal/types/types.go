@@ -16,9 +16,9 @@ type APIItem struct {
 }
 
 type APIListReq struct {
-	Keyword     string `json:"keyword,optional"`
-	ServiceName string `json:"serviceName,optional"`
-	Group       string `json:"group,optional"`
+	Keyword     string `json:"keyword,optional" validate:"max=128"`
+	ServiceName string `json:"serviceName,optional" validate:"max=64"`
+	Group       string `json:"group,optional" validate:"max=64"`
 }
 
 type APIListResp struct {
@@ -26,16 +26,16 @@ type APIListResp struct {
 }
 
 type ChangePasswordReq struct {
-	CurrentPassword string `json:"currentPassword"`
-	NewPassword     string `json:"newPassword"`
+	CurrentPassword string `json:"currentPassword" validate:"required,max=128"`
+	NewPassword     string `json:"newPassword" validate:"required,min=12,max=128"`
 }
 
 type CreateRoleReq struct {
-	Code        string `json:"code"`
-	Name        string `json:"name"`
-	Description string `json:"description,optional"`
-	Sort        int64  `json:"sort"`
-	Status      int64  `json:"status"`
+	Code        string `json:"code" validate:"required,max=64"`
+	Name        string `json:"name" validate:"required,max=64"`
+	Description string `json:"description,optional" validate:"max=500"`
+	Sort        int64  `json:"sort" validate:"gte=0,lte=2147483647"`
+	Status      int64  `json:"status" validate:"oneof=0 1"`
 }
 
 type CreateRoleResp struct {
@@ -52,7 +52,7 @@ type EmptyResp struct {
 }
 
 type GetRoleAPIsReq struct {
-	RoleId int64 `json:"roleId"`
+	RoleId int64 `json:"roleId" validate:"gt=0"`
 }
 
 type GetRoleAPIsResp struct {
@@ -66,16 +66,16 @@ type HealthResp struct {
 }
 
 type IDReq struct {
-	Id int64 `json:"id"`
+	Id int64 `json:"id" validate:"gt=0"`
 }
 
 type IDsReq struct {
-	Ids []int64 `json:"ids"`
+	Ids []int64 `json:"ids" validate:"min=1,dive,gt=0"`
 }
 
 type LoginReq struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username string `json:"username" validate:"required,max=64"`
+	Password string `json:"password" validate:"required,max=128"`
 }
 
 type LoginResp struct {
@@ -89,8 +89,8 @@ type PageMeta struct {
 }
 
 type PageReq struct {
-	Page     int64 `json:"page"`
-	PageSize int64 `json:"pageSize"`
+	Page     int64 `json:"page" validate:"gte=1"`
+	PageSize int64 `json:"pageSize" validate:"gte=1,lte=100"`
 }
 
 type ReadyResp struct {
@@ -98,7 +98,7 @@ type ReadyResp struct {
 }
 
 type RefreshTokenReq struct {
-	RefreshToken string `json:"refreshToken"`
+	RefreshToken string `json:"refreshToken" validate:"required,max=256"`
 }
 
 type RoleItem struct {
@@ -114,9 +114,9 @@ type RoleItem struct {
 }
 
 type RoleListReq struct {
-	Page     int64  `json:"page"`
-	PageSize int64  `json:"pageSize"`
-	Keyword  string `json:"keyword,optional"`
+	Page     int64  `json:"page" validate:"gte=1"`
+	PageSize int64  `json:"pageSize" validate:"gte=1,lte=100"`
+	Keyword  string `json:"keyword,optional" validate:"max=128"`
 }
 
 type RoleListResp struct {
@@ -125,19 +125,19 @@ type RoleListResp struct {
 }
 
 type UpdateRoleAPIsReq struct {
-	RoleId int64   `json:"roleId"`
-	ApiIds []int64 `json:"apiIds"`
+	RoleId int64   `json:"roleId" validate:"gt=0"`
+	ApiIds []int64 `json:"apiIds" validate:"dive,gt=0"`
 }
 
 type UpdateRoleReq struct {
-	Id          int64  `json:"id"`
-	Code        string `json:"code"`
-	Name        string `json:"name"`
-	Description string `json:"description,optional"`
-	Sort        int64  `json:"sort"`
+	Id          int64  `json:"id" validate:"gt=0"`
+	Code        string `json:"code" validate:"required,max=64"`
+	Name        string `json:"name" validate:"required,max=64"`
+	Description string `json:"description,optional" validate:"max=500"`
+	Sort        int64  `json:"sort" validate:"gte=0,lte=2147483647"`
 }
 
 type UpdateRoleStatusReq struct {
-	Id     int64 `json:"id"`
-	Status int64 `json:"status"`
+	Id     int64 `json:"id" validate:"gt=0"`
+	Status int64 `json:"status" validate:"oneof=0 1"`
 }

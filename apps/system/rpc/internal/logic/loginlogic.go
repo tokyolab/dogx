@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -20,10 +22,10 @@ import (
 )
 
 const (
-	maxUsernameBytes  = 64
-	maxPasswordBytes  = authn.MaxPasswordBytes
-	maxIPAddressRunes = 45
-	maxUserAgentRunes = 512
+	maxUsernameCharacters = 64
+	maxPasswordCharacters = authn.MaxPasswordCharacters
+	maxIPAddressRunes     = 45
+	maxUserAgentRunes     = 512
 )
 
 type LoginLogic struct {
@@ -46,8 +48,8 @@ func (l *LoginLogic) Login(in *system.LoginRequest) (*system.LoginResponse, erro
 	}
 
 	username := strings.TrimSpace(in.Username)
-	if username == "" || len(username) > maxUsernameBytes ||
-		in.Password == "" || len(in.Password) > maxPasswordBytes {
+	if username == "" || utf8.RuneCountInString(username) > maxUsernameCharacters ||
+		in.Password == "" || utf8.RuneCountInString(in.Password) > maxPasswordCharacters {
 		l.recordLogin(nil, username, false, model.LoginFailureInvalidCredentials, in)
 		return nil, status.Error(codes.InvalidArgument, "invalid login request")
 	}
@@ -73,7 +75,7 @@ func (l *LoginLogic) Login(in *system.LoginRequest) (*system.LoginResponse, erro
 	}
 	if user.Status != model.RecordStatusEnabled {
 		l.recordLogin(&user.ID, username, false, model.LoginFailureAccountDisabled, in)
-		return nil, bizerror.New("账号已停用")
+		return nil, bizerror.New(systemsubcode.AuthUserDisabled, "账号已停用")
 	}
 
 	credentials, err := l.svcCtx.Tokens.Issue(l.ctx, user.ID)
@@ -114,7 +116,7 @@ func (l *LoginLogic) recordLogin(
 	}
 	loginLog := &model.LoginLog{
 		UserID:        userID,
-		Username:      truncateRunes(username, maxUsernameBytes),
+		Username:      truncateRunes(username, maxUsernameCharacters),
 		Success:       success,
 		FailureReason: failureReason,
 		IPAddress:     ipAddress,
@@ -134,5 +136,5 @@ func truncateRunes(value string, maximum int) string {
 }
 
 func invalidCredentialsError() error {
-	return bizerror.New("用户名或密码错误")
+	return bizerror.New(systemsubcode.AuthInvalidCredentials, "用户名或密码错误")
 }

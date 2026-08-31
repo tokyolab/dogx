@@ -15,8 +15,15 @@
 
 - HTTP Handler 使用 goctl 默认结构，不维护自定义 Handler 模板。
 - 成功响应由 `httpx.SetOkHandler` 统一包装；错误响应由 `httpx.SetErrorHandlerCtx` 统一处理。
+- HTTP 响应统一包含 `code/subcode/message/data`；程序逻辑和业务测试使用稳定的 `subcode`，不得依赖可调整的 `message`。
 - 成功码为 `0`；默认业务错误码为 `100001`，只有客户端确实需要分支处理时才增加具体业务码。
 - 内部 RPC 使用 `100000～2147483647` 的扩展 gRPC Code 传递业务错误；标准 gRPC Code `0～16` 留给框架和技术错误。
+- RPC 业务错误必须保留可读的原始 Message，并通过标准 `google.rpc.ErrorInfo.Reason` 携带 subcode；不设置 ErrorInfo Domain，不自定义错误 Detail protobuf。
+- 参数解析、API 字段校验和 RPC 参数兜底统一使用 `common.invalid_request`，不为每条字段校验规则创建 subcode。
+- API 字段校验标签写入 `.api` 源文件；全局 Validator 通过 `httpx.SetValidator` 注册，不得为校验修改 goctl 生成 Handler。
+- API 字段校验只允许使用 `go-playground/validator` 官方内置 Tag，不注册项目自定义 Tag；无法由内置 Tag 表达的业务格式在前端、RPC 和数据库约束中校验。
+- Validator 失败向客户端保留原始详细诊断以便接口调试；JSON 解析失败只返回通用参数错误，详细原因仅写服务端日志且不得记录完整请求体。
+- 后端国际化只覆盖业务错误和通用技术错误，不维护 Validator 字段名与规则文案翻译。
 - 扩展 gRPC Code 是 DogX 内部协议，不得直接用于对外 gRPC API。
 - 业务错误返回 HTTP 200；参数和技术错误使用真实 HTTP 4xx/5xx。
 

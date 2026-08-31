@@ -7,6 +7,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -50,9 +51,9 @@ func (l *CreateRoleLogic) CreateRole(in *system.CreateRoleRequest) (*system.Crea
 		Status:      model.RecordStatus(in.Status),
 	}
 	if err := l.svcCtx.RoleWriter.Create(l.ctx, role); errors.Is(err, repository.ErrRoleCodeExists) {
-		return nil, bizerror.New("角色编码已存在")
+		return nil, bizerror.New(systemsubcode.RoleCodeExists, "角色编码已存在")
 	} else if errors.Is(err, repository.ErrReservedRoleCode) {
-		return nil, bizerror.New("角色编码为系统保留，不能使用")
+		return nil, bizerror.New(systemsubcode.RoleCodeReserved, "角色编码为系统保留，不能使用")
 	} else if err != nil {
 		return nil, fmt.Errorf("create role: %w", err)
 	}

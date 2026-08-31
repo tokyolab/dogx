@@ -9,19 +9,23 @@ import (
 	"testing"
 
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	"github.com/tokyolab/dogx/pkg/i18n"
+	"github.com/tokyolab/dogx/pkg/subcode"
 
+	"github.com/go-playground/validator/v10"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 func TestHandleSuccess(t *testing.T) {
 	data := map[string]string{"status": "ok"}
-	body, ok := HandleSuccess(context.Background(), data).(Body)
+	body, ok := HandleSuccess(i18n.WithLocale(context.Background(), i18n.EnUS), data).(Body)
 
 	if !ok {
 		t.Fatal("unexpected success body type")
 	}
-	if body.Code != SuccessCode || body.Message != "success" {
+	if body.Code != SuccessCode || body.Subcode != "" || body.Message != "Success" {
 		t.Fatalf("unexpected success body: %+v", body)
 	}
 	if got := body.Data.(map[string]string)["status"]; got != "ok" {
@@ -29,8 +33,9 @@ func TestHandleSuccess(t *testing.T) {
 	}
 }
 
-func TestHandleUnauthorized(t *testing.T) {
+func TestHandleUnauthorizedUsesRequestedLanguage(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	request.Header.Set("Accept-Language", "en-US")
 	recorder := httptest.NewRecorder()
 	HandleUnauthorized(recorder, request, errors.New("private JWT detail"))
 
@@ -41,36 +46,71 @@ func TestHandleUnauthorized(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode unauthorized response: %v", err)
 	}
-	if body.Code != http.StatusUnauthorized || body.Message != "authentication required" || body.Data != nil {
+	if body.Code != http.StatusUnauthorized ||
+		body.Subcode != subcode.AuthenticationRequired ||
+		body.Message != "Authentication required" || body.Data != nil {
 		t.Fatalf("unexpected unauthorized response: %+v", body)
 	}
 }
 
 func TestHandleLocalBusinessError(t *testing.T) {
-	httpStatus, value := HandleError(context.Background(), bizerror.New("username already exists"))
+	httpStatus, value := HandleError(
+		context.Background(),
+		bizerror.New("system.auth.invalid_credentials", "internal readable diagnostic"),
+	)
 	body := value.(Body)
 
-	if httpStatus != http.StatusOK || body.Code != bizerror.DefaultCode {
+	if httpStatus != http.StatusOK || body.Code != bizerror.DefaultCode ||
+		body.Subcode != "system.auth.invalid_credentials" {
 		t.Fatalf("unexpected business response: status=%d body=%+v", httpStatus, body)
+	}
+	if body.Message == "internal readable diagnostic" {
+		t.Fatal("internal diagnostic was exposed as the HTTP message")
 	}
 }
 
-func TestHandleRejectsInvalidLocalBusinessCode(t *testing.T) {
-	httpStatus, value := HandleError(context.Background(), bizerror.NewCode(1, "invalid code"))
-	body := value.(Body)
-
-	if httpStatus != http.StatusInternalServerError || body.Code != http.StatusInternalServerError {
-		t.Fatalf("unexpected invalid-code response: status=%d body=%+v", httpStatus, body)
+func TestHandleRejectsInvalidLocalBusinessError(t *testing.T) {
+	tests := []*bizerror.Error{
+		bizerror.NewCode(1, "system.auth.invalid", "invalid code"),
+		bizerror.New("INVALID_SUBCODE", "invalid subcode"),
+	}
+	for _, err := range tests {
+		httpStatus, value := HandleError(context.Background(), err)
+		body := value.(Body)
+		if httpStatus != http.StatusInternalServerError || body.Code != http.StatusInternalServerError ||
+			body.Subcode != subcode.InternalError {
+			t.Fatalf("unexpected invalid business response: status=%d body=%+v", httpStatus, body)
+		}
 	}
 }
 
 func TestHandleRPCBusinessError(t *testing.T) {
-	err := status.Error(codes.Code(100002), "token expired")
-	httpStatus, value := HandleError(context.Background(), err)
+	st, err := status.New(codes.Code(100002), "token expired diagnostic").WithDetails(
+		&errdetails.ErrorInfo{Reason: "system.auth.invalid_credentials"},
+	)
+	if err != nil {
+		t.Fatalf("attach ErrorInfo: %v", err)
+	}
+	httpStatus, value := HandleError(context.Background(), st.Err())
 	body := value.(Body)
 
-	if httpStatus != http.StatusOK || body.Code != 100002 || body.Message != "token expired" {
+	if httpStatus != http.StatusOK || body.Code != 100002 ||
+		body.Subcode != "system.auth.invalid_credentials" {
 		t.Fatalf("unexpected RPC business response: status=%d body=%+v", httpStatus, body)
+	}
+	if body.Message == "token expired diagnostic" {
+		t.Fatal("RPC diagnostic was exposed as the HTTP message")
+	}
+}
+
+func TestHandleRPCBusinessErrorWithoutDetailFallsBackSafely(t *testing.T) {
+	httpStatus, value := HandleError(
+		context.Background(),
+		status.Error(codes.Code(100002), "private business detail"),
+	)
+	body := value.(Body)
+	if httpStatus != http.StatusOK || body.Code != 100002 || body.Subcode != subcode.BusinessError {
+		t.Fatalf("unexpected fallback response: status=%d body=%+v", httpStatus, body)
 	}
 }
 
@@ -79,24 +119,24 @@ func TestHandleStandardGRPCErrors(t *testing.T) {
 		name       string
 		grpcCode   codes.Code
 		httpStatus int
-		message    string
+		subcode    string
 	}{
-		{name: "invalid argument", grpcCode: codes.InvalidArgument, httpStatus: http.StatusBadRequest, message: "invalid request"},
-		{name: "failed precondition", grpcCode: codes.FailedPrecondition, httpStatus: http.StatusBadRequest, message: "invalid request"},
-		{name: "out of range", grpcCode: codes.OutOfRange, httpStatus: http.StatusBadRequest, message: "invalid request"},
-		{name: "unauthenticated", grpcCode: codes.Unauthenticated, httpStatus: http.StatusUnauthorized, message: "authentication required"},
-		{name: "permission denied", grpcCode: codes.PermissionDenied, httpStatus: http.StatusForbidden, message: "permission denied"},
-		{name: "not found", grpcCode: codes.NotFound, httpStatus: http.StatusNotFound, message: "resource not found"},
-		{name: "canceled", grpcCode: codes.Canceled, httpStatus: http.StatusRequestTimeout, message: "request canceled"},
-		{name: "already exists", grpcCode: codes.AlreadyExists, httpStatus: http.StatusConflict, message: "request conflict"},
-		{name: "aborted", grpcCode: codes.Aborted, httpStatus: http.StatusConflict, message: "request conflict"},
-		{name: "resource exhausted", grpcCode: codes.ResourceExhausted, httpStatus: http.StatusTooManyRequests, message: "too many requests"},
-		{name: "unimplemented", grpcCode: codes.Unimplemented, httpStatus: http.StatusNotImplemented, message: "not implemented"},
-		{name: "unavailable", grpcCode: codes.Unavailable, httpStatus: http.StatusServiceUnavailable, message: "service unavailable"},
-		{name: "deadline exceeded", grpcCode: codes.DeadlineExceeded, httpStatus: http.StatusGatewayTimeout, message: "request timed out"},
-		{name: "unknown", grpcCode: codes.Unknown, httpStatus: http.StatusInternalServerError, message: "internal server error"},
-		{name: "internal", grpcCode: codes.Internal, httpStatus: http.StatusInternalServerError, message: "internal server error"},
-		{name: "data loss", grpcCode: codes.DataLoss, httpStatus: http.StatusInternalServerError, message: "internal server error"},
+		{name: "invalid argument", grpcCode: codes.InvalidArgument, httpStatus: http.StatusBadRequest, subcode: subcode.InvalidRequest},
+		{name: "failed precondition", grpcCode: codes.FailedPrecondition, httpStatus: http.StatusBadRequest, subcode: subcode.InvalidRequest},
+		{name: "out of range", grpcCode: codes.OutOfRange, httpStatus: http.StatusBadRequest, subcode: subcode.InvalidRequest},
+		{name: "unauthenticated", grpcCode: codes.Unauthenticated, httpStatus: http.StatusUnauthorized, subcode: subcode.AuthenticationRequired},
+		{name: "permission denied", grpcCode: codes.PermissionDenied, httpStatus: http.StatusForbidden, subcode: subcode.PermissionDenied},
+		{name: "not found", grpcCode: codes.NotFound, httpStatus: http.StatusNotFound, subcode: subcode.ResourceNotFound},
+		{name: "canceled", grpcCode: codes.Canceled, httpStatus: http.StatusRequestTimeout, subcode: subcode.RequestCanceled},
+		{name: "already exists", grpcCode: codes.AlreadyExists, httpStatus: http.StatusConflict, subcode: subcode.RequestConflict},
+		{name: "aborted", grpcCode: codes.Aborted, httpStatus: http.StatusConflict, subcode: subcode.RequestConflict},
+		{name: "resource exhausted", grpcCode: codes.ResourceExhausted, httpStatus: http.StatusTooManyRequests, subcode: subcode.TooManyRequests},
+		{name: "unimplemented", grpcCode: codes.Unimplemented, httpStatus: http.StatusNotImplemented, subcode: subcode.NotImplemented},
+		{name: "unavailable", grpcCode: codes.Unavailable, httpStatus: http.StatusServiceUnavailable, subcode: subcode.ServiceUnavailable},
+		{name: "deadline exceeded", grpcCode: codes.DeadlineExceeded, httpStatus: http.StatusGatewayTimeout, subcode: subcode.RequestTimeout},
+		{name: "unknown", grpcCode: codes.Unknown, httpStatus: http.StatusInternalServerError, subcode: subcode.InternalError},
+		{name: "internal", grpcCode: codes.Internal, httpStatus: http.StatusInternalServerError, subcode: subcode.InternalError},
+		{name: "data loss", grpcCode: codes.DataLoss, httpStatus: http.StatusInternalServerError, subcode: subcode.InternalError},
 	}
 
 	for _, test := range tests {
@@ -105,14 +145,11 @@ func TestHandleStandardGRPCErrors(t *testing.T) {
 			httpStatus, value := HandleError(context.Background(), err)
 			body := value.(Body)
 
-			if httpStatus != test.httpStatus || body.Code != uint32(test.httpStatus) {
+			if httpStatus != test.httpStatus || body.Code != uint32(test.httpStatus) || body.Subcode != test.subcode {
 				t.Fatalf("unexpected standard gRPC response: status=%d body=%+v", httpStatus, body)
 			}
-			if body.Message != test.message {
-				t.Fatalf("message = %q, want %q", body.Message, test.message)
-			}
-			if body.Data != nil {
-				t.Fatalf("technical error exposed data: %+v", body.Data)
+			if body.Message == "private framework detail" || body.Data != nil {
+				t.Fatalf("technical error exposed private data: %+v", body)
 			}
 		})
 	}
@@ -121,21 +158,18 @@ func TestHandleStandardGRPCErrors(t *testing.T) {
 func TestHandleServiceUnavailable(t *testing.T) {
 	cause := errors.New("private dependency detail")
 	err := ServiceUnavailable(cause)
-	if err.Error() != "service dependencies are not ready" {
-		t.Fatalf("unexpected error string: %s", err.Error())
-	}
-	if !errors.Is(err, cause) {
-		t.Fatal("typed error does not unwrap its cause")
+	if err.Error() != "service dependencies are not ready" || !errors.Is(err, cause) {
+		t.Fatalf("typed error lost its diagnostic or cause: %v", err)
 	}
 
 	httpStatus, value := HandleError(context.Background(), err)
 	body := value.(Body)
-
-	if httpStatus != http.StatusServiceUnavailable || body.Code != http.StatusServiceUnavailable {
+	if httpStatus != http.StatusServiceUnavailable || body.Code != http.StatusServiceUnavailable ||
+		body.Subcode != subcode.ServiceUnavailable {
 		t.Fatalf("unexpected unavailable response: status=%d body=%+v", httpStatus, body)
 	}
-	if body.Message != "service dependencies are not ready" {
-		t.Fatalf("unexpected public message: %s", body.Message)
+	if body.Message == err.Error() {
+		t.Fatal("internal service diagnostic was exposed")
 	}
 }
 
@@ -147,24 +181,25 @@ func TestHandleTypedClientError(t *testing.T) {
 	)
 	body := value.(Body)
 
-	if httpStatus != http.StatusUnprocessableEntity || body.Code != http.StatusUnprocessableEntity {
+	if httpStatus != http.StatusUnprocessableEntity || body.Code != http.StatusUnprocessableEntity ||
+		body.Subcode != subcode.InvalidRequest || body.Data != nil {
 		t.Fatalf("unexpected typed response: status=%d body=%+v", httpStatus, body)
 	}
-	if body.Message != "request cannot be processed" || body.Data != nil {
-		t.Fatalf("unexpected typed response body: %+v", body)
+	if body.Message == "request cannot be processed" {
+		t.Fatal("typed error diagnostic was exposed")
 	}
 }
 
-func TestHandleUnknownGRPCErrorHidesCause(t *testing.T) {
-	err := status.Error(codes.Unknown, "database secret detail")
+func TestHandleValidationErrorKeepsOriginalDiagnostic(t *testing.T) {
+	validate := validator.New(validator.WithRequiredStructEnabled())
+	err := validate.Struct(struct {
+		Code string `validate:"required"`
+	}{})
 	httpStatus, value := HandleError(context.Background(), err)
 	body := value.(Body)
-
-	if httpStatus != http.StatusInternalServerError {
-		t.Fatalf("unexpected status: %d", httpStatus)
-	}
-	if body.Message != "internal server error" {
-		t.Fatalf("unexpected public message: %s", body.Message)
+	if httpStatus != http.StatusBadRequest || body.Code != http.StatusBadRequest ||
+		body.Subcode != subcode.InvalidRequest || body.Message != err.Error() {
+		t.Fatalf("unexpected validation response: status=%d body=%+v", httpStatus, body)
 	}
 }
 
@@ -172,7 +207,8 @@ func TestHandleOrdinaryErrorAsInvalidRequest(t *testing.T) {
 	httpStatus, value := HandleError(context.Background(), errors.New("json parse detail"))
 	body := value.(Body)
 
-	if httpStatus != http.StatusBadRequest || body.Message != "invalid request" {
+	if httpStatus != http.StatusBadRequest || body.Subcode != subcode.InvalidRequest ||
+		body.Message == "json parse detail" {
 		t.Fatalf("unexpected ordinary response: status=%d body=%+v", httpStatus, body)
 	}
 }

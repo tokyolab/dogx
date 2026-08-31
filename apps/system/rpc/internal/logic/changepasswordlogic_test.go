@@ -8,6 +8,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -52,7 +53,7 @@ func TestChangePasswordRejectsWrongAndReusedPassword(t *testing.T) {
 		CurrentPassword: "wrong-password",
 		NewPassword:     "new-secure-password",
 	})
-	if businessErr, ok := bizerror.From(err); !ok || businessErr.Error() != "当前密码错误" {
+	if businessErr, ok := bizerror.From(err); !ok || businessErr.Subcode() != systemsubcode.AuthCurrentPasswordWrong {
 		t.Fatalf("unexpected wrong-password error: %v", err)
 	}
 	if wrongSessions.revokedUserID != 0 || wrongRepo.passwordHash != "" {
@@ -65,7 +66,7 @@ func TestChangePasswordRejectsWrongAndReusedPassword(t *testing.T) {
 		CurrentPassword: "same-secure-password",
 		NewPassword:     "same-secure-password",
 	})
-	if businessErr, ok := bizerror.From(err); !ok || businessErr.Error() != "新密码不能与当前密码相同" {
+	if businessErr, ok := bizerror.From(err); !ok || businessErr.Subcode() != systemsubcode.AuthNewPasswordUnchanged {
 		t.Fatalf("unexpected reused-password error: %v", err)
 	}
 }

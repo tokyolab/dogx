@@ -10,11 +10,14 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/api/internal/types"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/systemclient"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	"github.com/tokyolab/dogx/pkg/requestvalidator"
 	commonresponse "github.com/tokyolab/dogx/pkg/response"
 
 	"github.com/zeromicro/go-zero/rest/httpx"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -108,7 +111,7 @@ func TestLoginHandler(t *testing.T) {
 func TestLoginHandlerReturnsBusinessError(t *testing.T) {
 	setResponseHandlers(t)
 	svcCtx := &svc.ServiceContext{SystemRpc: handlerSystemRPCStub{
-		err: status.Error(codes.Code(bizerror.DefaultCode), "用户名或密码错误"),
+		err: newHandlerBusinessError(t, systemsubcode.AuthInvalidCredentials, "用户名或密码错误"),
 	}}
 	request := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{"username":"admin","password":"wrong"}`))
 	request.Header.Set("Content-Type", "application/json")
@@ -123,7 +126,7 @@ func TestLoginHandlerReturnsBusinessError(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode error response: %v", err)
 	}
-	if response.Code != bizerror.DefaultCode || response.Message != "用户名或密码错误" {
+	if response.Code != bizerror.DefaultCode || response.Subcode != systemsubcode.AuthInvalidCredentials {
 		t.Fatalf("unexpected business response: %+v", response)
 	}
 }
@@ -243,8 +246,21 @@ func setResponseHandlers(t *testing.T) {
 	t.Helper()
 	httpx.SetOkHandler(commonresponse.HandleSuccess)
 	httpx.SetErrorHandlerCtx(commonresponse.HandleError)
+	httpx.SetValidator(requestvalidator.New())
 	t.Cleanup(func() {
 		httpx.SetOkHandler(nil)
 		httpx.SetErrorHandlerCtx(nil)
+		httpx.SetValidator(nil)
 	})
+}
+
+func newHandlerBusinessError(t testing.TB, businessSubcode, message string) error {
+	t.Helper()
+	st, err := status.New(codes.Code(bizerror.DefaultCode), message).WithDetails(
+		&errdetails.ErrorInfo{Reason: businessSubcode},
+	)
+	if err != nil {
+		t.Fatalf("attach business ErrorInfo: %v", err)
+	}
+	return st.Err()
 }

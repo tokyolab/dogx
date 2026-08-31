@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -41,7 +42,7 @@ func (l *GetRoleAPIsLogic) GetRoleAPIs(in *system.GetRoleAPIsRequest) (*system.G
 	}
 
 	if _, err := l.svcCtx.RoleRepo.FindByID(l.ctx, in.RoleId); errors.Is(err, repository.ErrRoleNotFound) {
-		return nil, bizerror.New("角色不存在")
+		return nil, bizerror.New(systemsubcode.RoleNotFound, "角色不存在")
 	} else if err != nil {
 		return nil, fmt.Errorf("find role for API authorization: %w", err)
 	}

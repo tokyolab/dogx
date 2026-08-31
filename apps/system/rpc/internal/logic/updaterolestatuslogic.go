@@ -8,6 +8,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -47,9 +48,9 @@ func (l *UpdateRoleStatusLogic) UpdateRoleStatus(in *system.UpdateRoleStatusRequ
 	)
 	switch {
 	case errors.Is(err, repository.ErrRoleNotFound):
-		return nil, bizerror.New("角色不存在")
+		return nil, bizerror.New(systemsubcode.RoleNotFound, "角色不存在")
 	case errors.Is(err, repository.ErrSystemRoleProtected):
-		return nil, bizerror.New("系统内置角色不能停用")
+		return nil, bizerror.New(systemsubcode.RoleSystemCannotDisable, "系统内置角色不能停用")
 	case errors.Is(err, authorization.ErrInvalidRoleID):
 		return nil, status.Error(codes.InvalidArgument, "invalid update role status request")
 	case err != nil:

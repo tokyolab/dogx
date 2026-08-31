@@ -7,6 +7,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"google.golang.org/grpc/codes"
@@ -109,7 +110,7 @@ func TestReplaceRoleAPIsValidatesAndMapsKnownErrors(t *testing.T) {
 				t.Fatal("expected role policy error")
 			}
 			if test.err == authorization.ErrSuperAdminPolicyProtected &&
-				err.Error() != "超级管理员拥有全部接口权限，不能配置接口权限" {
+				!hasBusinessSubcode(err, systemsubcode.RoleSuperAdminAPIProtected) {
 				t.Fatalf("unexpected super administrator error: %v", err)
 			}
 		})

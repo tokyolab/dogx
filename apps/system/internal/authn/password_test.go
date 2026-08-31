@@ -26,9 +26,9 @@ func TestArgon2idHashAndVerify(t *testing.T) {
 
 func TestArgon2idRejectsEmptyPasswordAndMalformedHashes(t *testing.T) {
 	hasher := NewArgon2id()
-	for _, password := range []string{"", "short", strings.Repeat("a", MaxPasswordBytes+1)} {
+	for _, password := range []string{"", "short", strings.Repeat("a", MaxPasswordCharacters+1)} {
 		if _, err := hasher.Hash(password); err == nil {
-			t.Fatalf("expected invalid password length to be rejected: %d", len(password))
+			t.Fatalf("expected invalid password length to be rejected: %d", len([]rune(password)))
 		}
 	}
 
@@ -45,5 +45,14 @@ func TestArgon2idRejectsEmptyPasswordAndMalformedHashes(t *testing.T) {
 		if err := hasher.Verify(encoded, "password"); err == nil {
 			t.Fatalf("expected malformed hash to be rejected: %s", encoded)
 		}
+	}
+}
+
+func TestValidatePasswordCountsUnicodeCharacters(t *testing.T) {
+	if err := ValidatePassword(strings.Repeat("密", MinPasswordCharacters)); err != nil {
+		t.Fatalf("minimum Unicode password rejected: %v", err)
+	}
+	if err := ValidatePassword(strings.Repeat("密", MinPasswordCharacters-1)); err == nil {
+		t.Fatal("short Unicode password accepted")
 	}
 }

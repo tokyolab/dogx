@@ -26,9 +26,11 @@ func (errorHealthServer) Check(
 	case "success":
 		return &healthpb.HealthCheckResponse{Status: healthpb.HealthCheckResponse_SERVING}, nil
 	case "business":
-		return nil, New("username already exists")
-	case "invalid-business":
-		return nil, NewCode(1, "invalid business code")
+		return nil, New("system.user.username_exists", "username already exists")
+	case "invalid-code":
+		return nil, NewCode(1, "system.user.invalid", "invalid business code")
+	case "invalid-subcode":
+		return nil, New("INVALID_SUBCODE", "invalid business subcode")
 	case "standard":
 		return nil, status.Error(codes.FailedPrecondition, "standard precondition failure")
 	default:
@@ -76,19 +78,25 @@ func TestUnaryServerInterceptorAcrossGRPC(t *testing.T) {
 	}
 
 	_, err = client.Check(context.Background(), &healthpb.HealthCheckRequest{Service: "business"})
-	if got := uint32(status.Code(err)); got != DefaultCode {
+	st := status.Convert(err)
+	if got := uint32(st.Code()); got != DefaultCode {
 		t.Fatalf("business code = %d, want %d", got, DefaultCode)
 	}
-	if got := status.Convert(err).Message(); got != "username already exists" {
+	if got := st.Message(); got != "username already exists" {
 		t.Fatalf("unexpected business message: %s", got)
 	}
-
-	_, err = client.Check(context.Background(), &healthpb.HealthCheckRequest{Service: "invalid-business"})
-	if got := status.Code(err); got != codes.Internal {
-		t.Fatalf("invalid business code mapped to %s, want %s", got, codes.Internal)
+	if got, ok := SubcodeFromStatus(st); !ok || got != "system.user.username_exists" {
+		t.Fatalf("business subcode = %q, %t", got, ok)
 	}
-	if got := status.Convert(err).Message(); got != "internal server error" {
-		t.Fatalf("unexpected invalid-code message: %s", got)
+
+	for _, service := range []string{"invalid-code", "invalid-subcode"} {
+		_, err = client.Check(context.Background(), &healthpb.HealthCheckRequest{Service: service})
+		if got := status.Code(err); got != codes.Internal {
+			t.Fatalf("%s mapped to %s, want %s", service, got, codes.Internal)
+		}
+		if got := status.Convert(err).Message(); got != "internal server error" {
+			t.Fatalf("unexpected %s message: %s", service, got)
+		}
 	}
 
 	_, err = client.Check(context.Background(), &healthpb.HealthCheckRequest{Service: "standard"})

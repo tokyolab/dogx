@@ -5,11 +5,14 @@ import (
 	"testing"
 )
 
-func TestNewUsesDefaultCode(t *testing.T) {
-	err := New("username already exists")
+func TestNewUsesDefaultCodeAndPreservesSubcode(t *testing.T) {
+	err := New("system.user.username_exists", "username already exists")
 
 	if err.Code() != DefaultCode {
 		t.Fatalf("unexpected code: %d", err.Code())
+	}
+	if err.Subcode() != "system.user.username_exists" {
+		t.Fatalf("unexpected subcode: %s", err.Subcode())
 	}
 	if err.Error() != "username already exists" {
 		t.Fatalf("unexpected message: %s", err.Error())
@@ -17,7 +20,7 @@ func TestNewUsesDefaultCode(t *testing.T) {
 }
 
 func TestFromWrappedError(t *testing.T) {
-	want := NewCode(100002, "token expired")
+	want := NewCode(100002, "system.auth.token_expired", "token expired")
 	got, ok := From(fmt.Errorf("register user: %w", want))
 
 	if !ok {
@@ -47,5 +50,25 @@ func TestIsCode(t *testing.T) {
 				t.Fatalf("IsCode(%d) = %t, want %t", tt.code, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestIsSubcode(t *testing.T) {
+	tests := []struct {
+		value string
+		want  bool
+	}{
+		{value: "system.role.not_found", want: true},
+		{value: "common.invalid_request", want: true},
+		{value: "", want: false},
+		{value: "ROLE_NOT_FOUND", want: false},
+		{value: "system", want: false},
+		{value: "system.role.not-found", want: false},
+	}
+
+	for _, test := range tests {
+		if got := IsSubcode(test.value); got != test.want {
+			t.Errorf("IsSubcode(%q) = %t, want %t", test.value, got, test.want)
+		}
 	}
 }

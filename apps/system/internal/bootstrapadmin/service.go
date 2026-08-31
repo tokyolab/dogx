@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
@@ -12,9 +13,9 @@ import (
 )
 
 const (
-	maxUsernameBytes = 64
-	maxNicknameBytes = 64
-	InitialRoleCode  = model.SuperAdminRoleCode
+	maxUsernameCharacters = 64
+	maxNicknameCharacters = 64
+	InitialRoleCode       = model.SuperAdminRoleCode
 )
 
 type Input struct {
@@ -96,11 +97,11 @@ func Create(
 	if nickname == "" {
 		nickname = username
 	}
-	if username == "" || len(username) > maxUsernameBytes {
-		return nil, fmt.Errorf("username must contain 1 to %d bytes", maxUsernameBytes)
+	if username == "" || utf8.RuneCountInString(username) > maxUsernameCharacters {
+		return nil, fmt.Errorf("username must contain 1 to %d characters", maxUsernameCharacters)
 	}
-	if nickname == "" || len(nickname) > maxNicknameBytes {
-		return nil, fmt.Errorf("nickname must contain 1 to %d bytes", maxNicknameBytes)
+	if nickname == "" || utf8.RuneCountInString(nickname) > maxNicknameCharacters {
+		return nil, fmt.Errorf("nickname must contain 1 to %d characters", maxNicknameCharacters)
 	}
 	if err := authn.ValidatePassword(input.Password); err != nil {
 		return nil, err

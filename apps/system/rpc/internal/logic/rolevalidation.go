@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	maxRoleCodeBytes        = 64
+	maxRoleCodeCharacters   = 64
 	maxRoleNameRunes        = 64
 	maxRoleDescriptionRunes = 500
 )
@@ -29,7 +29,7 @@ func normalizeRoleInput(code, name, description string) (normalizedRoleInput, er
 		name:        strings.TrimSpace(name),
 		description: strings.TrimSpace(description),
 	}
-	if result.code == "" || len(result.code) > maxRoleCodeBytes ||
+	if result.code == "" || utf8.RuneCountInString(result.code) > maxRoleCodeCharacters ||
 		!roleCodePattern.MatchString(result.code) {
 		return normalizedRoleInput{}, errors.New("invalid role code")
 	}

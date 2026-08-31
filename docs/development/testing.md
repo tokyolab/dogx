@@ -55,9 +55,11 @@ Handler 使用 `httptest` 验证：
 
 - 请求参数解析和校验失败。
 - HTTP 状态码。
-- `code`、`message`、`data` 的完整 JSON 契约。
+- `code`、`subcode`、`message`、`data` 的完整 JSON 契约。
 - 业务错误与技术错误的响应差异。
 - 响应中不包含数据库地址、底层错误或其他内部信息。
+
+普通业务和协议测试断言稳定的 HTTP 状态、code 与 subcode，不锁定允许调整或翻译的 message。Validator 单元测试直接断言失败字段和官方校验规则，不锁定完整原始诊断；只有国际化专项测试验证业务与通用错误的具体翻译行为、语言回退和缺失键降级。
 
 直接调用 Handler 不能覆盖路由注册和中间件，因此每个 API 进程还应保留少量完整路由测试，注册真实 Routes 后验证：
 
@@ -75,8 +77,9 @@ Handler 使用 `httptest` 验证：
 
 - 服务端拦截器是否生效。
 - DogX 业务错误是否转换为扩展 gRPC Code。
+- 业务错误的原始可读 Message 和 `google.rpc.ErrorInfo.Reason` 是否无损传输。
 - 标准 gRPC Code 是否保持不变。
-- API 层是否能够恢复业务 Code 和 Message。
+- API 层是否能够恢复业务 Code 和 subcode，并按请求语言生成 Message。
 - 超时、取消等传输语义。
 
 测试必须显式停止 Server、关闭 Listener 和 Client Connection，避免 goroutine 泄漏。

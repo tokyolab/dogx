@@ -10,6 +10,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -207,8 +208,8 @@ func TestLoginRejectsInvalidRequest(t *testing.T) {
 	requests := []*system.LoginRequest{
 		nil,
 		{},
-		{Username: strings.Repeat("a", maxUsernameBytes+1), Password: "password"},
-		{Username: "admin", Password: strings.Repeat("p", maxPasswordBytes+1)},
+		{Username: strings.Repeat("a", maxUsernameCharacters+1), Password: "password"},
+		{Username: "admin", Password: strings.Repeat("p", maxPasswordCharacters+1)},
 	}
 	for _, request := range requests {
 		if _, err := logic.Login(request); status.Code(err) != codes.InvalidArgument {
@@ -235,7 +236,9 @@ func TestLoginUsesSameErrorForUnknownUserAndWrongPassword(t *testing.T) {
 
 	unknownBizErr, unknownOK := bizerror.From(unknownErr)
 	wrongBizErr, wrongOK := bizerror.From(wrongErr)
-	if !unknownOK || !wrongOK || unknownBizErr.Code() != wrongBizErr.Code() || unknownBizErr.Error() != wrongBizErr.Error() {
+	if !unknownOK || !wrongOK || unknownBizErr.Code() != wrongBizErr.Code() ||
+		unknownBizErr.Subcode() != systemsubcode.AuthInvalidCredentials ||
+		wrongBizErr.Subcode() != systemsubcode.AuthInvalidCredentials {
 		t.Fatalf("credential failures differ: unknown=%v wrong=%v", unknownErr, wrongErr)
 	}
 	if unknownPasswords.hash != authn.DummyPasswordHash() || unknownPasswords.password != "password" {
@@ -251,7 +254,7 @@ func TestLoginRejectsDisabledUserAfterPasswordVerification(t *testing.T) {
 
 	_, err := logic.Login(&system.LoginRequest{Username: "admin", Password: "password"})
 	bizErr, ok := bizerror.From(err)
-	if !ok || bizErr.Error() != "账号已停用" {
+	if !ok || bizErr.Subcode() != systemsubcode.AuthUserDisabled {
 		t.Fatalf("unexpected disabled account error: %v", err)
 	}
 	if passwords.password != "password" {

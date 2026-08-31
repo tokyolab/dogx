@@ -1,0 +1,37 @@
+{
+  "common": {
+    "success": "成功",
+    "invalid_request": "请求参数错误",
+    "authentication_required": "请先登录",
+    "permission_denied": "没有访问权限",
+    "resource_not_found": "请求的资源不存在",
+    "request_canceled": "请求已取消",
+    "request_conflict": "请求发生冲突",
+    "too_many_requests": "请求过于频繁",
+    "not_implemented": "功能暂未实现",
+    "service_unavailable": "服务暂时不可用",
+    "request_timeout": "请求超时",
+    "internal_error": "系统内部错误",
+    "business_error": "业务处理失败"
+  },
+  "system": {
+    "auth": {
+      "invalid_credentials": "用户名或密码错误",
+      "user_disabled": "账号已停用",
+      "new_password_unchanged": "新密码不能与当前密码相同",
+      "current_password_wrong": "当前密码错误"
+    },
+    "role": {
+      "not_found": "角色不存在",
+      "code_exists": "角色编码已存在",
+      "code_reserved": "角色编码为系统保留，不能使用",
+      "in_use": "角色已被用户使用，不能删除",
+      "system_cannot_delete": "系统内置角色不能删除",
+      "system_cannot_disable": "系统内置角色不能停用",
+      "system_code_immutable": "系统内置角色编码不可修改",
+      "unavailable": "角色不存在或已停用",
+      "api_unavailable": "接口资源不存在或已停用",
+      "super_admin_api_protected": "超级管理员拥有全部接口权限，不能配置接口权限"
+    }
+  }
+}

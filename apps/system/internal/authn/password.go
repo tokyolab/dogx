@@ -8,18 +8,19 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
 )
 
 const (
-	MinPasswordBytes         = 12
-	MaxPasswordBytes         = 128
-	argon2Memory      uint32 = 64 * 1024
-	argon2Iterations  uint32 = 3
-	argon2Parallelism uint8  = 2
-	argon2SaltLength         = 16
-	argon2KeyLength   uint32 = 32
+	MinPasswordCharacters        = 12
+	MaxPasswordCharacters        = 128
+	argon2Memory          uint32 = 64 * 1024
+	argon2Iterations      uint32 = 3
+	argon2Parallelism     uint8  = 2
+	argon2SaltLength             = 16
+	argon2KeyLength       uint32 = 32
 )
 
 var ErrPasswordMismatch = errors.New("password mismatch")
@@ -41,11 +42,12 @@ type PasswordHasher interface {
 type Argon2id struct{}
 
 func ValidatePassword(password string) error {
-	if len(password) < MinPasswordBytes || len(password) > MaxPasswordBytes {
+	length := utf8.RuneCountInString(password)
+	if length < MinPasswordCharacters || length > MaxPasswordCharacters {
 		return fmt.Errorf(
-			"password must contain %d to %d bytes",
-			MinPasswordBytes,
-			MaxPasswordBytes,
+			"password must contain %d to %d characters",
+			MinPasswordCharacters,
+			MaxPasswordCharacters,
 		)
 	}
 	return nil

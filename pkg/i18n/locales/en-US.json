@@ -1,0 +1,37 @@
+{
+  "common": {
+    "success": "Success",
+    "invalid_request": "Invalid request parameters",
+    "authentication_required": "Authentication required",
+    "permission_denied": "Permission denied",
+    "resource_not_found": "The requested resource was not found",
+    "request_canceled": "The request was canceled",
+    "request_conflict": "The request conflicts with the current state",
+    "too_many_requests": "Too many requests",
+    "not_implemented": "This feature is not implemented",
+    "service_unavailable": "The service is temporarily unavailable",
+    "request_timeout": "The request timed out",
+    "internal_error": "Internal server error",
+    "business_error": "Business operation failed"
+  },
+  "system": {
+    "auth": {
+      "invalid_credentials": "Invalid username or password",
+      "user_disabled": "The account is disabled",
+      "new_password_unchanged": "The new password must differ from the current password",
+      "current_password_wrong": "The current password is incorrect"
+    },
+    "role": {
+      "not_found": "The role does not exist",
+      "code_exists": "The role code already exists",
+      "code_reserved": "The role code is reserved by the system",
+      "in_use": "The role is assigned to users and cannot be deleted",
+      "system_cannot_delete": "A built-in system role cannot be deleted",
+      "system_cannot_disable": "A built-in system role cannot be disabled",
+      "system_code_immutable": "The code of a built-in system role cannot be changed",
+      "unavailable": "The role does not exist or is disabled",
+      "api_unavailable": "An API resource does not exist or is disabled",
+      "super_admin_api_protected": "The super administrator always has all API permissions"
+    }
+  }
+}

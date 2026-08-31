@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -49,13 +50,13 @@ func (l *UpdateRoleLogic) UpdateRole(in *system.UpdateRoleRequest) (*system.Empt
 	})
 	switch {
 	case errors.Is(err, repository.ErrRoleNotFound):
-		return nil, bizerror.New("角色不存在")
+		return nil, bizerror.New(systemsubcode.RoleNotFound, "角色不存在")
 	case errors.Is(err, repository.ErrRoleCodeExists):
-		return nil, bizerror.New("角色编码已存在")
+		return nil, bizerror.New(systemsubcode.RoleCodeExists, "角色编码已存在")
 	case errors.Is(err, repository.ErrReservedRoleCode):
-		return nil, bizerror.New("角色编码为系统保留，不能使用")
+		return nil, bizerror.New(systemsubcode.RoleCodeReserved, "角色编码为系统保留，不能使用")
 	case errors.Is(err, repository.ErrSystemRoleProtected):
-		return nil, bizerror.New("系统内置角色编码不可修改")
+		return nil, bizerror.New(systemsubcode.RoleSystemCodeImmutable, "系统内置角色编码不可修改")
 	case err != nil:
 		return nil, fmt.Errorf("update role: %w", err)
 	}
