@@ -20,8 +20,8 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 8 {
-		t.Fatalf("unexpected migration count: got %d, want 8", len(sources))
+	if len(sources) != 10 {
+		t.Fatalf("unexpected migration count: got %d, want 10", len(sources))
 	}
 	if sources[0].Version != 1 || sources[0].Path != "00001_init_system.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[0].Version, sources[0].Path)
@@ -46,5 +46,11 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 	if sources[7].Version != 20260827152932 || sources[7].Path != "20260827152932_optimize_system_indexes.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[7].Version, sources[7].Path)
+	}
+	if sources[8].Version != 20260828182507 || sources[8].Path != "20260828182507_remove_super_admin_policies.sql" {
+		t.Fatalf("unexpected migration source: version=%d path=%s", sources[8].Version, sources[8].Path)
+	}
+	if sources[9].Version != 20260831100816 || sources[9].Path != "20260831100816_protect_super_admin_role_code.sql" {
+		t.Fatalf("unexpected migration source: version=%d path=%s", sources[9].Version, sources[9].Path)
 	}
 }

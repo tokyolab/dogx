@@ -15,6 +15,7 @@ import (
 var (
 	ErrRoleNotFound        = errors.New("role not found")
 	ErrRoleCodeExists      = errors.New("role code already exists")
+	ErrReservedRoleCode    = errors.New("role code is reserved by the system")
 	ErrRoleInUse           = errors.New("role is assigned to users")
 	ErrSystemRoleProtected = errors.New("system role is protected")
 )
@@ -27,6 +28,7 @@ type RoleListQuery struct {
 
 type RoleRepository interface {
 	ListEnabledRoleIDs(ctx context.Context, userID int64) ([]int64, error)
+	IsSuperAdmin(ctx context.Context, userID int64) (bool, error)
 	List(ctx context.Context, query RoleListQuery) ([]model.Role, int64, error)
 	FindByID(ctx context.Context, id int64) (*model.Role, error)
 }
@@ -78,6 +80,31 @@ func (r *roleRepository) ListEnabledRoleIDs(ctx context.Context, userID int64) (
 		return nil, fmt.Errorf("list enabled user roles: %w", err)
 	}
 	return roleIDs, nil
+}
+
+func (r *roleRepository) IsSuperAdmin(ctx context.Context, userID int64) (bool, error) {
+	if ctx == nil {
+		return false, errors.New("check super administrator context is nil")
+	}
+	if userID <= 0 {
+		return false, errors.New("user id must be positive")
+	}
+
+	var count int64
+	if err := r.db.WithContext(ctx).
+		Model(&model.Role{}).
+		Joins("JOIN sys_user_role ON sys_user_role.role_id = sys_role.id").
+		Where(
+			"sys_user_role.user_id = ? AND sys_role.code = ? AND sys_role.status = ?",
+			userID,
+			model.SuperAdminRoleCode,
+			model.RecordStatusEnabled,
+		).
+		Limit(1).
+		Count(&count).Error; err != nil {
+		return false, fmt.Errorf("check super administrator: %w", err)
+	}
+	return count > 0, nil
 }
 
 func (r *roleRepository) List(
@@ -142,6 +169,9 @@ func (r *roleRepository) Create(ctx context.Context, role *model.Role) error {
 	if role == nil {
 		return errors.New("role is nil")
 	}
+	if role.Code == model.SuperAdminRoleCode {
+		return ErrReservedRoleCode
+	}
 	if err := r.db.WithContext(ctx).Create(role).Error; err != nil {
 		return mapRoleWriteError("create role", err)
 	}
@@ -167,6 +197,9 @@ func (r *roleRepository) Update(ctx context.Context, id int64, update RoleUpdate
 		if role.IsSystem && update.Code != role.Code {
 			return ErrSystemRoleProtected
 		}
+		if update.Code == model.SuperAdminRoleCode && role.Code != model.SuperAdminRoleCode {
+			return ErrReservedRoleCode
+		}
 
 		result := tx.Model(&role).Updates(map[string]any{
 			"code":        update.Code,
@@ -190,10 +223,15 @@ func (r *roleRepository) Update(ctx context.Context, id int64, update RoleUpdate
 
 func mapRoleWriteError(operation string, err error) error {
 	var postgresError *pgconn.PgError
-	if errors.As(err, &postgresError) &&
-		postgresError.Code == "23505" &&
-		postgresError.ConstraintName == "uk_sys_role_code_active" {
-		return ErrRoleCodeExists
+	if errors.As(err, &postgresError) {
+		switch {
+		case postgresError.Code == "23505" &&
+			postgresError.ConstraintName == "uk_sys_role_code_active":
+			return ErrRoleCodeExists
+		case postgresError.Code == "23514" &&
+			postgresError.ConstraintName == "ck_sys_role_super_admin_system":
+			return ErrReservedRoleCode
+		}
 	}
 	return fmt.Errorf("%s: %w", operation, err)
 }

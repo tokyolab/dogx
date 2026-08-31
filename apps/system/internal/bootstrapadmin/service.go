@@ -14,7 +14,7 @@ import (
 const (
 	maxUsernameBytes = 64
 	maxNicknameBytes = 64
-	InitialRoleCode  = "super_admin"
+	InitialRoleCode  = model.SuperAdminRoleCode
 )
 
 type Input struct {

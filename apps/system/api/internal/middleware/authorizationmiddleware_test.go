@@ -44,6 +44,27 @@ func TestAuthorizationAllowsWhenAnyRoleAllows(t *testing.T) {
 	}
 }
 
+func TestAuthorizationAllowsSuperAdministratorWithoutCasbinPolicies(t *testing.T) {
+	setAuthorizationResponseHandler(t)
+	enforcer := &batchEnforcerStub{err: errors.New("must not be called")}
+	nextCalled := false
+	middleware := NewAuthorizationMiddleware(enforcer).Handle(func(http.ResponseWriter, *http.Request) {
+		nextCalled = true
+	})
+
+	request := authorizationRequest(nil)
+	request = request.WithContext(context.WithValue(request.Context(), "isSuperAdmin", true))
+	recorder := httptest.NewRecorder()
+	middleware.ServeHTTP(recorder, request)
+
+	if !nextCalled {
+		t.Fatal("super administrator did not reach the handler")
+	}
+	if len(enforcer.requests) != 0 {
+		t.Fatalf("super administrator request reached Casbin: %v", enforcer.requests)
+	}
+}
+
 func TestAuthorizationDefaultsToForbidden(t *testing.T) {
 	setAuthorizationResponseHandler(t)
 	tests := []struct {
@@ -99,6 +120,7 @@ func authorizationRequest(roleIDs []int64) *http.Request {
 	ctx := context.WithValue(context.Background(), "userId", int64(42))
 	ctx = context.WithValue(ctx, "sessionId", "session-id")
 	ctx = context.WithValue(ctx, "roleIds", roleIDs)
+	ctx = context.WithValue(ctx, "isSuperAdmin", false)
 	return httptest.NewRequest(http.MethodPost, "/role/api/update", nil).WithContext(ctx)
 }
 

@@ -96,6 +96,7 @@ func TestReplaceRoleAPIsValidatesAndMapsKnownErrors(t *testing.T) {
 		{name: "invalid role id", err: authorization.ErrInvalidRoleID},
 		{name: "role unavailable", err: authorization.ErrRoleUnavailable},
 		{name: "API unavailable", err: authorization.ErrAPIUnavailable},
+		{name: "super administrator protected", err: authorization.ErrSuperAdminPolicyProtected},
 		{name: "storage unavailable", err: errors.New("postgres unavailable")},
 	}
 	for _, test := range tests {
@@ -103,8 +104,13 @@ func TestReplaceRoleAPIsValidatesAndMapsKnownErrors(t *testing.T) {
 			logic := NewReplaceRoleAPIsLogic(context.Background(), &svc.ServiceContext{
 				RolePolicies: &rolePolicyWriterStub{err: test.err},
 			})
-			if _, err := logic.ReplaceRoleAPIs(&system.ReplaceRoleAPIsRequest{RoleId: 1}); err == nil {
+			_, err := logic.ReplaceRoleAPIs(&system.ReplaceRoleAPIsRequest{RoleId: 1})
+			if err == nil {
 				t.Fatal("expected role policy error")
+			}
+			if test.err == authorization.ErrSuperAdminPolicyProtected &&
+				err.Error() != "超级管理员拥有全部接口权限，不能配置接口权限" {
+				t.Fatalf("unexpected super administrator error: %v", err)
 			}
 		})
 	}

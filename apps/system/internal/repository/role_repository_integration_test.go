@@ -49,6 +49,53 @@ func TestRoleRepositoryReturnsOnlyEnabledActiveUserRoles(t *testing.T) {
 	}
 }
 
+func TestRoleRepositoryDetectsOnlyEnabledSuperAdministratorAssignments(t *testing.T) {
+	_, db := newPostgreSQLUserRepository(t)
+	user := model.User{
+		Username:     "super-admin-check-user",
+		PasswordHash: "hash",
+		Nickname:     "Super Admin Check User",
+		Status:       model.RecordStatusEnabled,
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	repository, err := NewRoleRepository(db)
+	if err != nil {
+		t.Fatalf("create role repository: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	isSuperAdmin, err := repository.IsSuperAdmin(ctx, user.ID)
+	if err != nil || isSuperAdmin {
+		t.Fatalf("ordinary user super administrator state = %v, error=%v", isSuperAdmin, err)
+	}
+
+	var role model.Role
+	if err := db.WithContext(ctx).
+		Where("code = ?", model.SuperAdminRoleCode).
+		First(&role).Error; err != nil {
+		t.Fatalf("load super administrator role: %v", err)
+	}
+	if err := db.WithContext(ctx).Create(&model.UserRole{UserID: user.ID, RoleID: role.ID}).Error; err != nil {
+		t.Fatalf("assign super administrator role: %v", err)
+	}
+	isSuperAdmin, err = repository.IsSuperAdmin(ctx, user.ID)
+	if err != nil || !isSuperAdmin {
+		t.Fatalf("assigned super administrator state = %v, error=%v", isSuperAdmin, err)
+	}
+
+	if err := db.WithContext(ctx).Model(&role).Update("status", model.RecordStatusDisabled).Error; err != nil {
+		t.Fatalf("disable super administrator role fixture: %v", err)
+	}
+	isSuperAdmin, err = repository.IsSuperAdmin(ctx, user.ID)
+	if err != nil || isSuperAdmin {
+		t.Fatalf("disabled super administrator state = %v, error=%v", isSuperAdmin, err)
+	}
+}
+
 func TestRoleRepositoryListsPagesAndEscapesKeywordWildcards(t *testing.T) {
 	_, db := newPostgreSQLUserRepository(t)
 	roles := []model.Role{
@@ -145,6 +192,14 @@ func TestRoleRepositoryCreatesUpdatesAndProtectsSystemRole(t *testing.T) {
 	if err := repository.Create(ctx, duplicate); !errors.Is(err, ErrRoleCodeExists) {
 		t.Fatalf("duplicate role code error = %v, want %v", err, ErrRoleCodeExists)
 	}
+	reserved := &model.Role{
+		Code:   model.SuperAdminRoleCode,
+		Name:   "Reserved Super Administrator",
+		Status: model.RecordStatusEnabled,
+	}
+	if err := repository.Create(ctx, reserved); !errors.Is(err, ErrReservedRoleCode) {
+		t.Fatalf("reserved role code create error = %v, want %v", err, ErrReservedRoleCode)
+	}
 
 	if err := repository.Update(ctx, role.ID, RoleUpdate{
 		Code:        "content_reviewer",
@@ -167,8 +222,8 @@ func TestRoleRepositoryCreatesUpdatesAndProtectsSystemRole(t *testing.T) {
 		Name:        updated.Name,
 		Description: updated.Description,
 		Sort:        updated.Sort,
-	}); !errors.Is(err, ErrRoleCodeExists) {
-		t.Fatalf("duplicate role code update error = %v, want %v", err, ErrRoleCodeExists)
+	}); !errors.Is(err, ErrReservedRoleCode) {
+		t.Fatalf("reserved role code update error = %v, want %v", err, ErrReservedRoleCode)
 	}
 	afterDuplicate, err := repository.FindByID(ctx, role.ID)
 	if err != nil {

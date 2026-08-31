@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -808,6 +809,50 @@ func TestRolePolicyServiceProtectsSystemRoleLifecycle(t *testing.T) {
 	}
 	if len(revoker.userIDs) != 0 {
 		t.Fatalf("protected system role revoked sessions: %v", revoker.userIDs)
+	}
+}
+
+func TestRolePolicyServiceRejectsSuperAdministratorPolicyChanges(t *testing.T) {
+	db := newAuthorizationDatabase(t)
+	notifier := &notifierStub{}
+	service, err := NewRolePolicyService(db, notifier)
+	if err != nil {
+		t.Fatalf("create role policy service: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var role model.Role
+	if err := db.WithContext(ctx).
+		Where("code = ?", model.SuperAdminRoleCode).
+		First(&role).Error; err != nil {
+		t.Fatalf("load super administrator role: %v", err)
+	}
+	legacyRule := gormadapter.CasbinRule{
+		Ptype: "p",
+		V0:    "r:" + strconv.FormatInt(role.ID, 10),
+		V1:    "/legacy-super-admin-policy",
+		V2:    "POST",
+	}
+	if err := db.WithContext(ctx).Create(&legacyRule).Error; err != nil {
+		t.Fatalf("create legacy super administrator policy: %v", err)
+	}
+
+	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, nil); !errors.Is(err, ErrSuperAdminPolicyProtected) {
+		t.Fatalf("super administrator policy update error = %v, want %v", err, ErrSuperAdminPolicyProtected)
+	}
+	var count int64
+	if err := db.WithContext(ctx).
+		Model(&gormadapter.CasbinRule{}).
+		Where("id = ?", legacyRule.ID).
+		Count(&count).Error; err != nil {
+		t.Fatalf("count legacy super administrator policy: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("rejected super administrator update changed stored policies: count=%d", count)
+	}
+	if notifier.calls.Load() != 0 {
+		t.Fatalf("rejected super administrator update published notification: %d", notifier.calls.Load())
 	}
 }
 

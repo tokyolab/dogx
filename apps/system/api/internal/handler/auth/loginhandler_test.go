@@ -182,8 +182,7 @@ func TestProtectedAuthHandlers(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), "userId", int64(42))
-			ctx = context.WithValue(ctx, "sessionId", "session-id")
+			ctx := authenticatedHandlerContext()
 			request := httptest.NewRequest(http.MethodPost, test.path, nil).WithContext(ctx)
 			recorder := httptest.NewRecorder()
 
@@ -198,8 +197,7 @@ func TestProtectedAuthHandlers(t *testing.T) {
 
 func TestChangePasswordHandler(t *testing.T) {
 	setResponseHandlers(t)
-	ctx := context.WithValue(context.Background(), "userId", int64(42))
-	ctx = context.WithValue(ctx, "sessionId", "session-id")
+	ctx := authenticatedHandlerContext()
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/auth/change-password",
@@ -214,6 +212,13 @@ func TestChangePasswordHandler(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("unexpected response: status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
+}
+
+func authenticatedHandlerContext() context.Context {
+	ctx := context.WithValue(context.Background(), "userId", int64(42))
+	ctx = context.WithValue(ctx, "sessionId", "session-id")
+	ctx = context.WithValue(ctx, "roleIds", []int64{7})
+	return context.WithValue(ctx, "isSuperAdmin", false)
 }
 
 func TestClientIPAddress(t *testing.T) {

@@ -433,10 +433,11 @@ func newSecurityRouteRequest(test routeSecurityCase, token string) *http.Request
 func signedRouteToken(t testing.TB, userID int64, sessionID string, roleIDs []int64) string {
 	t.Helper()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userId":    userID,
-		"sessionId": sessionID,
-		"roleIds":   roleIDs,
-		"exp":       time.Now().UTC().Add(time.Hour).Unix(),
+		"userId":       userID,
+		"sessionId":    sessionID,
+		"roleIds":      roleIDs,
+		"isSuperAdmin": false,
+		"exp":          time.Now().UTC().Add(time.Hour).Unix(),
 	})
 	signed, err := token.SignedString([]byte(routeTestAccessSecret))
 	if err != nil {

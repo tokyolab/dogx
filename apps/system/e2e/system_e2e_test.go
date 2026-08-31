@@ -233,10 +233,41 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 		First(&roleGetAPI).Error; err != nil {
 		t.Fatalf("load role get API resource: %v", err)
 	}
+	var roleUpdateAPI model.API
+	if err := gormDB.Where("path = ? AND method = ?", "/role/api/update", http.MethodPost).
+		First(&roleUpdateAPI).Error; err != nil {
+		t.Fatalf("load role API update resource: %v", err)
+	}
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/api/update", credentials.AccessToken, map[string]any{
-		"roleId": createdRole.ID, "apiIds": []int64{roleGetAPI.ID},
+		"roleId": createdRole.ID, "apiIds": []int64{roleGetAPI.ID, roleUpdateAPI.ID},
 	})
 	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	waitForPermissionGrant(
+		t,
+		client,
+		baseURL+"/role/get",
+		roleCredentials.AccessToken,
+		map[string]any{"id": createdRole.ID},
+		apiProcess,
+	)
+	updateRequest := map[string]any{"roleId": createdRole.ID, "apiIds": []int64{}}
+	statusCode, envelope = postJSON(
+		t,
+		client,
+		baseURL+"/role/api/update",
+		roleCredentials.AccessToken,
+		updateRequest,
+	)
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
+	waitForPermissionRevocation(
+		t,
+		client,
+		baseURL+"/role/api/update",
+		roleCredentials.AccessToken,
+		updateRequest,
+		apiProcess,
+	)
+
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/delete", credentials.AccessToken, map[string]any{
 		"id": createdRole.ID,
 	})
@@ -252,23 +283,20 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, "authentication required")
 	assertRoleDeletionPersisted(t, gormDB, createdRole.ID)
 
-	updateRequest := map[string]any{"roleId": role.ID, "apiIds": []int64{}}
 	statusCode, envelope = postJSON(
 		t,
 		client,
 		baseURL+"/role/api/update",
 		credentials.AccessToken,
-		updateRequest,
+		map[string]any{"roleId": role.ID, "apiIds": []int64{}},
 	)
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "success")
-
-	waitForPermissionRevocation(
+	assertEnvelope(
 		t,
-		client,
-		baseURL+"/role/api/update",
-		credentials.AccessToken,
-		updateRequest,
-		apiProcess,
+		statusCode,
+		envelope,
+		http.StatusOK,
+		bizerror.DefaultCode,
+		"超级管理员拥有全部接口权限，不能配置接口权限",
 	)
 }
 
@@ -713,6 +741,52 @@ func waitForPermissionRevocation(
 		if statusCode != http.StatusOK || envelope.Code != 0 {
 			t.Fatalf(
 				"unexpected response while waiting for permission revocation: status=%d envelope=%+v",
+				statusCode,
+				envelope,
+			)
+		}
+
+		select {
+		case <-deadline.C:
+			t.Fatalf(
+				"permission policy was not reloaded after Redis notification\n%s",
+				apiProcess.logs.String(),
+			)
+		case <-ticker.C:
+		}
+	}
+}
+
+func waitForPermissionGrant(
+	t testing.TB,
+	client *http.Client,
+	url string,
+	accessToken string,
+	requestBody any,
+	apiProcess *runningProcess,
+) {
+	t.Helper()
+	deadline := time.NewTimer(15 * time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-apiProcess.done:
+			t.Fatal(apiProcess.failure())
+		default:
+		}
+
+		statusCode, envelope := postJSON(t, client, url, accessToken, requestBody)
+		if statusCode == http.StatusOK && envelope.Code == 0 {
+			return
+		}
+		if statusCode != http.StatusForbidden ||
+			envelope.Code != http.StatusForbidden ||
+			envelope.Message != "permission denied" {
+			t.Fatalf(
+				"unexpected response while waiting for permission grant: status=%d envelope=%+v",
 				statusCode,
 				envelope,
 			)

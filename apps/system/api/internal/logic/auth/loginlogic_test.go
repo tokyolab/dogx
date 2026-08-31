@@ -247,5 +247,7 @@ func TestAuthAPILogicsReturnRPCErrors(t *testing.T) {
 
 func authenticatedTestContext() context.Context {
 	ctx := context.WithValue(context.Background(), "userId", int64(42))
-	return context.WithValue(ctx, "sessionId", "session-id")
+	ctx = context.WithValue(ctx, "sessionId", "session-id")
+	ctx = context.WithValue(ctx, "roleIds", []int64{7})
+	return context.WithValue(ctx, "isSuperAdmin", false)
 }

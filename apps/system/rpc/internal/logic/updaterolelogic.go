@@ -52,6 +52,8 @@ func (l *UpdateRoleLogic) UpdateRole(in *system.UpdateRoleRequest) (*system.Empt
 		return nil, bizerror.New("角色不存在")
 	case errors.Is(err, repository.ErrRoleCodeExists):
 		return nil, bizerror.New("角色编码已存在")
+	case errors.Is(err, repository.ErrReservedRoleCode):
+		return nil, bizerror.New("角色编码为系统保留，不能使用")
 	case errors.Is(err, repository.ErrSystemRoleProtected):
 		return nil, bizerror.New("系统内置角色编码不可修改")
 	case err != nil:

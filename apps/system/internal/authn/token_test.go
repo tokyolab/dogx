@@ -23,12 +23,18 @@ type sessionStoreStub struct {
 }
 
 type roleProviderStub struct {
-	roleIDs []int64
-	err     error
+	roleIDs      []int64
+	isSuperAdmin bool
+	err          error
+	superErr     error
 }
 
 func (s *roleProviderStub) ListEnabledRoleIDs(context.Context, int64) ([]int64, error) {
 	return append([]int64(nil), s.roleIDs...), s.err
+}
+
+func (s *roleProviderStub) IsSuperAdmin(context.Context, int64) (bool, error) {
+	return s.isSuperAdmin, s.superErr
 }
 
 func testRoleProvider() RoleProvider {
@@ -94,7 +100,10 @@ func (s *sessionStoreStub) RevokeAll(_ context.Context, userID int64) error {
 
 func TestTokenIssuerIssue(t *testing.T) {
 	store := &sessionStoreStub{}
-	issuer, err := NewTokenIssuer(validTokenConfig(), store, testRoleProvider())
+	issuer, err := NewTokenIssuer(validTokenConfig(), store, &roleProviderStub{
+		roleIDs:      []int64{2, 7},
+		isSuperAdmin: true,
+	})
 	if err != nil {
 		t.Fatalf("create token issuer: %v", err)
 	}
@@ -145,6 +154,9 @@ func TestTokenIssuerIssue(t *testing.T) {
 	if len(claims.RoleIDs) != 2 || claims.RoleIDs[0] != 2 || claims.RoleIDs[1] != 7 {
 		t.Fatalf("unexpected access role claims: %v", claims.RoleIDs)
 	}
+	if !claims.IsSuperAdmin {
+		t.Fatal("access token did not include the current super administrator state")
+	}
 	if claims.ExpiresAt == nil || !claims.ExpiresAt.Time.Equal(now.Add(15*time.Minute)) {
 		t.Fatalf("unexpected access expiry claim: %+v", claims.ExpiresAt)
 	}
@@ -168,6 +180,7 @@ func TestTokenIssuerRefreshRotatesTokenAndRejectsReuse(t *testing.T) {
 	issuer.now = func() time.Time { return now.Add(time.Minute) }
 	issuer.random = bytes.NewReader(bytes.Repeat([]byte{1}, refreshSecretBytes+tokenIDBytes))
 	roles.roleIDs = []int64{9}
+	roles.isSuperAdmin = true
 	refreshed, err := issuer.Refresh(context.Background(), original.RefreshToken)
 	if err != nil {
 		t.Fatalf("refresh credentials: %v", err)
@@ -186,8 +199,12 @@ func TestTokenIssuerRefreshRotatesTokenAndRejectsReuse(t *testing.T) {
 	if err != nil || !parsed.Valid {
 		t.Fatalf("parse refreshed access token: %v", err)
 	}
-	if refreshedClaims := parsed.Claims.(*accessClaims); len(refreshedClaims.RoleIDs) != 1 || refreshedClaims.RoleIDs[0] != 9 {
+	refreshedClaims := parsed.Claims.(*accessClaims)
+	if len(refreshedClaims.RoleIDs) != 1 || refreshedClaims.RoleIDs[0] != 9 {
 		t.Fatalf("refresh did not use current role snapshot: %v", refreshedClaims.RoleIDs)
+	}
+	if !refreshedClaims.IsSuperAdmin {
+		t.Fatal("refresh did not use the current super administrator state")
 	}
 
 	issuer.random = bytes.NewReader(bytes.Repeat([]byte{2}, refreshSecretBytes+tokenIDBytes))
@@ -291,6 +308,19 @@ func TestTokenIssuerRejectsInvalidRoleProviderData(t *testing.T) {
 	}
 	if _, err := issuer.Issue(context.Background(), 1); err == nil {
 		t.Fatal("expected invalid role id to be rejected")
+	}
+
+	superErr := errors.New("super administrator lookup unavailable")
+	issuer, err = NewTokenIssuer(
+		validTokenConfig(),
+		&sessionStoreStub{},
+		&roleProviderStub{roleIDs: []int64{1}, superErr: superErr},
+	)
+	if err != nil {
+		t.Fatalf("create token issuer: %v", err)
+	}
+	if _, err := issuer.Issue(context.Background(), 1); !errors.Is(err, superErr) {
+		t.Fatalf("expected super administrator provider error, got: %v", err)
 	}
 }
 

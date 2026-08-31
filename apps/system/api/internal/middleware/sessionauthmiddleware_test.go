@@ -65,9 +65,11 @@ func TestValidJWTChecksRedisSessionBeforeHandler(t *testing.T) {
 	)
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userId":    42,
-		"sessionId": "session-id",
-		"exp":       time.Now().Add(time.Minute).Unix(),
+		"userId":       42,
+		"sessionId":    "session-id",
+		"roleIds":      []int64{7},
+		"isSuperAdmin": false,
+		"exp":          time.Now().Add(time.Minute).Unix(),
 	})
 	signed, err := token.SignedString([]byte(middlewareTestSecret))
 	if err != nil {
@@ -105,6 +107,8 @@ func TestInvalidOrUnavailableSessionDoesNotReachHandler(t *testing.T) {
 			})
 			ctx := context.WithValue(context.Background(), "userId", int64(42))
 			ctx = context.WithValue(ctx, "sessionId", "session-id")
+			ctx = context.WithValue(ctx, "roleIds", []int64{7})
+			ctx = context.WithValue(ctx, "isSuperAdmin", false)
 			request := httptest.NewRequest(http.MethodPost, "/auth/me", nil).WithContext(ctx)
 			recorder := httptest.NewRecorder()
 

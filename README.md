@@ -92,6 +92,9 @@ go run ./apps/system/api -f 'apps/system/api/etc/system-api.yaml'
 - `POST /auth/logout`：撤销当前设备 Session；需要访问令牌。
 - `POST /auth/logout-all`：撤销当前用户的全部 Session；需要访问令牌。
 - `POST /auth/change-password`：验证当前密码并修改密码，成功后撤销该用户的全部 Session；需要访问令牌。
+
+下述“Casbin 接口权限”要求适用于普通用户；有效超级管理员在 JWT 与 Redis Session 校验后直接放行，不依赖逐条 Casbin Policy。
+
 - `POST /role/create`：新增角色并返回角色 ID；需要有效 Session 和 Casbin 接口权限。
 - `POST /role/list`：分页查询角色；需要有效 Session 和 Casbin 接口权限。
 - `POST /role/get`：查询角色详情；需要有效 Session 和 Casbin 接口权限。
@@ -102,7 +105,7 @@ go run ./apps/system/api -f 'apps/system/api/etc/system-api.yaml'
 - `POST /role/api/get`：查询角色当前获授的 API ID；需要有效 Session 和 Casbin 接口权限。
 - `POST /role/api/update`：提交角色完整 API ID 集合；需要有效 Session 和 Casbin 接口权限。
 
-API 与 RPC 必须使用完全相同的 `DOGX_ACCESS_SECRET`。受保护请求先由 API 本地验证携带 `userId`、`sessionId` 和 `roleIds` 的 JWT，再通过精确 Redis `GET` 检查 Session，最后由本地 Casbin 快照判定接口权限；普通业务请求随后仍只调用一次业务 RPC。Session 的创建、轮换和撤销仍只由 RPC 负责。
+API 与 RPC 必须使用完全相同的 `DOGX_ACCESS_SECRET`。受保护请求先由 API 本地验证携带 `userId`、`sessionId`、`roleIds` 和 `isSuperAdmin` 的 JWT，再通过精确 Redis `GET` 检查 Session；有效超级管理员直接放行，普通用户最后由本地 Casbin 快照判定接口权限。普通业务请求随后仍只调用一次业务 RPC。Session 的创建、轮换和撤销仍只由 RPC 负责。
 
 ## 初始化管理员
 
@@ -117,7 +120,7 @@ go run ./apps/system/cmd/bootstrapadmin `
 Remove-Item Env:DOGX_ADMIN_PASSWORD
 ```
 
-密码使用 Argon2id 哈希后写入 `sys_user.password_hash`，并在同一 PostgreSQL 事务中把账号绑定到迁移创建的 `super_admin` 角色。该角色由 `sys_role.is_system` 标记为系统内置角色，不能停用、删除或修改编码，并初始拥有权限管理接口策略。同名活动用户已存在时命令会失败，不会覆盖现有账号，也不会留下不完整的角色绑定。
+密码使用 Argon2id 哈希后写入 `sys_user.password_hash`，并在同一 PostgreSQL 事务中把账号绑定到迁移创建的 `super_admin` 角色。该角色由 `sys_role.is_system` 标记为系统内置角色，不能停用、删除、修改编码或配置接口与菜单权限；其用户通过服务端签名的 `isSuperAdmin` 旁路 Casbin，并由后端取得全部有效菜单和页面元素，不依赖逐条接口策略或 `sys_role_menu`。同名活动用户已存在时命令会失败，不会覆盖现有账号，也不会留下不完整的角色绑定。
 
 ## 数据库迁移
 

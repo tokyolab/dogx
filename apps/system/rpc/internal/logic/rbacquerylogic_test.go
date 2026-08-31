@@ -29,6 +29,10 @@ func (s *roleQueryRepositoryStub) ListEnabledRoleIDs(context.Context, int64) ([]
 	return nil, nil
 }
 
+func (s *roleQueryRepositoryStub) IsSuperAdmin(context.Context, int64) (bool, error) {
+	return false, nil
+}
+
 func (s *roleQueryRepositoryStub) List(
 	_ context.Context,
 	query repository.RoleListQuery,

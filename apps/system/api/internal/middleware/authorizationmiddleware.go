@@ -34,6 +34,10 @@ func (m *AuthorizationMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc
 			httpx.ErrorCtx(r.Context(), w, status.Error(codes.Unauthenticated, "authentication required"))
 			return
 		}
+		if identity.IsSuperAdmin {
+			next(w, r)
+			return
+		}
 		if len(identity.RoleIDs) == 0 {
 			httpx.ErrorCtx(r.Context(), w, status.Error(codes.PermissionDenied, "permission denied"))
 			return

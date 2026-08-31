@@ -51,6 +51,8 @@ func (l *CreateRoleLogic) CreateRole(in *system.CreateRoleRequest) (*system.Crea
 	}
 	if err := l.svcCtx.RoleWriter.Create(l.ctx, role); errors.Is(err, repository.ErrRoleCodeExists) {
 		return nil, bizerror.New("角色编码已存在")
+	} else if errors.Is(err, repository.ErrReservedRoleCode) {
+		return nil, bizerror.New("角色编码为系统保留，不能使用")
 	} else if err != nil {
 		return nil, fmt.Errorf("create role: %w", err)
 	}

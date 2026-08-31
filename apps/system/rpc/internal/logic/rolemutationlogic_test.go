@@ -82,6 +82,11 @@ func TestCreateRoleRejectsInvalidInputAndMapsDuplicateCode(t *testing.T) {
 	}).CreateRole(&system.CreateRoleRequest{Code: "role", Name: "Role", Status: 1}); err == nil {
 		t.Fatal("duplicate role code was accepted")
 	}
+	if _, err := NewCreateRoleLogic(context.Background(), &svc.ServiceContext{
+		RoleWriter: &roleWriterStub{err: repository.ErrReservedRoleCode},
+	}).CreateRole(&system.CreateRoleRequest{Code: "super_admin", Name: "Super Admin", Status: 1}); err == nil || err.Error() != "角色编码为系统保留，不能使用" {
+		t.Fatalf("reserved role code error = %v", err)
+	}
 }
 
 func TestUpdateRoleDelegatesNormalizedMetadataAndMapsErrors(t *testing.T) {
@@ -103,6 +108,7 @@ func TestUpdateRoleDelegatesNormalizedMetadataAndMapsErrors(t *testing.T) {
 	for _, dependencyErr := range []error{
 		repository.ErrRoleNotFound,
 		repository.ErrRoleCodeExists,
+		repository.ErrReservedRoleCode,
 		repository.ErrSystemRoleProtected,
 		errors.New("postgres unavailable"),
 	} {

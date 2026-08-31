@@ -1,5 +1,7 @@
 package model
 
+const SuperAdminRoleCode = "super_admin"
+
 type Role struct {
 	Base
 	Code        string       `gorm:"column:code;size:64;not null"`

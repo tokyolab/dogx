@@ -47,6 +47,7 @@ type CredentialRefresher interface {
 
 type RoleProvider interface {
 	ListEnabledRoleIDs(ctx context.Context, userID int64) ([]int64, error)
+	IsSuperAdmin(ctx context.Context, userID int64) (bool, error)
 }
 
 type TokenIssuer struct {
@@ -95,6 +96,10 @@ func (i *TokenIssuer) Issue(ctx context.Context, userID int64) (*Credentials, er
 	if err != nil {
 		return nil, err
 	}
+	isSuperAdmin, err := i.isSuperAdmin(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
 	sessionID, err := randomString(i.random, sessionIDBytes)
 	if err != nil {
 		return nil, fmt.Errorf("generate session id: %w", err)
@@ -105,7 +110,7 @@ func (i *TokenIssuer) Issue(ctx context.Context, userID int64) (*Credentials, er
 	}
 
 	now := i.now().UTC()
-	accessToken, err := i.signAccessToken(userID, sessionID, roleIDs, now)
+	accessToken, err := i.signAccessToken(userID, sessionID, roleIDs, isSuperAdmin, now)
 	if err != nil {
 		return nil, err
 	}
@@ -142,12 +147,16 @@ func (i *TokenIssuer) Refresh(ctx context.Context, refreshToken string) (*Creden
 	if err != nil {
 		return nil, err
 	}
+	isSuperAdmin, err := i.isSuperAdmin(ctx, session.UserID)
+	if err != nil {
+		return nil, err
+	}
 	nextSecret, err := randomString(i.random, refreshSecretBytes)
 	if err != nil {
 		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
 	now := i.now().UTC()
-	accessToken, err := i.signAccessToken(session.UserID, sessionID, roleIDs, now)
+	accessToken, err := i.signAccessToken(session.UserID, sessionID, roleIDs, isSuperAdmin, now)
 	if err != nil {
 		return nil, err
 	}
@@ -174,6 +183,7 @@ func (i *TokenIssuer) signAccessToken(
 	userID int64,
 	sessionID string,
 	roleIDs []int64,
+	isSuperAdmin bool,
 	now time.Time,
 ) (string, error) {
 	tokenID, err := randomString(i.random, tokenIDBytes)
@@ -182,9 +192,10 @@ func (i *TokenIssuer) signAccessToken(
 	}
 
 	claims := accessClaims{
-		UserID:    userID,
-		SessionID: sessionID,
-		RoleIDs:   roleIDs,
+		UserID:       userID,
+		SessionID:    sessionID,
+		RoleIDs:      roleIDs,
+		IsSuperAdmin: isSuperAdmin,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(i.config.AccessExpire)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -211,9 +222,10 @@ func (i *TokenIssuer) credentials(accessToken, sessionID, refreshSecret string) 
 }
 
 type accessClaims struct {
-	UserID    int64   `json:"userId"`
-	SessionID string  `json:"sessionId"`
-	RoleIDs   []int64 `json:"roleIds"`
+	UserID       int64   `json:"userId"`
+	SessionID    string  `json:"sessionId"`
+	RoleIDs      []int64 `json:"roleIds"`
+	IsSuperAdmin bool    `json:"isSuperAdmin"`
 	jwt.RegisteredClaims
 }
 
@@ -235,6 +247,14 @@ func (i *TokenIssuer) roleIDs(ctx context.Context, userID int64) ([]int64, error
 		normalized = append(normalized, roleID)
 	}
 	return normalized, nil
+}
+
+func (i *TokenIssuer) isSuperAdmin(ctx context.Context, userID int64) (bool, error) {
+	isSuperAdmin, err := i.roles.IsSuperAdmin(ctx, userID)
+	if err != nil {
+		return false, fmt.Errorf("check super administrator: %w", err)
+	}
+	return isSuperAdmin, nil
 }
 
 func parseRefreshToken(value string) (string, string, error) {

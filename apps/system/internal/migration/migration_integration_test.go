@@ -25,8 +25,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 8 {
-		t.Fatalf("unexpected applied migration count: got %d, want 8", len(results))
+	if len(results) != 10 {
+		t.Fatalf("unexpected applied migration count: got %d, want 10", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -91,6 +91,22 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 			results[7].Source.Path,
 		)
 	}
+	if results[8].Source.Version != 20260828182507 ||
+		results[8].Source.Path != "20260828182507_remove_super_admin_policies.sql" {
+		t.Fatalf(
+			"unexpected applied migration: version=%d path=%s",
+			results[8].Source.Version,
+			results[8].Source.Path,
+		)
+	}
+	if results[9].Source.Version != 20260831100816 ||
+		results[9].Source.Path != "20260831100816_protect_super_admin_role_code.sql" {
+		t.Fatalf(
+			"unexpected applied migration: version=%d path=%s",
+			results[9].Source.Version,
+			results[9].Source.Path,
+		)
+	}
 
 	secondResults, err := provider.Up(ctx)
 	if err != nil {
@@ -104,8 +120,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260827152932 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260827152932", version)
+	if version != 20260831100816 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260831100816", version)
 	}
 
 	expectedTables := map[string]string{
@@ -174,7 +190,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		"sys_menu": {"ck_sys_menu_app_code_not_blank", "ck_sys_menu_type", "ck_sys_menu_element_permission", "ck_sys_menu_element_route", "ck_sys_menu_status"},
 		"sys_api":  {"ck_sys_api_method_upper", "ck_sys_api_path", "ck_sys_api_status"},
 		"sys_user": {"ck_sys_user_status"},
-		"sys_role": {"ck_sys_role_status", "ck_sys_role_code_format", "ck_sys_role_name_not_blank", "ck_sys_role_sort"},
+		"sys_role": {"ck_sys_role_status", "ck_sys_role_code_format", "ck_sys_role_name_not_blank", "ck_sys_role_sort", "ck_sys_role_super_admin_system"},
 	} {
 		for _, constraint := range constraints {
 			assertConstraintExists(t, ctx, sqlDB, table, constraint)
@@ -186,48 +202,40 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	var seedCount int
 	if err := sqlDB.QueryRowContext(ctx, `
 		SELECT COUNT(*)
-		FROM casbin_rule
-		WHERE ptype = 'p'
-		  AND v1 = '/role/api/update'
-		  AND v2 = 'POST'
-	`).Scan(&seedCount); err != nil {
-		t.Fatalf("query initial authorization policy: %v", err)
-	}
-	if seedCount != 1 {
-		t.Fatalf("unexpected initial authorization policy count: got %d, want 1", seedCount)
-	}
-	if err := sqlDB.QueryRowContext(ctx, `
-		SELECT COUNT(*)
-		FROM casbin_rule
-		WHERE ptype = 'p'
-		  AND (v1, v2) IN (
+		FROM sys_api
+		WHERE (path, method) IN (
 		      ('/role/list', 'POST'),
 		      ('/role/get', 'POST'),
 		      ('/role/api/get', 'POST'),
 		      ('/role/api/update', 'POST'),
-		      ('/api/list', 'POST')
-		  )
-	`).Scan(&seedCount); err != nil {
-		t.Fatalf("query RBAC management authorization policies: %v", err)
-	}
-	if seedCount != 5 {
-		t.Fatalf("unexpected RBAC query policy count: got %d, want 5", seedCount)
-	}
-	if err := sqlDB.QueryRowContext(ctx, `
-		SELECT COUNT(*)
-		FROM casbin_rule
-		WHERE ptype = 'p'
-		  AND (v1, v2) IN (
+		      ('/api/list', 'POST'),
 		      ('/role/create', 'POST'),
 		      ('/role/update', 'POST'),
 		      ('/role/status/update', 'POST'),
 		      ('/role/delete', 'POST')
 		  )
+		  AND deleted_at IS NULL
 	`).Scan(&seedCount); err != nil {
-		t.Fatalf("query role management authorization policies: %v", err)
+		t.Fatalf("query seeded authorization API resources: %v", err)
 	}
-	if seedCount != 4 {
-		t.Fatalf("unexpected role management policy count: got %d, want 4", seedCount)
+	if seedCount != 9 {
+		t.Fatalf("unexpected seeded authorization API resource count: got %d, want 9", seedCount)
+	}
+	if err := sqlDB.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM casbin_rule
+		WHERE ptype = 'p'
+		  AND v0 IN (
+		      SELECT 'r:' || id::text
+		      FROM sys_role
+		      WHERE code = 'super_admin'
+		        AND deleted_at IS NULL
+		  )
+	`).Scan(&seedCount); err != nil {
+		t.Fatalf("query super administrator authorization policies: %v", err)
+	}
+	if seedCount != 0 {
+		t.Fatalf("super administrator policies remained after migration: %d", seedCount)
 	}
 	var systemRole bool
 	if err := sqlDB.QueryRowContext(ctx, `
@@ -244,6 +252,49 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	downResult, err := provider.Down(ctx)
 	if err != nil {
 		t.Fatalf("roll back latest migration: %v", err)
+	}
+	if downResult.Source.Version != 20260831100816 ||
+		downResult.Source.Path != "20260831100816_protect_super_admin_role_code.sql" {
+		t.Fatalf(
+			"unexpected rolled-back migration: version=%d path=%s",
+			downResult.Source.Version,
+			downResult.Source.Path,
+		)
+	}
+	assertConstraintNotExists(t, ctx, sqlDB, "sys_role", "ck_sys_role_super_admin_system")
+
+	downResult, err = provider.Down(ctx)
+	if err != nil {
+		t.Fatalf("roll back super administrator policy migration: %v", err)
+	}
+	if downResult.Source.Version != 20260828182507 ||
+		downResult.Source.Path != "20260828182507_remove_super_admin_policies.sql" {
+		t.Fatalf(
+			"unexpected rolled-back migration: version=%d path=%s",
+			downResult.Source.Version,
+			downResult.Source.Path,
+		)
+	}
+	if err := sqlDB.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM casbin_rule
+		WHERE ptype = 'p'
+		  AND v0 IN (
+		      SELECT 'r:' || id::text
+		      FROM sys_role
+		      WHERE code = 'super_admin'
+		        AND deleted_at IS NULL
+		  )
+	`).Scan(&seedCount); err != nil {
+		t.Fatalf("query restored super administrator policies: %v", err)
+	}
+	if seedCount == 0 {
+		t.Fatal("rolling back super administrator policy migration restored no policies")
+	}
+
+	downResult, err = provider.Down(ctx)
+	if err != nil {
+		t.Fatalf("roll back index migration: %v", err)
 	}
 	if downResult.Source.Version != 20260827152932 ||
 		downResult.Source.Path != "20260827152932_optimize_system_indexes.sql" {
@@ -394,13 +445,15 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 6 ||
+	if len(reapplyResults) != 8 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
 		reapplyResults[3].Source.Version != 20260826112413 ||
 		reapplyResults[4].Source.Version != 20260827131521 ||
-		reapplyResults[5].Source.Version != 20260827152932 {
+		reapplyResults[5].Source.Version != 20260827152932 ||
+		reapplyResults[6].Source.Version != 20260828182507 ||
+		reapplyResults[7].Source.Version != 20260831100816 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 }

@@ -47,6 +47,8 @@ func (l *ReplaceRoleAPIsLogic) ReplaceRoleAPIs(in *system.ReplaceRoleAPIsRequest
 		return nil, bizerror.New("角色不存在或已停用")
 	case errors.Is(err, authorization.ErrAPIUnavailable):
 		return nil, bizerror.New("接口资源不存在或已停用")
+	case errors.Is(err, authorization.ErrSuperAdminPolicyProtected):
+		return nil, bizerror.New("超级管理员拥有全部接口权限，不能配置接口权限")
 	case err != nil:
 		return nil, fmt.Errorf("replace role API policies: %w", err)
 	}

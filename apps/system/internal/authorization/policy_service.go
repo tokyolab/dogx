@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	ErrRoleUnavailable = errors.New("role does not exist or is disabled")
-	ErrAPIUnavailable  = errors.New("API does not exist or is disabled")
+	ErrRoleUnavailable           = errors.New("role does not exist or is disabled")
+	ErrAPIUnavailable            = errors.New("API does not exist or is disabled")
+	ErrSuperAdminPolicyProtected = errors.New("super administrator API policy is built in")
 )
 
 type ReplaceResult struct {
@@ -311,6 +312,9 @@ func loadTargetResources(
 			return nil, ErrRoleUnavailable
 		}
 		return nil, fmt.Errorf("load role for policy update: %w", err)
+	}
+	if role.Code == model.SuperAdminRoleCode {
+		return nil, ErrSuperAdminPolicyProtected
 	}
 
 	if len(targetIDs) > 0 {

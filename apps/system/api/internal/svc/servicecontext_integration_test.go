@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/tokyolab/dogx/apps/system/api/internal/config"
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
 	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
@@ -32,6 +33,26 @@ func TestNewServiceContextWiresAuthorizationDependencies(t *testing.T) {
 	defer cancel()
 	if _, err := provider.Up(ctx); err != nil {
 		t.Fatalf("apply migrations: %v", err)
+	}
+	testRole := model.Role{
+		Code:   "service_context_policy_probe",
+		Name:   "Service Context Policy Probe",
+		Status: model.RecordStatusEnabled,
+	}
+	if err := setupDB.WithContext(ctx).Create(&testRole).Error; err != nil {
+		t.Fatalf("create authorization policy probe role: %v", err)
+	}
+	subject, err := authorization.RoleSubject(testRole.ID)
+	if err != nil {
+		t.Fatalf("build authorization policy probe subject: %v", err)
+	}
+	if err := setupDB.WithContext(ctx).Create(&gormadapter.CasbinRule{
+		Ptype: "p",
+		V0:    subject,
+		V1:    "/role/api/update",
+		V2:    "POST",
+	}).Error; err != nil {
+		t.Fatalf("create authorization policy probe: %v", err)
 	}
 
 	var schema string
@@ -81,20 +102,12 @@ func TestNewServiceContextWiresAuthorizationDependencies(t *testing.T) {
 		t.Fatalf("API authorization dependencies are not ready: %v", err)
 	}
 
-	var superAdmin model.Role
-	if err := setupDB.Where("code = ?", "super_admin").First(&superAdmin).Error; err != nil {
-		t.Fatalf("load seeded super administrator role: %v", err)
-	}
-	subject, err := authorization.RoleSubject(superAdmin.ID)
-	if err != nil {
-		t.Fatalf("build seeded role subject: %v", err)
-	}
 	allowed, err := serviceCtx.AuthorizationEnforcer.Enforce(subject, "/role/api/update", "POST")
 	if err != nil {
-		t.Fatalf("enforce seeded role policy: %v", err)
+		t.Fatalf("enforce authorization policy probe: %v", err)
 	}
 	if !allowed {
-		t.Fatal("initial Casbin policy was not loaded into the API enforcer")
+		t.Fatal("ordinary role Casbin policy was not loaded into the API enforcer")
 	}
 
 	wiredSQLDB := serviceCtx.sqlDB

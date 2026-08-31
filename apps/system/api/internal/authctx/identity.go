@@ -9,17 +9,19 @@ import (
 )
 
 const (
-	userIDClaimKey    = "userId"
-	sessionIDClaimKey = "sessionId"
-	roleIDsClaimKey   = "roleIds"
+	userIDClaimKey     = "userId"
+	sessionIDClaimKey  = "sessionId"
+	roleIDsClaimKey    = "roleIds"
+	superAdminClaimKey = "isSuperAdmin"
 )
 
 var ErrInvalidIdentity = errors.New("invalid authenticated identity")
 
 type Identity struct {
-	UserID    int64
-	SessionID string
-	RoleIDs   []int64
+	UserID       int64
+	SessionID    string
+	RoleIDs      []int64
+	IsSuperAdmin bool
 }
 
 func FromContext(ctx context.Context) (Identity, error) {
@@ -39,8 +41,17 @@ func FromContext(ctx context.Context) (Identity, error) {
 	if !ok {
 		return Identity{}, ErrInvalidIdentity
 	}
+	isSuperAdmin, ok := ctx.Value(superAdminClaimKey).(bool)
+	if !ok {
+		return Identity{}, ErrInvalidIdentity
+	}
 
-	return Identity{UserID: userID, SessionID: sessionID, RoleIDs: roleIDs}, nil
+	return Identity{
+		UserID:       userID,
+		SessionID:    sessionID,
+		RoleIDs:      roleIDs,
+		IsSuperAdmin: isSuperAdmin,
+	}, nil
 }
 
 func claimInt64Slice(value any) ([]int64, bool) {
