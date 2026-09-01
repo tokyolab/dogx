@@ -102,13 +102,26 @@ func TestListRolesReturnsPageAndStableContract(t *testing.T) {
 	}
 }
 
+func TestListRolesAcceptsMaximumPageSize(t *testing.T) {
+	repositoryStub := &roleQueryRepositoryStub{}
+
+	if _, err := NewListRolesLogic(context.Background(), &svc.ServiceContext{
+		RoleRepo: repositoryStub,
+	}).ListRoles(&system.ListRolesRequest{Page: 1, PageSize: 200}); err != nil {
+		t.Fatalf("list roles at maximum page size: %v", err)
+	}
+	if repositoryStub.listQuery.Offset != 0 || repositoryStub.listQuery.Limit != 200 {
+		t.Fatalf("unexpected maximum page size query: %+v", repositoryStub.listQuery)
+	}
+}
+
 func TestListRolesRejectsInvalidRequestsAndDependencyFailures(t *testing.T) {
 	for _, request := range []*system.ListRolesRequest{
 		nil,
 		{},
-		{Page: 1, PageSize: 101},
+		{Page: 1, PageSize: 201},
 		{Page: 1, PageSize: 1, Keyword: strings.Repeat("x", maxRoleKeywordBytes+1)},
-		{Page: int64(^uint64(0) >> 1), PageSize: 100},
+		{Page: int64(^uint64(0) >> 1), PageSize: 200},
 	} {
 		if _, err := NewListRolesLogic(context.Background(), &svc.ServiceContext{}).
 			ListRoles(request); status.Code(err) != codes.InvalidArgument {

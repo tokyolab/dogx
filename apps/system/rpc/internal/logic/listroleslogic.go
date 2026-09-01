@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	maxRoleListPageSize = 100
+	maxRoleListPageSize = 200
 	maxRoleKeywordBytes = 128
 )
 

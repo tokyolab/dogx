@@ -90,7 +90,7 @@ type PageMeta struct {
 
 type PageReq struct {
 	Page     int64 `json:"page" validate:"gte=1"`
-	PageSize int64 `json:"pageSize" validate:"gte=1,lte=100"`
+	PageSize int64 `json:"pageSize" validate:"gte=1,lte=200"`
 }
 
 type ReadyResp struct {
@@ -115,7 +115,7 @@ type RoleItem struct {
 
 type RoleListReq struct {
 	Page     int64  `json:"page" validate:"gte=1"`
-	PageSize int64  `json:"pageSize" validate:"gte=1,lte=100"`
+	PageSize int64  `json:"pageSize" validate:"gte=1,lte=200"`
 	Keyword  string `json:"keyword,optional" validate:"max=128"`
 }
 

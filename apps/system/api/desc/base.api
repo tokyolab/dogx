@@ -18,7 +18,7 @@ type (
 
 	PageReq {
 		Page     int64 `json:"page" validate:"gte=1"`
-		PageSize int64 `json:"pageSize" validate:"gte=1,lte=100"`
+		PageSize int64 `json:"pageSize" validate:"gte=1,lte=200"`
 	}
 
 	PageMeta {

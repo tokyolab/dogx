@@ -3,7 +3,7 @@ import "base.api"
 type (
 	RoleListReq {
 		Page     int64  `json:"page" validate:"gte=1"`
-		PageSize int64  `json:"pageSize" validate:"gte=1,lte=100"`
+		PageSize int64  `json:"pageSize" validate:"gte=1,lte=200"`
 		Keyword  string `json:"keyword,optional" validate:"max=128"`
 	}
 

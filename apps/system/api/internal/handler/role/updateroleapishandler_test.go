@@ -182,6 +182,48 @@ func TestCreateRoleHandlerUsesGlobalValidator(t *testing.T) {
 	}
 }
 
+func TestListRolesHandlerPageSizeBoundary(t *testing.T) {
+	setRoleResponseHandlers(t)
+
+	t.Run("accepts 200", func(t *testing.T) {
+		rpc := &roleHandlerSystemRPCStub{}
+		recorder := httptest.NewRecorder()
+
+		ListRolesHandler(&svc.ServiceContext{SystemRpc: rpc}).ServeHTTP(
+			recorder,
+			newRoleHandlerRequest("/role/list", `{"page":1,"pageSize":200}`),
+		)
+
+		if recorder.Code != http.StatusOK || rpc.listRequest == nil || rpc.listRequest.PageSize != 200 {
+			t.Fatalf(
+				"unexpected maximum page size response: status=%d body=%s request=%+v",
+				recorder.Code,
+				recorder.Body.String(),
+				rpc.listRequest,
+			)
+		}
+	})
+
+	t.Run("rejects 201", func(t *testing.T) {
+		rpc := &roleHandlerSystemRPCStub{}
+		recorder := httptest.NewRecorder()
+
+		ListRolesHandler(&svc.ServiceContext{SystemRpc: rpc}).ServeHTTP(
+			recorder,
+			newRoleHandlerRequest("/role/list", `{"page":1,"pageSize":201}`),
+		)
+
+		if recorder.Code != http.StatusBadRequest || rpc.listRequest != nil {
+			t.Fatalf(
+				"unexpected excessive page size response: status=%d body=%s request=%+v",
+				recorder.Code,
+				recorder.Body.String(),
+				rpc.listRequest,
+			)
+		}
+	})
+}
+
 func TestUpdateRoleAPIsHandlerReturnsBusinessError(t *testing.T) {
 	setRoleResponseHandlers(t)
 	rpc := &roleHandlerSystemRPCStub{
