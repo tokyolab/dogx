@@ -18,8 +18,11 @@ type loginLogRepository struct {
 	db *gorm.DB
 }
 
-func NewLoginLogRepository(db *gorm.DB) LoginLogRepository {
-	return &loginLogRepository{db: db}
+func NewLoginLogRepository(db *gorm.DB) (LoginLogRepository, error) {
+	if db == nil {
+		return nil, errors.New("login log repository database is nil")
+	}
+	return &loginLogRepository{db: db}, nil
 }
 
 func (r *loginLogRepository) Create(ctx context.Context, loginLog *model.LoginLog) error {

@@ -25,8 +25,11 @@ type userRepository struct {
 	db *gorm.DB
 }
 
-func NewUserRepository(db *gorm.DB) UserRepository {
-	return &userRepository{db: db}
+func NewUserRepository(db *gorm.DB) (UserRepository, error) {
+	if db == nil {
+		return nil, errors.New("user repository database is nil")
+	}
+	return &userRepository{db: db}, nil
 }
 
 func (r *userRepository) Create(ctx context.Context, user *model.User) error {

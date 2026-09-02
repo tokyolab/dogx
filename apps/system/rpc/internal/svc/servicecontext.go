@@ -97,6 +97,11 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		return nil, fmt.Errorf("initialize session store: %w", err)
 	}
 	passwords := authn.NewArgon2id()
+	userRepo, err := repository.NewUserRepository(database)
+	if err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("initialize user repository: %w", err)
+	}
 	roleRepo, err := repository.NewRoleRepository(database)
 	if err != nil {
 		_ = sqlDB.Close()
@@ -106,6 +111,11 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 	if err != nil {
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("initialize API repository: %w", err)
+	}
+	loginLogRepo, err := repository.NewLoginLogRepository(database)
+	if err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("initialize login log repository: %w", err)
 	}
 	tokenIssuer, err := authn.NewTokenIssuer(authn.TokenConfig{
 		AccessSecret:  c.Authentication.AccessSecret,
@@ -123,11 +133,11 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		Config:          c,
 		DB:              database,
 		Redis:           redisClient,
-		UserRepo:        repository.NewUserRepository(database),
+		UserRepo:        userRepo,
 		RoleRepo:        roleRepo,
 		RoleWriter:      roleRepo,
 		APIRepo:         apiRepo,
-		LoginLogRepo:    repository.NewLoginLogRepository(database),
+		LoginLogRepo:    loginLogRepo,
 		Passwords:       passwords,
 		Tokens:          tokenIssuer,
 		RefreshTokens:   tokenIssuer,

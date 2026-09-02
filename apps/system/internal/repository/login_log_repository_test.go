@@ -11,3 +11,9 @@ func TestLoginLogRepositoryRejectsNilLog(t *testing.T) {
 		t.Fatal("expected nil login log to be rejected")
 	}
 }
+
+func TestNewLoginLogRepositoryRejectsNilDatabase(t *testing.T) {
+	if _, err := NewLoginLogRepository(nil); err == nil {
+		t.Fatal("expected nil login log repository database to be rejected")
+	}
+}

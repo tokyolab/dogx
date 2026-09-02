@@ -17,3 +17,9 @@ func TestMapUserError(t *testing.T) {
 		t.Fatalf("expected wrapped database error, got %v", err)
 	}
 }
+
+func TestNewUserRepositoryRejectsNilDatabase(t *testing.T) {
+	if _, err := NewUserRepository(nil); err == nil {
+		t.Fatal("expected nil user repository database to be rejected")
+	}
+}

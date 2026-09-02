@@ -25,7 +25,10 @@ func TestLoginLogRepositoryCreatesAuditRecord(t *testing.T) {
 		t.Fatalf("create login audit user: %v", err)
 	}
 
-	repository := NewLoginLogRepository(gormDB)
+	repository, err := NewLoginLogRepository(gormDB)
+	if err != nil {
+		t.Fatalf("create login log repository: %v", err)
+	}
 	loginLog := &model.LoginLog{
 		UserID:        &user.ID,
 		Username:      user.Username,

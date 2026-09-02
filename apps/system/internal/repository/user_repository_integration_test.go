@@ -145,5 +145,9 @@ func newPostgreSQLUserRepository(t testing.TB) (UserRepository, *gorm.DB) {
 		t.Fatalf("apply migrations: %v", err)
 	}
 
-	return NewUserRepository(gormDB), gormDB
+	repository, err := NewUserRepository(gormDB)
+	if err != nil {
+		t.Fatalf("create user repository: %v", err)
+	}
+	return repository, gormDB
 }

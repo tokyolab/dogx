@@ -62,7 +62,10 @@ func TestLoginUsesPostgreSQLPasswordHashAndRedisSession(t *testing.T) {
 		Nickname:     "Integration Admin",
 		Status:       model.RecordStatusEnabled,
 	}
-	userRepo := repository.NewUserRepository(gormDB)
+	userRepo, err := repository.NewUserRepository(gormDB)
+	if err != nil {
+		t.Fatalf("create user repository: %v", err)
+	}
 	if err := userRepo.Create(ctx, user); err != nil {
 		t.Fatalf("create login user: %v", err)
 	}
@@ -84,9 +87,13 @@ func TestLoginUsesPostgreSQLPasswordHashAndRedisSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create token issuer: %v", err)
 	}
+	loginLogRepo, err := repository.NewLoginLogRepository(gormDB)
+	if err != nil {
+		t.Fatalf("create login log repository: %v", err)
+	}
 	login := NewLoginLogic(ctx, &svc.ServiceContext{
 		UserRepo:     userRepo,
-		LoginLogRepo: repository.NewLoginLogRepository(gormDB),
+		LoginLogRepo: loginLogRepo,
 		Passwords:    hasher,
 		Tokens:       tokens,
 	})
