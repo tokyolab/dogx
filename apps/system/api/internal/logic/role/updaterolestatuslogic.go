@@ -36,7 +36,7 @@ func (l *UpdateRoleStatusLogic) UpdateRoleStatus(req *types.UpdateRoleStatusReq)
 	}
 	if _, err := l.svcCtx.SystemRpc.UpdateRoleStatus(l.ctx, &systemclient.UpdateRoleStatusRequest{
 		Id:     req.Id,
-		Status: int32(req.Status),
+		Status: req.Status,
 	}); err != nil {
 		return nil, err
 	}

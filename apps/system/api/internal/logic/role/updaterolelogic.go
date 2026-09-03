@@ -5,7 +5,6 @@ package role
 
 import (
 	"context"
-	"math"
 	"strings"
 
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
@@ -34,7 +33,7 @@ func NewUpdateRoleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Update
 
 func (l *UpdateRoleLogic) UpdateRole(req *types.UpdateRoleReq) (resp *types.EmptyResp, err error) {
 	if req == nil || req.Id <= 0 || strings.TrimSpace(req.Code) == "" ||
-		strings.TrimSpace(req.Name) == "" || req.Sort < 0 || req.Sort > math.MaxInt32 {
+		strings.TrimSpace(req.Name) == "" || req.Sort < 0 {
 		return nil, status.Error(codes.InvalidArgument, "invalid update role request")
 	}
 	if _, err := l.svcCtx.SystemRpc.UpdateRole(l.ctx, &systemclient.UpdateRoleRequest{
@@ -42,7 +41,7 @@ func (l *UpdateRoleLogic) UpdateRole(req *types.UpdateRoleReq) (resp *types.Empt
 		Code:        req.Code,
 		Name:        req.Name,
 		Description: req.Description,
-		Sort:        int32(req.Sort),
+		Sort:        req.Sort,
 	}); err != nil {
 		return nil, err
 	}

@@ -15,7 +15,7 @@ type (
 		Path        string `json:"path"`
 		Method      string `json:"method"`
 		IsRequired  bool   `json:"isRequired"`
-		Status      int64  `json:"status"`
+		Status      int32  `json:"status"`
 		Remark      string `json:"remark"`
 	}
 

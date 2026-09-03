@@ -60,7 +60,7 @@ func (l *ListAPIsLogic) ListAPIs(req *types.APIListReq) (resp *types.APIListResp
 			Path:        item.Path,
 			Method:      item.Method,
 			IsRequired:  item.IsRequired,
-			Status:      int64(item.Status),
+			Status:      item.Status,
 			Remark:      item.Remark,
 		})
 	}

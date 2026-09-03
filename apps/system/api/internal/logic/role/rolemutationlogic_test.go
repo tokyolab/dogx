@@ -3,7 +3,6 @@ package role
 import (
 	"context"
 	"errors"
-	"math"
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
@@ -109,7 +108,6 @@ func TestRoleMutationLogicRejectsInvalidRequestsAndPropagatesRPCError(t *testing
 		{Code: "", Name: "Role", Status: 1},
 		{Code: "role", Name: "", Status: 1},
 		{Code: "role", Name: "Role", Sort: -1, Status: 1},
-		{Code: "role", Name: "Role", Sort: math.MaxInt32 + 1, Status: 1},
 		{Code: "role", Name: "Role", Status: 2},
 	}
 	for _, request := range invalidCreates {

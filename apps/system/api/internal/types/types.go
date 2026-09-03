@@ -11,7 +11,7 @@ type APIItem struct {
 	Path        string `json:"path"`
 	Method      string `json:"method"`
 	IsRequired  bool   `json:"isRequired"`
-	Status      int64  `json:"status"`
+	Status      int32  `json:"status"`
 	Remark      string `json:"remark"`
 }
 
@@ -34,8 +34,8 @@ type CreateRoleReq struct {
 	Code        string `json:"code" validate:"required,max=64"`
 	Name        string `json:"name" validate:"required,max=64"`
 	Description string `json:"description,optional" validate:"max=500"`
-	Sort        int64  `json:"sort" validate:"gte=0,lte=2147483647"`
-	Status      int64  `json:"status" validate:"oneof=0 1"`
+	Sort        int32  `json:"sort" validate:"gte=0"`
+	Status      int32  `json:"status" validate:"oneof=0 1"`
 }
 
 type CreateRoleResp struct {
@@ -106,8 +106,8 @@ type RoleItem struct {
 	Code        string `json:"code"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	Sort        int64  `json:"sort"`
-	Status      int64  `json:"status"`
+	Sort        int32  `json:"sort"`
+	Status      int32  `json:"status"`
 	IsSystem    bool   `json:"isSystem"`
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`
@@ -134,10 +134,10 @@ type UpdateRoleReq struct {
 	Code        string `json:"code" validate:"required,max=64"`
 	Name        string `json:"name" validate:"required,max=64"`
 	Description string `json:"description,optional" validate:"max=500"`
-	Sort        int64  `json:"sort" validate:"gte=0,lte=2147483647"`
+	Sort        int32  `json:"sort" validate:"gte=0"`
 }
 
 type UpdateRoleStatusReq struct {
 	Id     int64 `json:"id" validate:"gt=0"`
-	Status int64 `json:"status" validate:"oneof=0 1"`
+	Status int32 `json:"status" validate:"oneof=0 1"`
 }

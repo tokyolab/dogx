@@ -5,7 +5,6 @@ package role
 
 import (
 	"context"
-	"math"
 	"strings"
 
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
@@ -34,15 +33,15 @@ func NewCreateRoleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 
 func (l *CreateRoleLogic) CreateRole(req *types.CreateRoleReq) (resp *types.CreateRoleResp, err error) {
 	if req == nil || strings.TrimSpace(req.Code) == "" || strings.TrimSpace(req.Name) == "" ||
-		req.Sort < 0 || req.Sort > math.MaxInt32 || (req.Status != 0 && req.Status != 1) {
+		req.Sort < 0 || (req.Status != 0 && req.Status != 1) {
 		return nil, status.Error(codes.InvalidArgument, "invalid create role request")
 	}
 	result, err := l.svcCtx.SystemRpc.CreateRole(l.ctx, &systemclient.CreateRoleRequest{
 		Code:        req.Code,
 		Name:        req.Name,
 		Description: req.Description,
-		Sort:        int32(req.Sort),
-		Status:      int32(req.Status),
+		Sort:        req.Sort,
+		Status:      req.Status,
 	})
 	if err != nil {
 		return nil, err
