@@ -90,6 +90,10 @@ func TestUpdateRoleDelegatesNormalizedMetadataAndMapsErrors(t *testing.T) {
 		repositoryStub.update.Sort != 5 {
 		t.Fatalf("unexpected role update: response=%+v id=%d update=%+v", response, repositoryStub.updateID, repositoryStub.update)
 	}
+	if _, err := NewUpdateRoleLogic(context.Background(), &svc.ServiceContext{}).
+		UpdateRole(&system.UpdateRoleRequest{Id: 7, Code: "role", Name: "Role"}); err == nil {
+		t.Fatal("missing role repository was accepted")
+	}
 
 	for _, dependencyErr := range []error{
 		repository.ErrRoleNotFound,
