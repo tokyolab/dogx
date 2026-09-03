@@ -31,6 +31,8 @@ type RoleRepository interface {
 	IsSuperAdmin(ctx context.Context, userID int64) (bool, error)
 	List(ctx context.Context, query RoleListQuery) ([]model.Role, int64, error)
 	FindByID(ctx context.Context, id int64) (*model.Role, error)
+	Create(ctx context.Context, role *model.Role) error
+	Update(ctx context.Context, id int64, update RoleUpdate) error
 }
 
 type RoleUpdate struct {
@@ -40,21 +42,11 @@ type RoleUpdate struct {
 	Sort        int32
 }
 
-type RoleWriter interface {
-	Create(ctx context.Context, role *model.Role) error
-	Update(ctx context.Context, id int64, update RoleUpdate) error
-}
-
-type RoleStore interface {
-	RoleRepository
-	RoleWriter
-}
-
 type roleRepository struct {
 	db *gorm.DB
 }
 
-func NewRoleRepository(db *gorm.DB) (RoleStore, error) {
+func NewRoleRepository(db *gorm.DB) (RoleRepository, error) {
 	if db == nil {
 		return nil, errors.New("role repository database is nil")
 	}
@@ -237,4 +229,3 @@ func mapRoleWriteError(operation string, err error) error {
 }
 
 var _ RoleRepository = (*roleRepository)(nil)
-var _ RoleWriter = (*roleRepository)(nil)

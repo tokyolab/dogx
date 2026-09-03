@@ -18,31 +18,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type roleWriterStub struct {
-	created  *model.Role
-	updateID int64
-	update   repository.RoleUpdate
-	err      error
-}
-
-func (s *roleWriterStub) Create(_ context.Context, role *model.Role) error {
-	s.created = role
-	if s.err == nil {
-		role.ID = 41
-	}
-	return s.err
-}
-
-func (s *roleWriterStub) Update(_ context.Context, id int64, update repository.RoleUpdate) error {
-	s.updateID = id
-	s.update = update
-	return s.err
-}
-
 func TestCreateRoleNormalizesAndPersistsRole(t *testing.T) {
-	writer := &roleWriterStub{}
+	repositoryStub := &roleRepositoryStub{}
 	response, err := NewCreateRoleLogic(context.Background(), &svc.ServiceContext{
-		RoleWriter: writer,
+		RoleRepo: repositoryStub,
 	}).CreateRole(&system.CreateRoleRequest{
 		Code: " Content_Editor ", Name: " 内容编辑员 ", Description: " 维护内容 ",
 		Sort: 10, Status: int32(model.RecordStatusEnabled),
@@ -50,11 +29,11 @@ func TestCreateRoleNormalizesAndPersistsRole(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create role: %v", err)
 	}
-	if response.Id != 41 || writer.created == nil ||
-		writer.created.Code != "content_editor" || writer.created.Name != "内容编辑员" ||
-		writer.created.Description != "维护内容" || writer.created.Sort != 10 ||
-		writer.created.Status != model.RecordStatusEnabled || writer.created.IsSystem {
-		t.Fatalf("unexpected created role: response=%+v role=%+v", response, writer.created)
+	if response.Id != 41 || repositoryStub.created == nil ||
+		repositoryStub.created.Code != "content_editor" || repositoryStub.created.Name != "内容编辑员" ||
+		repositoryStub.created.Description != "维护内容" || repositoryStub.created.Sort != 10 ||
+		repositoryStub.created.Status != model.RecordStatusEnabled || repositoryStub.created.IsSystem {
+		t.Fatalf("unexpected created role: response=%+v role=%+v", response, repositoryStub.created)
 	}
 }
 
@@ -77,15 +56,15 @@ func TestCreateRoleRejectsInvalidInputAndMapsDuplicateCode(t *testing.T) {
 	}
 	if _, err := NewCreateRoleLogic(context.Background(), &svc.ServiceContext{}).
 		CreateRole(&system.CreateRoleRequest{Code: "role", Name: "Role", Status: 1}); err == nil {
-		t.Fatal("missing role writer was accepted")
+		t.Fatal("missing role repository was accepted")
 	}
 	if _, err := NewCreateRoleLogic(context.Background(), &svc.ServiceContext{
-		RoleWriter: &roleWriterStub{err: repository.ErrRoleCodeExists},
+		RoleRepo: &roleRepositoryStub{createErr: repository.ErrRoleCodeExists},
 	}).CreateRole(&system.CreateRoleRequest{Code: "role", Name: "Role", Status: 1}); err == nil {
 		t.Fatal("duplicate role code was accepted")
 	}
 	if _, err := NewCreateRoleLogic(context.Background(), &svc.ServiceContext{
-		RoleWriter: &roleWriterStub{err: repository.ErrReservedRoleCode},
+		RoleRepo: &roleRepositoryStub{createErr: repository.ErrReservedRoleCode},
 	}).CreateRole(&system.CreateRoleRequest{Code: "super_admin", Name: "Super Admin", Status: 1}); !hasBusinessSubcode(err, systemsubcode.RoleCodeReserved) {
 		t.Fatalf("reserved role code error = %v", err)
 	}
@@ -97,19 +76,19 @@ func hasBusinessSubcode(err error, want string) bool {
 }
 
 func TestUpdateRoleDelegatesNormalizedMetadataAndMapsErrors(t *testing.T) {
-	writer := &roleWriterStub{}
+	repositoryStub := &roleRepositoryStub{}
 	response, err := NewUpdateRoleLogic(context.Background(), &svc.ServiceContext{
-		RoleWriter: writer,
+		RoleRepo: repositoryStub,
 	}).UpdateRole(&system.UpdateRoleRequest{
 		Id: 7, Code: " Auditor ", Name: " 审计员 ", Description: " 查看审计记录 ", Sort: 5,
 	})
 	if err != nil {
 		t.Fatalf("update role: %v", err)
 	}
-	if response == nil || writer.updateID != 7 || writer.update.Code != "auditor" ||
-		writer.update.Name != "审计员" || writer.update.Description != "查看审计记录" ||
-		writer.update.Sort != 5 {
-		t.Fatalf("unexpected role update: response=%+v id=%d update=%+v", response, writer.updateID, writer.update)
+	if response == nil || repositoryStub.updateID != 7 || repositoryStub.update.Code != "auditor" ||
+		repositoryStub.update.Name != "审计员" || repositoryStub.update.Description != "查看审计记录" ||
+		repositoryStub.update.Sort != 5 {
+		t.Fatalf("unexpected role update: response=%+v id=%d update=%+v", response, repositoryStub.updateID, repositoryStub.update)
 	}
 
 	for _, dependencyErr := range []error{
@@ -120,7 +99,7 @@ func TestUpdateRoleDelegatesNormalizedMetadataAndMapsErrors(t *testing.T) {
 		errors.New("postgres unavailable"),
 	} {
 		if _, err := NewUpdateRoleLogic(context.Background(), &svc.ServiceContext{
-			RoleWriter: &roleWriterStub{err: dependencyErr},
+			RoleRepo: &roleRepositoryStub{updateErr: dependencyErr},
 		}).UpdateRole(&system.UpdateRoleRequest{Id: 7, Code: "role", Name: "Role"}); err == nil {
 			t.Fatalf("dependency error %v was accepted", dependencyErr)
 		}
@@ -185,5 +164,3 @@ func TestRoleLifecycleLogicRejectsInvalidRequestsAndMapsKnownErrors(t *testing.T
 		}
 	}
 }
-
-var _ repository.RoleWriter = (*roleWriterStub)(nil)

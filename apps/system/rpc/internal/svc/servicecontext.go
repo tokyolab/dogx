@@ -42,7 +42,6 @@ type ServiceContext struct {
 	Redis         *redis.Redis
 	UserRepo      repository.UserRepository
 	RoleRepo      repository.RoleRepository
-	RoleWriter    repository.RoleWriter
 	APIRepo       repository.APIRepository
 	LoginLogRepo  repository.LoginLogRepository
 	Passwords     authn.PasswordHasher
@@ -135,7 +134,6 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		Redis:           redisClient,
 		UserRepo:        userRepo,
 		RoleRepo:        roleRepo,
-		RoleWriter:      roleRepo,
 		APIRepo:         apiRepo,
 		LoginLogRepo:    loginLogRepo,
 		Passwords:       passwords,

@@ -31,6 +31,9 @@
 
 - `apps/<domain>/internal/model` 定义该业务域的 GORM 持久化模型，以及与模型字段直接绑定的类型和常量；不得作为跨业务域 DTO 使用。
 - `apps/<domain>/internal/repository` 封装该业务域的数据访问；API/BFF 不得直接导入 Model、Repository 或初始化业务数据库连接。
+- RPC 保持 go-zero 的“一项接口操作对应一个 Logic”结构；Logic 负责业务用例编排和业务错误转换，不直接调用 GORM、手写 SQL 或解析数据库驱动错误。
+- Repository 默认按聚合或业务资源提供一个同时包含必要读写能力的内聚接口；不得仅为了缩小测试 Stub 而继续拆分 Reader、Writer、Store 等接口，也不得建立机械转发 ORM 的通用 BaseRepository。
+- Repository 负责查询、持久化事务、锁及数据库约束错误转换；跨多个聚合、Casbin、Session 或事件发布的业务事务由显式业务服务编排，不塞入通用 Repository。
 - 同一业务域的 RPC、MQ、Job 等后端进程可以复用该业务域 `internal` 下的数据层；其他业务域不得直接访问其模型或数据表。
 - 需要跨业务域传递的字段、枚举和消息必须定义在 Protobuf 或版本化事件契约中；其他业务域通过 RPC 客户端或事件契约使用，不复制常量，也不导入持久化模型。
 - `pkg` 只放跨进程或跨业务域复用的稳定技术组件，不放用户、角色、菜单等业务模型或业务常量；只被单个进程使用的代码放在对应 `internal` 中。

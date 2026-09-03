@@ -39,8 +39,8 @@ func (l *CreateRoleLogic) CreateRole(in *system.CreateRoleRequest) (*system.Crea
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid create role request")
 	}
-	if l.svcCtx.RoleWriter == nil {
-		return nil, errors.New("role writer is unavailable")
+	if l.svcCtx.RoleRepo == nil {
+		return nil, errors.New("role repository is unavailable")
 	}
 
 	role := &model.Role{
@@ -50,7 +50,7 @@ func (l *CreateRoleLogic) CreateRole(in *system.CreateRoleRequest) (*system.Crea
 		Sort:        in.Sort,
 		Status:      model.RecordStatus(in.Status),
 	}
-	if err := l.svcCtx.RoleWriter.Create(l.ctx, role); errors.Is(err, repository.ErrRoleCodeExists) {
+	if err := l.svcCtx.RoleRepo.Create(l.ctx, role); errors.Is(err, repository.ErrRoleCodeExists) {
 		return nil, bizerror.New(systemsubcode.RoleCodeExists, "角色编码已存在")
 	} else if errors.Is(err, repository.ErrReservedRoleCode) {
 		return nil, bizerror.New(systemsubcode.RoleCodeReserved, "角色编码为系统保留，不能使用")

@@ -15,37 +15,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type roleQueryRepositoryStub struct {
-	listQuery repository.RoleListQuery
-	roles     []model.Role
-	total     int64
-	listErr   error
-	role      *model.Role
-	findID    int64
-	findErr   error
-}
-
-func (s *roleQueryRepositoryStub) ListEnabledRoleIDs(context.Context, int64) ([]int64, error) {
-	return nil, nil
-}
-
-func (s *roleQueryRepositoryStub) IsSuperAdmin(context.Context, int64) (bool, error) {
-	return false, nil
-}
-
-func (s *roleQueryRepositoryStub) List(
-	_ context.Context,
-	query repository.RoleListQuery,
-) ([]model.Role, int64, error) {
-	s.listQuery = query
-	return s.roles, s.total, s.listErr
-}
-
-func (s *roleQueryRepositoryStub) FindByID(_ context.Context, id int64) (*model.Role, error) {
-	s.findID = id
-	return s.role, s.findErr
-}
-
 type apiQueryRepositoryStub struct {
 	query     repository.APIListQuery
 	resources []model.API
@@ -62,7 +31,7 @@ func (s *apiQueryRepositoryStub) List(
 
 func TestListRolesReturnsPageAndStableContract(t *testing.T) {
 	createdAt := time.Date(2026, time.August, 26, 1, 2, 3, 4, time.UTC)
-	repositoryStub := &roleQueryRepositoryStub{
+	repositoryStub := &roleRepositoryStub{
 		roles: []model.Role{{
 			Base: model.Base{
 				ID:        7,
@@ -103,7 +72,7 @@ func TestListRolesReturnsPageAndStableContract(t *testing.T) {
 }
 
 func TestListRolesAcceptsMaximumPageSize(t *testing.T) {
-	repositoryStub := &roleQueryRepositoryStub{}
+	repositoryStub := &roleRepositoryStub{}
 
 	if _, err := NewListRolesLogic(context.Background(), &svc.ServiceContext{
 		RoleRepo: repositoryStub,
@@ -134,14 +103,14 @@ func TestListRolesRejectsInvalidRequestsAndDependencyFailures(t *testing.T) {
 	}
 	databaseErr := errors.New("postgres unavailable")
 	if _, err := NewListRolesLogic(context.Background(), &svc.ServiceContext{
-		RoleRepo: &roleQueryRepositoryStub{listErr: databaseErr},
+		RoleRepo: &roleRepositoryStub{listErr: databaseErr},
 	}).ListRoles(&system.ListRolesRequest{Page: 1, PageSize: 20}); !errors.Is(err, databaseErr) {
 		t.Fatalf("role list dependency error = %v, want wrapped %v", err, databaseErr)
 	}
 }
 
 func TestGetRoleReturnsRoleAndMapsMissingRole(t *testing.T) {
-	repositoryStub := &roleQueryRepositoryStub{role: &model.Role{
+	repositoryStub := &roleRepositoryStub{role: &model.Role{
 		Base:   model.Base{ID: 9},
 		Code:   "auditor",
 		Name:   "Auditor",
@@ -158,7 +127,7 @@ func TestGetRoleReturnsRoleAndMapsMissingRole(t *testing.T) {
 	}
 
 	if _, err := NewGetRoleLogic(context.Background(), &svc.ServiceContext{
-		RoleRepo: &roleQueryRepositoryStub{findErr: repository.ErrRoleNotFound},
+		RoleRepo: &roleRepositoryStub{findErr: repository.ErrRoleNotFound},
 	}).GetRole(&system.GetRoleRequest{Id: 404}); err == nil {
 		t.Fatal("missing role was accepted")
 	}
@@ -219,7 +188,7 @@ func TestListAPIsRejectsInvalidRequestsAndDependencyFailures(t *testing.T) {
 }
 
 func TestGetRoleAPIsValidatesRoleAndReturnsPolicyResourceIDs(t *testing.T) {
-	roleRepository := &roleQueryRepositoryStub{role: &model.Role{Base: model.Base{ID: 7}}}
+	roleRepository := &roleRepositoryStub{role: &model.Role{Base: model.Base{ID: 7}}}
 	policies := &rolePolicyWriterStub{listed: []int64{11, 12}}
 	response, err := NewGetRoleAPIsLogic(context.Background(), &svc.ServiceContext{
 		RoleRepo:     roleRepository,
@@ -239,7 +208,7 @@ func TestGetRoleAPIsValidatesRoleAndReturnsPolicyResourceIDs(t *testing.T) {
 	}
 
 	if _, err := NewGetRoleAPIsLogic(context.Background(), &svc.ServiceContext{
-		RoleRepo:     &roleQueryRepositoryStub{findErr: repository.ErrRoleNotFound},
+		RoleRepo:     &roleRepositoryStub{findErr: repository.ErrRoleNotFound},
 		RolePolicies: &rolePolicyWriterStub{},
 	}).GetRoleAPIs(&system.GetRoleAPIsRequest{RoleId: 404}); err == nil {
 		t.Fatal("missing role API query was accepted")
@@ -250,5 +219,4 @@ func TestGetRoleAPIsValidatesRoleAndReturnsPolicyResourceIDs(t *testing.T) {
 	}
 }
 
-var _ repository.RoleRepository = (*roleQueryRepositoryStub)(nil)
 var _ repository.APIRepository = (*apiQueryRepositoryStub)(nil)

@@ -38,11 +38,11 @@ func (l *UpdateRoleLogic) UpdateRole(in *system.UpdateRoleRequest) (*system.Empt
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid update role request")
 	}
-	if l.svcCtx.RoleWriter == nil {
-		return nil, errors.New("role writer is unavailable")
+	if l.svcCtx.RoleRepo == nil {
+		return nil, errors.New("role repository is unavailable")
 	}
 
-	err = l.svcCtx.RoleWriter.Update(l.ctx, in.Id, repository.RoleUpdate{
+	err = l.svcCtx.RoleRepo.Update(l.ctx, in.Id, repository.RoleUpdate{
 		Code:        normalized.code,
 		Name:        normalized.name,
 		Description: normalized.description,
