@@ -30,7 +30,8 @@
 ## 业务域与数据所有权
 
 - `apps/<domain>/internal/model` 定义该业务域的 GORM 持久化模型，以及与模型字段直接绑定的类型和常量；不得作为跨业务域 DTO 使用。
-- `apps/<domain>/internal/repository` 封装该业务域的数据访问；API/BFF 不得直接导入 Model、Repository 或初始化业务数据库连接。
+- `apps/<domain>/internal/repository` 封装该业务域的普通业务数据访问；API/BFF 不得直接导入普通业务 Model、Repository，不得访问普通业务表或初始化通用业务数据库连接。
+- 只有架构 ADR 明确批准的基础设施或安全只读投影可以例外。当前唯一例外是 `system-api` 按 [ADR-0005](docs/adr/0005-casbin-runtime-and-policy-sync.md) 通过官方 Casbin GORM Adapter 从 `casbin_rule` 加载本地鉴权快照；该连接不得访问普通业务表，API 不得调用策略写入方法，策略持久化仍由 `system-rpc` 负责。
 - RPC 保持 go-zero 的“一项接口操作对应一个 Logic”结构；Logic 负责业务用例编排和业务错误转换，不直接调用 GORM、手写 SQL 或解析数据库驱动错误。
 - Repository 默认按聚合或业务资源提供一个同时包含必要读写能力的内聚接口；不得仅为了缩小测试 Stub 而继续拆分 Reader、Writer、Store 等接口，也不得建立机械转发 ORM 的通用 BaseRepository。
 - Repository 负责查询、持久化事务、锁及数据库约束错误转换；跨多个聚合、Casbin、Session 或事件发布的业务事务由显式业务服务编排，不塞入通用 Repository。
@@ -40,6 +41,10 @@
 
 ## PostgreSQL 与 GORM
 
+- 主键 ID 在 API、RPC、Model 中统一使用 `int64`，PostgreSQL 使用 `BIGINT`。
+- 排序字段在 API、RPC、Model 中统一使用 `int32`，PostgreSQL 使用 `INTEGER`。
+- 通用启停状态在 API、RPC 中使用 `int32`，Model 使用底层为 `int16` 的状态类型，PostgreSQL 使用 `SMALLINT`；RPC 转换为 Model 前必须校验取值合法性。
+- 避免同一字段在 API 与 RPC 之间使用不同整数宽度，减少无意义的类型转换。
 - 禁止 N+1 数据库查询：业务列表及关联数据的查询次数不得随结果集记录数线性增长，禁止在 `for`、`range` 或逐条 DTO 转换过程中按记录调用 Repository、GORM 或手写 SQL 查询数据库。
 - 关联数据必须使用 `JOIN`、`IN`、聚合查询、GORM `Preload` 或其他批量查询一次加载，再在内存中组装；分页场景固定执行总数查询和分页数据查询不属于 N+1。
 - 确实无法批量处理的数据库访问必须说明原因、设置明确的批次或数量上限，并通过评审确认，不得以实现方便为由引入随数据量增长的逐条查询。
