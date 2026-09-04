@@ -20,6 +20,9 @@ type roleRepositoryStub struct {
 	updateID  int64
 	update    repository.RoleUpdate
 	updateErr error
+	statusID  int64
+	status    model.RecordStatus
+	statusErr error
 }
 
 func (s *roleRepositoryStub) ListEnabledRoleIDs(context.Context, int64) ([]int64, error) {
@@ -59,6 +62,16 @@ func (s *roleRepositoryStub) Update(
 	s.updateID = id
 	s.update = update
 	return s.updateErr
+}
+
+func (s *roleRepositoryStub) UpdateStatus(
+	_ context.Context,
+	id int64,
+	status model.RecordStatus,
+) error {
+	s.statusID = id
+	s.status = status
+	return s.statusErr
 }
 
 var _ repository.RoleRepository = (*roleRepositoryStub)(nil)

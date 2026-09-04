@@ -8,7 +8,6 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
 	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/health"
@@ -24,12 +23,6 @@ type ReadinessChecker interface {
 type RolePolicyService interface {
 	ReplaceRoleAPIs(ctx context.Context, roleID int64, apiIDs []int64) (authorization.ReplaceResult, error)
 	ListRoleAPIIDs(ctx context.Context, roleID int64) ([]int64, error)
-	UpdateRoleStatus(
-		ctx context.Context,
-		roleID int64,
-		status model.RecordStatus,
-		sessions authorization.UserSessionRevoker,
-	) error
 	DeleteRole(
 		ctx context.Context,
 		roleID int64,

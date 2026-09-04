@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var (
@@ -33,6 +32,7 @@ type RoleRepository interface {
 	FindByID(ctx context.Context, id int64) (*model.Role, error)
 	Create(ctx context.Context, role *model.Role) error
 	Update(ctx context.Context, id int64, update RoleUpdate) error
+	UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error
 }
 
 type RoleUpdate struct {
@@ -178,37 +178,63 @@ func (r *roleRepository) Update(ctx context.Context, id int64, update RoleUpdate
 		return errors.New("role id must be positive")
 	}
 
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var role model.Role
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&role, id).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrRoleNotFound
-			}
-			return fmt.Errorf("lock role for update: %w", err)
-		}
-		if role.IsSystem && update.Code != role.Code {
-			return ErrSystemRoleProtected
-		}
-		if update.Code == model.SuperAdminRoleCode && role.Code != model.SuperAdminRoleCode {
-			return ErrReservedRoleCode
-		}
-
-		result := tx.Model(&role).Updates(map[string]any{
-			"code":        update.Code,
-			"name":        update.Name,
-			"description": update.Description,
-			"sort":        update.Sort,
-		})
-		if result.Error != nil {
-			return mapRoleWriteError("update role", result.Error)
-		}
-		if result.RowsAffected == 0 {
+	var role model.Role
+	if err := r.db.WithContext(ctx).First(&role, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrRoleNotFound
 		}
-		return nil
+		return fmt.Errorf("find role for update: %w", err)
+	}
+	if role.IsSystem && update.Code != role.Code {
+		return ErrSystemRoleProtected
+	}
+	if update.Code == model.SuperAdminRoleCode && role.Code != model.SuperAdminRoleCode {
+		return ErrReservedRoleCode
+	}
+
+	result := r.db.WithContext(ctx).Model(&role).Updates(map[string]any{
+		"code":        update.Code,
+		"name":        update.Name,
+		"description": update.Description,
+		"sort":        update.Sort,
 	})
-	if err != nil {
-		return err
+	if result.Error != nil {
+		return mapRoleWriteError("update role", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrRoleNotFound
+	}
+	return nil
+}
+
+func (r *roleRepository) UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error {
+	if ctx == nil {
+		return errors.New("update role status context is nil")
+	}
+	if id <= 0 {
+		return errors.New("role id must be positive")
+	}
+
+	var role model.Role
+	if err := r.db.WithContext(ctx).First(&role, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrRoleNotFound
+		}
+		return fmt.Errorf("find role for status update: %w", err)
+	}
+	if role.IsSystem && status == model.RecordStatusDisabled {
+		return ErrSystemRoleProtected
+	}
+	if role.Status == status {
+		return nil
+	}
+
+	result := r.db.WithContext(ctx).Model(&role).Update("status", status)
+	if result.Error != nil {
+		return fmt.Errorf("update role status: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrRoleNotFound
 	}
 	return nil
 }

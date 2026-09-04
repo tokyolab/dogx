@@ -99,7 +99,7 @@ go run ./apps/system/api -f 'apps/system/api/etc/system-api.yaml'
 - `POST /role/list`：分页查询角色；需要有效 Session 和 Casbin 接口权限。
 - `POST /role/get`：查询角色详情；需要有效 Session 和 Casbin 接口权限。
 - `POST /role/update`：修改角色编码、名称、描述和排序；系统内置角色的编码不可修改；需要有效 Session 和 Casbin 接口权限。
-- `POST /role/status/update`：启用或停用角色；停用时撤销关联用户的全部 Session，系统内置角色不可停用；需要有效 Session 和 Casbin 接口权限。
+- `POST /role/status/update`：启用或停用角色；系统内置角色不可停用。角色状态在用户下一次登录或刷新令牌时进入新的 JWT 角色快照，已有 Access Token 在自身和 Session 均有效期间不受角色启停影响；需要有效 Session 和 Casbin 接口权限。
 - `POST /role/delete`：存在未软删除用户引用时拒绝删除且保持原样；否则软删除角色并清理历史用户关联、菜单关联和 Casbin 策略；系统内置角色不可删除；需要有效 Session 和 Casbin 接口权限。
 - `POST /api/list`：按服务、分组和关键字查询接口授权资源；需要有效 Session 和 Casbin 接口权限。
 - `POST /role/api/get`：查询角色当前获授的 API ID；需要有效 Session 和 Casbin 接口权限。

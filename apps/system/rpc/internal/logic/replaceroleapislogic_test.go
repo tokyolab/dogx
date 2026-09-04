@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
@@ -21,7 +20,6 @@ type rolePolicyWriterStub struct {
 	err          error
 	listed       []int64
 	listErr      error
-	status       int32
 	deleted      bool
 	deleteResult authorization.DeleteRoleResult
 }
@@ -39,17 +37,6 @@ func (s *rolePolicyWriterStub) ReplaceRoleAPIs(
 	s.roleID = roleID
 	s.apiIDs = append([]int64(nil), apiIDs...)
 	return s.result, s.err
-}
-
-func (s *rolePolicyWriterStub) UpdateRoleStatus(
-	_ context.Context,
-	roleID int64,
-	roleStatus model.RecordStatus,
-	_ authorization.UserSessionRevoker,
-) error {
-	s.roleID = roleID
-	s.status = int32(roleStatus)
-	return s.err
 }
 
 func (s *rolePolicyWriterStub) DeleteRole(

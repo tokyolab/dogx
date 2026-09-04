@@ -74,20 +74,19 @@ BatchEnforce([
 
 任意普通角色允许即放行。没有角色、没有匹配策略或全部角色拒绝时默认拒绝。
 
-### 用户角色变化与令牌撤销
+### 用户角色变化与令牌生效
 
 JWT 中的 `roleIds` 和 `isSuperAdmin` 是签发时的角色快照。以下变化必须撤销目标用户的全部 Redis Session：
 
 - 修改用户所属角色；
 - 停用或删除用户；
 - 修改密码；
-- 停用角色时，撤销所有受影响用户的 Session。
 
 Session 撤销继续使用用户 Session Set 和 `SSCAN` 精确定位 Session ID，禁止使用 Redis `KEYS`。旧 JWT 即使签名和有效期仍然有效，也会因为 `sessionId` 不存在而在下一次请求时返回 HTTP 401。用户重新登录后，JWT 获得最新 `roleIds` 和 `isSuperAdmin`。刷新 Token 时同样必须重新读取启用角色并计算两者，不能沿用旧 Access Token 的 Claims。
 
 修改角色 API 策略、菜单授权、页面元素授权或角色名称时不撤销 Session，因为 JWT 不保存具体接口和菜单权限。
 
-角色停用事务锁定目标角色，按 `sys_user_role` 精确列出关联用户并逐个调用 Session Set 的撤销流程；任一撤销失败则回滚角色状态变更。重新启用角色不主动恢复或创建 Session，用户必须重新登录取得最新角色快照。
+角色停用和重新启用只更新 PostgreSQL 中的角色状态，不撤销关联用户 Session。已有 Access Token 在自身和 Session 均有效期间继续使用签发时的角色快照；下一次登录或刷新令牌时重新读取全部启用角色，因此禁用角色从新 JWT 中移除，重新启用的角色重新进入新 JWT。用户没有任何启用角色时仍可完成认证，但新 JWT 的 `roleIds` 为空，访问需要接口权限的路由时默认拒绝。
 
 普通角色删除先锁定目标角色，并查询是否存在通过 `sys_user_role` 引用该角色的未软删除用户；存在引用时返回业务错误，角色、关联、策略和 Session 全部保持原样。没有引用时，以普通 GORM 事务作为事务边界，并在该事务上创建临时官方 Adapter；业务表始终使用原始 `tx`，Adapter 只删除该角色全部 `p` 策略。软删除用户遗留的 `sys_user_role`、`sys_role_menu`、角色策略和 `sys_role` 软删除由同一个 PostgreSQL 事务原子提交。提交后发布普通 Watcher 通知；通知失败仍由周期重载恢复。`super_admin` 拒绝停用、删除和修改编码，用户与角色变更不得移除最后一名有效超级管理员。`is_system = true` 的其他系统内置角色不因此获得超级管理员旁路，仍按普通 Casbin 策略鉴权。
 
@@ -99,7 +98,7 @@ Session 撤销继续使用用户 Session Set 和 `SSCAN` 精确定位 Session ID
 
 角色授权界面提交完整的目标 API ID 集合。`system-rpc` 必须先拒绝目标角色编码为 `super_admin` 的授权请求；对普通角色校验启用的 API 资源和必需 API 后，将目标集合转换为 `p` 规则；随后在同一个 PostgreSQL 事务中完成：
 
-1. 串行化同一角色的并发授权更新；
+1. 在事务中通过 `sys_role` 主键等值条件对目标角色执行单行 `FOR UPDATE`，串行化同一角色的并发授权更新，并与角色删除协调；
 2. 业务查询只使用原始 GORM `tx`，不从 Adapter 反向取得或清洗 `*gorm.DB`；
 3. 在同一个 `tx` 上创建关闭 AutoMigrate 的临时官方 Adapter，读取该角色当前 `p` 规则；
 4. 计算目标集合与当前集合的差异；完全相同时不写数据库、不通知 Watcher；
@@ -160,14 +159,14 @@ system-rpc 事务内按角色原子替换 casbin_rule
 - 周期重载期间 PostgreSQL 暂时不可用时保留上一次成功快照，记录错误并在下一周期重试。
 - 就绪检查同时反映权限 PostgreSQL 连接和初始策略快照状态。
 - Casbin 判定为 `false` 返回 HTTP 403；Enforcer 或认证依赖发生技术错误返回 HTTP 503，不能降级为允许。
-- 用户角色变化时，如果 Session 撤销失败，变更操作必须失败关闭并记录审计日志，不能继续让携带旧角色的会话正常使用。
+- 修改用户所属角色时，如果 Session 撤销失败，变更操作必须失败关闭并记录审计日志，不能继续让携带旧角色的会话正常使用。
 - 针对 `super_admin` 的接口和菜单授权请求必须由 RPC 业务规则拒绝；不能依赖前端隐藏权限树，也不能把清空其 Casbin Policy 或 `sys_role_menu` 当作撤销超级管理员能力的方式。
 - 登录、刷新令牌和健康检查等公开路由不进入 Casbin。只要求登录状态的用户自助接口可以只经过 JWT 与 Session 中间件。
 
 ## 后果
 
 - 普通请求不查询 `sys_user_role`，也不增加权限 RPC；
-- JWT 保存角色 ID 和派生的 `isSuperAdmin`，用户角色变化会强制撤销全部 Session，旧角色或超级管理员状态不会持续到 JWT 自然过期；
+- JWT 保存角色 ID 和派生的 `isSuperAdmin`；修改用户所属角色会强制撤销该用户全部 Session，角色启停则在下一次登录或刷新令牌时进入新快照；
 - `casbin_rule` 只保存 `p`，不需要 Casbin `g`、组合 Adapter 或用户角色全量加载；
 - `super_admin` 在认证通过后旁路 Casbin，不依赖 `casbin_rule`，不会因误清空策略或新增接口尚未登记授权而失去管理入口；
 - PostgreSQL 先判断规则差异；有变化时固定使用一次角色过滤删除和一次批量插入，避免逐条删除或逐条新增；
@@ -194,7 +193,7 @@ system-rpc 事务内按角色原子替换 casbin_rule
 - JWT 正确携带单角色、多角色 ID 和服务端计算的 `isSuperAdmin`，不携带菜单或具体 API 权限；登录与刷新 Token 都根据当前启用角色重新计算该字段；
 - JWT 或 Session 无效时，即使 Claim 声明 `isSuperAdmin = true` 也不能放行；有效超级管理员在认证通过后不调用 Casbin；
 - 无角色默认拒绝，单角色允许和拒绝，多角色任一允许即放行；
-- 用户角色变化、用户停用、密码变更和角色停用后，相关 Session 被全部撤销；
+- 修改用户所属角色、用户停用和密码变更后，相关 Session 被全部撤销；角色停用后已有 Access Token 继续有效，登录或刷新得到的新 Token 排除禁用角色，重新启用后新 Token 再次包含该角色；
 - 移除超级管理员角色后旧 Session 立即失效，重新登录或刷新 Token 不能继续得到 `isSuperAdmin = true`；
 - `super_admin` 生命周期和最后一名有效超级管理员受保护，且不能通过角色授权接口写入或清空其接口、菜单策略；普通角色删除会原子清理关联表和 Casbin 策略；
 - 超级管理员不依赖 `sys_role_menu` 即可取得全部有效菜单和页面元素，普通角色仍只取得显式授权的菜单集合；

@@ -211,26 +211,6 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	roleSessionID, _, _ := strings.Cut(roleCredentials.RefreshToken, ".")
 	cleanupSessionIDs = append(cleanupSessionIDs, roleSessionID)
 
-	statusCode, envelope = postJSON(t, client, baseURL+"/role/status/update", credentials.AccessToken, map[string]any{
-		"id": createdRole.ID, "status": 0,
-	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
-	statusCode, envelope = postJSON(t, client, baseURL+"/auth/me", roleCredentials.AccessToken, nil)
-	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, commonsubcode.AuthenticationRequired)
-
-	statusCode, envelope = postJSON(t, client, baseURL+"/role/status/update", credentials.AccessToken, map[string]any{
-		"id": createdRole.ID, "status": 1,
-	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
-	statusCode, envelope = postJSON(t, client, baseURL+"/auth/login", "", map[string]any{
-		"username": roleUser.Username,
-		"password": e2ePassword,
-	})
-	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
-	decodeData(t, envelope, &roleCredentials)
-	roleSessionID, _, _ = strings.Cut(roleCredentials.RefreshToken, ".")
-	cleanupSessionIDs = append(cleanupSessionIDs, roleSessionID)
-
 	var roleGetAPI model.API
 	if err := gormDB.Where("path = ? AND method = ?", "/role/get", http.MethodPost).
 		First(&roleGetAPI).Error; err != nil {
@@ -253,6 +233,54 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 		map[string]any{"id": createdRole.ID},
 		apiProcess,
 	)
+
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/status/update", credentials.AccessToken, map[string]any{
+		"id": createdRole.ID, "status": 0,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/get", roleCredentials.AccessToken, map[string]any{
+		"id": createdRole.ID,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
+	statusCode, envelope = postJSON(t, client, baseURL+"/auth/login", "", map[string]any{
+		"username": roleUser.Username,
+		"password": e2ePassword,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
+	var disabledLoginCredentials loginData
+	decodeData(t, envelope, &disabledLoginCredentials)
+	disabledLoginSessionID, _, _ := strings.Cut(disabledLoginCredentials.RefreshToken, ".")
+	cleanupSessionIDs = append(cleanupSessionIDs, disabledLoginSessionID)
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/get", disabledLoginCredentials.AccessToken, map[string]any{
+		"id": createdRole.ID,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusForbidden, http.StatusForbidden, commonsubcode.PermissionDenied)
+
+	statusCode, envelope = postJSON(t, client, baseURL+"/auth/refresh", "", map[string]any{
+		"refreshToken": roleCredentials.RefreshToken,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
+	var disabledRoleCredentials loginData
+	decodeData(t, envelope, &disabledRoleCredentials)
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/get", disabledRoleCredentials.AccessToken, map[string]any{
+		"id": createdRole.ID,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusForbidden, http.StatusForbidden, commonsubcode.PermissionDenied)
+
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/status/update", credentials.AccessToken, map[string]any{
+		"id": createdRole.ID, "status": 1,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
+	statusCode, envelope = postJSON(t, client, baseURL+"/auth/refresh", "", map[string]any{
+		"refreshToken": disabledRoleCredentials.RefreshToken,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
+	decodeData(t, envelope, &roleCredentials)
+	statusCode, envelope = postJSON(t, client, baseURL+"/role/get", roleCredentials.AccessToken, map[string]any{
+		"id": createdRole.ID,
+	})
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
+
 	updateRequest := map[string]any{"roleId": createdRole.ID, "apiIds": []int64{}}
 	statusCode, envelope = postJSON(
 		t,

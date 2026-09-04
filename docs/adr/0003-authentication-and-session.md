@@ -31,7 +31,7 @@ DogX 的浏览器请求先进入 `system-api`，业务逻辑由 `system-rpc` 执
 - 自定义 Claims 保存 `userId`、`sessionId`、`roleIds` 和 `isSuperAdmin`；不保存菜单、页面元素或具体 API 权限。
 - `roleIds` 是签发时从 `sys_user_role` 读取的启用角色快照。`isSuperAdmin` 表示该用户是否拥有未停用、编码为 `super_admin` 的角色；登录和刷新 Access Token 时都必须从数据库重新计算，不能信任旧 Token 中的值，也不固定或缓存该角色的数据库 ID。
 - `isSuperAdmin` 是服务端签名 JWT 中的派生授权标识。JWT 与 Session 校验通过后，超级管理员可以直接通过后端接口鉴权；普通用户继续按 `roleIds` 进入 Casbin。客户端不能通过修改 Claim 获得该能力。
-- 修改用户角色或停用角色时必须撤销受影响用户的全部 Session，旧 JWT 因 Session 不存在而立即失效。仍被未软删除用户引用的角色禁止删除。
+- 修改用户所属角色时必须撤销该用户的全部 Session，旧 JWT 因 Session 不存在而立即失效。停用或重新启用角色不撤销关联用户 Session；已有 Access Token 在自身和 Session 均有效期间保留签发时的角色快照，下一次登录或刷新令牌时按当前启用角色生成新快照。仍被未软删除用户引用的角色禁止删除。
 - JWT 密钥只通过真实配置或环境变量提供，不提交到 Git；密钥至少 32 字节。
 - 受保护 HTTP 路由使用 go-zero `jwt: Auth` 先在 API 本地校验 JWT，签名无效或已过期的请求不会调用 RPC 或查询 Redis。
 - JWT 验签成功后，`SessionAuth` 中间件通过只读 `SessionReader` 精确读取 Redis Session；JWT 在这里是经过签名的 Session 凭证，而不是完全无状态的授权结果。

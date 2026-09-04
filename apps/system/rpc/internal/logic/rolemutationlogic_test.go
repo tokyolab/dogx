@@ -111,19 +111,19 @@ func TestUpdateRoleDelegatesNormalizedMetadataAndMapsErrors(t *testing.T) {
 }
 
 func TestRoleStatusAndDeleteDelegateLifecycleOperations(t *testing.T) {
+	repositoryStub := &roleRepositoryStub{}
 	policies := &rolePolicyWriterStub{deleteResult: authorization.DeleteRoleResult{
 		RemovedPolicies:   2,
 		NotificationError: errors.New("watcher unavailable"),
 	}}
-	sessions := &sessionStoreLogicStub{}
-	serviceContext := &svc.ServiceContext{RolePolicies: policies, Sessions: sessions}
+	serviceContext := &svc.ServiceContext{RoleRepo: repositoryStub, RolePolicies: policies}
 
 	if _, err := NewUpdateRoleStatusLogic(context.Background(), serviceContext).
 		UpdateRoleStatus(&system.UpdateRoleStatusRequest{Id: 8, Status: 0}); err != nil {
 		t.Fatalf("disable role: %v", err)
 	}
-	if policies.roleID != 8 || policies.status != 0 {
-		t.Fatalf("unexpected status delegation: roleId=%d status=%d", policies.roleID, policies.status)
+	if repositoryStub.statusID != 8 || repositoryStub.status != model.RecordStatusDisabled {
+		t.Fatalf("unexpected status delegation: roleId=%d status=%d", repositoryStub.statusID, repositoryStub.status)
 	}
 	if _, err := NewDeleteRoleLogic(context.Background(), serviceContext).
 		DeleteRole(&system.DeleteRoleRequest{Id: 9}); err != nil {
@@ -143,12 +143,28 @@ func TestRoleLifecycleLogicRejectsInvalidRequestsAndMapsKnownErrors(t *testing.T
 		UpdateRoleStatus(&system.UpdateRoleStatusRequest{Id: 1, Status: 2}); status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("invalid role status error = %v, want invalid argument", err)
 	}
+	if _, err := NewUpdateRoleStatusLogic(context.Background(), &svc.ServiceContext{}).
+		UpdateRoleStatus(&system.UpdateRoleStatusRequest{Id: 1, Status: 0}); err == nil {
+		t.Fatal("missing role repository was accepted")
+	}
 	if _, err := NewDeleteRoleLogic(context.Background(), &svc.ServiceContext{}).
 		DeleteRole(nil); status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("nil role deletion error = %v, want invalid argument", err)
 	}
 
-	sessions := &sessionStoreLogicStub{}
+	for _, dependencyErr := range []error{
+		repository.ErrRoleNotFound,
+		repository.ErrSystemRoleProtected,
+		errors.New("postgres unavailable"),
+	} {
+		if _, err := NewUpdateRoleStatusLogic(context.Background(), &svc.ServiceContext{
+			RoleRepo: &roleRepositoryStub{statusErr: dependencyErr},
+		}).
+			UpdateRoleStatus(&system.UpdateRoleStatusRequest{Id: 1, Status: 0}); err == nil {
+			t.Fatalf("status dependency error %v was accepted", dependencyErr)
+		}
+	}
+
 	for _, dependencyErr := range []error{
 		repository.ErrRoleNotFound,
 		repository.ErrRoleInUse,
@@ -157,12 +173,7 @@ func TestRoleLifecycleLogicRejectsInvalidRequestsAndMapsKnownErrors(t *testing.T
 		errors.New("postgres unavailable"),
 	} {
 		policies := &rolePolicyWriterStub{err: dependencyErr}
-		serviceContext := &svc.ServiceContext{RolePolicies: policies, Sessions: sessions}
-		if _, err := NewUpdateRoleStatusLogic(context.Background(), serviceContext).
-			UpdateRoleStatus(&system.UpdateRoleStatusRequest{Id: 1, Status: 0}); err == nil {
-			t.Fatalf("status dependency error %v was accepted", dependencyErr)
-		}
-		if _, err := NewDeleteRoleLogic(context.Background(), serviceContext).
+		if _, err := NewDeleteRoleLogic(context.Background(), &svc.ServiceContext{RolePolicies: policies}).
 			DeleteRole(&system.DeleteRoleRequest{Id: 1}); err == nil {
 			t.Fatalf("delete dependency error %v was accepted", dependencyErr)
 		}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
@@ -24,10 +23,6 @@ type ReplaceResult struct {
 	Added             int
 	Removed           int
 	NotificationError error
-}
-
-type UserSessionRevoker interface {
-	RevokeAll(ctx context.Context, userID int64) error
 }
 
 type DeleteRoleResult struct {
@@ -99,12 +94,27 @@ func (s *RolePolicyService) ReplaceRoleAPIs(
 
 	result := ReplaceResult{}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		lockName := "dogx:casbin:role:" + strconv.FormatInt(roleID, 10)
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", lockName).Error; err != nil {
-			return fmt.Errorf("lock role policy: %w", err)
+		// Lock the role row so two complete-set replacements cannot interleave
+		// their delete/insert phases, and deletion cannot leave policies for a
+		// role that was removed concurrently.
+		var role model.Role
+		if err := tx.WithContext(ctx).
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", roleID).
+			First(&role).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrRoleUnavailable
+			}
+			return fmt.Errorf("lock role for policy update: %w", err)
+		}
+		if role.Status != model.RecordStatusEnabled {
+			return ErrRoleUnavailable
+		}
+		if role.Code == model.SuperAdminRoleCode {
+			return ErrSuperAdminPolicyProtected
 		}
 
-		resources, err := loadTargetResources(ctx, tx, roleID, targetIDs)
+		resources, err := loadTargetResources(ctx, tx, targetIDs)
 		if err != nil {
 			return err
 		}
@@ -151,50 +161,6 @@ func (s *RolePolicyService) ReplaceRoleAPIs(
 	return result, nil
 }
 
-func (s *RolePolicyService) UpdateRoleStatus(
-	ctx context.Context,
-	roleID int64,
-	roleStatus model.RecordStatus,
-	sessions UserSessionRevoker,
-) error {
-	if ctx == nil {
-		return errors.New("update role status context is nil")
-	}
-	if roleID <= 0 ||
-		(roleStatus != model.RecordStatusDisabled && roleStatus != model.RecordStatusEnabled) {
-		return ErrInvalidRoleID
-	}
-	if sessions == nil {
-		return errors.New("user session revoker is nil")
-	}
-
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var role model.Role
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&role, roleID).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return repository.ErrRoleNotFound
-			}
-			return fmt.Errorf("lock role for status update: %w", err)
-		}
-		if role.IsSystem && roleStatus == model.RecordStatusDisabled {
-			return repository.ErrSystemRoleProtected
-		}
-		if role.Status == roleStatus {
-			return nil
-		}
-
-		if roleStatus == model.RecordStatusDisabled {
-			if _, err := revokeRoleUserSessions(ctx, tx, roleID, sessions); err != nil {
-				return err
-			}
-		}
-		if err := tx.Model(&role).Update("status", roleStatus).Error; err != nil {
-			return fmt.Errorf("update role status: %w", err)
-		}
-		return nil
-	})
-}
-
 func (s *RolePolicyService) DeleteRole(
 	ctx context.Context,
 	roleID int64,
@@ -207,13 +173,13 @@ func (s *RolePolicyService) DeleteRole(
 	}
 	result := DeleteRoleResult{}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		lockName := "dogx:casbin:role:" + strconv.FormatInt(roleID, 10)
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", lockName).Error; err != nil {
-			return fmt.Errorf("lock role deletion: %w", err)
-		}
-
+		// Lock the role row so deletion cannot race with policy replacement and
+		// either leave policies for a deleted role or have its cleanup overwritten.
 		var role model.Role
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&role, roleID).Error; err != nil {
+		if err := tx.WithContext(ctx).
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", roleID).
+			First(&role).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return repository.ErrRoleNotFound
 			}
@@ -276,47 +242,11 @@ func (s *RolePolicyService) DeleteRole(
 	return result, nil
 }
 
-func revokeRoleUserSessions(
-	ctx context.Context,
-	db *gorm.DB,
-	roleID int64,
-	sessions UserSessionRevoker,
-) (int, error) {
-	userIDs := make([]int64, 0)
-	if err := db.WithContext(ctx).
-		Model(&model.UserRole{}).
-		Where("role_id = ?", roleID).
-		Order("user_id ASC").
-		Pluck("user_id", &userIDs).Error; err != nil {
-		return 0, fmt.Errorf("list role users for session revocation: %w", err)
-	}
-	for _, userID := range userIDs {
-		if err := sessions.RevokeAll(ctx, userID); err != nil {
-			return 0, fmt.Errorf("revoke sessions for role user %d: %w", userID, err)
-		}
-	}
-	return len(userIDs), nil
-}
-
 func loadTargetResources(
 	ctx context.Context,
 	db *gorm.DB,
-	roleID int64,
 	targetIDs []int64,
 ) ([]model.API, error) {
-	var role model.Role
-	if err := db.WithContext(ctx).
-		Where("id = ? AND status = ?", roleID, model.RecordStatusEnabled).
-		First(&role).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrRoleUnavailable
-		}
-		return nil, fmt.Errorf("load role for policy update: %w", err)
-	}
-	if role.Code == model.SuperAdminRoleCode {
-		return nil, ErrSuperAdminPolicyProtected
-	}
-
 	if len(targetIDs) > 0 {
 		var count int64
 		if err := db.WithContext(ctx).

@@ -262,3 +262,60 @@ func TestRoleRepositoryCreatesUpdatesAndProtectsSystemRole(t *testing.T) {
 		t.Fatalf("update allowed system role metadata: %v", err)
 	}
 }
+
+func TestRoleRepositoryUpdatesStatusAndProtectsSystemRole(t *testing.T) {
+	_, db := newPostgreSQLUserRepository(t)
+	repository, err := NewRoleRepository(db)
+	if err != nil {
+		t.Fatalf("create role repository: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	role := &model.Role{
+		Code:   "status_managed_role",
+		Name:   "Status Managed Role",
+		Status: model.RecordStatusEnabled,
+	}
+	if err := repository.Create(ctx, role); err != nil {
+		t.Fatalf("create status-managed role: %v", err)
+	}
+	if err := repository.UpdateStatus(ctx, role.ID, model.RecordStatusDisabled); err != nil {
+		t.Fatalf("disable role: %v", err)
+	}
+	disabled, err := repository.FindByID(ctx, role.ID)
+	if err != nil {
+		t.Fatalf("load disabled role: %v", err)
+	}
+	if disabled.Status != model.RecordStatusDisabled {
+		t.Fatalf("role status = %d, want disabled", disabled.Status)
+	}
+	if err := repository.UpdateStatus(ctx, role.ID, model.RecordStatusDisabled); err != nil {
+		t.Fatalf("repeat disabled status: %v", err)
+	}
+	if err := repository.UpdateStatus(ctx, role.ID, model.RecordStatusEnabled); err != nil {
+		t.Fatalf("enable role: %v", err)
+	}
+
+	var systemRole model.Role
+	if err := db.WithContext(ctx).
+		Where("code = ?", model.SuperAdminRoleCode).
+		First(&systemRole).Error; err != nil {
+		t.Fatalf("load system role: %v", err)
+	}
+	if err := repository.UpdateStatus(
+		ctx,
+		systemRole.ID,
+		model.RecordStatusDisabled,
+	); !errors.Is(err, ErrSystemRoleProtected) {
+		t.Fatalf("disable system role error = %v, want %v", err, ErrSystemRoleProtected)
+	}
+
+	if err := repository.UpdateStatus(
+		ctx,
+		int64(1<<62),
+		model.RecordStatusDisabled,
+	); !errors.Is(err, ErrRoleNotFound) {
+		t.Fatalf("missing role status error = %v, want %v", err, ErrRoleNotFound)
+	}
+}
