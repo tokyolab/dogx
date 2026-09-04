@@ -36,6 +36,11 @@ func (l *ReplaceRoleAPIsLogic) ReplaceRoleAPIs(in *system.ReplaceRoleAPIsRequest
 	if in == nil || in.RoleId <= 0 || len(in.ApiIds) > maxRoleAPIIDs {
 		return nil, status.Error(codes.InvalidArgument, "invalid role API authorization request")
 	}
+	for _, apiID := range in.ApiIds {
+		if apiID <= 0 {
+			return nil, status.Error(codes.InvalidArgument, "invalid role API authorization request")
+		}
+	}
 	if l.svcCtx.RolePolicies == nil {
 		return nil, errors.New("role policy service is unavailable")
 	}

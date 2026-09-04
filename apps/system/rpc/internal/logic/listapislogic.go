@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
@@ -16,9 +17,9 @@ import (
 )
 
 const (
-	maxAPIKeywordBytes = 128
-	maxAPIServiceBytes = 64
-	maxAPIGroupBytes   = 64
+	maxAPIKeywordChars = 128
+	maxAPIServiceChars = 64
+	maxAPIGroupChars   = 64
 )
 
 type ListAPIsLogic struct {
@@ -37,9 +38,9 @@ func NewListAPIsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListAPIs
 
 func (l *ListAPIsLogic) ListAPIs(in *system.ListAPIsRequest) (*system.ListAPIsResponse, error) {
 	if in == nil ||
-		len(strings.TrimSpace(in.Keyword)) > maxAPIKeywordBytes ||
-		len(strings.TrimSpace(in.ServiceName)) > maxAPIServiceBytes ||
-		len(strings.TrimSpace(in.ApiGroup)) > maxAPIGroupBytes {
+		utf8.RuneCountInString(strings.TrimSpace(in.Keyword)) > maxAPIKeywordChars ||
+		utf8.RuneCountInString(strings.TrimSpace(in.ServiceName)) > maxAPIServiceChars ||
+		utf8.RuneCountInString(strings.TrimSpace(in.ApiGroup)) > maxAPIGroupChars {
 		return nil, status.Error(codes.InvalidArgument, "invalid API list request")
 	}
 	if l.svcCtx.APIRepo == nil {

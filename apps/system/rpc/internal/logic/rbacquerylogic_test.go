@@ -89,7 +89,7 @@ func TestListRolesRejectsInvalidRequestsAndDependencyFailures(t *testing.T) {
 		nil,
 		{},
 		{Page: 1, PageSize: 201},
-		{Page: 1, PageSize: 1, Keyword: strings.Repeat("x", maxRoleKeywordBytes+1)},
+		{Page: 1, PageSize: 1, Keyword: strings.Repeat("x", maxRoleKeywordChars+1)},
 		{Page: int64(^uint64(0) >> 1), PageSize: 200},
 	} {
 		if _, err := NewListRolesLogic(context.Background(), &svc.ServiceContext{}).
@@ -106,6 +106,29 @@ func TestListRolesRejectsInvalidRequestsAndDependencyFailures(t *testing.T) {
 		RoleRepo: &roleRepositoryStub{listErr: databaseErr},
 	}).ListRoles(&system.ListRolesRequest{Page: 1, PageSize: 20}); !errors.Is(err, databaseErr) {
 		t.Fatalf("role list dependency error = %v, want wrapped %v", err, databaseErr)
+	}
+}
+
+func TestListRolesMeasuresKeywordLimitInCharacters(t *testing.T) {
+	repositoryStub := &roleRepositoryStub{}
+	if _, err := NewListRolesLogic(context.Background(), &svc.ServiceContext{
+		RoleRepo: repositoryStub,
+	}).ListRoles(&system.ListRolesRequest{
+		Page:     1,
+		PageSize: 20,
+		Keyword:  strings.Repeat("角", maxRoleKeywordChars),
+	}); err != nil {
+		t.Fatalf("role keyword at character limit was rejected: %v", err)
+	}
+
+	if _, err := NewListRolesLogic(context.Background(), &svc.ServiceContext{
+		RoleRepo: repositoryStub,
+	}).ListRoles(&system.ListRolesRequest{
+		Page:     1,
+		PageSize: 20,
+		Keyword:  strings.Repeat("角", maxRoleKeywordChars+1),
+	}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("role keyword above character limit error = %v, want invalid argument", err)
 	}
 }
 
@@ -184,6 +207,37 @@ func TestListAPIsRejectsInvalidRequestsAndDependencyFailures(t *testing.T) {
 		APIRepo: &apiQueryRepositoryStub{err: databaseErr},
 	}).ListAPIs(&system.ListAPIsRequest{}); !errors.Is(err, databaseErr) {
 		t.Fatalf("API list dependency error = %v, want wrapped %v", err, databaseErr)
+	}
+}
+
+func TestListAPIsMeasuresFilterLimitsInCharacters(t *testing.T) {
+	repositoryStub := &apiQueryRepositoryStub{}
+	if _, err := NewListAPIsLogic(context.Background(), &svc.ServiceContext{
+		APIRepo: repositoryStub,
+	}).ListAPIs(&system.ListAPIsRequest{
+		Keyword:     strings.Repeat("接", maxAPIKeywordChars),
+		ServiceName: strings.Repeat("服", maxAPIServiceChars),
+		ApiGroup:    strings.Repeat("组", maxAPIGroupChars),
+	}); err != nil {
+		t.Fatalf("API filters at character limits were rejected: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		request *system.ListAPIsRequest
+	}{
+		{name: "keyword", request: &system.ListAPIsRequest{Keyword: strings.Repeat("接", maxAPIKeywordChars+1)}},
+		{name: "service name", request: &system.ListAPIsRequest{ServiceName: strings.Repeat("服", maxAPIServiceChars+1)}},
+		{name: "API group", request: &system.ListAPIsRequest{ApiGroup: strings.Repeat("组", maxAPIGroupChars+1)}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := NewListAPIsLogic(context.Background(), &svc.ServiceContext{
+				APIRepo: repositoryStub,
+			}).ListAPIs(test.request); status.Code(err) != codes.InvalidArgument {
+				t.Fatalf("filter above character limit error = %v, want invalid argument", err)
+			}
+		})
 	}
 }
 

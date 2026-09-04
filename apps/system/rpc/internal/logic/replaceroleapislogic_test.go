@@ -72,6 +72,15 @@ func TestReplaceRoleAPIsValidatesAndMapsKnownErrors(t *testing.T) {
 		ReplaceRoleAPIs(nil); status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("unexpected nil request error: %v", err)
 	}
+	for _, apiIDs := range [][]int64{{0}, {1, -1}} {
+		if _, err := NewReplaceRoleAPIsLogic(context.Background(), &svc.ServiceContext{}).
+			ReplaceRoleAPIs(&system.ReplaceRoleAPIsRequest{
+				RoleId: 1,
+				ApiIds: apiIDs,
+			}); status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("API IDs %v error = %v, want invalid argument", apiIDs, err)
+		}
+	}
 	if _, err := NewReplaceRoleAPIsLogic(context.Background(), &svc.ServiceContext{}).
 		ReplaceRoleAPIs(&system.ReplaceRoleAPIsRequest{RoleId: 1}); err == nil {
 		t.Fatal("expected missing role policy service to be rejected")

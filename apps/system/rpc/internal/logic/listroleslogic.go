@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
@@ -17,7 +18,7 @@ import (
 
 const (
 	maxRoleListPageSize = 200
-	maxRoleKeywordBytes = 128
+	maxRoleKeywordChars = 128
 )
 
 type ListRolesLogic struct {
@@ -37,7 +38,7 @@ func NewListRolesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListRol
 func (l *ListRolesLogic) ListRoles(in *system.ListRolesRequest) (*system.ListRolesResponse, error) {
 	if in == nil || in.Page <= 0 || in.PageSize <= 0 ||
 		in.PageSize > maxRoleListPageSize ||
-		len(strings.TrimSpace(in.Keyword)) > maxRoleKeywordBytes {
+		utf8.RuneCountInString(strings.TrimSpace(in.Keyword)) > maxRoleKeywordChars {
 		return nil, status.Error(codes.InvalidArgument, "invalid role list request")
 	}
 	if in.Page-1 > int64(^uint64(0)>>1)/in.PageSize {
