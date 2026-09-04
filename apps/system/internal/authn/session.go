@@ -126,6 +126,9 @@ func (s *RedisSessionStore) Create(ctx context.Context, session Session, ttl tim
 
 	sessionKey := s.sessionKey(session.ID)
 	userKey := s.userSessionsKey(session.UserID)
+	// The session value is authoritative; the per-user set is only the RevokeAll
+	// index. Compensate if index construction fails so no live session becomes
+	// undiscoverable by bulk revocation.
 	if err := s.client.SetexCtx(ctx, sessionKey, string(value), seconds); err != nil {
 		return fmt.Errorf("store session: %w", err)
 	}
@@ -169,6 +172,9 @@ func (s *RedisSessionReader) Get(ctx context.Context, sessionID string) (*Sessio
 	return &session, nil
 }
 
+// RotateRefreshToken treats a stale secret as token reuse and revokes the
+// entire session. This also makes concurrent refresh requests fail closed;
+// clients must serialize refresh attempts for a session.
 func (s *RedisSessionStore) RotateRefreshToken(
 	ctx context.Context,
 	sessionID string,
@@ -204,6 +210,8 @@ func (s *RedisSessionStore) RotateRefreshToken(
 		return nil, fmt.Errorf("extend user session index: %w", err)
 	}
 
+	// Lua performs the hash comparison and rotation atomically: 1 means rotated,
+	// -1 means mismatch and revoked, and 0 means the session no longer exists.
 	result, err := s.client.EvalCtx(
 		ctx,
 		rotateRefreshTokenScript,
@@ -254,6 +262,9 @@ func (s *RedisSessionStore) Revoke(ctx context.Context, userID int64, sessionID 
 	return nil
 }
 
+// RevokeAll traverses the explicit per-user index with SSCAN and deletes
+// session keys in bounded batches. Do not replace this with Redis KEYS, which
+// scans and blocks the complete keyspace.
 func (s *RedisSessionStore) RevokeAll(ctx context.Context, userID int64) error {
 	if userID <= 0 {
 		return errors.New("invalid user session revocation")

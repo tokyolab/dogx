@@ -192,6 +192,8 @@ func (r *roleRepository) Update(ctx context.Context, id int64, update RoleUpdate
 		return ErrReservedRoleCode
 	}
 
+	// Use a map so valid zero values, especially an empty description and
+	// sort=0, are persisted instead of being omitted by GORM struct updates.
 	result := r.db.WithContext(ctx).Model(&role).Updates(map[string]any{
 		"code":        update.Code,
 		"name":        update.Name,

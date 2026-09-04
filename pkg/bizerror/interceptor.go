@@ -35,6 +35,9 @@ func UnaryServerInterceptor(
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
+	// DogX uses extended numeric gRPC codes only on internal RPC boundaries and
+	// carries the stable business subcode in the standard ErrorInfo.Reason. The
+	// API gateway decodes both values into its public response envelope.
 	st, detailErr := status.New(codes.Code(bizErr.Code()), bizErr.Error()).WithDetails(
 		&errdetails.ErrorInfo{Reason: bizErr.Subcode()},
 	)

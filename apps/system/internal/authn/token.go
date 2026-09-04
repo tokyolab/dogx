@@ -214,6 +214,8 @@ func (i *TokenIssuer) signAccessToken(
 }
 
 func (i *TokenIssuer) credentials(accessToken, sessionID, refreshSecret string) *Credentials {
+	// The session ID selects the Redis record and the random secret proves
+	// possession; only the secret's SHA-256 hash is persisted in the session.
 	return &Credentials{
 		AccessToken:  accessToken,
 		RefreshToken: sessionID + "." + refreshSecret,
@@ -221,6 +223,9 @@ func (i *TokenIssuer) credentials(accessToken, sessionID, refreshSecret string) 
 	}
 }
 
+// accessClaims stores role membership and super-administrator status as
+// issuance-time snapshots. Issue and Refresh both reload enabled roles from
+// PostgreSQL before signing a new access token.
 type accessClaims struct {
 	UserID       int64   `json:"userId"`
 	SessionID    string  `json:"sessionId"`

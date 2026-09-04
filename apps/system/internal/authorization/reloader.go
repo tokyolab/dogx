@@ -81,6 +81,8 @@ func (r *PolicyReloader) Wait() {
 		return
 	}
 	r.wait.Wait()
+	// Wait for any in-flight reload triggered outside the periodic goroutine,
+	// such as a Redis watcher callback, before the database is closed.
 	r.mu.Lock()
 	r.mu.Unlock()
 }

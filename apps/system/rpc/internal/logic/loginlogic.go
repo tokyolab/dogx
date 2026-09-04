@@ -56,6 +56,8 @@ func (l *LoginLogic) Login(in *system.LoginRequest) (*system.LoginResponse, erro
 
 	user, err := l.svcCtx.UserRepo.FindByUsername(l.ctx, username)
 	if errors.Is(err, repository.ErrUserNotFound) {
+		// Run the same Argon2id workload for unknown usernames to reduce
+		// timing-based account enumeration.
 		_ = l.svcCtx.Passwords.Verify(authn.DummyPasswordHash(), in.Password)
 		l.recordLogin(nil, username, false, model.LoginFailureInvalidCredentials, in)
 		return nil, invalidCredentialsError()

@@ -93,6 +93,9 @@ func claimInt64Slice(value any) ([]int64, bool) {
 	return roleIDs, true
 }
 
+// go-zero JWT decoding and direct test contexts can expose numeric claims as
+// different concrete Go types; normalize them without accepting fractions or
+// overflowing int64.
 func claimInt64(value any) (int64, bool) {
 	switch typed := value.(type) {
 	case json.Number:

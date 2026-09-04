@@ -20,13 +20,17 @@ var (
 )
 
 type ReplaceResult struct {
-	Added             int
-	Removed           int
+	Added   int
+	Removed int
+	// NotificationError means the PostgreSQL commit succeeded but publishing
+	// cache invalidation failed; callers must not report the policy write itself
+	// as failed because periodic API reload remains the convergence fallback.
 	NotificationError error
 }
 
 type DeleteRoleResult struct {
-	RemovedPolicies   int
+	RemovedPolicies int
+	// NotificationError has the same post-commit semantics as ReplaceResult.
 	NotificationError error
 }
 
@@ -141,6 +145,9 @@ func (s *RolePolicyService) ReplaceRoleAPIs(
 		if err != nil {
 			return err
 		}
+		// The diff is used for no-op detection and audit counts. Persistence
+		// replaces the complete role snapshot with one filtered delete and one
+		// bulk insert; the surrounding transaction keeps that replacement atomic.
 		if err := txAdapter.RemoveFilteredPolicyCtx(ctx, "p", "p", 0, subject); err != nil {
 			return fmt.Errorf("remove role policies: %w", err)
 		}

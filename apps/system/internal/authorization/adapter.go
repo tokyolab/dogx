@@ -13,7 +13,11 @@ func NewGormAdapter(db *gorm.DB) (*gormadapter.Adapter, error) {
 		return nil, errors.New("authorization database is nil")
 	}
 
+	// TurnOffAutoMigrate mutates the supplied *gorm.DB in place. Clone the
+	// handle to isolate that adapter-specific context while retaining the
+	// current connection pool, including an active transaction when present.
 	adapterDB := db.Session(&gorm.Session{})
+	// Goose exclusively owns the casbin_rule schema and its migrations.
 	gormadapter.TurnOffAutoMigrate(adapterDB)
 	adapter, err := gormadapter.NewAdapterByDB(adapterDB)
 	if err != nil {

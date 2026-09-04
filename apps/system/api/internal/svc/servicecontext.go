@@ -80,6 +80,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		return nil, fmt.Errorf("initialize Casbin enforcer: %w", err)
 	}
 	enforcer.SetAdapter(adapter)
+	// The API enforcer is read-only; system-rpc owns transactional policy writes.
 	enforcer.EnableAutoSave(false)
 	reloader, err := authorization.NewPolicyReloader(enforcer)
 	if err != nil {
@@ -134,6 +135,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 }
 
 func (s *ServiceContext) Close() error {
+	// Stop every policy reload source before waiting for in-flight reloads.
 	if s.cancelPolicy != nil {
 		s.cancelPolicy()
 	}
@@ -143,6 +145,7 @@ func (s *ServiceContext) Close() error {
 	if s.policyReloader != nil {
 		s.policyReloader.Wait()
 	}
+	// Keep the database available until all policy reloads have stopped.
 	if s.sqlDB == nil {
 		return nil
 	}
