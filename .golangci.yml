@@ -1,0 +1,56 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - durationcheck
+    - errcheck
+    - errorlint
+    - govet
+    - ineffassign
+    - makezero
+    - nilerr
+    - staticcheck
+    - unused
+  settings:
+    staticcheck:
+      # Keep Staticcheck focused on correctness instead of style and quick fixes.
+      checks:
+        - "SA*"
+  exclusions:
+    generated: strict
+    rules:
+      # go-zero extends JSON tags with configuration options understood by its
+      # config loader but unknown to encoding/json and Staticcheck.
+      - linters:
+          - staticcheck
+        text: "SA5008:"
+        source: 'json:".*(default|options|range)='
+      # These tests intentionally reproduce go-zero's string-keyed identity
+      # context contract or pass nil contexts to verify defensive validation.
+      - path: _test\.go
+        linters:
+          - staticcheck
+        text: "SA(1012|1029):"
+      # Wait uses the mutex as a barrier for a reload that may outlive the
+      # periodic goroutine tracked by the wait group.
+      - path: apps/system/internal/authorization/reloader\.go
+        linters:
+          - staticcheck
+        text: "SA2001:"
+      # Closing these process-scoped or test database pools happens only at
+      # teardown, where the primary command or test result is authoritative.
+      - path: apps/system/(cmd/bootstrapadmin/main|internal/migratecmd/command|internal/migration/provider_test)\.go
+        linters:
+          - errcheck
+        source: "defer (sqlDB|db)\\.Close\\(\\)"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  modules-download-mode: readonly
+  tests: true
+  timeout: 5m

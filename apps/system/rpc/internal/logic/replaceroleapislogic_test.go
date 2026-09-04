@@ -105,7 +105,7 @@ func TestReplaceRoleAPIsValidatesAndMapsKnownErrors(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected role policy error")
 			}
-			if test.err == authorization.ErrSuperAdminPolicyProtected &&
+			if errors.Is(test.err, authorization.ErrSuperAdminPolicyProtected) &&
 				!hasBusinessSubcode(err, systemsubcode.RoleSuperAdminAPIProtected) {
 				t.Fatalf("unexpected super administrator error: %v", err)
 			}
