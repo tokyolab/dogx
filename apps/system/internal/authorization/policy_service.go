@@ -146,8 +146,8 @@ func (s *RolePolicyService) ReplaceRoleAPIs(
 			return err
 		}
 		// The diff is used for no-op detection and audit counts. Persistence
-		// replaces the complete role snapshot with one filtered delete and one
-		// bulk insert; the surrounding transaction keeps that replacement atomic.
+		// replaces the complete role snapshot with one filtered delete and bounded
+		// bulk inserts; the surrounding transaction keeps all batches atomic.
 		if err := txAdapter.RemoveFilteredPolicyCtx(ctx, "p", "p", 0, subject); err != nil {
 			return fmt.Errorf("remove role policies: %w", err)
 		}

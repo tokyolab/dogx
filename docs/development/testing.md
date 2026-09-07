@@ -96,7 +96,7 @@ GORM Repository 使用真实 PostgreSQL 测试，不使用 SQLite 代替 Postgre
 - 时间、事务和软删除行为。
 - GORM Model 与迁移结构不一致。
 
-Casbin 角色策略替换必须在真实 PostgreSQL 上验证：业务表和 `casbin_rule` 共享同一事务；角色策略变化时只产生一条过滤 `DELETE` 和一次批量 `INSERT`；任一策略或业务写入失败时全部回滚；目标集合未变化时不写数据库、不发布 Watcher 通知。测试不得重新使用官方 Adapter 的 `RemovePoliciesCtx` 来构造或验证该流程。
+Casbin 角色策略替换必须在真实 PostgreSQL 上验证：业务表和 `casbin_rule` 的全部插入批次共享同一事务；角色策略变化时只产生一条过滤 `DELETE`，按每批最多 5,000 条执行批量 `INSERT`；覆盖 10,000 个目标 API 加必需 API 的完整保存、后续批次失败及全部批次成功后业务事务回滚，确保原策略恢复且失败时不发布通知；目标集合未变化时不写数据库、不发布 Watcher 通知。测试不得重新使用官方 Adapter 的 `RemovePoliciesCtx` 来构造或验证该流程。
 
 集成测试文件使用构建标签：
 

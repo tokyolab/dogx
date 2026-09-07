@@ -49,11 +49,17 @@ func TestTransactionBoundAdapterSharesBusinessTransaction(t *testing.T) {
 		if err := tx.Create(&role).Error; err != nil {
 			return err
 		}
-		rule, err := PolicyRule(role.ID, "/transaction-probe", "POST")
-		if err != nil {
-			return err
+		// Force multiple batches to prove GORM's batching keeps the outer
+		// business transaction even when every policy insert succeeds.
+		rules := make([][]string, policyInsertBatchSize+1)
+		for index := range rules {
+			rule, err := PolicyRule(role.ID, "/transaction-probe/"+strconv.Itoa(index), "POST")
+			if err != nil {
+				return err
+			}
+			rules[index] = rule
 		}
-		if err := txAdapter.AddPoliciesCtx(ctx, "p", "p", [][]string{rule}); err != nil {
+		if err := txAdapter.AddPoliciesCtx(ctx, "p", "p", rules); err != nil {
 			return err
 		}
 		return rollbackErr
@@ -73,7 +79,7 @@ func TestTransactionBoundAdapterSharesBusinessTransaction(t *testing.T) {
 		t.Fatalf("business write escaped shared transaction: role count = %d", count)
 	}
 	if err := db.Model(&gormadapter.CasbinRule{}).
-		Where("v1 = ?", "/transaction-probe").
+		Where("v1 LIKE ?", "/transaction-probe/%").
 		Count(&count).Error; err != nil {
 		t.Fatalf("count policy after transaction rollback: %v", err)
 	}

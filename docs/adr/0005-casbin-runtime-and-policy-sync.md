@@ -102,10 +102,10 @@ Session 撤销继续使用用户 Session Set 和 `SSCAN` 精确定位 Session ID
 2. 业务查询只使用原始 GORM `tx`，不从 Adapter 反向取得或清洗 `*gorm.DB`；
 3. 在同一个 `tx` 上创建关闭 AutoMigrate 的临时官方 Adapter，读取该角色当前 `p` 规则；
 4. 计算目标集合与当前集合的差异；完全相同时不写数据库、不通知 Watcher；
-5. 有变化时，通过 `RemoveFilteredPolicyCtx` 一次删除该角色全部 `p`，再通过 `AddPoliciesCtx` 批量写入完整目标策略；
+5. 有变化时，通过 `RemoveFilteredPolicyCtx` 一次删除该角色全部 `p`，再通过 `AddPoliciesCtx` 写入完整目标策略；仅在 Adapter 的 GORM Session 上设置 `CreateBatchSize: 5000`，由 GORM 按每批最多 5,000 条分批插入，所有批次仍使用当前事务；
 6. 提交事务。
 
-例如当前规则为 `A、B、C`，目标规则为 `B、C、D`，对外仍报告删除一条、新增一条；持久化使用一条按角色过滤的 `DELETE` 和一次批量 `INSERT`，两者处于同一事务，外部不会观察到空策略窗口。禁止使用官方 Adapter 当前会逐条删除且吞掉单条错误的 `RemovePoliciesCtx`；也不使用新增阶段逐条写入的 `UpdateFilteredPolicies`。
+例如当前规则为 `A、B、C`，目标规则为 `B、C、D`，对外仍报告删除一条、新增一条；持久化使用一条按角色过滤的 `DELETE`，再按每批最多 5,000 条执行批量 `INSERT`。当前每条策略绑定 7 个参数，每批最多 35,000 个，低于 PostgreSQL 的 65,535 参数上限；分批覆盖补齐必需 API 后的完整目标集合。删除和所有插入批次处于同一事务，任一批次失败时全部回滚，外部不会观察到空策略窗口。禁止使用官方 Adapter 当前会逐条删除且吞掉单条错误的 `RemovePoliciesCtx`；也不使用新增阶段逐条写入的 `UpdateFilteredPolicies`。
 
 普通 GORM 事务是业务事务的唯一主人。临时 Adapter 只在事务回调内使用，不保存、不返回、不传入 goroutine；业务代码禁止调用 Adapter `GetDb()` 操作业务表。这样既保留官方 Adapter 的 Policy 映射与加载能力，也隔离其 `casbin_rule` Table Scope。
 
@@ -169,7 +169,7 @@ system-rpc 事务内按角色原子替换 casbin_rule
 - JWT 保存角色 ID 和派生的 `isSuperAdmin`；修改用户所属角色会强制撤销该用户全部 Session，角色启停则在下一次登录或刷新令牌时进入新快照；
 - `casbin_rule` 只保存 `p`，不需要 Casbin `g`、组合 Adapter 或用户角色全量加载；
 - `super_admin` 在认证通过后旁路 Casbin，不依赖 `casbin_rule`，不会因误清空策略或新增接口尚未登记授权而失去管理入口；
-- PostgreSQL 先判断规则差异；有变化时固定使用一次角色过滤删除和一次批量插入，避免逐条删除或逐条新增；
+- PostgreSQL 先判断规则差异；有变化时使用一次角色过滤删除和有上限的分批插入，所有批次在同一事务中原子提交，避免逐条删除或逐条新增；
 - Redis 消息只负责使本地快照失效，重复、乱序不会改变最终权限语义；
 - 每次策略变更和每个周期都会完整读取 `p`，这是用低频数据库查询换取简单、可恢复的一致性；
 - 通知遗漏时，旧权限最长可能保留一个配置周期，因此当前语义是有界最终一致而不是分布式强一致。
@@ -198,7 +198,7 @@ system-rpc 事务内按角色原子替换 casbin_rule
 - `super_admin` 生命周期和最后一名有效超级管理员受保护，且不能通过角色授权接口写入或清空其接口、菜单策略；普通角色删除会原子清理关联表和 Casbin 策略；
 - 超级管理员不依赖 `sys_role_menu` 即可取得全部有效菜单和页面元素，普通角色仍只取得显式授权的菜单集合；
 - 不使用 Redis `KEYS` 查找或撤销 Session；
-- 角色授权提交完整目标集合；无变化时不写，有变化时使用一条角色过滤 DELETE 和一次批量 INSERT，并验证两者与业务写入共享同一事务；
+- 角色授权提交完整目标集合；无变化时不写，有变化时使用一条角色过滤 DELETE 和每批最多 5,000 条的批量 INSERT；验证 10,000 个目标 API 加必需 API 可完整保存、后续批次失败时恢复原策略，以及全部批次与业务写入共享同一事务；
 - 同一角色并发更新被串行化，不产生部分集合；
 - `system-api` 初次加载正确，普通 Watcher 通知触发全量重载，遗漏通知后周期重载能够观察到最新策略；
 - 初始、Watcher 和周期重载共享串行入口，不能发生旧快照覆盖新快照；
