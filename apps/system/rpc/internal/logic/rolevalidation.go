@@ -43,6 +43,6 @@ func normalizeRoleInput(code, name, description string) (normalizedRoleInput, er
 }
 
 func validRecordStatus(value int32) bool {
-	status := model.RecordStatus(value)
-	return status == model.RecordStatusDisabled || status == model.RecordStatusEnabled
+	// Compare before narrowing so invalid values cannot truncate to 0 or 1.
+	return value == int32(model.RecordStatusDisabled) || value == int32(model.RecordStatusEnabled)
 }

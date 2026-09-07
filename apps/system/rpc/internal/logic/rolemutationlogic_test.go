@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
@@ -34,6 +35,75 @@ func TestCreateRoleNormalizesAndPersistsRole(t *testing.T) {
 		repositoryStub.created.Description != "维护内容" || repositoryStub.created.Sort != 10 ||
 		repositoryStub.created.Status != model.RecordStatusEnabled || repositoryStub.created.IsSystem {
 		t.Fatalf("unexpected created role: response=%+v role=%+v", response, repositoryStub.created)
+	}
+}
+
+func TestRoleMutationsValidateStatusBeforeConversion(t *testing.T) {
+	tests := []struct {
+		name  string
+		value int32
+		valid bool
+	}{
+		{name: "disabled", value: 0, valid: true},
+		{name: "enabled", value: 1, valid: true},
+		{name: "negative status", value: -1},
+		{name: "unknown status", value: 2},
+		{name: "minimum int16", value: math.MinInt16},
+		{name: "maximum int16", value: math.MaxInt16},
+		{name: "below int16", value: math.MinInt16 - 1},
+		{name: "above int16", value: math.MaxInt16 + 1},
+		{name: "positive truncates to disabled", value: 65536},
+		{name: "positive truncates to enabled", value: 65537},
+		{name: "negative truncates to disabled", value: -65536},
+		{name: "negative truncates to enabled", value: -65535},
+		{name: "minimum int32", value: math.MinInt32},
+		{name: "maximum int32", value: math.MaxInt32},
+	}
+	for _, test := range tests {
+		t.Run(test.name+"/create", func(t *testing.T) {
+			repositoryStub := &roleRepositoryStub{}
+			response, err := NewCreateRoleLogic(context.Background(), &svc.ServiceContext{
+				RoleRepo: repositoryStub,
+			}).CreateRole(&system.CreateRoleRequest{
+				Code: "role", Name: "Role", Status: test.value,
+			})
+			if !test.valid {
+				if status.Code(err) != codes.InvalidArgument || response != nil {
+					t.Errorf("create role with status %d: response=%+v error=%v, want invalid argument", test.value, response, err)
+				}
+				if repositoryStub.created != nil {
+					t.Fatal("invalid status reached role repository Create")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("create role with status %d: %v", test.value, err)
+			}
+			if response == nil || repositoryStub.created == nil || int32(repositoryStub.created.Status) != test.value {
+				t.Fatalf("unexpected created role: response=%+v role=%+v", response, repositoryStub.created)
+			}
+		})
+		t.Run(test.name+"/update", func(t *testing.T) {
+			repositoryStub := &roleRepositoryStub{}
+			response, err := NewUpdateRoleStatusLogic(context.Background(), &svc.ServiceContext{
+				RoleRepo: repositoryStub,
+			}).UpdateRoleStatus(&system.UpdateRoleStatusRequest{Id: 7, Status: test.value})
+			if !test.valid {
+				if status.Code(err) != codes.InvalidArgument || response != nil {
+					t.Errorf("update role with status %d: response=%+v error=%v, want invalid argument", test.value, response, err)
+				}
+				if repositoryStub.statusID != 0 {
+					t.Fatal("invalid status reached role repository UpdateStatus")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("update role with status %d: %v", test.value, err)
+			}
+			if response == nil || repositoryStub.statusID != 7 || int32(repositoryStub.status) != test.value {
+				t.Fatalf("unexpected role status update: response=%+v roleId=%d status=%d", response, repositoryStub.statusID, repositoryStub.status)
+			}
+		})
 	}
 }
 
