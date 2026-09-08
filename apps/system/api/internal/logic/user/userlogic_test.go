@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
@@ -17,15 +18,20 @@ import (
 
 type userRPCStub struct {
 	systemclient.System
-	request   proto.Message
-	err       error
-	nilResult bool
+	request         proto.Message
+	err             error
+	nilResult       bool
+	listResponse    *systemclient.ListUsersResponse
+	optionsResponse *systemclient.ListUserRoleOptionsResponse
 }
 
 func (s *userRPCStub) ListUsers(_ context.Context, in *systemclient.ListUsersRequest, _ ...grpc.CallOption) (*systemclient.ListUsersResponse, error) {
 	s.request = in
 	if s.nilResult {
 		return nil, s.err
+	}
+	if s.listResponse != nil {
+		return s.listResponse, s.err
 	}
 	return &systemclient.ListUsersResponse{Items: []*systemclient.UserInfo{}, Total: 0}, s.err
 }
@@ -90,6 +96,9 @@ func (s *userRPCStub) ListUserRoleOptions(_ context.Context, in *systemclient.Li
 	s.request = in
 	if s.nilResult {
 		return nil, s.err
+	}
+	if s.optionsResponse != nil {
+		return s.optionsResponse, s.err
 	}
 	return &systemclient.ListUserRoleOptionsResponse{Items: []*systemclient.UserRoleInfo{}}, s.err
 }
@@ -227,9 +236,85 @@ func TestUserAPIRejectsNilInputAndNilQueryResponses(t *testing.T) {
 	}
 }
 
-func TestUserAPIOutputContainsProfileAndRoles(t *testing.T) {
-	item := toUserItem(&systemclient.UserInfo{Id: 9, Username: "alice", Nickname: "Alice", Email: "alice@example.com", Phone: "123", Remark: "note", Status: 1, CreatedAt: "2026-09-07T08:30:00Z", Roles: []*systemclient.UserRoleInfo{{Id: 8, Code: "reader", Name: "Reader", Status: 0}}})
-	if item.Id != 9 || item.Nickname != "Alice" || item.Email != "alice@example.com" || len(item.Roles) != 1 || item.Roles[0].Status != 0 || item.CreatedAt != "2026-09-07T08:30:00Z" {
-		t.Fatalf("mapping: %+v", item)
+func TestUserAPIListPreservesRecordsRolesAndTotal(t *testing.T) {
+	rpc := &userRPCStub{listResponse: &systemclient.ListUsersResponse{
+		Items: []*systemclient.UserInfo{
+			{
+				Id: 9, Username: "alice", Nickname: "Alice", Email: "alice@example.com", Phone: "123",
+				Remark: "note", Status: 1, CreatedAt: "2026-09-07T08:30:00Z", UpdatedAt: "2026-09-08T08:30:00Z",
+				LastLoginAt: "2026-09-08T09:30:00Z",
+				Roles: []*systemclient.UserRoleInfo{
+					{Id: 8, Code: "reader", Name: "Reader", Status: 0},
+					{Id: 10, Code: "editor", Name: "Editor", Status: 1},
+				},
+			},
+			{Id: 7, Username: "bob", Nickname: "Bob", Status: 0},
+		},
+		Total: 37,
+	}}
+	response, err := NewListUsersLogic(authenticatedUserContext(), &svc.ServiceContext{SystemRpc: rpc}).
+		ListUsers(&types.UserListReq{Page: 2, PageSize: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := &types.UserListResp{
+		Items: []types.UserItem{
+			{
+				Id: 9, Username: "alice", Nickname: "Alice", Email: "alice@example.com", Phone: "123",
+				Remark: "note", Status: 1, CreatedAt: "2026-09-07T08:30:00Z", UpdatedAt: "2026-09-08T08:30:00Z",
+				LastLoginAt: "2026-09-08T09:30:00Z",
+				Roles: []types.UserRoleItem{
+					{Id: 8, Code: "reader", Name: "Reader", Status: 0},
+					{Id: 10, Code: "editor", Name: "Editor", Status: 1},
+				},
+			},
+			{Id: 7, Username: "bob", Nickname: "Bob", Status: 0, Roles: []types.UserRoleItem{}},
+		},
+		Total: 37,
+	}
+	if !reflect.DeepEqual(response, want) {
+		t.Fatalf("user page lost fields, ordering or total: got=%+v want=%+v", response, want)
+	}
+}
+
+func TestUserAPIRoleOptionsPreserveItemsAndTotal(t *testing.T) {
+	rpc := &userRPCStub{optionsResponse: &systemclient.ListUserRoleOptionsResponse{
+		Items: []*systemclient.UserRoleInfo{
+			{Id: 8, Code: "reader", Name: "Reader", Status: 1},
+			{Id: 10, Code: "editor", Name: "Editor", Status: 1},
+		},
+		Total: 25,
+	}}
+	response, err := NewListUserRoleOptionsLogic(authenticatedUserContext(), &svc.ServiceContext{SystemRpc: rpc}).
+		ListUserRoleOptions(&types.UserRoleOptionsReq{Page: 2, PageSize: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := &types.UserRoleOptionsResp{
+		Items: []types.UserRoleItem{
+			{Id: 8, Code: "reader", Name: "Reader", Status: 1},
+			{Id: 10, Code: "editor", Name: "Editor", Status: 1},
+		},
+		Total: 25,
+	}
+	if !reflect.DeepEqual(response, want) {
+		t.Fatalf("role options lost fields, ordering or total: got=%+v want=%+v", response, want)
+	}
+}
+
+func TestUserAPIEmptyPagesKeepTotalsAndNonNilItems(t *testing.T) {
+	rpc := &userRPCStub{
+		listResponse:    &systemclient.ListUsersResponse{Total: 7},
+		optionsResponse: &systemclient.ListUserRoleOptionsResponse{Total: 3},
+	}
+	sc := &svc.ServiceContext{SystemRpc: rpc}
+	ctx := authenticatedUserContext()
+	users, err := NewListUsersLogic(ctx, sc).ListUsers(&types.UserListReq{Page: 10, PageSize: 20})
+	if err != nil || users == nil || users.Total != 7 || users.Items == nil || len(users.Items) != 0 {
+		t.Fatalf("empty user page must retain total and an empty array: %+v error=%v", users, err)
+	}
+	roles, err := NewListUserRoleOptionsLogic(ctx, sc).ListUserRoleOptions(&types.UserRoleOptionsReq{Page: 10, PageSize: 20})
+	if err != nil || roles == nil || roles.Total != 3 || roles.Items == nil || len(roles.Items) != 0 {
+		t.Fatalf("empty role page must retain total and an empty array: %+v error=%v", roles, err)
 	}
 }

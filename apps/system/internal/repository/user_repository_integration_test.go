@@ -5,6 +5,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -211,6 +212,93 @@ func TestUserManagementPersistsRolesAndClearedProfileWithoutNPlusOne(t *testing.
 	}
 	if err := repo.UpdateProfile(ctx, 999999, UserProfileUpdate{Nickname: "missing"}); !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("missing: %v", err)
+	}
+}
+
+func TestUserListPagesExcludeSoftDeletedUsers(t *testing.T) {
+	repo, db := newPostgreSQLUserRepository(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	users := []model.User{
+		{Username: "pagefirst", Nickname: "First", PasswordHash: "hash", Status: 1},
+		{Username: "pagesecond", Nickname: "Second", PasswordHash: "hash", Status: 0},
+		{Username: "pagethird", Nickname: "Third", PasswordHash: "hash", Status: 1},
+		{Username: "pagedeleted", Nickname: "Deleted", PasswordHash: "hash", Status: 1},
+	}
+	if err := db.WithContext(ctx).Create(&users).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.WithContext(ctx).Delete(&users[3]).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name  string
+		query UserListQuery
+		ids   []int64
+		total int64
+	}{
+		{"first page", UserListQuery{Limit: 2}, []int64{users[2].ID, users[1].ID}, 3},
+		{"second page", UserListQuery{Limit: 2, Offset: 2}, []int64{users[0].ID}, 3},
+		{"past last page", UserListQuery{Limit: 2, Offset: 4}, nil, 3},
+		{"only deleted user matches", UserListQuery{Limit: 2, Keyword: "pagedeleted"}, nil, 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			rows, total, err := repo.List(ctx, test.query)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ids := make([]int64, 0, len(rows))
+			for _, row := range rows {
+				ids = append(ids, row.User.ID)
+			}
+			if total != test.total || !slices.Equal(ids, test.ids) {
+				t.Fatalf("unexpected page: ids=%v total=%d, want ids=%v total=%d", ids, total, test.ids, test.total)
+			}
+		})
+	}
+}
+
+func TestUserListSearchTreatsWildcardsLiterally(t *testing.T) {
+	repo, db := newPostgreSQLUserRepository(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	users := []model.User{
+		{Username: "percent", Nickname: "Percent%", PasswordHash: "hash", Status: 1},
+		{Username: "percentdecoy", Nickname: "PercentX", PasswordHash: "hash", Status: 1},
+		{Username: "underscore", Nickname: "Under_score", PasswordHash: "hash", Status: 1},
+		{Username: "underscoredecoy", Nickname: "UnderXscore", PasswordHash: "hash", Status: 1},
+		{Username: "bang", Nickname: "Bang!mark", PasswordHash: "hash", Status: 1},
+		{Username: "bangdecoy", Nickname: "Bangmark", PasswordHash: "hash", Status: 1},
+		{Username: "MixedUser", Nickname: "Username Match", PasswordHash: "hash", Status: 1},
+		{Username: "nickname", Nickname: "Mixed Nickname", PasswordHash: "hash", Status: 1},
+	}
+	if err := db.WithContext(ctx).Create(&users).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name    string
+		keyword string
+		ids     []int64
+	}{
+		{"percent is not a wildcard", "percent%", []int64{users[0].ID}},
+		{"underscore is not a wildcard", "under_score", []int64{users[2].ID}},
+		{"escape character stays literal", "bang!mark", []int64{users[4].ID}},
+		{"case insensitive username and nickname", "mIxEd", []int64{users[7].ID, users[6].ID}},
+		{"no matching users", "nobody-matches", nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			rows, total, err := repo.List(ctx, UserListQuery{Limit: 20, Keyword: test.keyword})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ids := make([]int64, 0, len(rows))
+			for _, row := range rows {
+				ids = append(ids, row.User.ID)
+			}
+			if total != int64(len(test.ids)) || !slices.Equal(ids, test.ids) {
+				t.Fatalf("unexpected search result: ids=%v total=%d, want ids=%v", ids, total, test.ids)
+			}
+		})
 	}
 }
 
