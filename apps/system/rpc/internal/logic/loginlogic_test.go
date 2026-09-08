@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
@@ -18,45 +17,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-type userRepositoryStub struct {
-	user         *model.User
-	findErr      error
-	findByIDErr  error
-	username     string
-	lastLoginAt  time.Time
-	passwordHash string
-	updateErr    error
-}
-
-func (s *userRepositoryStub) Create(context.Context, *model.User) error {
-	return nil
-}
-
-func (s *userRepositoryStub) FindByID(context.Context, int64) (*model.User, error) {
-	if s.findByIDErr != nil {
-		return nil, s.findByIDErr
-	}
-	if s.user == nil {
-		return nil, repository.ErrUserNotFound
-	}
-	return s.user, nil
-}
-
-func (s *userRepositoryStub) FindByUsername(_ context.Context, username string) (*model.User, error) {
-	s.username = username
-	return s.user, s.findErr
-}
-
-func (s *userRepositoryStub) UpdateLastLoginAt(_ context.Context, _ int64, lastLoginAt time.Time) error {
-	s.lastLoginAt = lastLoginAt
-	return s.updateErr
-}
-
-func (s *userRepositoryStub) UpdatePasswordHash(_ context.Context, _ int64, passwordHash string) error {
-	s.passwordHash = passwordHash
-	return s.updateErr
-}
 
 type passwordVerifierStub struct {
 	hash     string
@@ -209,11 +169,33 @@ func TestLoginRejectsInvalidRequest(t *testing.T) {
 		nil,
 		{},
 		{Username: strings.Repeat("a", maxUsernameCharacters+1), Password: "password"},
-		{Username: "admin", Password: strings.Repeat("p", maxPasswordCharacters+1)},
+		{Username: "admin", Password: strings.Repeat("p", authn.MaxPasswordBytes+1)},
+		{Username: "admin", Password: strings.Repeat("密", 25)},
+		{Username: "admin", Password: strings.Repeat("😀", 19)},
 	}
 	for _, request := range requests {
 		if _, err := logic.Login(request); status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("expected invalid argument, got: %v", err)
+		}
+	}
+}
+
+func TestLoginAcceptsBcryptByteBoundary(t *testing.T) {
+	for _, password := range []string{strings.Repeat("a", 72), strings.Repeat("密", 24), strings.Repeat("😀", 18)} {
+		repo := &userRepositoryStub{user: enabledUser()}
+		hasher := authn.NewBcrypt()
+		hash, err := hasher.Hash(password)
+		if err != nil {
+			t.Fatalf("prepare bcrypt password: %v", err)
+		}
+		repo.user.PasswordHash = hash
+		sc := &svc.ServiceContext{
+			UserRepo: repo, Passwords: hasher,
+			Tokens: &credentialIssuerStub{credentials: &authn.Credentials{AccessToken: "access-token"}},
+		}
+		response, err := NewLoginLogic(context.Background(), sc).Login(&system.LoginRequest{Username: "admin", Password: password})
+		if err != nil || response == nil || response.AccessToken != "access-token" {
+			t.Fatalf("login with boundary password failed: %v", err)
 		}
 	}
 }

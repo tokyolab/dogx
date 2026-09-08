@@ -1521,6 +1521,918 @@ func (x *GetRoleAPIsResponse) GetApiIds() []int64 {
 	return nil
 }
 
+type UserRoleInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Status        int32                  `protobuf:"varint,4,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserRoleInfo) Reset() {
+	*x = UserRoleInfo{}
+	mi := &file_system_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserRoleInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserRoleInfo) ProtoMessage() {}
+
+func (x *UserRoleInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserRoleInfo.ProtoReflect.Descriptor instead.
+func (*UserRoleInfo) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *UserRoleInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UserRoleInfo) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *UserRoleInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UserRoleInfo) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+type UserInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Nickname      string                 `protobuf:"bytes,3,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	Email         string                 `protobuf:"bytes,4,opt,name=email,proto3" json:"email,omitempty"`
+	Phone         string                 `protobuf:"bytes,5,opt,name=phone,proto3" json:"phone,omitempty"`
+	Remark        string                 `protobuf:"bytes,6,opt,name=remark,proto3" json:"remark,omitempty"`
+	Status        int32                  `protobuf:"varint,7,opt,name=status,proto3" json:"status,omitempty"`
+	Roles         []*UserRoleInfo        `protobuf:"bytes,8,rep,name=roles,proto3" json:"roles,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	LastLoginAt   string                 `protobuf:"bytes,11,opt,name=last_login_at,json=lastLoginAt,proto3" json:"last_login_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserInfo) Reset() {
+	*x = UserInfo{}
+	mi := &file_system_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserInfo) ProtoMessage() {}
+
+func (x *UserInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserInfo.ProtoReflect.Descriptor instead.
+func (*UserInfo) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *UserInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UserInfo) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *UserInfo) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+func (x *UserInfo) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *UserInfo) GetPhone() string {
+	if x != nil {
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *UserInfo) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *UserInfo) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *UserInfo) GetRoles() []*UserRoleInfo {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
+func (x *UserInfo) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *UserInfo) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *UserInfo) GetLastLoginAt() string {
+	if x != nil {
+		return x.LastLoginAt
+	}
+	return ""
+}
+
+type ListUsersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Page          int64                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int64                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	Keyword       string                 `protobuf:"bytes,3,opt,name=keyword,proto3" json:"keyword,omitempty"`
+	Status        *int32                 `protobuf:"varint,4,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListUsersRequest) Reset() {
+	*x = ListUsersRequest{}
+	mi := &file_system_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListUsersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListUsersRequest) ProtoMessage() {}
+
+func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
+func (*ListUsersRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ListUsersRequest) GetPage() int64 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListUsersRequest) GetPageSize() int64 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListUsersRequest) GetKeyword() string {
+	if x != nil {
+		return x.Keyword
+	}
+	return ""
+}
+
+func (x *ListUsersRequest) GetStatus() int32 {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return 0
+}
+
+type ListUsersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*UserInfo            `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Total         int64                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListUsersResponse) Reset() {
+	*x = ListUsersResponse{}
+	mi := &file_system_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListUsersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListUsersResponse) ProtoMessage() {}
+
+func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
+func (*ListUsersResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *ListUsersResponse) GetItems() []*UserInfo {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *ListUsersResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type GetUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserRequest) Reset() {
+	*x = GetUserRequest{}
+	mi := &file_system_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserRequest) ProtoMessage() {}
+
+func (x *GetUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserRequest.ProtoReflect.Descriptor instead.
+func (*GetUserRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *GetUserRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type GetUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *UserInfo              `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserResponse) Reset() {
+	*x = GetUserResponse{}
+	mi := &file_system_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserResponse) ProtoMessage() {}
+
+func (x *GetUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserResponse.ProtoReflect.Descriptor instead.
+func (*GetUserResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *GetUserResponse) GetUser() *UserInfo {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+type CreateUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	Nickname      string                 `protobuf:"bytes,2,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	Email         string                 `protobuf:"bytes,4,opt,name=email,proto3" json:"email,omitempty"`
+	Phone         string                 `protobuf:"bytes,5,opt,name=phone,proto3" json:"phone,omitempty"`
+	Remark        string                 `protobuf:"bytes,6,opt,name=remark,proto3" json:"remark,omitempty"`
+	Status        int32                  `protobuf:"varint,7,opt,name=status,proto3" json:"status,omitempty"`
+	RoleIds       []int64                `protobuf:"varint,8,rep,packed,name=role_ids,json=roleIds,proto3" json:"role_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateUserRequest) Reset() {
+	*x = CreateUserRequest{}
+	mi := &file_system_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateUserRequest) ProtoMessage() {}
+
+func (x *CreateUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateUserRequest.ProtoReflect.Descriptor instead.
+func (*CreateUserRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *CreateUserRequest) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetPhone() string {
+	if x != nil {
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *CreateUserRequest) GetRoleIds() []int64 {
+	if x != nil {
+		return x.RoleIds
+	}
+	return nil
+}
+
+type CreateUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateUserResponse) Reset() {
+	*x = CreateUserResponse{}
+	mi := &file_system_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateUserResponse) ProtoMessage() {}
+
+func (x *CreateUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateUserResponse.ProtoReflect.Descriptor instead.
+func (*CreateUserResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *CreateUserResponse) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type UpdateUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Nickname      string                 `protobuf:"bytes,2,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	Phone         string                 `protobuf:"bytes,4,opt,name=phone,proto3" json:"phone,omitempty"`
+	Remark        string                 `protobuf:"bytes,5,opt,name=remark,proto3" json:"remark,omitempty"`
+	OperatorId    int64                  `protobuf:"varint,6,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateUserRequest) Reset() {
+	*x = UpdateUserRequest{}
+	mi := &file_system_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateUserRequest) ProtoMessage() {}
+
+func (x *UpdateUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateUserRequest.ProtoReflect.Descriptor instead.
+func (*UpdateUserRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *UpdateUserRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateUserRequest) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+func (x *UpdateUserRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *UpdateUserRequest) GetPhone() string {
+	if x != nil {
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *UpdateUserRequest) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *UpdateUserRequest) GetOperatorId() int64 {
+	if x != nil {
+		return x.OperatorId
+	}
+	return 0
+}
+
+type UpdateUserStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	OperatorId    int64                  `protobuf:"varint,3,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateUserStatusRequest) Reset() {
+	*x = UpdateUserStatusRequest{}
+	mi := &file_system_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateUserStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateUserStatusRequest) ProtoMessage() {}
+
+func (x *UpdateUserStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateUserStatusRequest.ProtoReflect.Descriptor instead.
+func (*UpdateUserStatusRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *UpdateUserStatusRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateUserStatusRequest) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *UpdateUserStatusRequest) GetOperatorId() int64 {
+	if x != nil {
+		return x.OperatorId
+	}
+	return 0
+}
+
+type DeleteUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	OperatorId    int64                  `protobuf:"varint,2,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteUserRequest) Reset() {
+	*x = DeleteUserRequest{}
+	mi := &file_system_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteUserRequest) ProtoMessage() {}
+
+func (x *DeleteUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteUserRequest.ProtoReflect.Descriptor instead.
+func (*DeleteUserRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *DeleteUserRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *DeleteUserRequest) GetOperatorId() int64 {
+	if x != nil {
+		return x.OperatorId
+	}
+	return 0
+}
+
+type ReplaceUserRolesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	RoleIds       []int64                `protobuf:"varint,2,rep,packed,name=role_ids,json=roleIds,proto3" json:"role_ids,omitempty"`
+	OperatorId    int64                  `protobuf:"varint,3,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceUserRolesRequest) Reset() {
+	*x = ReplaceUserRolesRequest{}
+	mi := &file_system_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceUserRolesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceUserRolesRequest) ProtoMessage() {}
+
+func (x *ReplaceUserRolesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceUserRolesRequest.ProtoReflect.Descriptor instead.
+func (*ReplaceUserRolesRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *ReplaceUserRolesRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ReplaceUserRolesRequest) GetRoleIds() []int64 {
+	if x != nil {
+		return x.RoleIds
+	}
+	return nil
+}
+
+func (x *ReplaceUserRolesRequest) GetOperatorId() int64 {
+	if x != nil {
+		return x.OperatorId
+	}
+	return 0
+}
+
+type ResetUserPasswordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	OperatorId    int64                  `protobuf:"varint,3,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetUserPasswordRequest) Reset() {
+	*x = ResetUserPasswordRequest{}
+	mi := &file_system_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetUserPasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetUserPasswordRequest) ProtoMessage() {}
+
+func (x *ResetUserPasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetUserPasswordRequest.ProtoReflect.Descriptor instead.
+func (*ResetUserPasswordRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *ResetUserPasswordRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ResetUserPasswordRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+func (x *ResetUserPasswordRequest) GetOperatorId() int64 {
+	if x != nil {
+		return x.OperatorId
+	}
+	return 0
+}
+
+type ListUserRoleOptionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*UserRoleInfo        `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Total         int64                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListUserRoleOptionsResponse) Reset() {
+	*x = ListUserRoleOptionsResponse{}
+	mi := &file_system_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListUserRoleOptionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListUserRoleOptionsResponse) ProtoMessage() {}
+
+func (x *ListUserRoleOptionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListUserRoleOptionsResponse.ProtoReflect.Descriptor instead.
+func (*ListUserRoleOptionsResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *ListUserRoleOptionsResponse) GetItems() []*UserRoleInfo {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *ListUserRoleOptionsResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
 var File_system_proto protoreflect.FileDescriptor
 
 const file_system_proto_rawDesc = "" +
@@ -1625,7 +2537,81 @@ const file_system_proto_rawDesc = "" +
 	"\x12GetRoleAPIsRequest\x12\x17\n" +
 	"\arole_id\x18\x01 \x01(\x03R\x06roleId\".\n" +
 	"\x13GetRoleAPIsResponse\x12\x17\n" +
-	"\aapi_ids\x18\x01 \x03(\x03R\x06apiIds2\xd2\b\n" +
+	"\aapi_ids\x18\x01 \x03(\x03R\x06apiIds\"^\n" +
+	"\fUserRoleInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\x05R\x06status\"\xbc\x02\n" +
+	"\bUserInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
+	"\bnickname\x18\x03 \x01(\tR\bnickname\x12\x14\n" +
+	"\x05email\x18\x04 \x01(\tR\x05email\x12\x14\n" +
+	"\x05phone\x18\x05 \x01(\tR\x05phone\x12\x16\n" +
+	"\x06remark\x18\x06 \x01(\tR\x06remark\x12\x16\n" +
+	"\x06status\x18\a \x01(\x05R\x06status\x12*\n" +
+	"\x05roles\x18\b \x03(\v2\x14.system.UserRoleInfoR\x05roles\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\t \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\tR\tupdatedAt\x12\"\n" +
+	"\rlast_login_at\x18\v \x01(\tR\vlastLoginAt\"\x85\x01\n" +
+	"\x10ListUsersRequest\x12\x12\n" +
+	"\x04page\x18\x01 \x01(\x03R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x03R\bpageSize\x12\x18\n" +
+	"\akeyword\x18\x03 \x01(\tR\akeyword\x12\x1b\n" +
+	"\x06status\x18\x04 \x01(\x05H\x00R\x06status\x88\x01\x01B\t\n" +
+	"\a_status\"Q\n" +
+	"\x11ListUsersResponse\x12&\n" +
+	"\x05items\x18\x01 \x03(\v2\x10.system.UserInfoR\x05items\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x03R\x05total\" \n" +
+	"\x0eGetUserRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"7\n" +
+	"\x0fGetUserResponse\x12$\n" +
+	"\x04user\x18\x01 \x01(\v2\x10.system.UserInfoR\x04user\"\xde\x01\n" +
+	"\x11CreateUserRequest\x12\x1a\n" +
+	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
+	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x1a\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x14\n" +
+	"\x05email\x18\x04 \x01(\tR\x05email\x12\x14\n" +
+	"\x05phone\x18\x05 \x01(\tR\x05phone\x12\x16\n" +
+	"\x06remark\x18\x06 \x01(\tR\x06remark\x12\x16\n" +
+	"\x06status\x18\a \x01(\x05R\x06status\x12\x19\n" +
+	"\brole_ids\x18\b \x03(\x03R\aroleIds\"$\n" +
+	"\x12CreateUserResponse\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"\xa4\x01\n" +
+	"\x11UpdateUserRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
+	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x14\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\x12\x14\n" +
+	"\x05phone\x18\x04 \x01(\tR\x05phone\x12\x16\n" +
+	"\x06remark\x18\x05 \x01(\tR\x06remark\x12\x1f\n" +
+	"\voperator_id\x18\x06 \x01(\x03R\n" +
+	"operatorId\"b\n" +
+	"\x17UpdateUserStatusRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\x05R\x06status\x12\x1f\n" +
+	"\voperator_id\x18\x03 \x01(\x03R\n" +
+	"operatorId\"D\n" +
+	"\x11DeleteUserRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
+	"\voperator_id\x18\x02 \x01(\x03R\n" +
+	"operatorId\"e\n" +
+	"\x17ReplaceUserRolesRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n" +
+	"\brole_ids\x18\x02 \x03(\x03R\aroleIds\x12\x1f\n" +
+	"\voperator_id\x18\x03 \x01(\x03R\n" +
+	"operatorId\"g\n" +
+	"\x18ResetUserPasswordRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x1f\n" +
+	"\voperator_id\x18\x03 \x01(\x03R\n" +
+	"operatorId\"_\n" +
+	"\x1bListUserRoleOptionsResponse\x12*\n" +
+	"\x05items\x18\x01 \x03(\v2\x14.system.UserRoleInfoR\x05items\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x03R\x05total2\xd1\r\n" +
 	"\x06System\x129\n" +
 	"\n" +
 	"CheckReady\x12\x14.system.ReadyRequest\x1a\x15.system.ReadyResponse\x124\n" +
@@ -1646,7 +2632,19 @@ const file_system_proto_rawDesc = "" +
 	"DeleteRole\x12\x19.system.DeleteRoleRequest\x1a\x15.system.EmptyResponse\x12=\n" +
 	"\bListAPIs\x12\x17.system.ListAPIsRequest\x1a\x18.system.ListAPIsResponse\x12F\n" +
 	"\vGetRoleAPIs\x12\x1a.system.GetRoleAPIsRequest\x1a\x1b.system.GetRoleAPIsResponse\x12H\n" +
-	"\x0fReplaceRoleAPIs\x12\x1e.system.ReplaceRoleAPIsRequest\x1a\x15.system.EmptyResponseB\n" +
+	"\x0fReplaceRoleAPIs\x12\x1e.system.ReplaceRoleAPIsRequest\x1a\x15.system.EmptyResponse\x12@\n" +
+	"\tListUsers\x12\x18.system.ListUsersRequest\x1a\x19.system.ListUsersResponse\x12:\n" +
+	"\aGetUser\x12\x16.system.GetUserRequest\x1a\x17.system.GetUserResponse\x12C\n" +
+	"\n" +
+	"CreateUser\x12\x19.system.CreateUserRequest\x1a\x1a.system.CreateUserResponse\x12>\n" +
+	"\n" +
+	"UpdateUser\x12\x19.system.UpdateUserRequest\x1a\x15.system.EmptyResponse\x12J\n" +
+	"\x10UpdateUserStatus\x12\x1f.system.UpdateUserStatusRequest\x1a\x15.system.EmptyResponse\x12>\n" +
+	"\n" +
+	"DeleteUser\x12\x19.system.DeleteUserRequest\x1a\x15.system.EmptyResponse\x12J\n" +
+	"\x10ReplaceUserRoles\x12\x1f.system.ReplaceUserRolesRequest\x1a\x15.system.EmptyResponse\x12L\n" +
+	"\x11ResetUserPassword\x12 .system.ResetUserPasswordRequest\x1a\x15.system.EmptyResponse\x12T\n" +
+	"\x13ListUserRoleOptions\x12\x18.system.ListRolesRequest\x1a#.system.ListUserRoleOptionsResponseB\n" +
 	"Z\b./systemb\x06proto3"
 
 var (
@@ -1661,77 +2659,113 @@ func file_system_proto_rawDescGZIP() []byte {
 	return file_system_proto_rawDescData
 }
 
-var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
 var file_system_proto_goTypes = []any{
-	(*ReadyRequest)(nil),              // 0: system.ReadyRequest
-	(*ReadyResponse)(nil),             // 1: system.ReadyResponse
-	(*LoginRequest)(nil),              // 2: system.LoginRequest
-	(*LoginResponse)(nil),             // 3: system.LoginResponse
-	(*RefreshCredentialsRequest)(nil), // 4: system.RefreshCredentialsRequest
-	(*EmptyResponse)(nil),             // 5: system.EmptyResponse
-	(*CurrentUserRequest)(nil),        // 6: system.CurrentUserRequest
-	(*CurrentUserResponse)(nil),       // 7: system.CurrentUserResponse
-	(*RevokeSessionRequest)(nil),      // 8: system.RevokeSessionRequest
-	(*RevokeUserSessionsRequest)(nil), // 9: system.RevokeUserSessionsRequest
-	(*ChangePasswordRequest)(nil),     // 10: system.ChangePasswordRequest
-	(*ReplaceRoleAPIsRequest)(nil),    // 11: system.ReplaceRoleAPIsRequest
-	(*ListRolesRequest)(nil),          // 12: system.ListRolesRequest
-	(*RoleInfo)(nil),                  // 13: system.RoleInfo
-	(*CreateRoleRequest)(nil),         // 14: system.CreateRoleRequest
-	(*CreateRoleResponse)(nil),        // 15: system.CreateRoleResponse
-	(*UpdateRoleRequest)(nil),         // 16: system.UpdateRoleRequest
-	(*UpdateRoleStatusRequest)(nil),   // 17: system.UpdateRoleStatusRequest
-	(*DeleteRoleRequest)(nil),         // 18: system.DeleteRoleRequest
-	(*ListRolesResponse)(nil),         // 19: system.ListRolesResponse
-	(*GetRoleRequest)(nil),            // 20: system.GetRoleRequest
-	(*GetRoleResponse)(nil),           // 21: system.GetRoleResponse
-	(*ListAPIsRequest)(nil),           // 22: system.ListAPIsRequest
-	(*APIInfo)(nil),                   // 23: system.APIInfo
-	(*ListAPIsResponse)(nil),          // 24: system.ListAPIsResponse
-	(*GetRoleAPIsRequest)(nil),        // 25: system.GetRoleAPIsRequest
-	(*GetRoleAPIsResponse)(nil),       // 26: system.GetRoleAPIsResponse
+	(*ReadyRequest)(nil),                // 0: system.ReadyRequest
+	(*ReadyResponse)(nil),               // 1: system.ReadyResponse
+	(*LoginRequest)(nil),                // 2: system.LoginRequest
+	(*LoginResponse)(nil),               // 3: system.LoginResponse
+	(*RefreshCredentialsRequest)(nil),   // 4: system.RefreshCredentialsRequest
+	(*EmptyResponse)(nil),               // 5: system.EmptyResponse
+	(*CurrentUserRequest)(nil),          // 6: system.CurrentUserRequest
+	(*CurrentUserResponse)(nil),         // 7: system.CurrentUserResponse
+	(*RevokeSessionRequest)(nil),        // 8: system.RevokeSessionRequest
+	(*RevokeUserSessionsRequest)(nil),   // 9: system.RevokeUserSessionsRequest
+	(*ChangePasswordRequest)(nil),       // 10: system.ChangePasswordRequest
+	(*ReplaceRoleAPIsRequest)(nil),      // 11: system.ReplaceRoleAPIsRequest
+	(*ListRolesRequest)(nil),            // 12: system.ListRolesRequest
+	(*RoleInfo)(nil),                    // 13: system.RoleInfo
+	(*CreateRoleRequest)(nil),           // 14: system.CreateRoleRequest
+	(*CreateRoleResponse)(nil),          // 15: system.CreateRoleResponse
+	(*UpdateRoleRequest)(nil),           // 16: system.UpdateRoleRequest
+	(*UpdateRoleStatusRequest)(nil),     // 17: system.UpdateRoleStatusRequest
+	(*DeleteRoleRequest)(nil),           // 18: system.DeleteRoleRequest
+	(*ListRolesResponse)(nil),           // 19: system.ListRolesResponse
+	(*GetRoleRequest)(nil),              // 20: system.GetRoleRequest
+	(*GetRoleResponse)(nil),             // 21: system.GetRoleResponse
+	(*ListAPIsRequest)(nil),             // 22: system.ListAPIsRequest
+	(*APIInfo)(nil),                     // 23: system.APIInfo
+	(*ListAPIsResponse)(nil),            // 24: system.ListAPIsResponse
+	(*GetRoleAPIsRequest)(nil),          // 25: system.GetRoleAPIsRequest
+	(*GetRoleAPIsResponse)(nil),         // 26: system.GetRoleAPIsResponse
+	(*UserRoleInfo)(nil),                // 27: system.UserRoleInfo
+	(*UserInfo)(nil),                    // 28: system.UserInfo
+	(*ListUsersRequest)(nil),            // 29: system.ListUsersRequest
+	(*ListUsersResponse)(nil),           // 30: system.ListUsersResponse
+	(*GetUserRequest)(nil),              // 31: system.GetUserRequest
+	(*GetUserResponse)(nil),             // 32: system.GetUserResponse
+	(*CreateUserRequest)(nil),           // 33: system.CreateUserRequest
+	(*CreateUserResponse)(nil),          // 34: system.CreateUserResponse
+	(*UpdateUserRequest)(nil),           // 35: system.UpdateUserRequest
+	(*UpdateUserStatusRequest)(nil),     // 36: system.UpdateUserStatusRequest
+	(*DeleteUserRequest)(nil),           // 37: system.DeleteUserRequest
+	(*ReplaceUserRolesRequest)(nil),     // 38: system.ReplaceUserRolesRequest
+	(*ResetUserPasswordRequest)(nil),    // 39: system.ResetUserPasswordRequest
+	(*ListUserRoleOptionsResponse)(nil), // 40: system.ListUserRoleOptionsResponse
 }
 var file_system_proto_depIdxs = []int32{
 	13, // 0: system.ListRolesResponse.items:type_name -> system.RoleInfo
 	13, // 1: system.GetRoleResponse.role:type_name -> system.RoleInfo
 	23, // 2: system.ListAPIsResponse.items:type_name -> system.APIInfo
-	0,  // 3: system.System.CheckReady:input_type -> system.ReadyRequest
-	2,  // 4: system.System.Login:input_type -> system.LoginRequest
-	4,  // 5: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
-	6,  // 6: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
-	8,  // 7: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
-	9,  // 8: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
-	10, // 9: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
-	14, // 10: system.System.CreateRole:input_type -> system.CreateRoleRequest
-	12, // 11: system.System.ListRoles:input_type -> system.ListRolesRequest
-	20, // 12: system.System.GetRole:input_type -> system.GetRoleRequest
-	16, // 13: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
-	17, // 14: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
-	18, // 15: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
-	22, // 16: system.System.ListAPIs:input_type -> system.ListAPIsRequest
-	25, // 17: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
-	11, // 18: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
-	1,  // 19: system.System.CheckReady:output_type -> system.ReadyResponse
-	3,  // 20: system.System.Login:output_type -> system.LoginResponse
-	3,  // 21: system.System.RefreshCredentials:output_type -> system.LoginResponse
-	7,  // 22: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
-	5,  // 23: system.System.RevokeSession:output_type -> system.EmptyResponse
-	5,  // 24: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
-	5,  // 25: system.System.ChangePassword:output_type -> system.EmptyResponse
-	15, // 26: system.System.CreateRole:output_type -> system.CreateRoleResponse
-	19, // 27: system.System.ListRoles:output_type -> system.ListRolesResponse
-	21, // 28: system.System.GetRole:output_type -> system.GetRoleResponse
-	5,  // 29: system.System.UpdateRole:output_type -> system.EmptyResponse
-	5,  // 30: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
-	5,  // 31: system.System.DeleteRole:output_type -> system.EmptyResponse
-	24, // 32: system.System.ListAPIs:output_type -> system.ListAPIsResponse
-	26, // 33: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
-	5,  // 34: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
-	19, // [19:35] is the sub-list for method output_type
-	3,  // [3:19] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	27, // 3: system.UserInfo.roles:type_name -> system.UserRoleInfo
+	28, // 4: system.ListUsersResponse.items:type_name -> system.UserInfo
+	28, // 5: system.GetUserResponse.user:type_name -> system.UserInfo
+	27, // 6: system.ListUserRoleOptionsResponse.items:type_name -> system.UserRoleInfo
+	0,  // 7: system.System.CheckReady:input_type -> system.ReadyRequest
+	2,  // 8: system.System.Login:input_type -> system.LoginRequest
+	4,  // 9: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
+	6,  // 10: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
+	8,  // 11: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
+	9,  // 12: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
+	10, // 13: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
+	14, // 14: system.System.CreateRole:input_type -> system.CreateRoleRequest
+	12, // 15: system.System.ListRoles:input_type -> system.ListRolesRequest
+	20, // 16: system.System.GetRole:input_type -> system.GetRoleRequest
+	16, // 17: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
+	17, // 18: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
+	18, // 19: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
+	22, // 20: system.System.ListAPIs:input_type -> system.ListAPIsRequest
+	25, // 21: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
+	11, // 22: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
+	29, // 23: system.System.ListUsers:input_type -> system.ListUsersRequest
+	31, // 24: system.System.GetUser:input_type -> system.GetUserRequest
+	33, // 25: system.System.CreateUser:input_type -> system.CreateUserRequest
+	35, // 26: system.System.UpdateUser:input_type -> system.UpdateUserRequest
+	36, // 27: system.System.UpdateUserStatus:input_type -> system.UpdateUserStatusRequest
+	37, // 28: system.System.DeleteUser:input_type -> system.DeleteUserRequest
+	38, // 29: system.System.ReplaceUserRoles:input_type -> system.ReplaceUserRolesRequest
+	39, // 30: system.System.ResetUserPassword:input_type -> system.ResetUserPasswordRequest
+	12, // 31: system.System.ListUserRoleOptions:input_type -> system.ListRolesRequest
+	1,  // 32: system.System.CheckReady:output_type -> system.ReadyResponse
+	3,  // 33: system.System.Login:output_type -> system.LoginResponse
+	3,  // 34: system.System.RefreshCredentials:output_type -> system.LoginResponse
+	7,  // 35: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
+	5,  // 36: system.System.RevokeSession:output_type -> system.EmptyResponse
+	5,  // 37: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
+	5,  // 38: system.System.ChangePassword:output_type -> system.EmptyResponse
+	15, // 39: system.System.CreateRole:output_type -> system.CreateRoleResponse
+	19, // 40: system.System.ListRoles:output_type -> system.ListRolesResponse
+	21, // 41: system.System.GetRole:output_type -> system.GetRoleResponse
+	5,  // 42: system.System.UpdateRole:output_type -> system.EmptyResponse
+	5,  // 43: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
+	5,  // 44: system.System.DeleteRole:output_type -> system.EmptyResponse
+	24, // 45: system.System.ListAPIs:output_type -> system.ListAPIsResponse
+	26, // 46: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
+	5,  // 47: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
+	30, // 48: system.System.ListUsers:output_type -> system.ListUsersResponse
+	32, // 49: system.System.GetUser:output_type -> system.GetUserResponse
+	34, // 50: system.System.CreateUser:output_type -> system.CreateUserResponse
+	5,  // 51: system.System.UpdateUser:output_type -> system.EmptyResponse
+	5,  // 52: system.System.UpdateUserStatus:output_type -> system.EmptyResponse
+	5,  // 53: system.System.DeleteUser:output_type -> system.EmptyResponse
+	5,  // 54: system.System.ReplaceUserRoles:output_type -> system.EmptyResponse
+	5,  // 55: system.System.ResetUserPassword:output_type -> system.EmptyResponse
+	40, // 56: system.System.ListUserRoleOptions:output_type -> system.ListUserRoleOptionsResponse
+	32, // [32:57] is the sub-list for method output_type
+	7,  // [7:32] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_system_proto_init() }
@@ -1739,13 +2773,14 @@ func file_system_proto_init() {
 	if File_system_proto != nil {
 		return
 	}
+	file_system_proto_msgTypes[29].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_system_proto_rawDesc), len(file_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   27,
+			NumMessages:   41,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -21,6 +21,16 @@
       "new_password_unchanged": "The new password must differ from the current password",
       "current_password_wrong": "The current password is incorrect"
     },
+    "user": {
+      "not_found": "The user does not exist",
+      "username_exists": "The username already exists",
+      "email_exists": "The email address is already in use",
+      "phone_exists": "The phone number is already in use",
+      "role_unavailable": "A role does not exist or cannot be assigned",
+      "super_admin_not_assignable": "The super administrator role cannot be assigned",
+      "super_admin_protected": "The initialized super administrator cannot be disabled, deleted, have its roles changed, or be modified by another account",
+      "self_protected": "You cannot disable or delete your current account"
+    },
     "role": {
       "not_found": "The role does not exist",
       "code_exists": "The role code already exists",

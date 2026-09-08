@@ -8,6 +8,8 @@ import (
 
 func TestSystemSubcodesHaveAllTranslations(t *testing.T) {
 	keys := []string{
+		UserNotFound, UserUsernameExists, UserEmailExists, UserPhoneExists,
+		UserRoleUnavailable, UserSuperAdminNotAssignable, UserSuperAdminProtected, UserSelfProtected,
 		AuthInvalidCredentials,
 		AuthUserDisabled,
 		AuthNewPasswordUnchanged,

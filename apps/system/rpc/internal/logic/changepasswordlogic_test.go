@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
@@ -77,6 +78,10 @@ func TestChangePasswordValidatesInput(t *testing.T) {
 		nil,
 		{},
 		{UserId: 42, CurrentPassword: "current-password", NewPassword: "short"},
+		{UserId: 42, CurrentPassword: strings.Repeat("a", 73), NewPassword: "new-password"},
+		{UserId: 42, CurrentPassword: strings.Repeat("密", 25), NewPassword: "new-password"},
+		{UserId: 42, CurrentPassword: "current-password", NewPassword: strings.Repeat("a", 73)},
+		{UserId: 42, CurrentPassword: "current-password", NewPassword: strings.Repeat("密", 25)},
 	}
 	for _, request := range requests {
 		if _, err := logic.ChangePassword(request); status.Code(err) != codes.InvalidArgument {

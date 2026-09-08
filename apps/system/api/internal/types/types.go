@@ -26,8 +26,8 @@ type APIListResp struct {
 }
 
 type ChangePasswordReq struct {
-	CurrentPassword string `json:"currentPassword" validate:"required,max=128"`
-	NewPassword     string `json:"newPassword" validate:"required,min=12,max=128"`
+	CurrentPassword string `json:"currentPassword" validate:"required,max=72"`
+	NewPassword     string `json:"newPassword" validate:"required,min=12,max=72"`
 }
 
 type CreateRoleReq struct {
@@ -39,6 +39,21 @@ type CreateRoleReq struct {
 }
 
 type CreateRoleResp struct {
+	Id int64 `json:"id"`
+}
+
+type CreateUserReq struct {
+	Username string  `json:"username" validate:"required,max=64"`
+	Nickname string  `json:"nickname" validate:"required,max=64"`
+	Password string  `json:"password" validate:"required,min=12,max=72"`
+	Email    string  `json:"email,optional" validate:"omitempty,max=255,email"`
+	Phone    string  `json:"phone,optional" validate:"max=32"`
+	Remark   string  `json:"remark,optional" validate:"max=500"`
+	Status   int32   `json:"status" validate:"oneof=0 1"`
+	RoleIds  []int64 `json:"roleIds" validate:"max=100,dive,gt=0"`
+}
+
+type CreateUserResp struct {
 	Id int64 `json:"id"`
 }
 
@@ -75,7 +90,7 @@ type IDsReq struct {
 
 type LoginReq struct {
 	Username string `json:"username" validate:"required,max=64"`
-	Password string `json:"password" validate:"required,max=128"`
+	Password string `json:"password" validate:"required,max=72"`
 }
 
 type LoginResp struct {
@@ -99,6 +114,11 @@ type ReadyResp struct {
 
 type RefreshTokenReq struct {
 	RefreshToken string `json:"refreshToken" validate:"required,max=256"`
+}
+
+type ResetUserPasswordReq struct {
+	Id       int64  `json:"id" validate:"gt=0"`
+	Password string `json:"password" validate:"required,min=12,max=72"`
 }
 
 type RoleItem struct {
@@ -140,4 +160,66 @@ type UpdateRoleReq struct {
 type UpdateRoleStatusReq struct {
 	Id     int64 `json:"id" validate:"gt=0"`
 	Status int32 `json:"status" validate:"oneof=0 1"`
+}
+
+type UpdateUserReq struct {
+	Id       int64  `json:"id" validate:"gt=0"`
+	Nickname string `json:"nickname" validate:"required,max=64"`
+	Email    string `json:"email,optional" validate:"omitempty,max=255,email"`
+	Phone    string `json:"phone,optional" validate:"max=32"`
+	Remark   string `json:"remark,optional" validate:"max=500"`
+}
+
+type UpdateUserRolesReq struct {
+	Id      int64   `json:"id" validate:"gt=0"`
+	RoleIds []int64 `json:"roleIds" validate:"max=100,dive,gt=0"`
+}
+
+type UpdateUserStatusReq struct {
+	Id     int64 `json:"id" validate:"gt=0"`
+	Status int32 `json:"status" validate:"oneof=0 1"`
+}
+
+type UserItem struct {
+	Id          int64          `json:"id"`
+	Username    string         `json:"username"`
+	Nickname    string         `json:"nickname"`
+	Email       string         `json:"email"`
+	Phone       string         `json:"phone"`
+	Remark      string         `json:"remark"`
+	Status      int32          `json:"status"`
+	Roles       []UserRoleItem `json:"roles"`
+	CreatedAt   string         `json:"createdAt"`
+	UpdatedAt   string         `json:"updatedAt"`
+	LastLoginAt string         `json:"lastLoginAt"`
+}
+
+type UserListReq struct {
+	Page     int64  `json:"page" validate:"gte=1"`
+	PageSize int64  `json:"pageSize" validate:"gte=1,lte=200"`
+	Keyword  string `json:"keyword,optional" validate:"max=128"`
+	Status   *int32 `json:"status,optional" validate:"omitempty,oneof=0 1"`
+}
+
+type UserListResp struct {
+	Items []UserItem `json:"items"`
+	Total int64      `json:"total"`
+}
+
+type UserRoleItem struct {
+	Id     int64  `json:"id"`
+	Code   string `json:"code"`
+	Name   string `json:"name"`
+	Status int32  `json:"status"`
+}
+
+type UserRoleOptionsReq struct {
+	Page     int64  `json:"page" validate:"gte=1"`
+	PageSize int64  `json:"pageSize" validate:"gte=1,lte=200"`
+	Keyword  string `json:"keyword,optional" validate:"max=128"`
+}
+
+type UserRoleOptionsResp struct {
+	Items []UserRoleItem `json:"items"`
+	Total int64          `json:"total"`
 }

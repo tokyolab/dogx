@@ -314,6 +314,15 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, commonsubcode.AuthenticationRequired)
 	assertRoleDeletionPersisted(t, gormDB, createdRole.ID)
 
+	t.Run("user management", func(t *testing.T) {
+		testUserManagement(t, client, baseURL, credentials.AccessToken, user.ID, role.ID, apiProcess, func(id int64, refresh string) {
+			cleanupUserIDs = append(cleanupUserIDs, id)
+			if sid, _, ok := strings.Cut(refresh, "."); ok {
+				cleanupSessionIDs = append(cleanupSessionIDs, sid)
+			}
+		})
+	})
+
 	statusCode, envelope = postJSON(
 		t,
 		client,
@@ -333,7 +342,7 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 
 func seedUserWithRole(t testing.TB, db *gorm.DB, roleID int64, username string) model.User {
 	t.Helper()
-	passwordHash, err := authn.NewArgon2id().Hash(e2ePassword)
+	passwordHash, err := authn.NewBcrypt().Hash(e2ePassword)
 	if err != nil {
 		t.Fatalf("hash role user password: %v", err)
 	}
@@ -404,7 +413,7 @@ func seedAdministrator(t testing.TB, db *gorm.DB) (model.User, model.Role) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	passwordHash, err := authn.NewArgon2id().Hash(e2ePassword)
+	passwordHash, err := authn.NewBcrypt().Hash(e2ePassword)
 	if err != nil {
 		t.Fatalf("hash end-to-end password: %v", err)
 	}
@@ -639,7 +648,7 @@ func waitForAPIReady(
 	defer deadline.Stop()
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
-	lastResult := "no readiness response"
+	var lastResult string
 
 	for {
 		for _, process := range processes {
@@ -706,7 +715,7 @@ func postJSON(
 	if err != nil {
 		t.Fatalf("call %s: %v", url, err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	var envelope responseEnvelope
 	if err := json.NewDecoder(response.Body).Decode(&envelope); err != nil {
 		t.Fatalf("decode HTTP response from %s: status=%d error=%v", url, response.StatusCode, err)

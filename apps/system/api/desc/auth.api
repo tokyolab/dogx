@@ -3,7 +3,7 @@ import "base.api"
 type (
 	LoginReq {
 		Username string `json:"username" validate:"required,max=64"`
-		Password string `json:"password" validate:"required,max=128"`
+		Password string `json:"password" validate:"required,max=72"`
 	}
 
 	LoginResp {
@@ -17,8 +17,8 @@ type (
 	}
 
 	ChangePasswordReq {
-		CurrentPassword string `json:"currentPassword" validate:"required,max=128"`
-		NewPassword     string `json:"newPassword" validate:"required,min=12,max=128"`
+		CurrentPassword string `json:"currentPassword" validate:"required,max=72"`
+		NewPassword     string `json:"newPassword" validate:"required,min=12,max=72"`
 	}
 
 	CurrentUserResp {

@@ -102,3 +102,48 @@ func (s *SystemServer) ReplaceRoleAPIs(ctx context.Context, in *system.ReplaceRo
 	l := logic.NewReplaceRoleAPIsLogic(ctx, s.svcCtx)
 	return l.ReplaceRoleAPIs(in)
 }
+
+func (s *SystemServer) ListUsers(ctx context.Context, in *system.ListUsersRequest) (*system.ListUsersResponse, error) {
+	l := logic.NewListUsersLogic(ctx, s.svcCtx)
+	return l.ListUsers(in)
+}
+
+func (s *SystemServer) GetUser(ctx context.Context, in *system.GetUserRequest) (*system.GetUserResponse, error) {
+	l := logic.NewGetUserLogic(ctx, s.svcCtx)
+	return l.GetUser(in)
+}
+
+func (s *SystemServer) CreateUser(ctx context.Context, in *system.CreateUserRequest) (*system.CreateUserResponse, error) {
+	l := logic.NewCreateUserLogic(ctx, s.svcCtx)
+	return l.CreateUser(in)
+}
+
+func (s *SystemServer) UpdateUser(ctx context.Context, in *system.UpdateUserRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateUserLogic(ctx, s.svcCtx)
+	return l.UpdateUser(in)
+}
+
+func (s *SystemServer) UpdateUserStatus(ctx context.Context, in *system.UpdateUserStatusRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateUserStatusLogic(ctx, s.svcCtx)
+	return l.UpdateUserStatus(in)
+}
+
+func (s *SystemServer) DeleteUser(ctx context.Context, in *system.DeleteUserRequest) (*system.EmptyResponse, error) {
+	l := logic.NewDeleteUserLogic(ctx, s.svcCtx)
+	return l.DeleteUser(in)
+}
+
+func (s *SystemServer) ReplaceUserRoles(ctx context.Context, in *system.ReplaceUserRolesRequest) (*system.EmptyResponse, error) {
+	l := logic.NewReplaceUserRolesLogic(ctx, s.svcCtx)
+	return l.ReplaceUserRoles(in)
+}
+
+func (s *SystemServer) ResetUserPassword(ctx context.Context, in *system.ResetUserPasswordRequest) (*system.EmptyResponse, error) {
+	l := logic.NewResetUserPasswordLogic(ctx, s.svcCtx)
+	return l.ResetUserPassword(in)
+}
+
+func (s *SystemServer) ListUserRoleOptions(ctx context.Context, in *system.ListRolesRequest) (*system.ListUserRoleOptionsResponse, error) {
+	l := logic.NewListUserRoleOptionsLogic(ctx, s.svcCtx)
+	return l.ListUserRoleOptions(in)
+}

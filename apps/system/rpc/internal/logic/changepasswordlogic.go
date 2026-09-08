@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"unicode/utf8"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
@@ -35,7 +34,7 @@ func NewChangePasswordLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Ch
 
 func (l *ChangePasswordLogic) ChangePassword(in *system.ChangePasswordRequest) (*system.EmptyResponse, error) {
 	if in == nil || in.UserId <= 0 || in.CurrentPassword == "" ||
-		utf8.RuneCountInString(in.CurrentPassword) > authn.MaxPasswordCharacters {
+		len(in.CurrentPassword) > authn.MaxPasswordBytes {
 		return nil, status.Error(codes.InvalidArgument, "invalid change password request")
 	}
 	if err := authn.ValidatePassword(in.NewPassword); err != nil {

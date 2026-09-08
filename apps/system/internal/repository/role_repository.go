@@ -20,9 +20,10 @@ var (
 )
 
 type RoleListQuery struct {
-	Keyword string
-	Offset  int
-	Limit   int
+	Keyword        string
+	AssignableOnly bool
+	Offset         int
+	Limit          int
 }
 
 type RoleRepository interface {
@@ -111,6 +112,9 @@ func (r *roleRepository) List(
 	}
 
 	database := r.db.WithContext(ctx).Model(&model.Role{})
+	if query.AssignableOnly {
+		database = database.Where("status = ? AND code <> ?", model.RecordStatusEnabled, model.SuperAdminRoleCode)
+	}
 	if keyword := strings.TrimSpace(query.Keyword); keyword != "" {
 		pattern := containsLikePattern(keyword)
 		database = database.Where(

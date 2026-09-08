@@ -1,0 +1,100 @@
+import "base.api"
+
+type (
+	UserListReq {
+		Page int64 `json:"page" validate:"gte=1"`
+		PageSize int64 `json:"pageSize" validate:"gte=1,lte=200"`
+		Keyword string `json:"keyword,optional" validate:"max=128"`
+		Status *int32 `json:"status,optional" validate:"omitempty,oneof=0 1"`
+	}
+	UserRoleItem {
+		Id int64 `json:"id"`
+		Code string `json:"code"`
+		Name string `json:"name"`
+		Status int32 `json:"status"`
+	}
+	UserItem {
+		Id int64 `json:"id"`
+		Username string `json:"username"`
+		Nickname string `json:"nickname"`
+		Email string `json:"email"`
+		Phone string `json:"phone"`
+		Remark string `json:"remark"`
+		Status int32 `json:"status"`
+		Roles []UserRoleItem `json:"roles"`
+		CreatedAt string `json:"createdAt"`
+		UpdatedAt string `json:"updatedAt"`
+		LastLoginAt string `json:"lastLoginAt"`
+	}
+	UserListResp {
+		Items []UserItem `json:"items"`
+		Total int64 `json:"total"`
+	}
+	CreateUserReq {
+		Username string `json:"username" validate:"required,max=64"`
+		Nickname string `json:"nickname" validate:"required,max=64"`
+		Password string `json:"password" validate:"required,min=12,max=72"`
+		Email string `json:"email,optional" validate:"omitempty,max=255,email"`
+		Phone string `json:"phone,optional" validate:"max=32"`
+		Remark string `json:"remark,optional" validate:"max=500"`
+		Status int32 `json:"status" validate:"oneof=0 1"`
+		RoleIds []int64 `json:"roleIds" validate:"max=100,dive,gt=0"`
+	}
+	CreateUserResp {
+		Id int64 `json:"id"`
+	}
+	UpdateUserReq {
+		Id int64 `json:"id" validate:"gt=0"`
+		Nickname string `json:"nickname" validate:"required,max=64"`
+		Email string `json:"email,optional" validate:"omitempty,max=255,email"`
+		Phone string `json:"phone,optional" validate:"max=32"`
+		Remark string `json:"remark,optional" validate:"max=500"`
+	}
+	UpdateUserStatusReq {
+		Id int64 `json:"id" validate:"gt=0"`
+		Status int32 `json:"status" validate:"oneof=0 1"`
+	}
+	UpdateUserRolesReq {
+		Id int64 `json:"id" validate:"gt=0"`
+		RoleIds []int64 `json:"roleIds" validate:"max=100,dive,gt=0"`
+	}
+	ResetUserPasswordReq {
+		Id int64 `json:"id" validate:"gt=0"`
+		Password string `json:"password" validate:"required,min=12,max=72"`
+	}
+	UserRoleOptionsReq {
+		Page int64 `json:"page" validate:"gte=1"`
+		PageSize int64 `json:"pageSize" validate:"gte=1,lte=200"`
+		Keyword string `json:"keyword,optional" validate:"max=128"`
+	}
+	UserRoleOptionsResp {
+		Items []UserRoleItem `json:"items"`
+		Total int64 `json:"total"`
+	}
+)
+
+@server (
+	group: user
+	jwt: Auth
+	middleware: SessionAuth, Authorization
+)
+service system-api {
+	@handler listUsers
+	post /user/list (UserListReq) returns (UserListResp)
+	@handler getUser
+	post /user/get (IDReq) returns (UserItem)
+	@handler createUser
+	post /user/create (CreateUserReq) returns (CreateUserResp)
+	@handler updateUser
+	post /user/update (UpdateUserReq) returns (EmptyResp)
+	@handler updateUserStatus
+	post /user/status/update (UpdateUserStatusReq) returns (EmptyResp)
+	@handler deleteUser
+	post /user/delete (IDReq) returns (EmptyResp)
+	@handler updateUserRoles
+	post /user/role/update (UpdateUserRolesReq) returns (EmptyResp)
+	@handler resetUserPassword
+	post /user/password/reset (ResetUserPasswordReq) returns (EmptyResp)
+	@handler listUserRoleOptions
+	post /user/role/options (UserRoleOptionsReq) returns (UserRoleOptionsResp)
+}

@@ -10,6 +10,7 @@ import (
 	auth "github.com/tokyolab/dogx/apps/system/api/internal/handler/auth"
 	health "github.com/tokyolab/dogx/apps/system/api/internal/handler/health"
 	role "github.com/tokyolab/dogx/apps/system/api/internal/handler/role"
+	user "github.com/tokyolab/dogx/apps/system/api/internal/handler/user"
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -149,6 +150,60 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/role/update",
 					Handler: role.UpdateRoleHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/create",
+					Handler: user.CreateUserHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/delete",
+					Handler: user.DeleteUserHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/get",
+					Handler: user.GetUserHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/list",
+					Handler: user.ListUsersHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/password/reset",
+					Handler: user.ResetUserPasswordHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/role/options",
+					Handler: user.ListUserRoleOptionsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/role/update",
+					Handler: user.UpdateUserRolesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/status/update",
+					Handler: user.UpdateUserStatusHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/update",
+					Handler: user.UpdateUserHandler(serverCtx),
 				},
 			}...,
 		),

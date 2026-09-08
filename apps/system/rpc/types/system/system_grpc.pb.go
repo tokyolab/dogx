@@ -19,22 +19,31 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	System_CheckReady_FullMethodName         = "/system.System/CheckReady"
-	System_Login_FullMethodName              = "/system.System/Login"
-	System_RefreshCredentials_FullMethodName = "/system.System/RefreshCredentials"
-	System_GetCurrentUser_FullMethodName     = "/system.System/GetCurrentUser"
-	System_RevokeSession_FullMethodName      = "/system.System/RevokeSession"
-	System_RevokeUserSessions_FullMethodName = "/system.System/RevokeUserSessions"
-	System_ChangePassword_FullMethodName     = "/system.System/ChangePassword"
-	System_CreateRole_FullMethodName         = "/system.System/CreateRole"
-	System_ListRoles_FullMethodName          = "/system.System/ListRoles"
-	System_GetRole_FullMethodName            = "/system.System/GetRole"
-	System_UpdateRole_FullMethodName         = "/system.System/UpdateRole"
-	System_UpdateRoleStatus_FullMethodName   = "/system.System/UpdateRoleStatus"
-	System_DeleteRole_FullMethodName         = "/system.System/DeleteRole"
-	System_ListAPIs_FullMethodName           = "/system.System/ListAPIs"
-	System_GetRoleAPIs_FullMethodName        = "/system.System/GetRoleAPIs"
-	System_ReplaceRoleAPIs_FullMethodName    = "/system.System/ReplaceRoleAPIs"
+	System_CheckReady_FullMethodName          = "/system.System/CheckReady"
+	System_Login_FullMethodName               = "/system.System/Login"
+	System_RefreshCredentials_FullMethodName  = "/system.System/RefreshCredentials"
+	System_GetCurrentUser_FullMethodName      = "/system.System/GetCurrentUser"
+	System_RevokeSession_FullMethodName       = "/system.System/RevokeSession"
+	System_RevokeUserSessions_FullMethodName  = "/system.System/RevokeUserSessions"
+	System_ChangePassword_FullMethodName      = "/system.System/ChangePassword"
+	System_CreateRole_FullMethodName          = "/system.System/CreateRole"
+	System_ListRoles_FullMethodName           = "/system.System/ListRoles"
+	System_GetRole_FullMethodName             = "/system.System/GetRole"
+	System_UpdateRole_FullMethodName          = "/system.System/UpdateRole"
+	System_UpdateRoleStatus_FullMethodName    = "/system.System/UpdateRoleStatus"
+	System_DeleteRole_FullMethodName          = "/system.System/DeleteRole"
+	System_ListAPIs_FullMethodName            = "/system.System/ListAPIs"
+	System_GetRoleAPIs_FullMethodName         = "/system.System/GetRoleAPIs"
+	System_ReplaceRoleAPIs_FullMethodName     = "/system.System/ReplaceRoleAPIs"
+	System_ListUsers_FullMethodName           = "/system.System/ListUsers"
+	System_GetUser_FullMethodName             = "/system.System/GetUser"
+	System_CreateUser_FullMethodName          = "/system.System/CreateUser"
+	System_UpdateUser_FullMethodName          = "/system.System/UpdateUser"
+	System_UpdateUserStatus_FullMethodName    = "/system.System/UpdateUserStatus"
+	System_DeleteUser_FullMethodName          = "/system.System/DeleteUser"
+	System_ReplaceUserRoles_FullMethodName    = "/system.System/ReplaceUserRoles"
+	System_ResetUserPassword_FullMethodName   = "/system.System/ResetUserPassword"
+	System_ListUserRoleOptions_FullMethodName = "/system.System/ListUserRoleOptions"
 )
 
 // SystemClient is the client API for System service.
@@ -57,6 +66,15 @@ type SystemClient interface {
 	ListAPIs(ctx context.Context, in *ListAPIsRequest, opts ...grpc.CallOption) (*ListAPIsResponse, error)
 	GetRoleAPIs(ctx context.Context, in *GetRoleAPIsRequest, opts ...grpc.CallOption) (*GetRoleAPIsResponse, error)
 	ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error)
+	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error)
+	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error)
+	UpdateUser(ctx context.Context, in *UpdateUserRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	ReplaceUserRoles(ctx context.Context, in *ReplaceUserRolesRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	ResetUserPassword(ctx context.Context, in *ResetUserPasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	ListUserRoleOptions(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListUserRoleOptionsResponse, error)
 }
 
 type systemClient struct {
@@ -227,6 +245,96 @@ func (c *systemClient) ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsR
 	return out, nil
 }
 
+func (c *systemClient) ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListUsersResponse)
+	err := c.cc.Invoke(ctx, System_ListUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserResponse)
+	err := c.cc.Invoke(ctx, System_GetUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateUserResponse)
+	err := c.cc.Invoke(ctx, System_CreateUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateUser(ctx context.Context, in *UpdateUserRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateUserStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_DeleteUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) ReplaceUserRoles(ctx context.Context, in *ReplaceUserRolesRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_ReplaceUserRoles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) ResetUserPassword(ctx context.Context, in *ResetUserPasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_ResetUserPassword_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) ListUserRoleOptions(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListUserRoleOptionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListUserRoleOptionsResponse)
+	err := c.cc.Invoke(ctx, System_ListUserRoleOptions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SystemServer is the server API for System service.
 // All implementations must embed UnimplementedSystemServer
 // for forward compatibility.
@@ -247,6 +355,15 @@ type SystemServer interface {
 	ListAPIs(context.Context, *ListAPIsRequest) (*ListAPIsResponse, error)
 	GetRoleAPIs(context.Context, *GetRoleAPIsRequest) (*GetRoleAPIsResponse, error)
 	ReplaceRoleAPIs(context.Context, *ReplaceRoleAPIsRequest) (*EmptyResponse, error)
+	ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error)
+	GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error)
+	CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error)
+	UpdateUser(context.Context, *UpdateUserRequest) (*EmptyResponse, error)
+	UpdateUserStatus(context.Context, *UpdateUserStatusRequest) (*EmptyResponse, error)
+	DeleteUser(context.Context, *DeleteUserRequest) (*EmptyResponse, error)
+	ReplaceUserRoles(context.Context, *ReplaceUserRolesRequest) (*EmptyResponse, error)
+	ResetUserPassword(context.Context, *ResetUserPasswordRequest) (*EmptyResponse, error)
+	ListUserRoleOptions(context.Context, *ListRolesRequest) (*ListUserRoleOptionsResponse, error)
 	mustEmbedUnimplementedSystemServer()
 }
 
@@ -304,6 +421,33 @@ func (UnimplementedSystemServer) GetRoleAPIs(context.Context, *GetRoleAPIsReques
 }
 func (UnimplementedSystemServer) ReplaceRoleAPIs(context.Context, *ReplaceRoleAPIsRequest) (*EmptyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReplaceRoleAPIs not implemented")
+}
+func (UnimplementedSystemServer) ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListUsers not implemented")
+}
+func (UnimplementedSystemServer) GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUser not implemented")
+}
+func (UnimplementedSystemServer) CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateUser not implemented")
+}
+func (UnimplementedSystemServer) UpdateUser(context.Context, *UpdateUserRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateUser not implemented")
+}
+func (UnimplementedSystemServer) UpdateUserStatus(context.Context, *UpdateUserStatusRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateUserStatus not implemented")
+}
+func (UnimplementedSystemServer) DeleteUser(context.Context, *DeleteUserRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteUser not implemented")
+}
+func (UnimplementedSystemServer) ReplaceUserRoles(context.Context, *ReplaceUserRolesRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReplaceUserRoles not implemented")
+}
+func (UnimplementedSystemServer) ResetUserPassword(context.Context, *ResetUserPasswordRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResetUserPassword not implemented")
+}
+func (UnimplementedSystemServer) ListUserRoleOptions(context.Context, *ListRolesRequest) (*ListUserRoleOptionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListUserRoleOptions not implemented")
 }
 func (UnimplementedSystemServer) mustEmbedUnimplementedSystemServer() {}
 func (UnimplementedSystemServer) testEmbeddedByValue()                {}
@@ -614,6 +758,168 @@ func _System_ReplaceRoleAPIs_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _System_ListUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ListUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ListUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ListUsers(ctx, req.(*ListUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_GetUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).GetUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_GetUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).GetUser(ctx, req.(*GetUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_CreateUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).CreateUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_CreateUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).CreateUser(ctx, req.(*CreateUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateUser(ctx, req.(*UpdateUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateUserStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateUserStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateUserStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateUserStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateUserStatus(ctx, req.(*UpdateUserStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_DeleteUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).DeleteUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_DeleteUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).DeleteUser(ctx, req.(*DeleteUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_ReplaceUserRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplaceUserRolesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ReplaceUserRoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ReplaceUserRoles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ReplaceUserRoles(ctx, req.(*ReplaceUserRolesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_ResetUserPassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetUserPasswordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ResetUserPassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ResetUserPassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ResetUserPassword(ctx, req.(*ResetUserPasswordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_ListUserRoleOptions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRolesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ListUserRoleOptions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ListUserRoleOptions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ListUserRoleOptions(ctx, req.(*ListRolesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // System_ServiceDesc is the grpc.ServiceDesc for System service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -684,6 +990,42 @@ var System_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReplaceRoleAPIs",
 			Handler:    _System_ReplaceRoleAPIs_Handler,
+		},
+		{
+			MethodName: "ListUsers",
+			Handler:    _System_ListUsers_Handler,
+		},
+		{
+			MethodName: "GetUser",
+			Handler:    _System_GetUser_Handler,
+		},
+		{
+			MethodName: "CreateUser",
+			Handler:    _System_CreateUser_Handler,
+		},
+		{
+			MethodName: "UpdateUser",
+			Handler:    _System_UpdateUser_Handler,
+		},
+		{
+			MethodName: "UpdateUserStatus",
+			Handler:    _System_UpdateUserStatus_Handler,
+		},
+		{
+			MethodName: "DeleteUser",
+			Handler:    _System_DeleteUser_Handler,
+		},
+		{
+			MethodName: "ReplaceUserRoles",
+			Handler:    _System_ReplaceUserRoles_Handler,
+		},
+		{
+			MethodName: "ResetUserPassword",
+			Handler:    _System_ResetUserPassword_Handler,
+		},
+		{
+			MethodName: "ListUserRoleOptions",
+			Handler:    _System_ListUserRoleOptions_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

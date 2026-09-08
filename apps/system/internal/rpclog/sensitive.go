@@ -11,6 +11,8 @@ var sensitiveSystemMethods = []string{
 	system.System_RefreshCredentials_FullMethodName,
 	system.System_RevokeSession_FullMethodName,
 	system.System_ChangePassword_FullMethodName,
+	system.System_CreateUser_FullMethodName,
+	system.System_ResetUserPassword_FullMethodName,
 }
 
 // ProtectClientContent prevents go-zero's RPC client duration interceptor from

@@ -149,6 +149,86 @@ message GetRoleAPIsResponse {
   repeated int64 api_ids = 1;
 }
 
+message UserRoleInfo {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  int32 status = 4;
+}
+
+message UserInfo {
+  int64 id = 1;
+  string username = 2;
+  string nickname = 3;
+  string email = 4;
+  string phone = 5;
+  string remark = 6;
+  int32 status = 7;
+  repeated UserRoleInfo roles = 8;
+  string created_at = 9;
+  string updated_at = 10;
+  string last_login_at = 11;
+}
+
+message ListUsersRequest {
+  int64 page = 1;
+  int64 page_size = 2;
+  string keyword = 3;
+  optional int32 status = 4;
+}
+
+message ListUsersResponse {
+  repeated UserInfo items = 1;
+  int64 total = 2;
+}
+
+message GetUserRequest { int64 id = 1; }
+message GetUserResponse { UserInfo user = 1; }
+
+message CreateUserRequest {
+  string username = 1;
+  string nickname = 2;
+  string password = 3;
+  string email = 4;
+  string phone = 5;
+  string remark = 6;
+  int32 status = 7;
+  repeated int64 role_ids = 8;
+}
+message CreateUserResponse { int64 id = 1; }
+
+message UpdateUserRequest {
+  int64 id = 1;
+  string nickname = 2;
+  string email = 3;
+  string phone = 4;
+  string remark = 5;
+  int64 operator_id = 6;
+}
+message UpdateUserStatusRequest {
+  int64 id = 1;
+  int32 status = 2;
+  int64 operator_id = 3;
+}
+message DeleteUserRequest {
+  int64 id = 1;
+  int64 operator_id = 2;
+}
+message ReplaceUserRolesRequest {
+  int64 id = 1;
+  repeated int64 role_ids = 2;
+  int64 operator_id = 3;
+}
+message ResetUserPasswordRequest {
+  int64 id = 1;
+  string password = 2;
+  int64 operator_id = 3;
+}
+message ListUserRoleOptionsResponse {
+  repeated UserRoleInfo items = 1;
+  int64 total = 2;
+}
+
 service System {
   rpc CheckReady(ReadyRequest) returns (ReadyResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
@@ -166,4 +246,13 @@ service System {
   rpc ListAPIs(ListAPIsRequest) returns (ListAPIsResponse);
   rpc GetRoleAPIs(GetRoleAPIsRequest) returns (GetRoleAPIsResponse);
   rpc ReplaceRoleAPIs(ReplaceRoleAPIsRequest) returns (EmptyResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (EmptyResponse);
+  rpc UpdateUserStatus(UpdateUserStatusRequest) returns (EmptyResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (EmptyResponse);
+  rpc ReplaceUserRoles(ReplaceUserRolesRequest) returns (EmptyResponse);
+  rpc ResetUserPassword(ResetUserPasswordRequest) returns (EmptyResponse);
+  rpc ListUserRoleOptions(ListRolesRequest) returns (ListUserRoleOptionsResponse);
 }

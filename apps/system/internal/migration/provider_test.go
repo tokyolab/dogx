@@ -20,8 +20,8 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 10 {
-		t.Fatalf("unexpected migration count: got %d, want 10", len(sources))
+	if len(sources) != 11 {
+		t.Fatalf("unexpected migration count: got %d, want 11", len(sources))
 	}
 	if sources[0].Version != 1 || sources[0].Path != "00001_init_system.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[0].Version, sources[0].Path)
@@ -52,5 +52,8 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 	if sources[9].Version != 20260831100816 || sources[9].Path != "20260831100816_protect_super_admin_role_code.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[9].Version, sources[9].Path)
+	}
+	if sources[10].Version != 20260907103000 || sources[10].Path != "20260907103000_add_user_management.sql" {
+		t.Fatalf("unexpected user management migration: %+v", sources[10])
 	}
 }

@@ -23,7 +23,6 @@ import (
 
 const (
 	maxUsernameCharacters = 64
-	maxPasswordCharacters = authn.MaxPasswordCharacters
 	maxIPAddressRunes     = 45
 	maxUserAgentRunes     = 512
 )
@@ -49,14 +48,14 @@ func (l *LoginLogic) Login(in *system.LoginRequest) (*system.LoginResponse, erro
 
 	username := strings.TrimSpace(in.Username)
 	if username == "" || utf8.RuneCountInString(username) > maxUsernameCharacters ||
-		in.Password == "" || utf8.RuneCountInString(in.Password) > maxPasswordCharacters {
+		in.Password == "" || len(in.Password) > authn.MaxPasswordBytes {
 		l.recordLogin(nil, username, false, model.LoginFailureInvalidCredentials, in)
 		return nil, status.Error(codes.InvalidArgument, "invalid login request")
 	}
 
 	user, err := l.svcCtx.UserRepo.FindByUsername(l.ctx, username)
 	if errors.Is(err, repository.ErrUserNotFound) {
-		// Run the same Argon2id workload for unknown usernames to reduce
+		// Run the same bcrypt workload for unknown usernames to reduce
 		// timing-based account enumeration.
 		_ = l.svcCtx.Passwords.Verify(authn.DummyPasswordHash(), in.Password)
 		l.recordLogin(nil, username, false, model.LoginFailureInvalidCredentials, in)

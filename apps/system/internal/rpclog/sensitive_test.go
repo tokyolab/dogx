@@ -46,6 +46,8 @@ func TestSensitiveSystemMethodsCoverCredentialBearingRPCs(t *testing.T) {
 		system.System_RefreshCredentials_FullMethodName: {},
 		system.System_RevokeSession_FullMethodName:      {},
 		system.System_ChangePassword_FullMethodName:     {},
+		system.System_CreateUser_FullMethodName:         {},
+		system.System_ResetUserPassword_FullMethodName:  {},
 	}
 	for _, method := range sensitiveSystemMethods {
 		delete(want, method)

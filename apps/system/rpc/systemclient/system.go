@@ -14,33 +14,47 @@ import (
 )
 
 type (
-	APIInfo                   = system.APIInfo
-	ChangePasswordRequest     = system.ChangePasswordRequest
-	CreateRoleRequest         = system.CreateRoleRequest
-	CreateRoleResponse        = system.CreateRoleResponse
-	CurrentUserRequest        = system.CurrentUserRequest
-	CurrentUserResponse       = system.CurrentUserResponse
-	DeleteRoleRequest         = system.DeleteRoleRequest
-	EmptyResponse             = system.EmptyResponse
-	GetRoleAPIsRequest        = system.GetRoleAPIsRequest
-	GetRoleAPIsResponse       = system.GetRoleAPIsResponse
-	GetRoleRequest            = system.GetRoleRequest
-	GetRoleResponse           = system.GetRoleResponse
-	ListAPIsRequest           = system.ListAPIsRequest
-	ListAPIsResponse          = system.ListAPIsResponse
-	ListRolesRequest          = system.ListRolesRequest
-	ListRolesResponse         = system.ListRolesResponse
-	LoginRequest              = system.LoginRequest
-	LoginResponse             = system.LoginResponse
-	ReadyRequest              = system.ReadyRequest
-	ReadyResponse             = system.ReadyResponse
-	RefreshCredentialsRequest = system.RefreshCredentialsRequest
-	ReplaceRoleAPIsRequest    = system.ReplaceRoleAPIsRequest
-	RevokeSessionRequest      = system.RevokeSessionRequest
-	RevokeUserSessionsRequest = system.RevokeUserSessionsRequest
-	RoleInfo                  = system.RoleInfo
-	UpdateRoleRequest         = system.UpdateRoleRequest
-	UpdateRoleStatusRequest   = system.UpdateRoleStatusRequest
+	APIInfo                     = system.APIInfo
+	ChangePasswordRequest       = system.ChangePasswordRequest
+	CreateRoleRequest           = system.CreateRoleRequest
+	CreateRoleResponse          = system.CreateRoleResponse
+	CreateUserRequest           = system.CreateUserRequest
+	CreateUserResponse          = system.CreateUserResponse
+	CurrentUserRequest          = system.CurrentUserRequest
+	CurrentUserResponse         = system.CurrentUserResponse
+	DeleteRoleRequest           = system.DeleteRoleRequest
+	DeleteUserRequest           = system.DeleteUserRequest
+	EmptyResponse               = system.EmptyResponse
+	GetRoleAPIsRequest          = system.GetRoleAPIsRequest
+	GetRoleAPIsResponse         = system.GetRoleAPIsResponse
+	GetRoleRequest              = system.GetRoleRequest
+	GetRoleResponse             = system.GetRoleResponse
+	GetUserRequest              = system.GetUserRequest
+	GetUserResponse             = system.GetUserResponse
+	ListAPIsRequest             = system.ListAPIsRequest
+	ListAPIsResponse            = system.ListAPIsResponse
+	ListRolesRequest            = system.ListRolesRequest
+	ListRolesResponse           = system.ListRolesResponse
+	ListUserRoleOptionsResponse = system.ListUserRoleOptionsResponse
+	ListUsersRequest            = system.ListUsersRequest
+	ListUsersResponse           = system.ListUsersResponse
+	LoginRequest                = system.LoginRequest
+	LoginResponse               = system.LoginResponse
+	ReadyRequest                = system.ReadyRequest
+	ReadyResponse               = system.ReadyResponse
+	RefreshCredentialsRequest   = system.RefreshCredentialsRequest
+	ReplaceRoleAPIsRequest      = system.ReplaceRoleAPIsRequest
+	ReplaceUserRolesRequest     = system.ReplaceUserRolesRequest
+	ResetUserPasswordRequest    = system.ResetUserPasswordRequest
+	RevokeSessionRequest        = system.RevokeSessionRequest
+	RevokeUserSessionsRequest   = system.RevokeUserSessionsRequest
+	RoleInfo                    = system.RoleInfo
+	UpdateRoleRequest           = system.UpdateRoleRequest
+	UpdateRoleStatusRequest     = system.UpdateRoleStatusRequest
+	UpdateUserRequest           = system.UpdateUserRequest
+	UpdateUserStatusRequest     = system.UpdateUserStatusRequest
+	UserInfo                    = system.UserInfo
+	UserRoleInfo                = system.UserRoleInfo
 
 	System interface {
 		CheckReady(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error)
@@ -59,6 +73,15 @@ type (
 		ListAPIs(ctx context.Context, in *ListAPIsRequest, opts ...grpc.CallOption) (*ListAPIsResponse, error)
 		GetRoleAPIs(ctx context.Context, in *GetRoleAPIsRequest, opts ...grpc.CallOption) (*GetRoleAPIsResponse, error)
 		ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error)
+		GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error)
+		CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error)
+		UpdateUser(ctx context.Context, in *UpdateUserRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		ReplaceUserRoles(ctx context.Context, in *ReplaceUserRolesRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		ResetUserPassword(ctx context.Context, in *ResetUserPasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		ListUserRoleOptions(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListUserRoleOptionsResponse, error)
 	}
 
 	defaultSystem struct {
@@ -150,4 +173,49 @@ func (m *defaultSystem) GetRoleAPIs(ctx context.Context, in *GetRoleAPIsRequest,
 func (m *defaultSystem) ReplaceRoleAPIs(ctx context.Context, in *ReplaceRoleAPIsRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
 	client := system.NewSystemClient(m.cli.Conn())
 	return client.ReplaceRoleAPIs(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ListUsers(ctx, in, opts...)
+}
+
+func (m *defaultSystem) GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.GetUser(ctx, in, opts...)
+}
+
+func (m *defaultSystem) CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.CreateUser(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateUser(ctx context.Context, in *UpdateUserRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateUser(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateUserStatus(ctx, in, opts...)
+}
+
+func (m *defaultSystem) DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.DeleteUser(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ReplaceUserRoles(ctx context.Context, in *ReplaceUserRolesRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ReplaceUserRoles(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ResetUserPassword(ctx context.Context, in *ResetUserPasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ResetUserPassword(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ListUserRoleOptions(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListUserRoleOptionsResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ListUserRoleOptions(ctx, in, opts...)
 }

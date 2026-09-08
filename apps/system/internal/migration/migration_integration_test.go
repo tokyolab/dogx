@@ -25,8 +25,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 10 {
-		t.Fatalf("unexpected applied migration count: got %d, want 10", len(results))
+	if len(results) != 11 {
+		t.Fatalf("unexpected applied migration count: got %d, want 11", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -120,8 +120,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260831100816 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260831100816", version)
+	if version != 20260907103000 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260907103000", version)
 	}
 
 	expectedTables := map[string]string{
@@ -252,6 +252,16 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	downResult, err := provider.Down(ctx)
 	if err != nil {
 		t.Fatalf("roll back latest migration: %v", err)
+	}
+	if downResult.Source.Version != 20260907103000 || downResult.Source.Path != "20260907103000_add_user_management.sql" {
+		t.Fatalf("unexpected user management rollback: %+v", downResult)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE api_group = '用户管理'").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("user management resources remained after rollback: %d %v", seedCount, err)
+	}
+	downResult, err = provider.Down(ctx)
+	if err != nil {
+		t.Fatalf("roll back super administrator role protection: %v", err)
 	}
 	if downResult.Source.Version != 20260831100816 ||
 		downResult.Source.Path != "20260831100816_protect_super_admin_role_code.sql" {
@@ -445,7 +455,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 8 ||
+	if len(reapplyResults) != 9 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
@@ -453,7 +463,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		reapplyResults[4].Source.Version != 20260827131521 ||
 		reapplyResults[5].Source.Version != 20260827152932 ||
 		reapplyResults[6].Source.Version != 20260828182507 ||
-		reapplyResults[7].Source.Version != 20260831100816 {
+		reapplyResults[7].Source.Version != 20260831100816 ||
+		reapplyResults[8].Source.Version != 20260907103000 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 }

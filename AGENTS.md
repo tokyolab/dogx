@@ -33,7 +33,7 @@
 - `apps/<domain>/internal/repository` 封装该业务域的普通业务数据访问；API/BFF 不得直接导入普通业务 Model、Repository，不得访问普通业务表或初始化通用业务数据库连接。
 - 只有架构 ADR 明确批准的基础设施或安全只读投影可以例外。当前唯一例外是 `system-api` 按 [ADR-0005](docs/adr/0005-casbin-runtime-and-policy-sync.md) 通过官方 Casbin GORM Adapter 从 `casbin_rule` 加载本地鉴权快照；该连接不得访问普通业务表，API 不得调用策略写入方法，策略持久化仍由 `system-rpc` 负责。
 - RPC 保持 go-zero 的“一项接口操作对应一个 Logic”结构；Logic 负责业务用例编排和业务错误转换，不直接调用 GORM、手写 SQL 或解析数据库驱动错误。
-- Repository 默认按聚合或业务资源提供一个同时包含必要读写能力的内聚接口；不得仅为了缩小测试 Stub 而继续拆分 Reader、Writer、Store 等接口，也不得建立机械转发 ORM 的通用 BaseRepository。
+- 一个 Model 对应一个 Repository；接口、构造函数、读写实现及其专用类型统一放在 `<model>_repository.go`，不得按功能或读写拆成多个 Repository 或实现文件，也不得建立机械转发 ORM 的通用 BaseRepository。
 - Repository 负责查询、持久化事务、锁及数据库约束错误转换；跨多个聚合、Casbin、Session 或事件发布的业务事务由显式业务服务编排，不塞入通用 Repository。
 - 同一业务域的 RPC、MQ、Job 等后端进程可以复用该业务域 `internal` 下的数据层；其他业务域不得直接访问其模型或数据表。
 - 需要跨业务域传递的字段、枚举和消息必须定义在 Protobuf 或版本化事件契约中；其他业务域通过 RPC 客户端或事件契约使用，不复制常量，也不导入持久化模型。
@@ -54,6 +54,7 @@
 
 ### 数据库事务与锁
 
+- 事务仅使用 PostgreSQL 默认的 `READ COMMITTED`（读已提交），不显式设置隔离级别；禁止通过修改数据库、连接/会话或单个事务的隔离级别解决问题。
 - 多条数据库写操作需要原子性时，必须放在同一事务中。
 - 普通 CRUD 不使用显式锁；仅在明确的并发读改写场景中使用 `FOR UPDATE`。
 - `FOR UPDATE` 仅允许在显式事务中，通过单表主键等值条件锁定一条记录；禁止对非主键条件、范围、`IN`、`JOIN`、子查询或多行结果加锁。
@@ -67,6 +68,10 @@
 - 禁止在业务代码、测试、脚本和运维命令中使用 Redis `KEYS` 命令，也不得通过客户端封装间接调用；该命令会全量遍历键空间并阻塞 Redis。
 - 已知键名时使用 `GET`、`EXISTS` 等精确操作；确需渐进遍历键空间时使用带游标和合理 `COUNT` 的 `SCAN`，不得一次性加载全部结果。
 - 业务上需要按用户、会话或其他维度批量查询、撤销或清理数据时，写入数据的同时维护 `Set`、`ZSet` 等显式索引，不得依赖键名通配扫描实现核心业务逻辑。
+
+## 测试组织
+
+- Logic 单元测试默认使用手写 Stub；同一个 Stub 的结构体与全部方法必须集中在一个 `_test.go` 文件，跨测试文件复用时整体放入消费包内独立的 `<dependency>_stub_test.go`，扩展时不得把新增方法另拆文件。详见 [测试替身规范](docs/development/testing.md#测试替身)。
 
 ## 代码注释
 

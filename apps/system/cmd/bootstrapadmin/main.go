@@ -54,7 +54,7 @@ func run() error {
 	user, err := bootstrapadmin.CreateInitialAdministrator(
 		context.Background(),
 		database,
-		authn.NewArgon2id(),
+		authn.NewBcrypt(),
 		bootstrapadmin.Input{
 			Username: *username,
 			Password: password,

@@ -88,7 +88,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("initialize session store: %w", err)
 	}
-	passwords := authn.NewArgon2id()
+	passwords := authn.NewBcrypt()
 	userRepo, err := repository.NewUserRepository(database)
 	if err != nil {
 		_ = sqlDB.Close()

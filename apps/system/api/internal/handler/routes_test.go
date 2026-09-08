@@ -191,6 +191,15 @@ type routeSecurityCase struct {
 }
 
 var routeSecurityMatrix = []routeSecurityCase{
+	{name: "user list", method: http.MethodPost, path: "/user/list", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListUsers"},
+	{name: "user get", method: http.MethodPost, path: "/user/get", body: `{"id":9}`, level: routeAuthorized, rpcMethod: "GetUser"},
+	{name: "user create", method: http.MethodPost, path: "/user/create", body: `{"username":"alice","nickname":"Alice","password":"abcdefghijkl","status":1,"roleIds":[]}`, level: routeAuthorized, rpcMethod: "CreateUser"},
+	{name: "user update", method: http.MethodPost, path: "/user/update", body: `{"id":9,"nickname":"Alice"}`, level: routeAuthorized, rpcMethod: "UpdateUser"},
+	{name: "user status", method: http.MethodPost, path: "/user/status/update", body: `{"id":9,"status":0}`, level: routeAuthorized, rpcMethod: "UpdateUserStatus"},
+	{name: "user delete", method: http.MethodPost, path: "/user/delete", body: `{"id":9}`, level: routeAuthorized, rpcMethod: "DeleteUser"},
+	{name: "user roles", method: http.MethodPost, path: "/user/role/update", body: `{"id":9,"roleIds":[8]}`, level: routeAuthorized, rpcMethod: "ReplaceUserRoles"},
+	{name: "user password", method: http.MethodPost, path: "/user/password/reset", body: `{"id":9,"password":"abcdefghijkl"}`, level: routeAuthorized, rpcMethod: "ResetUserPassword"},
+	{name: "user role options", method: http.MethodPost, path: "/user/role/options", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListUserRoleOptions"},
 	{name: "login", method: http.MethodPost, path: "/auth/login", body: `{"username":`, level: routePublic, publicStatus: http.StatusBadRequest},
 	{name: "refresh", method: http.MethodPost, path: "/auth/refresh", body: `{"refreshToken":`, level: routePublic, publicStatus: http.StatusBadRequest},
 	{name: "health", method: http.MethodGet, path: "/health", level: routePublic, publicStatus: http.StatusOK},

@@ -51,7 +51,7 @@ func TestLoginUsesPostgreSQLPasswordHashAndRedisSession(t *testing.T) {
 	}
 	prefix := fmt.Sprintf("dogx:test:login:%d", time.Now().UnixNano())
 
-	hasher := authn.NewArgon2id()
+	hasher := authn.NewBcrypt()
 	passwordHash, err := hasher.Hash("secure-password")
 	if err != nil {
 		t.Fatalf("hash test password: %v", err)

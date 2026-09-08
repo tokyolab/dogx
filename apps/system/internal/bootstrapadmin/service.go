@@ -10,6 +10,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -17,6 +18,8 @@ const (
 	maxNicknameCharacters = 64
 	InitialRoleCode       = model.SuperAdminRoleCode
 )
+
+var ErrAdministratorExists = errors.New("initial administrator already exists")
 
 type Input struct {
 	Username string
@@ -55,6 +58,22 @@ func CreateInitialAdministrator(
 			Where("code = ? AND status = ?", InitialRoleCode, model.RecordStatusEnabled).
 			First(&role).Error; err != nil {
 			return fmt.Errorf("load initial administrator role: %w", err)
+		}
+
+		// Lock this seeded role by its primary key so two initialization
+		// commands cannot both observe no administrator and create one each.
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", role.ID).First(&role).Error; err != nil {
+			return fmt.Errorf("lock initial administrator role: %w", err)
+		}
+		var assignment model.UserRole
+		err := tx.Where("role_id = ?", role.ID).Take(&assignment).Error
+		switch {
+		case err == nil:
+			// Do not allow disabled or soft-deleted users to reopen initialization.
+			return ErrAdministratorExists
+		case !errors.Is(err, gorm.ErrRecordNotFound):
+			return fmt.Errorf("check initial administrator: %w", err)
 		}
 
 		created, err := Create(ctx, gormUserCreator{db: tx}, hasher, input)

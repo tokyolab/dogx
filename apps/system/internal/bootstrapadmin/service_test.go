@@ -80,7 +80,8 @@ func TestCreateValidatesInputAndDependencies(t *testing.T) {
 		{name: "long username", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: strings.Repeat("a", 65), Password: valid.Password}},
 		{name: "long nickname", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Nickname: strings.Repeat("a", 65), Password: valid.Password}},
 		{name: "short password", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Password: "short"}},
-		{name: "long password", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Password: strings.Repeat("a", 129)}},
+		{name: "long password", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Password: strings.Repeat("a", 73)}},
+		{name: "long UTF-8 password", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Password: strings.Repeat("密", 25)}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

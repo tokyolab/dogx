@@ -21,6 +21,16 @@
       "new_password_unchanged": "新密码不能与当前密码相同",
       "current_password_wrong": "当前密码错误"
     },
+    "user": {
+      "not_found": "用户不存在",
+      "username_exists": "用户名已存在",
+      "email_exists": "邮箱已被使用",
+      "phone_exists": "手机号已被使用",
+      "role_unavailable": "角色不存在或不允许分配",
+      "super_admin_not_assignable": "超管角色不允许授权",
+      "super_admin_protected": "初始化超管账号受保护，不能停用、删除、修改角色或由其他账号修改",
+      "self_protected": "不能停用或删除当前登录账号"
+    },
     "role": {
       "not_found": "角色不存在",
       "code_exists": "角色编码已存在",
