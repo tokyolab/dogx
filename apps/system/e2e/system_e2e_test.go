@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	e2ePassword     = "dogx-e2e-password"
+	e2ePassword     = "Dogx-e2e123"
 	e2eAccessSecret = "dogx-e2e-access-secret-0123456789abcdef"
 )
 

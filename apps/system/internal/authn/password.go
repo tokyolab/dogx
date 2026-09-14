@@ -3,14 +3,16 @@ package authn
 import (
 	"errors"
 	"fmt"
-	"unicode/utf8"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 const (
-	MinPasswordCharacters = 12
-	// bcrypt limits passwords by bytes, not Unicode characters.
+	MinPasswordCharacters = 8
+	MaxPasswordCharacters = 32
+	// Keep bcrypt's byte limit for verification of existing passwords, which
+	// may predate the current new-password policy.
 	MaxPasswordBytes = 72
 )
 
@@ -32,9 +34,34 @@ type PasswordHasher interface {
 type Bcrypt struct{}
 
 func ValidatePassword(password string) error {
-	if utf8.RuneCountInString(password) < MinPasswordCharacters || len(password) > MaxPasswordBytes {
-		return fmt.Errorf("password must contain at least %d characters and at most %d UTF-8 bytes",
-			MinPasswordCharacters, MaxPasswordBytes)
+	// Only ASCII is accepted below, so each permitted character is one byte.
+	if len(password) < MinPasswordCharacters || len(password) > MaxPasswordCharacters {
+		return fmt.Errorf("password must contain %d to %d characters",
+			MinPasswordCharacters, MaxPasswordCharacters)
+	}
+	var categories [4]bool
+	for _, ch := range password {
+		switch {
+		case ch >= 'A' && ch <= 'Z':
+			categories[0] = true
+		case ch >= 'a' && ch <= 'z':
+			categories[1] = true
+		case ch >= '0' && ch <= '9':
+			categories[2] = true
+		case strings.ContainsRune("!@#$%^&*()_+-=", ch):
+			categories[3] = true
+		default:
+			return errors.New("password may only contain English letters, digits and !@#$%^&*()_+-=")
+		}
+	}
+	count := 0
+	for _, present := range categories {
+		if present {
+			count++
+		}
+	}
+	if count < 3 {
+		return errors.New("password must contain at least three of uppercase letters, lowercase letters, digits and special characters")
 	}
 	return nil
 }

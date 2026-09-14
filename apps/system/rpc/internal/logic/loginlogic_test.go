@@ -14,6 +14,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
 
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -180,15 +181,16 @@ func TestLoginRejectsInvalidRequest(t *testing.T) {
 	}
 }
 
-func TestLoginAcceptsBcryptByteBoundary(t *testing.T) {
+func TestLoginAcceptsExistingPasswordsAtBcryptByteBoundary(t *testing.T) {
 	for _, password := range []string{strings.Repeat("a", 72), strings.Repeat("密", 24), strings.Repeat("😀", 18)} {
 		repo := &userRepositoryStub{user: enabledUser()}
 		hasher := authn.NewBcrypt()
-		hash, err := hasher.Hash(password)
+		// Simulate stored credentials created before the new-password policy.
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 		if err != nil {
 			t.Fatalf("prepare bcrypt password: %v", err)
 		}
-		repo.user.PasswordHash = hash
+		repo.user.PasswordHash = string(hash)
 		sc := &svc.ServiceContext{
 			UserRepo: repo, Passwords: hasher,
 			Tokens: &credentialIssuerStub{credentials: &authn.Credentials{AccessToken: "access-token"}},

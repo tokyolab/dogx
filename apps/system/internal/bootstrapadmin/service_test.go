@@ -50,7 +50,7 @@ func TestCreate(t *testing.T) {
 
 	user, err := Create(context.Background(), repo, hasher, Input{
 		Username: "  admin  ",
-		Password: "secure-password",
+		Password: "Secure-pass123",
 	})
 	if err != nil {
 		t.Fatalf("create administrator: %v", err)
@@ -58,7 +58,7 @@ func TestCreate(t *testing.T) {
 	if user != repo.created || user.ID != 42 || user.Username != "admin" || user.Nickname != "admin" {
 		t.Fatalf("unexpected administrator: %+v", user)
 	}
-	if user.PasswordHash != "encoded-hash" || hasher.password != "secure-password" {
+	if user.PasswordHash != "encoded-hash" || hasher.password != "Secure-pass123" {
 		t.Fatal("administrator password was not hashed")
 	}
 	if user.Status != model.RecordStatusEnabled {
@@ -67,7 +67,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreateValidatesInputAndDependencies(t *testing.T) {
-	valid := Input{Username: "admin", Password: "secure-password", Nickname: "Administrator"}
+	valid := Input{Username: "admin", Password: "Secure-pass123", Nickname: "Administrator"}
 	tests := []struct {
 		name   string
 		repo   userCreator
@@ -80,8 +80,10 @@ func TestCreateValidatesInputAndDependencies(t *testing.T) {
 		{name: "long username", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: strings.Repeat("a", 65), Password: valid.Password}},
 		{name: "long nickname", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Nickname: strings.Repeat("a", 65), Password: valid.Password}},
 		{name: "short password", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Password: "short"}},
-		{name: "long password", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Password: strings.Repeat("a", 73)}},
-		{name: "long UTF-8 password", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Password: strings.Repeat("密", 25)}},
+		{name: "long password", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Password: "Aa1" + strings.Repeat("!", 30)}},
+		{name: "two categories", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Password: "Abcdefgh"}},
+		{name: "space", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Password: "Abcd123! "}},
+		{name: "Chinese", repo: &userRepositoryStub{}, hasher: &passwordHasherStub{}, input: Input{Username: "admin", Password: "Abcd123!密"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -98,7 +100,7 @@ func TestCreatePreservesHashAndRepositoryErrors(t *testing.T) {
 		context.Background(),
 		&userRepositoryStub{},
 		&passwordHasherStub{err: hashErr},
-		Input{Username: "admin", Password: "secure-password"},
+		Input{Username: "admin", Password: "Secure-pass123"},
 	); !errors.Is(err, hashErr) {
 		t.Fatalf("expected hash error, got: %v", err)
 	}
@@ -108,7 +110,7 @@ func TestCreatePreservesHashAndRepositoryErrors(t *testing.T) {
 		context.Background(),
 		&userRepositoryStub{err: repositoryErr},
 		&passwordHasherStub{hash: "encoded-hash"},
-		Input{Username: "admin", Password: "secure-password"},
+		Input{Username: "admin", Password: "Secure-pass123"},
 	); !errors.Is(err, repositoryErr) {
 		t.Fatalf("expected repository error, got: %v", err)
 	}

@@ -165,13 +165,13 @@ func TestCurrentUserAndLogoutUseJWTIdentity(t *testing.T) {
 	}
 	if _, err := NewChangePasswordLogic(ctx, svcCtx).ChangePassword(&types.ChangePasswordReq{
 		CurrentPassword: "current-password",
-		NewPassword:     "new-secure-password",
+		NewPassword:     "New-secure123",
 	}); err != nil {
 		t.Fatalf("change password: %v", err)
 	}
 	if rpc.changePasswordRequest.UserId != 42 ||
 		rpc.changePasswordRequest.CurrentPassword != "current-password" ||
-		rpc.changePasswordRequest.NewPassword != "new-secure-password" {
+		rpc.changePasswordRequest.NewPassword != "New-secure123" {
 		t.Fatalf("unexpected change-password request: %+v", rpc.changePasswordRequest)
 	}
 }
@@ -230,7 +230,7 @@ func TestAuthAPILogicsReturnRPCErrors(t *testing.T) {
 			call: func() error {
 				_, err := NewChangePasswordLogic(ctx, svcCtx).ChangePassword(&types.ChangePasswordReq{
 					CurrentPassword: "current-password",
-					NewPassword:     "new-secure-password",
+					NewPassword:     "New-secure123",
 				})
 				return err
 			},

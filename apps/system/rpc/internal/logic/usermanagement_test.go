@@ -23,7 +23,7 @@ func TestCreateUserHashesPasswordAndMapsProfile(t *testing.T) {
 	repo := &userRepositoryStub{}
 	passwords := &passwordVerifierStub{nextHash: "password-hash"}
 	logic := NewCreateUserLogic(context.Background(), &svc.ServiceContext{UserRepo: repo, Passwords: passwords})
-	result, err := logic.CreateUser(&system.CreateUserRequest{Username: " Alice ", Nickname: " 昵称 ", Password: "abcdefghijkl", Status: 1, RoleIds: []int64{8}, Remark: " note "})
+	result, err := logic.CreateUser(&system.CreateUserRequest{Username: " Alice ", Nickname: " 昵称 ", Password: "Valid-pass123", Status: 1, RoleIds: []int64{8}, Remark: " note "})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,9 +40,11 @@ func TestCreateUserRejectsInvalidInputWithoutWrites(t *testing.T) {
 		func(in *system.CreateUserRequest) { in.Nickname = " " },
 		func(in *system.CreateUserRequest) { in.Nickname = strings.Repeat("用", 65) },
 		func(in *system.CreateUserRequest) { in.Password = "short" },
-		func(in *system.CreateUserRequest) { in.Password = strings.Repeat("a", 73) },
-		func(in *system.CreateUserRequest) { in.Password = strings.Repeat("密", 25) },
-		func(in *system.CreateUserRequest) { in.Password = strings.Repeat("😀", 19) },
+		func(in *system.CreateUserRequest) { in.Password = "Aa1" + strings.Repeat("!", 30) },
+		func(in *system.CreateUserRequest) { in.Password = "Abcdefgh" },
+		func(in *system.CreateUserRequest) { in.Password = "Abcd123! " },
+		func(in *system.CreateUserRequest) { in.Password = "Abcd123!密" },
+		func(in *system.CreateUserRequest) { in.Password = "Abcd123!?" },
 		func(in *system.CreateUserRequest) { in.Email = "invalid" },
 		func(in *system.CreateUserRequest) { in.Email = "Name <test@example.com>" },
 		func(in *system.CreateUserRequest) { in.Phone = strings.Repeat("1", 33) },
@@ -51,7 +53,7 @@ func TestCreateUserRejectsInvalidInputWithoutWrites(t *testing.T) {
 		func(in *system.CreateUserRequest) { in.RoleIds = []int64{0} },
 		func(in *system.CreateUserRequest) { in.RoleIds = make([]int64, 101) },
 	} {
-		in := &system.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "abcdefghijkl", Status: 1}
+		in := &system.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1}
 		change(in)
 		_, err := NewCreateUserLogic(context.Background(), &svc.ServiceContext{}).CreateUser(in)
 		if status.Code(err) != codes.InvalidArgument {
@@ -60,8 +62,8 @@ func TestCreateUserRejectsInvalidInputWithoutWrites(t *testing.T) {
 	}
 }
 
-func TestManagedUserPasswordByteBoundaries(t *testing.T) {
-	for _, password := range []string{strings.Repeat("a", 72), strings.Repeat("密", 24), strings.Repeat("😀", 18)} {
+func TestManagedUserPasswordPolicy(t *testing.T) {
+	for _, password := range []string{"Abcd123!", "Aa1" + strings.Repeat("!", 29)} {
 		repo := &userRepositoryStub{user: &model.User{Base: model.Base{ID: 9}}}
 		hasher := &passwordVerifierStub{nextHash: "new-hash"}
 		sc := &svc.ServiceContext{UserRepo: repo, Passwords: hasher, Sessions: &sessionStoreLogicStub{}}
@@ -82,11 +84,11 @@ func TestManagedUserPasswordByteBoundaries(t *testing.T) {
 			t.Fatal("reset user did not persist the new password hash")
 		}
 	}
-	for _, password := range []string{strings.Repeat("a", 73), strings.Repeat("密", 25), strings.Repeat("😀", 19)} {
+	for _, password := range []string{"Abc123!", "Aa1" + strings.Repeat("!", 30), "Abcdefgh", "Abcd123! ", "Abcd123!密", "Abcd123!?"} {
 		if _, err := NewResetUserPasswordLogic(context.Background(), &svc.ServiceContext{}).ResetUserPassword(
 			&system.ResetUserPasswordRequest{Id: 9, OperatorId: 1, Password: password},
 		); status.Code(err) != codes.InvalidArgument {
-			t.Fatalf("expected overlong reset to fail before accessing dependencies: %v", err)
+			t.Fatalf("expected invalid reset to fail before accessing dependencies: %v", err)
 		}
 	}
 }
@@ -116,7 +118,7 @@ func TestUserManagementMapsBusinessAndTechnicalErrors(t *testing.T) {
 			hasher.hashErr = dependencyErr
 		}
 		_, err := NewCreateUserLogic(context.Background(), &svc.ServiceContext{UserRepo: repo, Passwords: hasher}).CreateUser(
-			&system.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "abcdefghijkl", Status: 1})
+			&system.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1})
 		if !errors.Is(err, dependencyErr) || (hashFailure && repo.writeCalls != 0) {
 			t.Fatalf("create dependency failure: %v", err)
 		}
@@ -194,7 +196,7 @@ func TestUserMutationsRevokeSessionsBeforeWriting(t *testing.T) {
 			return err
 		},
 		"password": func(sc *svc.ServiceContext) error {
-			_, err := NewResetUserPasswordLogic(context.Background(), sc).ResetUserPassword(&system.ResetUserPasswordRequest{Id: 9, OperatorId: 1, Password: "abcdefghijkl"})
+			_, err := NewResetUserPasswordLogic(context.Background(), sc).ResetUserPassword(&system.ResetUserPasswordRequest{Id: 9, OperatorId: 1, Password: "Valid-pass123"})
 			return err
 		},
 	}
@@ -416,7 +418,7 @@ func TestUserMutationDependencyFailuresAreNotReportedAsSuccess(t *testing.T) {
 			return err
 		},
 		func(sc *svc.ServiceContext) error {
-			_, err := NewResetUserPasswordLogic(context.Background(), sc).ResetUserPassword(&system.ResetUserPasswordRequest{Id: 9, OperatorId: 1, Password: "abcdefghijkl"})
+			_, err := NewResetUserPasswordLogic(context.Background(), sc).ResetUserPassword(&system.ResetUserPasswordRequest{Id: 9, OperatorId: 1, Password: "Valid-pass123"})
 			return err
 		},
 	}
@@ -436,7 +438,7 @@ func TestUserMutationDependencyFailuresAreNotReportedAsSuccess(t *testing.T) {
 	repo := &userRepositoryStub{user: &model.User{Base: model.Base{ID: 9}}}
 	sessions := &sessionStoreLogicStub{}
 	_, err := NewResetUserPasswordLogic(context.Background(), &svc.ServiceContext{UserRepo: repo, Sessions: sessions, Passwords: &passwordVerifierStub{hashErr: dependencyErr}}).
-		ResetUserPassword(&system.ResetUserPasswordRequest{Id: 9, OperatorId: 1, Password: "abcdefghijkl"})
+		ResetUserPassword(&system.ResetUserPasswordRequest{Id: 9, OperatorId: 1, Password: "Valid-pass123"})
 	if !errors.Is(err, dependencyErr) || sessions.revokedUserID != 0 || repo.passwordHash != "" {
 		t.Fatalf("hash failure changed user: %v", err)
 	}
@@ -458,7 +460,7 @@ func TestInitializedSuperAdminManagementBoundary(t *testing.T) {
 			return err
 		}},
 		{"password", false, true, func(sc *svc.ServiceContext, operator int64) error {
-			_, err := NewResetUserPasswordLogic(context.Background(), sc).ResetUserPassword(&system.ResetUserPasswordRequest{Id: 42, OperatorId: operator, Password: "abcdefghijkl"})
+			_, err := NewResetUserPasswordLogic(context.Background(), sc).ResetUserPassword(&system.ResetUserPasswordRequest{Id: 42, OperatorId: operator, Password: "Valid-pass123"})
 			return err
 		}},
 		{"disable", true, false, func(sc *svc.ServiceContext, operator int64) error {

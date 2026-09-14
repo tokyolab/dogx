@@ -125,9 +125,9 @@ func TestUserAPILogicPreservesRequestAndErrorContracts(t *testing.T) {
 			return err
 		}, &systemclient.GetUserRequest{Id: 9}},
 		{"create", func(ctx context.Context, sc *svc.ServiceContext) error {
-			_, err := NewCreateUserLogic(ctx, sc).CreateUser(&types.CreateUserReq{Username: "alice", Nickname: "Alice", Password: "abcdefghijkl", Status: 1, RoleIds: []int64{8}})
+			_, err := NewCreateUserLogic(ctx, sc).CreateUser(&types.CreateUserReq{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1, RoleIds: []int64{8}})
 			return err
-		}, &systemclient.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "abcdefghijkl", Status: 1, RoleIds: []int64{8}}},
+		}, &systemclient.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1, RoleIds: []int64{8}}},
 		{"update", func(ctx context.Context, sc *svc.ServiceContext) error {
 			_, err := NewUpdateUserLogic(ctx, sc).UpdateUser(&types.UpdateUserReq{Id: 9, Nickname: "Alice"})
 			return err
@@ -145,9 +145,9 @@ func TestUserAPILogicPreservesRequestAndErrorContracts(t *testing.T) {
 			return err
 		}, &systemclient.ReplaceUserRolesRequest{Id: 9, RoleIds: []int64{8}, OperatorId: 42}},
 		{"password", func(ctx context.Context, sc *svc.ServiceContext) error {
-			_, err := NewResetUserPasswordLogic(ctx, sc).ResetUserPassword(&types.ResetUserPasswordReq{Id: 9, Password: "abcdefghijkl"})
+			_, err := NewResetUserPasswordLogic(ctx, sc).ResetUserPassword(&types.ResetUserPasswordReq{Id: 9, Password: "Valid-pass123"})
 			return err
-		}, &systemclient.ResetUserPasswordRequest{Id: 9, Password: "abcdefghijkl", OperatorId: 42}},
+		}, &systemclient.ResetUserPasswordRequest{Id: 9, Password: "Valid-pass123", OperatorId: 42}},
 		{"options", func(ctx context.Context, sc *svc.ServiceContext) error {
 			_, err := NewListUserRoleOptionsLogic(ctx, sc).ListUserRoleOptions(&types.UserRoleOptionsReq{Page: 1, PageSize: 20, Keyword: "read"})
 			return err

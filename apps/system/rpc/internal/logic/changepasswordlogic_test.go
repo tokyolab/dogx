@@ -31,7 +31,7 @@ func TestChangePasswordRevokesSessionsBeforeUpdatingHash(t *testing.T) {
 	response, err := logic.ChangePassword(&system.ChangePasswordRequest{
 		UserId:          42,
 		CurrentPassword: "current-password",
-		NewPassword:     "new-secure-password",
+		NewPassword:     "New-secure123",
 	})
 	if err != nil {
 		t.Fatalf("change password: %v", err)
@@ -52,7 +52,7 @@ func TestChangePasswordRejectsWrongAndReusedPassword(t *testing.T) {
 	_, err := wrong.ChangePassword(&system.ChangePasswordRequest{
 		UserId:          42,
 		CurrentPassword: "wrong-password",
-		NewPassword:     "new-secure-password",
+		NewPassword:     "New-secure123",
 	})
 	if businessErr, ok := bizerror.From(err); !ok || businessErr.Subcode() != systemsubcode.AuthCurrentPasswordWrong {
 		t.Fatalf("unexpected wrong-password error: %v", err)
@@ -64,8 +64,8 @@ func TestChangePasswordRejectsWrongAndReusedPassword(t *testing.T) {
 	reused := NewChangePasswordLogic(context.Background(), &svc.ServiceContext{})
 	_, err = reused.ChangePassword(&system.ChangePasswordRequest{
 		UserId:          42,
-		CurrentPassword: "same-secure-password",
-		NewPassword:     "same-secure-password",
+		CurrentPassword: "Same-secure123",
+		NewPassword:     "Same-secure123",
 	})
 	if businessErr, ok := bizerror.From(err); !ok || businessErr.Subcode() != systemsubcode.AuthNewPasswordUnchanged {
 		t.Fatalf("unexpected reused-password error: %v", err)
@@ -78,10 +78,13 @@ func TestChangePasswordValidatesInput(t *testing.T) {
 		nil,
 		{},
 		{UserId: 42, CurrentPassword: "current-password", NewPassword: "short"},
-		{UserId: 42, CurrentPassword: strings.Repeat("a", 73), NewPassword: "new-password"},
-		{UserId: 42, CurrentPassword: strings.Repeat("密", 25), NewPassword: "new-password"},
-		{UserId: 42, CurrentPassword: "current-password", NewPassword: strings.Repeat("a", 73)},
-		{UserId: 42, CurrentPassword: "current-password", NewPassword: strings.Repeat("密", 25)},
+		{UserId: 42, CurrentPassword: strings.Repeat("a", 73), NewPassword: "New-pass123"},
+		{UserId: 42, CurrentPassword: strings.Repeat("密", 25), NewPassword: "New-pass123"},
+		{UserId: 42, CurrentPassword: "current-password", NewPassword: "Aa1" + strings.Repeat("!", 30)},
+		{UserId: 42, CurrentPassword: "current-password", NewPassword: "Abcdefgh"},
+		{UserId: 42, CurrentPassword: "current-password", NewPassword: "Abcd123! "},
+		{UserId: 42, CurrentPassword: "current-password", NewPassword: "Abcd123!密"},
+		{UserId: 42, CurrentPassword: "current-password", NewPassword: "Abcd123!?"},
 	}
 	for _, request := range requests {
 		if _, err := logic.ChangePassword(request); status.Code(err) != codes.InvalidArgument {
@@ -99,7 +102,7 @@ func TestChangePasswordRevokesMissingAndDisabledUsers(t *testing.T) {
 	_, err := missing.ChangePassword(&system.ChangePasswordRequest{
 		UserId:          42,
 		CurrentPassword: "current-password",
-		NewPassword:     "new-secure-password",
+		NewPassword:     "New-secure123",
 	})
 	if status.Code(err) != codes.Unauthenticated || missingSessions.revokedUserID != 42 {
 		t.Fatalf("missing user was not revoked: err=%v revoked=%d", err, missingSessions.revokedUserID)
@@ -115,7 +118,7 @@ func TestChangePasswordRevokesMissingAndDisabledUsers(t *testing.T) {
 	_, err = disabled.ChangePassword(&system.ChangePasswordRequest{
 		UserId:          42,
 		CurrentPassword: "current-password",
-		NewPassword:     "new-secure-password",
+		NewPassword:     "New-secure123",
 	})
 	if status.Code(err) != codes.Unauthenticated || disabledSessions.revokedUserID != 42 {
 		t.Fatalf("disabled user was not revoked: err=%v revoked=%d", err, disabledSessions.revokedUserID)
@@ -134,7 +137,7 @@ func TestChangePasswordDoesNotUpdateHashWhenRevocationFails(t *testing.T) {
 	_, err := logic.ChangePassword(&system.ChangePasswordRequest{
 		UserId:          42,
 		CurrentPassword: "current-password",
-		NewPassword:     "new-secure-password",
+		NewPassword:     "New-secure123",
 	})
 	if !errors.Is(err, revokeErr) || repo.passwordHash != "" {
 		t.Fatalf("unexpected revocation failure: err=%v hash=%q", err, repo.passwordHash)
@@ -154,7 +157,7 @@ func TestChangePasswordReportsUpdateFailureAfterRevocation(t *testing.T) {
 	_, err := logic.ChangePassword(&system.ChangePasswordRequest{
 		UserId:          42,
 		CurrentPassword: "current-password",
-		NewPassword:     "new-secure-password",
+		NewPassword:     "New-secure123",
 	})
 	if !errors.Is(err, updateErr) || sessions.revokedUserID != 42 {
 		t.Fatalf("unexpected update failure: err=%v revoked=%d", err, sessions.revokedUserID)
@@ -166,7 +169,7 @@ func TestChangePasswordPropagatesAuthenticationDependencyFailures(t *testing.T) 
 	request := &system.ChangePasswordRequest{
 		UserId:          42,
 		CurrentPassword: "current-password",
-		NewPassword:     "new-secure-password",
+		NewPassword:     "New-secure123",
 	}
 	tests := []struct {
 		name   string

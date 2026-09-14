@@ -10,7 +10,7 @@ import (
 
 func TestBcryptHashAndVerify(t *testing.T) {
 	hasher := NewBcrypt()
-	password := "correct horse battery staple"
+	password := "Valid-pass123"
 	encoded, err := hasher.Hash(password)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
@@ -41,20 +41,29 @@ func TestValidatePasswordBoundaries(t *testing.T) {
 		valid    bool
 	}{
 		{"empty", "", false},
-		{"short_ascii", strings.Repeat("a", 11), false},
-		{"minimum_ascii", strings.Repeat("a", 12), true},
-		{"maximum_ascii", strings.Repeat("a", 72), true},
-		{"overlong_ascii", strings.Repeat("a", 73), false},
-		{"short_chinese", strings.Repeat("密", 11), false},
-		{"minimum_chinese", strings.Repeat("密", 12), true},
-		{"maximum_chinese", strings.Repeat("密", 24), true},
-		{"overlong_chinese", strings.Repeat("密", 25), false},
-		{"short_emoji", strings.Repeat("😀", 11), false},
-		{"minimum_emoji", strings.Repeat("😀", 12), true},
-		{"maximum_emoji", strings.Repeat("😀", 18), true},
-		{"overlong_emoji", strings.Repeat("😀", 19), false},
-		{"mixed_boundary", strings.Repeat("密", 23) + "abc", true},
-		{"mixed_overlong", strings.Repeat("密", 23) + "abcd", false},
+		{"too_short", "Abc123!", false},
+		{"minimum", "Abcd123!", true},
+		{"maximum", "Aa1" + strings.Repeat("!", 29), true},
+		{"too_long", "Aa1" + strings.Repeat("!", 30), false},
+		{"upper_lower_digit", "Abcd1234", true},
+		{"upper_lower_special", "Abcdefg!", true},
+		{"upper_digit_special", "ABCD123!", true},
+		{"lower_digit_special", "abcd123!", true},
+		{"one_category", "abcdefgh", false},
+		{"two_letter_categories", "Abcdefgh", false},
+		{"lower_digit_only", "abcd1234", false},
+		{"upper_digit_only", "ABCD1234", false},
+		{"lower_special_only", "abcdefg!", false},
+		{"upper_special_only", "ABCDEFG!", false},
+		{"digit_special_only", "1234567!", false},
+		{"space", "Abc123! ", false},
+		{"leading_space", " Abcd123!", false},
+		{"tab", "Abc123!\t", false},
+		{"newline", "Abc123!\n", false},
+		{"chinese", "Abc123!密", false},
+		{"emoji", "Abc123!😀", false},
+		{"full_width", "Abc123!Ａ", false},
+		{"unsupported_punctuation", "Abc123!?", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -71,32 +80,43 @@ func TestValidatePasswordBoundaries(t *testing.T) {
 	}
 }
 
-func TestBcryptPreservesPasswordsAtByteLimit(t *testing.T) {
+func TestValidatePasswordAllowedCharacters(t *testing.T) {
+	for ch := rune(0); ch < 128; ch++ {
+		allowed := (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+			(ch >= '0' && ch <= '9') || strings.ContainsRune("!@#$%^&*()_+-=", ch)
+		if err := ValidatePassword("Abcd123!" + string(ch)); (err == nil) != allowed {
+			t.Errorf("unexpected validity for character %q: %v", ch, err)
+		}
+	}
+}
+
+func TestBcryptVerifiesExistingPasswordsAtByteLimit(t *testing.T) {
 	for _, password := range []string{strings.Repeat("a", 72), strings.Repeat("密", 24), strings.Repeat("😀", 18)} {
 		hasher := NewBcrypt()
-		hash, err := hasher.Hash(password)
+		// Existing hashes are not subject to the policy for setting new passwords.
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 		if err != nil {
 			t.Fatalf("hash boundary password: %v", err)
 		}
-		if err := hasher.Verify(hash, password); err != nil {
+		if err := hasher.Verify(string(hash), password); err != nil {
 			t.Fatalf("verify boundary password: %v", err)
 		}
-		if err := hasher.Verify(hash, password+"x"); !errors.Is(err, ErrPasswordMismatch) {
+		if err := hasher.Verify(string(hash), password+"x"); !errors.Is(err, ErrPasswordMismatch) {
 			t.Fatalf("overlong password with a matching prefix was not rejected: %v", err)
 		}
 	}
 }
 
-func TestBcryptDoesNotTrimPasswords(t *testing.T) {
+func TestBcryptDoesNotTrimExistingPasswords(t *testing.T) {
 	password := "  correct password  "
-	hash, err := NewBcrypt().Hash(password)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 	if err != nil {
 		t.Fatalf("hash password with spaces: %v", err)
 	}
-	if err := NewBcrypt().Verify(hash, password); err != nil {
+	if err := NewBcrypt().Verify(string(hash), password); err != nil {
 		t.Fatalf("verify password with spaces: %v", err)
 	}
-	if err := NewBcrypt().Verify(hash, strings.TrimSpace(password)); !errors.Is(err, ErrPasswordMismatch) {
+	if err := NewBcrypt().Verify(string(hash), strings.TrimSpace(password)); !errors.Is(err, ErrPasswordMismatch) {
 		t.Fatalf("password whitespace was ignored: %v", err)
 	}
 }

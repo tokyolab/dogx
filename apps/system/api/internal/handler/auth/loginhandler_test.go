@@ -204,7 +204,7 @@ func TestChangePasswordHandler(t *testing.T) {
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/auth/change-password",
-		strings.NewReader(`{"currentPassword":"current-password","newPassword":"new-secure-password"}`),
+		strings.NewReader(`{"currentPassword":"current-password","newPassword":"New-secure123"}`),
 	).WithContext(ctx)
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
@@ -222,6 +222,33 @@ func authenticatedHandlerContext() context.Context {
 	ctx = context.WithValue(ctx, "sessionId", "session-id")
 	ctx = context.WithValue(ctx, "roleIds", []int64{7})
 	return context.WithValue(ctx, "isSuperAdmin", false)
+}
+
+func TestNewPasswordDTOBounds(t *testing.T) {
+	validate := requestvalidator.New()
+	for _, tc := range []struct {
+		name     string
+		password string
+		valid    bool
+	}{
+		{"short", "Abc123!", false},
+		{"minimum", "Abcd123!", true},
+		{"maximum", "Aa1" + strings.Repeat("!", 29), true},
+		{"overlong", "Aa1" + strings.Repeat("!", 30), false},
+		{"non_ascii", "Abcd123!密", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, input := range []any{
+				&types.CreateUserReq{Username: "alice", Nickname: "Alice", Password: tc.password, Status: 1},
+				&types.ResetUserPasswordReq{Id: 1, Password: tc.password},
+				&types.ChangePasswordReq{CurrentPassword: "existing-password", NewPassword: tc.password},
+			} {
+				if err := validate.Validate(nil, input); (err == nil) != tc.valid {
+					t.Errorf("unexpected validity for %T: %v", input, err)
+				}
+			}
+		})
+	}
 }
 
 func TestClientIPAddress(t *testing.T) {

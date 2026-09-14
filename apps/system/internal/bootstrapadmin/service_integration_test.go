@@ -21,7 +21,7 @@ func TestCreateInitialAdministratorAssignsSeededSuperAdminRoleAtomically(t *test
 
 	user, err := CreateInitialAdministrator(ctx, db, &passwordHasherStub{hash: "encoded-hash"}, Input{
 		Username: "admin",
-		Password: "secure-password",
+		Password: "Secure-pass123",
 		Nickname: "Administrator",
 	})
 	if err != nil {
@@ -54,7 +54,7 @@ func TestCreateInitialAdministratorAssignsSeededSuperAdminRoleAtomically(t *test
 				t.Fatal(err)
 			}
 			created, err := CreateInitialAdministrator(ctx, db, &passwordHasherStub{hash: "hash"},
-				Input{Username: "another-admin", Password: "secure-password"})
+				Input{Username: "another-admin", Password: "Secure-pass123"})
 			if !errors.Is(err, ErrAdministratorExists) || created != nil {
 				t.Fatalf("repeat initialization accepted: %+v %v", created, err)
 			}
@@ -95,7 +95,7 @@ func TestConcurrentInitializationCreatesExactlyOneAdministrator(t *testing.T) {
 	for _, username := range []string{"first-admin", "second-admin"} {
 		go func() {
 			_, err := CreateInitialAdministrator(ctx, db, &passwordHasherStub{hash: "hash"},
-				Input{Username: username, Password: "secure-password"})
+				Input{Username: username, Password: "Secure-pass123"})
 			results <- err
 		}()
 	}
@@ -150,7 +150,7 @@ func TestInitializationFailureRollsBackUserAndAllowsRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Callback().Create().Remove("test:initial-assignment-failure") })
-	input := Input{Username: "retry-admin", Password: "secure-password"}
+	input := Input{Username: "retry-admin", Password: "Secure-pass123"}
 	if user, err := CreateInitialAdministrator(ctx, db, &passwordHasherStub{hash: "hash"}, input); !errors.Is(err, forced) || user != nil {
 		t.Fatalf("failed initialization returned user=%+v err=%v", user, err)
 	}

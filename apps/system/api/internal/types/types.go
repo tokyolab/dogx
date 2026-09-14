@@ -27,7 +27,7 @@ type APIListResp struct {
 
 type ChangePasswordReq struct {
 	CurrentPassword string `json:"currentPassword" validate:"required,max=72"`
-	NewPassword     string `json:"newPassword" validate:"required,min=12,max=72"`
+	NewPassword     string `json:"newPassword" validate:"required,min=8,max=32,ascii"`
 }
 
 type CreateRoleReq struct {
@@ -45,7 +45,7 @@ type CreateRoleResp struct {
 type CreateUserReq struct {
 	Username string  `json:"username" validate:"required,max=64"`
 	Nickname string  `json:"nickname" validate:"required,max=64"`
-	Password string  `json:"password" validate:"required,min=12,max=72"`
+	Password string  `json:"password" validate:"required,min=8,max=32,ascii"`
 	Email    string  `json:"email,optional" validate:"omitempty,max=255,email"`
 	Phone    string  `json:"phone,optional" validate:"max=32"`
 	Remark   string  `json:"remark,optional" validate:"max=500"`
@@ -118,7 +118,7 @@ type RefreshTokenReq struct {
 
 type ResetUserPasswordReq struct {
 	Id       int64  `json:"id" validate:"gt=0"`
-	Password string `json:"password" validate:"required,min=12,max=72"`
+	Password string `json:"password" validate:"required,min=8,max=32,ascii"`
 }
 
 type RoleItem struct {
