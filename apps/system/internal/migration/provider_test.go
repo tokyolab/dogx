@@ -20,8 +20,8 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 11 {
-		t.Fatalf("unexpected migration count: got %d, want 11", len(sources))
+	if len(sources) != 12 {
+		t.Fatalf("unexpected migration count: got %d, want 12", len(sources))
 	}
 	if sources[0].Version != 1 || sources[0].Path != "00001_init_system.sql" {
 		t.Fatalf("unexpected migration source: version=%d path=%s", sources[0].Version, sources[0].Path)
@@ -55,5 +55,8 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 	if sources[10].Version != 20260907103000 || sources[10].Path != "20260907103000_add_user_management.sql" {
 		t.Fatalf("unexpected user management migration: %+v", sources[10])
+	}
+	if sources[11].Version != 20260916071004 || sources[11].Path != "20260916071004_constrain_username_format.sql" {
+		t.Fatalf("unexpected username format migration: %+v", sources[11])
 	}
 }

@@ -3,8 +3,6 @@ package logic
 import (
 	"context"
 	"fmt"
-	"strings"
-	"unicode/utf8"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
@@ -35,8 +33,8 @@ func (l *CreateUserLogic) CreateUser(in *system.CreateUserRequest) (*system.Crea
 	if in == nil || !validRecordStatus(in.Status) || !validUserRoleIDs(in.RoleIds) {
 		return nil, status.Error(codes.InvalidArgument, "invalid create user request")
 	}
-	username := strings.TrimSpace(in.Username)
-	if username == "" || utf8.RuneCountInString(username) > 64 || authn.ValidatePassword(in.Password) != nil {
+	username := in.Username
+	if authn.ValidateUsername(username) != nil || authn.ValidatePassword(in.Password) != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user credentials")
 	}
 	profile, err := normalizeUserProfile(in.Nickname, in.Email, in.Phone, in.Remark)

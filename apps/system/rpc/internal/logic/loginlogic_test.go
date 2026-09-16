@@ -77,7 +77,7 @@ func TestLogin(t *testing.T) {
 	})
 
 	response, err := logic.Login(&system.LoginRequest{
-		Username:  "  Admin  ",
+		Username:  "Admin",
 		Password:  "correct-password",
 		IpAddress: "192.0.2.1",
 		UserAgent: "DogX Test",
@@ -169,7 +169,7 @@ func TestLoginRejectsInvalidRequest(t *testing.T) {
 	requests := []*system.LoginRequest{
 		nil,
 		{},
-		{Username: strings.Repeat("a", maxUsernameCharacters+1), Password: "password"},
+		{Username: strings.Repeat("a", authn.MaxUsernameCharacters+1), Password: "password"},
 		{Username: "admin", Password: strings.Repeat("p", authn.MaxPasswordBytes+1)},
 		{Username: "admin", Password: strings.Repeat("密", 25)},
 		{Username: "admin", Password: strings.Repeat("😀", 19)},

@@ -5,10 +5,12 @@ package migration
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pressly/goose/v3"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/testutil"
@@ -25,8 +27,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 11 {
-		t.Fatalf("unexpected applied migration count: got %d, want 11", len(results))
+	if len(results) != 12 {
+		t.Fatalf("unexpected applied migration count: got %d, want 12", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -120,8 +122,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260907103000 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260907103000", version)
+	if version != 20260916071004 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260916071004", version)
 	}
 
 	expectedTables := map[string]string{
@@ -252,6 +254,14 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	downResult, err := provider.Down(ctx)
 	if err != nil {
 		t.Fatalf("roll back latest migration: %v", err)
+	}
+	if downResult.Source.Version != 20260916071004 {
+		t.Fatalf("unexpected username format rollback: %+v", downResult)
+	}
+	assertConstraintNotExists(t, ctx, sqlDB, "sys_user", "ck_sys_user_username_format")
+	downResult, err = provider.Down(ctx)
+	if err != nil {
+		t.Fatalf("roll back user management migration: %v", err)
 	}
 	if downResult.Source.Version != 20260907103000 || downResult.Source.Path != "20260907103000_add_user_management.sql" {
 		t.Fatalf("unexpected user management rollback: %+v", downResult)
@@ -455,7 +465,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 9 ||
+	if len(reapplyResults) != 10 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
@@ -464,9 +474,70 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		reapplyResults[5].Source.Version != 20260827152932 ||
 		reapplyResults[6].Source.Version != 20260828182507 ||
 		reapplyResults[7].Source.Version != 20260831100816 ||
-		reapplyResults[8].Source.Version != 20260907103000 {
+		reapplyResults[8].Source.Version != 20260907103000 ||
+		reapplyResults[9].Source.Version != 20260916071004 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
+}
+
+func TestUsernameFormatConstraint(t *testing.T) {
+	_, sqlDB := testutil.OpenPostgres(t)
+	provider := newTestProvider(t, sqlDB)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := provider.Up(ctx); err != nil {
+		t.Fatal(err)
+	}
+	const insertUser = `INSERT INTO sys_user (username, password_hash, nickname) VALUES ($1, 'hash', 'User') RETURNING username`
+	for _, username := range []string{"A", "0", "123456", "DogX-Admin", "a-b-c", strings.Repeat("A", 64)} {
+		var stored string
+		if err := sqlDB.QueryRowContext(ctx, insertUser, username).Scan(&stored); err != nil || stored != username {
+			t.Fatalf("valid username %q was rejected or changed: %q %v", username, stored, err)
+		}
+	}
+	for _, username := range []string{"", "-admin", "admin-", "ad--min", "admin_01", "admin.01", "管理员", "café", "Ａdmin", "a–b", " admin", "admin ", "ad min", "admin\n"} {
+		var stored string
+		err := sqlDB.QueryRowContext(ctx, insertUser, username).Scan(&stored)
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != "23514" || pgErr.ConstraintName != "ck_sys_user_username_format" {
+			t.Fatalf("username %q should fail the format constraint: %v", username, err)
+		}
+	}
+	var stored string
+	err := sqlDB.QueryRowContext(ctx, insertUser, strings.Repeat("a", 65)).Scan(&stored)
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "22001" {
+		t.Fatalf("65-character username should exceed VARCHAR(64): %v", err)
+	}
+	err = sqlDB.QueryRowContext(ctx, insertUser, "dogx-admin").Scan(&stored)
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" || pgErr.ConstraintName != "uk_sys_user_username_active" {
+		t.Fatalf("case-insensitive uniqueness should remain enforced: %v", err)
+	}
+}
+
+func TestUsernameMigrationRejectsInvalidExistingAccountsWithoutRenaming(t *testing.T) {
+	_, sqlDB := testutil.OpenPostgres(t)
+	provider := newTestProvider(t, sqlDB)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := provider.UpTo(ctx, 20260907103000); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sqlDB.ExecContext(ctx, `INSERT INTO sys_user (username, password_hash, nickname) VALUES ('legacy_user', 'hash', 'Legacy')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.Up(ctx); err == nil {
+		t.Fatal("migration accepted an incompatible existing username")
+	}
+	version, err := provider.GetDBVersion(ctx)
+	if err != nil || version != 20260907103000 {
+		t.Fatalf("failed migration changed database version: %d %v", version, err)
+	}
+	var username string
+	if err := sqlDB.QueryRowContext(ctx, `SELECT username FROM sys_user`).Scan(&username); err != nil || username != "legacy_user" {
+		t.Fatalf("failed migration changed the existing account: %q %v", username, err)
+	}
+	assertConstraintNotExists(t, ctx, sqlDB, "sys_user", "ck_sys_user_username_format")
 }
 
 func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {

@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	maxUsernameCharacters = 64
 	maxNicknameCharacters = 64
 	InitialRoleCode       = model.SuperAdminRoleCode
 )
@@ -111,13 +110,13 @@ func Create(
 		return nil, errors.New("password hasher is nil")
 	}
 
-	username := strings.TrimSpace(input.Username)
+	username := input.Username
 	nickname := strings.TrimSpace(input.Nickname)
 	if nickname == "" {
 		nickname = username
 	}
-	if username == "" || utf8.RuneCountInString(username) > maxUsernameCharacters {
-		return nil, fmt.Errorf("username must contain 1 to %d characters", maxUsernameCharacters)
+	if err := authn.ValidateUsername(username); err != nil {
+		return nil, err
 	}
 	if nickname == "" || utf8.RuneCountInString(nickname) > maxNicknameCharacters {
 		return nil, fmt.Errorf("nickname must contain 1 to %d characters", maxNicknameCharacters)

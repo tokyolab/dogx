@@ -49,13 +49,13 @@ func TestCreate(t *testing.T) {
 	hasher := &passwordHasherStub{hash: "encoded-hash"}
 
 	user, err := Create(context.Background(), repo, hasher, Input{
-		Username: "  admin  ",
+		Username: "Admin-01",
 		Password: "Secure-pass123",
 	})
 	if err != nil {
 		t.Fatalf("create administrator: %v", err)
 	}
-	if user != repo.created || user.ID != 42 || user.Username != "admin" || user.Nickname != "admin" {
+	if user != repo.created || user.ID != 42 || user.Username != "Admin-01" || user.Nickname != "Admin-01" {
 		t.Fatalf("unexpected administrator: %+v", user)
 	}
 	if user.PasswordHash != "encoded-hash" || hasher.password != "Secure-pass123" {
@@ -113,6 +113,17 @@ func TestCreatePreservesHashAndRepositoryErrors(t *testing.T) {
 		Input{Username: "admin", Password: "Secure-pass123"},
 	); !errors.Is(err, repositoryErr) {
 		t.Fatalf("expected repository error, got: %v", err)
+	}
+}
+
+func TestCreateRejectsInvalidUsernameBeforeHashing(t *testing.T) {
+	for _, username := range []string{"-admin", "admin-", "ad--min", "admin_01", "admin.01", "管理员", " admin", "admin ", "admin\n"} {
+		repo := &userRepositoryStub{}
+		hasher := &passwordHasherStub{}
+		_, err := Create(context.Background(), repo, hasher, Input{Username: username, Password: "Secure-pass123"})
+		if err == nil || hasher.password != "" || repo.created != nil {
+			t.Fatalf("invalid username %q reached hashing or persistence: %v", username, err)
+		}
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
@@ -22,9 +21,8 @@ import (
 )
 
 const (
-	maxUsernameCharacters = 64
-	maxIPAddressRunes     = 45
-	maxUserAgentRunes     = 512
+	maxIPAddressRunes = 45
+	maxUserAgentRunes = 512
 )
 
 type LoginLogic struct {
@@ -46,8 +44,8 @@ func (l *LoginLogic) Login(in *system.LoginRequest) (*system.LoginResponse, erro
 		return nil, status.Error(codes.InvalidArgument, "invalid login request")
 	}
 
-	username := strings.TrimSpace(in.Username)
-	if username == "" || utf8.RuneCountInString(username) > maxUsernameCharacters ||
+	username := in.Username
+	if authn.ValidateUsername(username) != nil ||
 		in.Password == "" || len(in.Password) > authn.MaxPasswordBytes {
 		l.recordLogin(nil, username, false, model.LoginFailureInvalidCredentials, in)
 		return nil, status.Error(codes.InvalidArgument, "invalid login request")
@@ -117,7 +115,7 @@ func (l *LoginLogic) recordLogin(
 	}
 	loginLog := &model.LoginLog{
 		UserID:        userID,
-		Username:      truncateRunes(username, maxUsernameCharacters),
+		Username:      truncateRunes(username, authn.MaxUsernameCharacters),
 		Success:       success,
 		FailureReason: failureReason,
 		IPAddress:     ipAddress,

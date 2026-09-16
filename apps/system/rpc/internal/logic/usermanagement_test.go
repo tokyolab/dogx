@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/internal/subcode"
@@ -23,7 +24,7 @@ func TestCreateUserHashesPasswordAndMapsProfile(t *testing.T) {
 	repo := &userRepositoryStub{}
 	passwords := &passwordVerifierStub{nextHash: "password-hash"}
 	logic := NewCreateUserLogic(context.Background(), &svc.ServiceContext{UserRepo: repo, Passwords: passwords})
-	result, err := logic.CreateUser(&system.CreateUserRequest{Username: " Alice ", Nickname: " 昵称 ", Password: "Valid-pass123", Status: 1, RoleIds: []int64{8}, Remark: " note "})
+	result, err := logic.CreateUser(&system.CreateUserRequest{Username: "Alice", Nickname: " 昵称 ", Password: "Valid-pass123", Status: 1, RoleIds: []int64{8}, Remark: " note "})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,6 +60,44 @@ func TestCreateUserRejectsInvalidInputWithoutWrites(t *testing.T) {
 		if status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("invalid user input: %v", err)
 		}
+	}
+}
+
+func TestCreateAndLoginUseTheSameUsernamePolicy(t *testing.T) {
+	for _, username := range []string{"A", "0", "123456", "DogX-Admin", "a-b-c", strings.Repeat("A", 64)} {
+		t.Run("valid/"+username, func(t *testing.T) {
+			repo := &userRepositoryStub{user: enabledUser()}
+			sc := &svc.ServiceContext{
+				UserRepo: repo, Passwords: &passwordVerifierStub{nextHash: "hash"},
+				Tokens: &credentialIssuerStub{credentials: &authn.Credentials{AccessToken: "access"}},
+			}
+			if _, err := NewCreateUserLogic(context.Background(), sc).CreateUser(&system.CreateUserRequest{
+				Username: username, Nickname: "User", Password: "Valid-pass123", Status: 1,
+			}); err != nil || repo.created.Username != username {
+				t.Fatalf("create did not preserve username %q: %v", username, err)
+			}
+			if _, err := NewLoginLogic(context.Background(), sc).Login(&system.LoginRequest{
+				Username: username, Password: "Valid-pass123",
+			}); err != nil || repo.username != username {
+				t.Fatalf("login did not pass username %q unchanged to case-insensitive lookup: %v", username, err)
+			}
+		})
+	}
+	for _, username := range []string{"", strings.Repeat("a", 65), "-admin", "admin-", "ad--min", "admin_01", "admin.01", "管理员", "Ａdmin", " admin", "admin ", "admin\n"} {
+		t.Run("invalid/"+username, func(t *testing.T) {
+			// Nil dependencies prove rejection occurs before hashing or database access.
+			sc := &svc.ServiceContext{}
+			_, err := NewCreateUserLogic(context.Background(), sc).CreateUser(&system.CreateUserRequest{
+				Username: username, Nickname: "User", Password: "Valid-pass123", Status: 1,
+			})
+			if status.Code(err) != codes.InvalidArgument {
+				t.Fatalf("create accepted invalid username %q: %v", username, err)
+			}
+			_, err = NewLoginLogic(context.Background(), sc).Login(&system.LoginRequest{Username: username, Password: "Valid-pass123"})
+			if status.Code(err) != codes.InvalidArgument {
+				t.Fatalf("login accepted invalid username %q: %v", username, err)
+			}
+		})
 	}
 }
 
