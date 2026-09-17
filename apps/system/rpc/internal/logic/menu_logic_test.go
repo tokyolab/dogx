@@ -15,6 +15,7 @@ import (
 	"github.com/tokyolab/dogx/pkg/bizerror"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 func validMenuFields() *system.MenuFields {
@@ -121,6 +122,47 @@ func TestMenuLogicCRUD(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+func TestMenuQueriesPreserveParentIDAndFields(t *testing.T) {
+	parentID := int64(7)
+	for _, tc := range []struct {
+		name         string
+		parentID     *int64
+		wantParentID int64
+	}{
+		{"root", nil, 0},
+		{"child", &parentID, parentID},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			menu := model.Menu{
+				Base: model.Base{ID: 42}, ParentID: tc.parentID, Type: model.MenuTypePage,
+				Name: "页面", RouteName: "Child", Path: "/child", Component: "system/child/index",
+				Icon: "lucide:user", Sort: 0, Status: model.RecordStatusDisabled,
+				Visible: false, KeepAlive: false, External: false, Remark: "remark",
+			}
+			repo := &menuRepositoryStub{menu: &menu, menus: []model.Menu{menu}}
+			services := &svc.ServiceContext{MenuRepo: repo}
+			found, err := NewGetMenuLogic(context.Background(), services).GetMenu(&system.GetMenuRequest{Id: 42})
+			if err != nil || found == nil || found.Menu == nil || repo.id != 42 {
+				t.Fatalf("get response=%v requested id=%d error=%v", found, repo.id, err)
+			}
+			list, err := NewListMenusLogic(context.Background(), services).ListMenus(&system.ListMenusRequest{})
+			if err != nil || list == nil || len(list.Items) != 1 {
+				t.Fatalf("list response=%v error=%v", list, err)
+			}
+			wantFields := &system.MenuFields{
+				ParentId: tc.wantParentID, Type: 2, Name: "页面", RouteName: "Child",
+				Path: "/child", Component: "system/child/index", Icon: "lucide:user",
+				Sort: 0, Visible: false, KeepAlive: false, External: false, Remark: "remark",
+			}
+			for _, item := range []*system.MenuInfo{found.Menu, list.Items[0]} {
+				if item == nil || item.Id != 42 || item.Status != 0 || !proto.Equal(item.Menu, wantFields) {
+					t.Fatalf("menu response lost hierarchy or fields: got=%v want fields=%v", item, wantFields)
+				}
+			}
+		})
+	}
+}
+
 func TestMenuStatusRejectsNarrowingOverflow(t *testing.T) {
 	ctx := context.Background()
 	for _, value := range []int32{-1, 2, 65536, 65537, -65536, 2147483647} {

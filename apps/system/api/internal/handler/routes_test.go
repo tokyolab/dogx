@@ -19,7 +19,6 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/rest/httpx"
-	"google.golang.org/grpc"
 )
 
 const routeTestAccessSecret = "0123456789abcdef0123456789abcdef"
@@ -51,133 +50,6 @@ func (s *routeEnforcerStub) BatchEnforce(requests [][]interface{}) ([]bool, erro
 	return results, nil
 }
 
-type routeSystemRPCStub struct {
-	systemclient.System
-	order              *[]string
-	called             string
-	request            *systemclient.ReplaceRoleAPIsRequest
-	listRolesRequest   *systemclient.ListRolesRequest
-	getRoleRequest     *systemclient.GetRoleRequest
-	listAPIsRequest    *systemclient.ListAPIsRequest
-	getRoleAPIsRequest *systemclient.GetRoleAPIsRequest
-}
-
-func (s *routeSystemRPCStub) CreateRole(
-	_ context.Context,
-	_ *systemclient.CreateRoleRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.CreateRoleResponse, error) {
-	*s.order = append(*s.order, "rpc")
-	s.called = "CreateRole"
-	return &systemclient.CreateRoleResponse{Id: 13}, nil
-}
-
-func (s *routeSystemRPCStub) UpdateRole(
-	_ context.Context,
-	_ *systemclient.UpdateRoleRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.EmptyResponse, error) {
-	*s.order = append(*s.order, "rpc")
-	s.called = "UpdateRole"
-	return &systemclient.EmptyResponse{}, nil
-}
-
-func (s *routeSystemRPCStub) UpdateRoleStatus(
-	_ context.Context,
-	_ *systemclient.UpdateRoleStatusRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.EmptyResponse, error) {
-	*s.order = append(*s.order, "rpc")
-	s.called = "UpdateRoleStatus"
-	return &systemclient.EmptyResponse{}, nil
-}
-
-func (s *routeSystemRPCStub) DeleteRole(
-	_ context.Context,
-	_ *systemclient.DeleteRoleRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.EmptyResponse, error) {
-	*s.order = append(*s.order, "rpc")
-	s.called = "DeleteRole"
-	return &systemclient.EmptyResponse{}, nil
-}
-
-func (s *routeSystemRPCStub) ReplaceRoleAPIs(
-	_ context.Context,
-	request *systemclient.ReplaceRoleAPIsRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.EmptyResponse, error) {
-	*s.order = append(*s.order, "rpc")
-	s.called = "ReplaceRoleAPIs"
-	s.request = request
-	return &systemclient.EmptyResponse{}, nil
-}
-
-func (s *routeSystemRPCStub) ListRoles(
-	_ context.Context,
-	request *systemclient.ListRolesRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.ListRolesResponse, error) {
-	*s.order = append(*s.order, "rpc")
-	s.called = "ListRoles"
-	s.listRolesRequest = request
-	return &systemclient.ListRolesResponse{
-		Items: []*systemclient.RoleInfo{{Id: 7, Code: "operator", Name: "Operator"}},
-		Total: 1,
-	}, nil
-}
-
-func (s *routeSystemRPCStub) GetRole(
-	_ context.Context,
-	request *systemclient.GetRoleRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.GetRoleResponse, error) {
-	*s.order = append(*s.order, "rpc")
-	s.called = "GetRole"
-	s.getRoleRequest = request
-	return &systemclient.GetRoleResponse{
-		Role: &systemclient.RoleInfo{Id: request.Id, Code: "operator", Name: "Operator"},
-	}, nil
-}
-
-func (s *routeSystemRPCStub) ListAPIs(
-	_ context.Context,
-	request *systemclient.ListAPIsRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.ListAPIsResponse, error) {
-	*s.order = append(*s.order, "rpc")
-	s.called = "ListAPIs"
-	s.listAPIsRequest = request
-	return &systemclient.ListAPIsResponse{
-		Items: []*systemclient.APIInfo{{
-			Id:          11,
-			ServiceName: "system-api",
-			ApiGroup:    "角色管理",
-			Name:        "查询角色",
-			Path:        "/role/get",
-			Method:      http.MethodPost,
-			Status:      1,
-		}},
-	}, nil
-}
-
-func (s *routeSystemRPCStub) GetRoleAPIs(
-	_ context.Context,
-	request *systemclient.GetRoleAPIsRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.GetRoleAPIsResponse, error) {
-	*s.order = append(*s.order, "rpc")
-	s.called = "GetRoleAPIs"
-	s.getRoleAPIsRequest = request
-	return &systemclient.GetRoleAPIsResponse{ApiIds: []int64{11, 12}}, nil
-}
-
-func (s *routeSystemRPCStub) ListNavigationMenus(_ context.Context, _ *systemclient.ListNavigationMenusRequest, _ ...grpc.CallOption) (*systemclient.ListNavigationMenusResponse, error) {
-	*s.order = append(*s.order, "rpc")
-	s.called = "ListNavigationMenus"
-	return &systemclient.ListNavigationMenusResponse{}, nil
-}
-
 type routeSecurityLevel int
 
 const (
@@ -197,6 +69,12 @@ type routeSecurityCase struct {
 }
 
 var routeSecurityMatrix = []routeSecurityCase{
+	{name: "menu list", method: http.MethodPost, path: "/menu/list", level: routeAuthorized, rpcMethod: "ListMenus"},
+	{name: "menu get", method: http.MethodPost, path: "/menu/get", body: `{"id":9}`, level: routeAuthorized, rpcMethod: "GetMenu"},
+	{name: "menu create", method: http.MethodPost, path: "/menu/create", body: `{"parentId":0,"type":1,"name":"Directory","routeName":"Directory","path":"/directory","sort":0,"visible":true,"keepAlive":false,"external":false,"status":1}`, level: routeAuthorized, rpcMethod: "CreateMenu"},
+	{name: "menu update", method: http.MethodPost, path: "/menu/update", body: `{"id":9,"parentId":0,"type":1,"name":"Directory","routeName":"Directory","path":"/directory","sort":0,"visible":true,"keepAlive":false,"external":false}`, level: routeAuthorized, rpcMethod: "UpdateMenu"},
+	{name: "menu status", method: http.MethodPost, path: "/menu/status/update", body: `{"id":9,"status":0}`, level: routeAuthorized, rpcMethod: "UpdateMenuStatus"},
+	{name: "menu delete", method: http.MethodPost, path: "/menu/delete", body: `{"id":9}`, level: routeAuthorized, rpcMethod: "DeleteMenu"},
 	{name: "user list", method: http.MethodPost, path: "/user/list", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListUsers"},
 	{name: "user get", method: http.MethodPost, path: "/user/get", body: `{"id":9}`, level: routeAuthorized, rpcMethod: "GetUser"},
 	{name: "user create", method: http.MethodPost, path: "/user/create", body: `{"username":"alice","nickname":"Alice","password":"Valid-pass123","status":1,"roleIds":[]}`, level: routeAuthorized, rpcMethod: "CreateUser"},
@@ -508,4 +386,3 @@ func assertRouteResponseCode(t testing.TB, recorder *httptest.ResponseRecorder, 
 
 var _ authn.SessionReader = (*routeSessionReaderStub)(nil)
 var _ middleware.BatchEnforcer = (*routeEnforcerStub)(nil)
-var _ systemclient.System = (*routeSystemRPCStub)(nil)

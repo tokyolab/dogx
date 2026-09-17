@@ -5,6 +5,8 @@ package repository
 import (
 	"context"
 	"errors"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
@@ -118,6 +120,74 @@ func TestMenuRepositoryLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+func TestMenuUpdateUniqueConflictsLeaveBothRecordsUnchanged(t *testing.T) {
+	_, db := newPostgreSQLUserRepository(t)
+	repo, err := NewMenuRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	oldParent := &model.Menu{Type: model.MenuTypeDirectory, Name: "Old parent", RouteName: "OldParent", Path: "/old-parent"}
+	newParent := &model.Menu{Type: model.MenuTypeDirectory, Name: "New parent", RouteName: "NewParent", Path: "/new-parent"}
+	for _, parent := range []*model.Menu{oldParent, newParent} {
+		if err := repo.Create(ctx, parent); err != nil {
+			t.Fatal(err)
+		}
+	}
+	source := &model.Menu{
+		ParentID: &oldParent.ID, Type: model.MenuTypePage, Name: "Original", RouteName: "Original",
+		Path: "/original", Component: "original/index", Sort: 10, Status: model.RecordStatusEnabled,
+		Visible: true, KeepAlive: true, Remark: "original remark",
+	}
+	// Disabled menus still reserve their route names and paths.
+	occupied := &model.Menu{
+		ParentID: &newParent.ID, Type: model.MenuTypePage, Name: "Occupied", RouteName: "Occupied",
+		Path: "/occupied", Component: "occupied/index", Status: model.RecordStatusDisabled,
+	}
+	for _, menu := range []*model.Menu{source, occupied} {
+		if err := repo.Create(ctx, menu); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snapshots := make([]*model.Menu, 0, 2)
+	for _, id := range []int64{source.ID, occupied.ID} {
+		snapshot, err := repo.FindByID(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshots = append(snapshots, snapshot)
+	}
+	for _, tc := range []struct {
+		name      string
+		routeName string
+		path      string
+		wantErr   error
+	}{
+		{"case-insensitive route name", strings.ToLower(occupied.RouteName), "/moved", ErrMenuRouteNameExists},
+		{"path", "Moved", occupied.Path, ErrMenuPathExists},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			candidate := &model.Menu{
+				ParentID: &newParent.ID, Type: model.MenuTypePage, Name: "Changed",
+				RouteName: tc.routeName, Path: tc.path, Component: "changed/index",
+				Sort: 0, Visible: false, KeepAlive: false, Remark: "",
+			}
+			if err := repo.Update(ctx, source.ID, candidate); !errors.Is(err, tc.wantErr) {
+				t.Fatalf("update error=%v want=%v", err, tc.wantErr)
+			}
+			for _, before := range snapshots {
+				after, err := repo.FindByID(ctx, before.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(after, before) {
+					t.Fatalf("failed update changed menu %d: before=%+v after=%+v", before.ID, before, after)
+				}
+			}
+		})
+	}
+}
+
 func TestMenuRepositoryIsolatesMobileAndRejectsCycles(t *testing.T) {
 	_, db := newPostgreSQLUserRepository(t)
 	repo, err := NewMenuRepository(db)
