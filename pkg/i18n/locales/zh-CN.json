@@ -15,6 +15,14 @@
     "business_error": "业务处理失败"
   },
   "system": {
+    "menu": {
+      "not_found": "菜单不存在",
+      "parent_invalid": "上级节点不存在或不能作为父节点",
+      "cycle": "不能选择自己或下级节点作为上级",
+      "has_children": "请先调整下级节点，再修改类型或删除",
+      "route_name_exists": "路由名称已存在",
+      "path_exists": "路由路径已存在"
+    },
     "auth": {
       "invalid_credentials": "用户名或密码错误",
       "user_disabled": "账号已停用",

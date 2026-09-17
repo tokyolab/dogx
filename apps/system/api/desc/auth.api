@@ -26,6 +26,25 @@ type (
 		Username string `json:"username"`
 		Nickname string `json:"nickname"`
 	}
+
+	NavigationMenu {
+		Id        int64  `json:"id"`
+		ParentId  int64  `json:"parentId"`
+		Type      int32  `json:"type"`
+		Name      string `json:"name"`
+		RouteName string `json:"routeName"`
+		Path      string `json:"path"`
+		Component string `json:"component"`
+		Icon      string `json:"icon"`
+		Sort      int32  `json:"sort"`
+		Visible   bool   `json:"visible"`
+		KeepAlive bool   `json:"keepAlive"`
+		External  bool   `json:"external"`
+	}
+
+	NavigationMenusResp {
+		Items []NavigationMenu `json:"items"`
+	}
 )
 
 @server (
@@ -50,6 +69,10 @@ service system-api {
 	@doc "Return the current signed-in user"
 	@handler currentUser
 	post /auth/me returns (CurrentUserResp)
+
+	@doc "Return enabled navigation for signed-in users"
+	@handler navigationMenus
+	post /auth/menus returns (NavigationMenusResp)
 
 	@doc "Revoke the current session"
 	@handler logout

@@ -27,8 +27,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 12 {
-		t.Fatalf("unexpected applied migration count: got %d, want 12", len(results))
+	if len(results) != 14 {
+		t.Fatalf("unexpected applied migration count: got %d, want 14", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -122,8 +122,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260916071004 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260916071004", version)
+	if version != 20260916160107 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260916160107", version)
 	}
 
 	expectedTables := map[string]string{
@@ -251,7 +251,31 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		t.Fatal("super_admin role was not marked as a system role")
 	}
 
+	if err := sqlDB.QueryRowContext(ctx, `
+		SELECT count(*) FROM sys_api
+		WHERE api_group = '菜单管理' AND service_name = 'system-api'
+		  AND method = 'POST' AND status = 1 AND is_required = FALSE
+		  AND deleted_at IS NULL
+	`).Scan(&seedCount); err != nil || seedCount != 6 {
+		t.Fatalf("unexpected menu management resources: %d %v", seedCount, err)
+	}
+
+	assertSystemMenuSeed(t, ctx, sqlDB)
 	downResult, err := provider.Down(ctx)
+	if err != nil || downResult.Source.Version != 20260916160107 {
+		t.Fatalf("unexpected system menu seed rollback: %+v %v", downResult, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_menu").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("system menu seed remained: %d %v", seedCount, err)
+	}
+	downResult, err = provider.Down(ctx)
+	if err != nil || downResult.Source.Version != 20260916160000 {
+		t.Fatalf("unexpected menu management rollback: %+v %v", downResult, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE api_group = '菜单管理'").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("menu management resources remained: %d %v", seedCount, err)
+	}
+	downResult, err = provider.Down(ctx)
 	if err != nil {
 		t.Fatalf("roll back latest migration: %v", err)
 	}
@@ -465,7 +489,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 10 ||
+	if len(reapplyResults) != 12 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
@@ -475,9 +499,12 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		reapplyResults[6].Source.Version != 20260828182507 ||
 		reapplyResults[7].Source.Version != 20260831100816 ||
 		reapplyResults[8].Source.Version != 20260907103000 ||
-		reapplyResults[9].Source.Version != 20260916071004 {
+		reapplyResults[9].Source.Version != 20260916071004 ||
+		reapplyResults[10].Source.Version != 20260916160000 ||
+		reapplyResults[11].Source.Version != 20260916160107 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
+	assertSystemMenuSeed(t, ctx, sqlDB)
 }
 
 func TestUsernameFormatConstraint(t *testing.T) {

@@ -1,0 +1,75 @@
+import "base.api"
+
+type (
+	MenuFields {
+		ParentId   int64  `json:"parentId" validate:"gte=0"`
+		Type       int32  `json:"type" validate:"oneof=1 2 3"`
+		Name       string `json:"name" validate:"required,max=64"`
+		RouteName  string `json:"routeName,optional" validate:"max=128"`
+		Path       string `json:"path,optional" validate:"max=255"`
+		Component  string `json:"component,optional" validate:"max=255"`
+		Permission string `json:"permission,optional" validate:"max=128"`
+		Icon       string `json:"icon,optional" validate:"max=128"`
+		Sort       int32  `json:"sort" validate:"gte=0"`
+		Visible    bool   `json:"visible"`
+		KeepAlive  bool   `json:"keepAlive"`
+		External   bool   `json:"external"`
+		Remark     string `json:"remark,optional" validate:"max=500"`
+	}
+
+	CreateMenuReq {
+		MenuFields
+		Status int32 `json:"status" validate:"oneof=0 1"`
+	}
+
+	CreateMenuResp {
+		Id int64 `json:"id"`
+	}
+
+	UpdateMenuReq {
+		MenuFields
+		Id int64 `json:"id" validate:"gt=0"`
+	}
+
+	UpdateMenuStatusReq {
+		Id     int64 `json:"id" validate:"gt=0"`
+		Status int32 `json:"status" validate:"oneof=0 1"`
+	}
+
+	MenuItem {
+		MenuFields
+		Id        int64  `json:"id"`
+		Status    int32  `json:"status"`
+		CreatedAt string `json:"createdAt"`
+		UpdatedAt string `json:"updatedAt"`
+	}
+
+	MenuListResp {
+		Items []MenuItem `json:"items"`
+	}
+)
+
+@server (
+	group: menu
+	jwt: Auth
+	middleware: SessionAuth, Authorization
+)
+service system-api {
+	@handler listMenus
+	post /menu/list returns (MenuListResp)
+
+	@handler getMenu
+	post /menu/get (IDReq) returns (MenuItem)
+
+	@handler createMenu
+	post /menu/create (CreateMenuReq) returns (CreateMenuResp)
+
+	@handler updateMenu
+	post /menu/update (UpdateMenuReq) returns (EmptyResp)
+
+	@handler updateMenuStatus
+	post /menu/status/update (UpdateMenuStatusReq) returns (EmptyResp)
+
+	@handler deleteMenu
+	post /menu/delete (IDReq) returns (EmptyResp)
+}

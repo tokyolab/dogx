@@ -262,6 +262,11 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
 	var disabledRoleCredentials loginData
 	decodeData(t, envelope, &disabledRoleCredentials)
+	// Navigation is available to signed-in users even without management permissions.
+	statusCode, envelope = postJSON(t, client, baseURL+"/auth/menus", disabledRoleCredentials.AccessToken, nil)
+	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
+	statusCode, envelope = postJSON(t, client, baseURL+"/menu/list", disabledRoleCredentials.AccessToken, nil)
+	assertEnvelope(t, statusCode, envelope, http.StatusForbidden, http.StatusForbidden, commonsubcode.PermissionDenied)
 	statusCode, envelope = postJSON(t, client, baseURL+"/role/get", disabledRoleCredentials.AccessToken, map[string]any{
 		"id": createdRole.ID,
 	})
@@ -313,6 +318,10 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	statusCode, envelope = postJSON(t, client, baseURL+"/auth/me", roleCredentials.AccessToken, nil)
 	assertEnvelope(t, statusCode, envelope, http.StatusUnauthorized, http.StatusUnauthorized, commonsubcode.AuthenticationRequired)
 	assertRoleDeletionPersisted(t, gormDB, createdRole.ID)
+
+	t.Run("menu management", func(t *testing.T) {
+		testMenuManagement(t, client, baseURL, credentials.AccessToken)
+	})
 
 	t.Run("user management", func(t *testing.T) {
 		testUserManagement(t, client, baseURL, credentials.AccessToken, user.ID, role.ID, apiProcess, func(id int64, refresh string) {

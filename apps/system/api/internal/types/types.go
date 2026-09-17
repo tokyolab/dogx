@@ -30,6 +30,15 @@ type ChangePasswordReq struct {
 	NewPassword     string `json:"newPassword" validate:"required,min=8,max=32,ascii"`
 }
 
+type CreateMenuReq struct {
+	MenuFields
+	Status int32 `json:"status" validate:"oneof=0 1"`
+}
+
+type CreateMenuResp struct {
+	Id int64 `json:"id"`
+}
+
 type CreateRoleReq struct {
 	Code        string `json:"code" validate:"required,max=64"`
 	Name        string `json:"name" validate:"required,max=64"`
@@ -99,6 +108,53 @@ type LoginResp struct {
 	ExpiresIn    int64  `json:"expiresIn"`
 }
 
+type MenuFields struct {
+	ParentId   int64  `json:"parentId" validate:"gte=0"`
+	Type       int32  `json:"type" validate:"oneof=1 2 3"`
+	Name       string `json:"name" validate:"required,max=64"`
+	RouteName  string `json:"routeName,optional" validate:"max=128"`
+	Path       string `json:"path,optional" validate:"max=255"`
+	Component  string `json:"component,optional" validate:"max=255"`
+	Permission string `json:"permission,optional" validate:"max=128"`
+	Icon       string `json:"icon,optional" validate:"max=128"`
+	Sort       int32  `json:"sort" validate:"gte=0"`
+	Visible    bool   `json:"visible"`
+	KeepAlive  bool   `json:"keepAlive"`
+	External   bool   `json:"external"`
+	Remark     string `json:"remark,optional" validate:"max=500"`
+}
+
+type MenuItem struct {
+	MenuFields
+	Id        int64  `json:"id"`
+	Status    int32  `json:"status"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+type MenuListResp struct {
+	Items []MenuItem `json:"items"`
+}
+
+type NavigationMenu struct {
+	Id        int64  `json:"id"`
+	ParentId  int64  `json:"parentId"`
+	Type      int32  `json:"type"`
+	Name      string `json:"name"`
+	RouteName string `json:"routeName"`
+	Path      string `json:"path"`
+	Component string `json:"component"`
+	Icon      string `json:"icon"`
+	Sort      int32  `json:"sort"`
+	Visible   bool   `json:"visible"`
+	KeepAlive bool   `json:"keepAlive"`
+	External  bool   `json:"external"`
+}
+
+type NavigationMenusResp struct {
+	Items []NavigationMenu `json:"items"`
+}
+
 type PageMeta struct {
 	Total int64 `json:"total"`
 }
@@ -142,6 +198,16 @@ type RoleListReq struct {
 type RoleListResp struct {
 	Items []RoleItem `json:"items"`
 	Total int64      `json:"total"`
+}
+
+type UpdateMenuReq struct {
+	MenuFields
+	Id int64 `json:"id" validate:"gt=0"`
+}
+
+type UpdateMenuStatusReq struct {
+	Id     int64 `json:"id" validate:"gt=0"`
+	Status int32 `json:"status" validate:"oneof=0 1"`
 }
 
 type UpdateRoleAPIsReq struct {

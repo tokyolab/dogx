@@ -35,6 +35,7 @@ type ServiceContext struct {
 	Redis         *redis.Redis
 	UserRepo      repository.UserRepository
 	RoleRepo      repository.RoleRepository
+	MenuRepo      repository.MenuRepository
 	APIRepo       repository.APIRepository
 	LoginLogRepo  repository.LoginLogRepository
 	Passwords     authn.PasswordHasher
@@ -104,6 +105,11 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("initialize API repository: %w", err)
 	}
+	menuRepo, err := repository.NewMenuRepository(database)
+	if err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("initialize menu repository: %w", err)
+	}
 	loginLogRepo, err := repository.NewLoginLogRepository(database)
 	if err != nil {
 		_ = sqlDB.Close()
@@ -127,6 +133,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		Redis:           redisClient,
 		UserRepo:        userRepo,
 		RoleRepo:        roleRepo,
+		MenuRepo:        menuRepo,
 		APIRepo:         apiRepo,
 		LoginLogRepo:    loginLogRepo,
 		Passwords:       passwords,

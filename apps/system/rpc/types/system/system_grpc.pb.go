@@ -19,6 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	System_ListNavigationMenus_FullMethodName = "/system.System/ListNavigationMenus"
+	System_ListMenus_FullMethodName           = "/system.System/ListMenus"
+	System_GetMenu_FullMethodName             = "/system.System/GetMenu"
+	System_CreateMenu_FullMethodName          = "/system.System/CreateMenu"
+	System_UpdateMenu_FullMethodName          = "/system.System/UpdateMenu"
+	System_UpdateMenuStatus_FullMethodName    = "/system.System/UpdateMenuStatus"
+	System_DeleteMenu_FullMethodName          = "/system.System/DeleteMenu"
 	System_CheckReady_FullMethodName          = "/system.System/CheckReady"
 	System_Login_FullMethodName               = "/system.System/Login"
 	System_RefreshCredentials_FullMethodName  = "/system.System/RefreshCredentials"
@@ -50,6 +57,13 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SystemClient interface {
+	ListNavigationMenus(ctx context.Context, in *ListNavigationMenusRequest, opts ...grpc.CallOption) (*ListNavigationMenusResponse, error)
+	ListMenus(ctx context.Context, in *ListMenusRequest, opts ...grpc.CallOption) (*ListMenusResponse, error)
+	GetMenu(ctx context.Context, in *GetMenuRequest, opts ...grpc.CallOption) (*GetMenuResponse, error)
+	CreateMenu(ctx context.Context, in *CreateMenuRequest, opts ...grpc.CallOption) (*CreateMenuResponse, error)
+	UpdateMenu(ctx context.Context, in *UpdateMenuRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	UpdateMenuStatus(ctx context.Context, in *UpdateMenuStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	DeleteMenu(ctx context.Context, in *DeleteMenuRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	CheckReady(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	RefreshCredentials(ctx context.Context, in *RefreshCredentialsRequest, opts ...grpc.CallOption) (*LoginResponse, error)
@@ -83,6 +97,76 @@ type systemClient struct {
 
 func NewSystemClient(cc grpc.ClientConnInterface) SystemClient {
 	return &systemClient{cc}
+}
+
+func (c *systemClient) ListNavigationMenus(ctx context.Context, in *ListNavigationMenusRequest, opts ...grpc.CallOption) (*ListNavigationMenusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNavigationMenusResponse)
+	err := c.cc.Invoke(ctx, System_ListNavigationMenus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) ListMenus(ctx context.Context, in *ListMenusRequest, opts ...grpc.CallOption) (*ListMenusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMenusResponse)
+	err := c.cc.Invoke(ctx, System_ListMenus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) GetMenu(ctx context.Context, in *GetMenuRequest, opts ...grpc.CallOption) (*GetMenuResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMenuResponse)
+	err := c.cc.Invoke(ctx, System_GetMenu_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) CreateMenu(ctx context.Context, in *CreateMenuRequest, opts ...grpc.CallOption) (*CreateMenuResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateMenuResponse)
+	err := c.cc.Invoke(ctx, System_CreateMenu_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateMenu(ctx context.Context, in *UpdateMenuRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateMenu_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateMenuStatus(ctx context.Context, in *UpdateMenuStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateMenuStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) DeleteMenu(ctx context.Context, in *DeleteMenuRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_DeleteMenu_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *systemClient) CheckReady(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error) {
@@ -339,6 +423,13 @@ func (c *systemClient) ListUserRoleOptions(ctx context.Context, in *ListRolesReq
 // All implementations must embed UnimplementedSystemServer
 // for forward compatibility.
 type SystemServer interface {
+	ListNavigationMenus(context.Context, *ListNavigationMenusRequest) (*ListNavigationMenusResponse, error)
+	ListMenus(context.Context, *ListMenusRequest) (*ListMenusResponse, error)
+	GetMenu(context.Context, *GetMenuRequest) (*GetMenuResponse, error)
+	CreateMenu(context.Context, *CreateMenuRequest) (*CreateMenuResponse, error)
+	UpdateMenu(context.Context, *UpdateMenuRequest) (*EmptyResponse, error)
+	UpdateMenuStatus(context.Context, *UpdateMenuStatusRequest) (*EmptyResponse, error)
+	DeleteMenu(context.Context, *DeleteMenuRequest) (*EmptyResponse, error)
 	CheckReady(context.Context, *ReadyRequest) (*ReadyResponse, error)
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
 	RefreshCredentials(context.Context, *RefreshCredentialsRequest) (*LoginResponse, error)
@@ -374,6 +465,27 @@ type SystemServer interface {
 // pointer dereference when methods are called.
 type UnimplementedSystemServer struct{}
 
+func (UnimplementedSystemServer) ListNavigationMenus(context.Context, *ListNavigationMenusRequest) (*ListNavigationMenusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListNavigationMenus not implemented")
+}
+func (UnimplementedSystemServer) ListMenus(context.Context, *ListMenusRequest) (*ListMenusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMenus not implemented")
+}
+func (UnimplementedSystemServer) GetMenu(context.Context, *GetMenuRequest) (*GetMenuResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMenu not implemented")
+}
+func (UnimplementedSystemServer) CreateMenu(context.Context, *CreateMenuRequest) (*CreateMenuResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMenu not implemented")
+}
+func (UnimplementedSystemServer) UpdateMenu(context.Context, *UpdateMenuRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMenu not implemented")
+}
+func (UnimplementedSystemServer) UpdateMenuStatus(context.Context, *UpdateMenuStatusRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMenuStatus not implemented")
+}
+func (UnimplementedSystemServer) DeleteMenu(context.Context, *DeleteMenuRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMenu not implemented")
+}
 func (UnimplementedSystemServer) CheckReady(context.Context, *ReadyRequest) (*ReadyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CheckReady not implemented")
 }
@@ -468,6 +580,132 @@ func RegisterSystemServer(s grpc.ServiceRegistrar, srv SystemServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&System_ServiceDesc, srv)
+}
+
+func _System_ListNavigationMenus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNavigationMenusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ListNavigationMenus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ListNavigationMenus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ListNavigationMenus(ctx, req.(*ListNavigationMenusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_ListMenus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMenusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ListMenus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ListMenus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ListMenus(ctx, req.(*ListMenusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_GetMenu_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMenuRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).GetMenu(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_GetMenu_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).GetMenu(ctx, req.(*GetMenuRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_CreateMenu_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMenuRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).CreateMenu(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_CreateMenu_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).CreateMenu(ctx, req.(*CreateMenuRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateMenu_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMenuRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateMenu(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateMenu_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateMenu(ctx, req.(*UpdateMenuRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateMenuStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMenuStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateMenuStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateMenuStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateMenuStatus(ctx, req.(*UpdateMenuStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_DeleteMenu_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMenuRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).DeleteMenu(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_DeleteMenu_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).DeleteMenu(ctx, req.(*DeleteMenuRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _System_CheckReady_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -927,6 +1165,34 @@ var System_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "system.System",
 	HandlerType: (*SystemServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListNavigationMenus",
+			Handler:    _System_ListNavigationMenus_Handler,
+		},
+		{
+			MethodName: "ListMenus",
+			Handler:    _System_ListMenus_Handler,
+		},
+		{
+			MethodName: "GetMenu",
+			Handler:    _System_GetMenu_Handler,
+		},
+		{
+			MethodName: "CreateMenu",
+			Handler:    _System_CreateMenu_Handler,
+		},
+		{
+			MethodName: "UpdateMenu",
+			Handler:    _System_UpdateMenu_Handler,
+		},
+		{
+			MethodName: "UpdateMenuStatus",
+			Handler:    _System_UpdateMenuStatus_Handler,
+		},
+		{
+			MethodName: "DeleteMenu",
+			Handler:    _System_DeleteMenu_Handler,
+		},
 		{
 			MethodName: "CheckReady",
 			Handler:    _System_CheckReady_Handler,

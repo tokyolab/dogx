@@ -9,6 +9,7 @@ import (
 	api "github.com/tokyolab/dogx/apps/system/api/internal/handler/api"
 	auth "github.com/tokyolab/dogx/apps/system/api/internal/handler/auth"
 	health "github.com/tokyolab/dogx/apps/system/api/internal/handler/health"
+	menu "github.com/tokyolab/dogx/apps/system/api/internal/handler/menu"
 	role "github.com/tokyolab/dogx/apps/system/api/internal/handler/role"
 	user "github.com/tokyolab/dogx/apps/system/api/internal/handler/user"
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
@@ -77,6 +78,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/auth/me",
 					Handler: auth.CurrentUserHandler(serverCtx),
 				},
+				{
+					// Return enabled navigation for signed-in users
+					Method:  http.MethodPost,
+					Path:    "/auth/menus",
+					Handler: auth.NavigationMenusHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
@@ -97,6 +104,45 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: health.ReadyHandler(serverCtx),
 			},
 		},
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/menu/create",
+					Handler: menu.CreateMenuHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/menu/delete",
+					Handler: menu.DeleteMenuHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/menu/get",
+					Handler: menu.GetMenuHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/menu/list",
+					Handler: menu.ListMenusHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/menu/status/update",
+					Handler: menu.UpdateMenuStatusHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/menu/update",
+					Handler: menu.UpdateMenuHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
 	)
 
 	server.AddRoutes(

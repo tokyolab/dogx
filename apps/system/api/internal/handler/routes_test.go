@@ -172,6 +172,12 @@ func (s *routeSystemRPCStub) GetRoleAPIs(
 	return &systemclient.GetRoleAPIsResponse{ApiIds: []int64{11, 12}}, nil
 }
 
+func (s *routeSystemRPCStub) ListNavigationMenus(_ context.Context, _ *systemclient.ListNavigationMenusRequest, _ ...grpc.CallOption) (*systemclient.ListNavigationMenusResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "ListNavigationMenus"
+	return &systemclient.ListNavigationMenusResponse{}, nil
+}
+
 type routeSecurityLevel int
 
 const (
@@ -205,6 +211,7 @@ var routeSecurityMatrix = []routeSecurityCase{
 	{name: "health", method: http.MethodGet, path: "/health", level: routePublic, publicStatus: http.StatusOK},
 	{name: "ready", method: http.MethodGet, path: "/ready", level: routePublic, publicStatus: http.StatusServiceUnavailable},
 	{name: "current user", method: http.MethodPost, path: "/auth/me", level: routeAuthenticated},
+	{name: "navigation menus", method: http.MethodPost, path: "/auth/menus", level: routeAuthenticated},
 	{name: "logout", method: http.MethodPost, path: "/auth/logout", level: routeAuthenticated},
 	{name: "logout all", method: http.MethodPost, path: "/auth/logout-all", level: routeAuthenticated},
 	{name: "change password", method: http.MethodPost, path: "/auth/change-password", body: `{}`, level: routeAuthenticated},
@@ -270,6 +277,36 @@ func TestRegisteredRoleRouteChecksSessionBeforeAuthorization(t *testing.T) {
 	assertRouteResponseCode(t, recorder, http.StatusUnauthorized, http.StatusUnauthorized)
 	if len(order) != 1 || order[0] != "session" || rpc.request != nil {
 		t.Fatalf("invalid session reached authorization or RPC: order=%v request=%+v", order, rpc.request)
+	}
+}
+
+func TestNavigationRouteRequiresSessionButNotManagementPermission(t *testing.T) {
+	for _, validSession := range []bool{true, false} {
+		order := []string{}
+		sessions := validRouteSessionReader(&order)
+		if !validSession {
+			sessions.err = authn.ErrSessionNotFound
+		}
+		enforcer := &routeEnforcerStub{order: &order, allowed: false}
+		rpc := &routeSystemRPCStub{order: &order}
+		server := newRouteTestServer(t, sessions, enforcer, rpc)
+		recorder := httptest.NewRecorder()
+		request := newSecurityRouteRequest(routeSecurityCase{method: http.MethodPost, path: "/auth/menus"}, signedRouteToken(t, 42, "session-id", nil))
+		server.Serve(recorder, request)
+		if validSession {
+			assertRouteResponseCode(t, recorder, http.StatusOK, commonresponse.SuccessCode)
+			if strings.Join(order, ",") != "session,rpc" || rpc.called != "ListNavigationMenus" {
+				t.Fatalf("unexpected order=%v method=%s", order, rpc.called)
+			}
+		} else {
+			assertRouteResponseCode(t, recorder, http.StatusUnauthorized, http.StatusUnauthorized)
+			if strings.Join(order, ",") != "session" {
+				t.Fatalf("invalid session reached RPC: %v", order)
+			}
+		}
+		if len(enforcer.requests) != 0 {
+			t.Fatal("navigation incorrectly requires management permission")
+		}
 	}
 }
 

@@ -23,6 +23,41 @@ func NewSystemServer(svcCtx *svc.ServiceContext) *SystemServer {
 	}
 }
 
+func (s *SystemServer) ListNavigationMenus(ctx context.Context, in *system.ListNavigationMenusRequest) (*system.ListNavigationMenusResponse, error) {
+	l := logic.NewListNavigationMenusLogic(ctx, s.svcCtx)
+	return l.ListNavigationMenus(in)
+}
+
+func (s *SystemServer) ListMenus(ctx context.Context, in *system.ListMenusRequest) (*system.ListMenusResponse, error) {
+	l := logic.NewListMenusLogic(ctx, s.svcCtx)
+	return l.ListMenus(in)
+}
+
+func (s *SystemServer) GetMenu(ctx context.Context, in *system.GetMenuRequest) (*system.GetMenuResponse, error) {
+	l := logic.NewGetMenuLogic(ctx, s.svcCtx)
+	return l.GetMenu(in)
+}
+
+func (s *SystemServer) CreateMenu(ctx context.Context, in *system.CreateMenuRequest) (*system.CreateMenuResponse, error) {
+	l := logic.NewCreateMenuLogic(ctx, s.svcCtx)
+	return l.CreateMenu(in)
+}
+
+func (s *SystemServer) UpdateMenu(ctx context.Context, in *system.UpdateMenuRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateMenuLogic(ctx, s.svcCtx)
+	return l.UpdateMenu(in)
+}
+
+func (s *SystemServer) UpdateMenuStatus(ctx context.Context, in *system.UpdateMenuStatusRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateMenuStatusLogic(ctx, s.svcCtx)
+	return l.UpdateMenuStatus(in)
+}
+
+func (s *SystemServer) DeleteMenu(ctx context.Context, in *system.DeleteMenuRequest) (*system.EmptyResponse, error) {
+	l := logic.NewDeleteMenuLogic(ctx, s.svcCtx)
+	return l.DeleteMenu(in)
+}
+
 func (s *SystemServer) CheckReady(ctx context.Context, in *system.ReadyRequest) (*system.ReadyResponse, error) {
 	l := logic.NewCheckReadyLogic(ctx, s.svcCtx)
 	return l.CheckReady(in)

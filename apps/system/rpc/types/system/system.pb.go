@@ -2433,6 +2433,846 @@ func (x *ListUserRoleOptionsResponse) GetTotal() int64 {
 	return 0
 }
 
+type MenuFields struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ParentId      int64                  `protobuf:"varint,1,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
+	Type          int32                  `protobuf:"varint,2,opt,name=type,proto3" json:"type,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	RouteName     string                 `protobuf:"bytes,4,opt,name=route_name,json=routeName,proto3" json:"route_name,omitempty"`
+	Path          string                 `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
+	Component     string                 `protobuf:"bytes,6,opt,name=component,proto3" json:"component,omitempty"`
+	Permission    string                 `protobuf:"bytes,7,opt,name=permission,proto3" json:"permission,omitempty"`
+	Icon          string                 `protobuf:"bytes,8,opt,name=icon,proto3" json:"icon,omitempty"`
+	Sort          int32                  `protobuf:"varint,9,opt,name=sort,proto3" json:"sort,omitempty"`
+	Visible       bool                   `protobuf:"varint,10,opt,name=visible,proto3" json:"visible,omitempty"`
+	KeepAlive     bool                   `protobuf:"varint,11,opt,name=keep_alive,json=keepAlive,proto3" json:"keep_alive,omitempty"`
+	External      bool                   `protobuf:"varint,12,opt,name=external,proto3" json:"external,omitempty"`
+	Remark        string                 `protobuf:"bytes,13,opt,name=remark,proto3" json:"remark,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MenuFields) Reset() {
+	*x = MenuFields{}
+	mi := &file_system_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MenuFields) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MenuFields) ProtoMessage() {}
+
+func (x *MenuFields) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MenuFields.ProtoReflect.Descriptor instead.
+func (*MenuFields) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *MenuFields) GetParentId() int64 {
+	if x != nil {
+		return x.ParentId
+	}
+	return 0
+}
+
+func (x *MenuFields) GetType() int32 {
+	if x != nil {
+		return x.Type
+	}
+	return 0
+}
+
+func (x *MenuFields) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *MenuFields) GetRouteName() string {
+	if x != nil {
+		return x.RouteName
+	}
+	return ""
+}
+
+func (x *MenuFields) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *MenuFields) GetComponent() string {
+	if x != nil {
+		return x.Component
+	}
+	return ""
+}
+
+func (x *MenuFields) GetPermission() string {
+	if x != nil {
+		return x.Permission
+	}
+	return ""
+}
+
+func (x *MenuFields) GetIcon() string {
+	if x != nil {
+		return x.Icon
+	}
+	return ""
+}
+
+func (x *MenuFields) GetSort() int32 {
+	if x != nil {
+		return x.Sort
+	}
+	return 0
+}
+
+func (x *MenuFields) GetVisible() bool {
+	if x != nil {
+		return x.Visible
+	}
+	return false
+}
+
+func (x *MenuFields) GetKeepAlive() bool {
+	if x != nil {
+		return x.KeepAlive
+	}
+	return false
+}
+
+func (x *MenuFields) GetExternal() bool {
+	if x != nil {
+		return x.External
+	}
+	return false
+}
+
+func (x *MenuFields) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+type MenuInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Menu          *MenuFields            `protobuf:"bytes,1,opt,name=menu,proto3" json:"menu,omitempty"`
+	Id            int64                  `protobuf:"varint,2,opt,name=id,proto3" json:"id,omitempty"`
+	Status        int32                  `protobuf:"varint,3,opt,name=status,proto3" json:"status,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MenuInfo) Reset() {
+	*x = MenuInfo{}
+	mi := &file_system_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MenuInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MenuInfo) ProtoMessage() {}
+
+func (x *MenuInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MenuInfo.ProtoReflect.Descriptor instead.
+func (*MenuInfo) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *MenuInfo) GetMenu() *MenuFields {
+	if x != nil {
+		return x.Menu
+	}
+	return nil
+}
+
+func (x *MenuInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *MenuInfo) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *MenuInfo) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *MenuInfo) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type ListMenusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMenusRequest) Reset() {
+	*x = ListMenusRequest{}
+	mi := &file_system_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMenusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMenusRequest) ProtoMessage() {}
+
+func (x *ListMenusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMenusRequest.ProtoReflect.Descriptor instead.
+func (*ListMenusRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{43}
+}
+
+type ListMenusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*MenuInfo            `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMenusResponse) Reset() {
+	*x = ListMenusResponse{}
+	mi := &file_system_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMenusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMenusResponse) ProtoMessage() {}
+
+func (x *ListMenusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMenusResponse.ProtoReflect.Descriptor instead.
+func (*ListMenusResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *ListMenusResponse) GetItems() []*MenuInfo {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type GetMenuRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMenuRequest) Reset() {
+	*x = GetMenuRequest{}
+	mi := &file_system_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMenuRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMenuRequest) ProtoMessage() {}
+
+func (x *GetMenuRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMenuRequest.ProtoReflect.Descriptor instead.
+func (*GetMenuRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *GetMenuRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type GetMenuResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Menu          *MenuInfo              `protobuf:"bytes,1,opt,name=menu,proto3" json:"menu,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMenuResponse) Reset() {
+	*x = GetMenuResponse{}
+	mi := &file_system_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMenuResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMenuResponse) ProtoMessage() {}
+
+func (x *GetMenuResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMenuResponse.ProtoReflect.Descriptor instead.
+func (*GetMenuResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *GetMenuResponse) GetMenu() *MenuInfo {
+	if x != nil {
+		return x.Menu
+	}
+	return nil
+}
+
+type CreateMenuRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Menu          *MenuFields            `protobuf:"bytes,1,opt,name=menu,proto3" json:"menu,omitempty"`
+	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateMenuRequest) Reset() {
+	*x = CreateMenuRequest{}
+	mi := &file_system_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateMenuRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateMenuRequest) ProtoMessage() {}
+
+func (x *CreateMenuRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateMenuRequest.ProtoReflect.Descriptor instead.
+func (*CreateMenuRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *CreateMenuRequest) GetMenu() *MenuFields {
+	if x != nil {
+		return x.Menu
+	}
+	return nil
+}
+
+func (x *CreateMenuRequest) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+type CreateMenuResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateMenuResponse) Reset() {
+	*x = CreateMenuResponse{}
+	mi := &file_system_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateMenuResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateMenuResponse) ProtoMessage() {}
+
+func (x *CreateMenuResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateMenuResponse.ProtoReflect.Descriptor instead.
+func (*CreateMenuResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *CreateMenuResponse) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type UpdateMenuRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Menu          *MenuFields            `protobuf:"bytes,2,opt,name=menu,proto3" json:"menu,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateMenuRequest) Reset() {
+	*x = UpdateMenuRequest{}
+	mi := &file_system_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateMenuRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateMenuRequest) ProtoMessage() {}
+
+func (x *UpdateMenuRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateMenuRequest.ProtoReflect.Descriptor instead.
+func (*UpdateMenuRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *UpdateMenuRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateMenuRequest) GetMenu() *MenuFields {
+	if x != nil {
+		return x.Menu
+	}
+	return nil
+}
+
+type UpdateMenuStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateMenuStatusRequest) Reset() {
+	*x = UpdateMenuStatusRequest{}
+	mi := &file_system_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateMenuStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateMenuStatusRequest) ProtoMessage() {}
+
+func (x *UpdateMenuStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateMenuStatusRequest.ProtoReflect.Descriptor instead.
+func (*UpdateMenuStatusRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *UpdateMenuStatusRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateMenuStatusRequest) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+type DeleteMenuRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteMenuRequest) Reset() {
+	*x = DeleteMenuRequest{}
+	mi := &file_system_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteMenuRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteMenuRequest) ProtoMessage() {}
+
+func (x *DeleteMenuRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteMenuRequest.ProtoReflect.Descriptor instead.
+func (*DeleteMenuRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *DeleteMenuRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type ListNavigationMenusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNavigationMenusRequest) Reset() {
+	*x = ListNavigationMenusRequest{}
+	mi := &file_system_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNavigationMenusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNavigationMenusRequest) ProtoMessage() {}
+
+func (x *ListNavigationMenusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNavigationMenusRequest.ProtoReflect.Descriptor instead.
+func (*ListNavigationMenusRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{52}
+}
+
+type NavigationMenu struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ParentId      int64                  `protobuf:"varint,2,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
+	Type          int32                  `protobuf:"varint,3,opt,name=type,proto3" json:"type,omitempty"`
+	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	RouteName     string                 `protobuf:"bytes,5,opt,name=route_name,json=routeName,proto3" json:"route_name,omitempty"`
+	Path          string                 `protobuf:"bytes,6,opt,name=path,proto3" json:"path,omitempty"`
+	Component     string                 `protobuf:"bytes,7,opt,name=component,proto3" json:"component,omitempty"`
+	Icon          string                 `protobuf:"bytes,8,opt,name=icon,proto3" json:"icon,omitempty"`
+	Sort          int32                  `protobuf:"varint,9,opt,name=sort,proto3" json:"sort,omitempty"`
+	Visible       bool                   `protobuf:"varint,10,opt,name=visible,proto3" json:"visible,omitempty"`
+	KeepAlive     bool                   `protobuf:"varint,11,opt,name=keep_alive,json=keepAlive,proto3" json:"keep_alive,omitempty"`
+	External      bool                   `protobuf:"varint,12,opt,name=external,proto3" json:"external,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NavigationMenu) Reset() {
+	*x = NavigationMenu{}
+	mi := &file_system_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NavigationMenu) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NavigationMenu) ProtoMessage() {}
+
+func (x *NavigationMenu) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NavigationMenu.ProtoReflect.Descriptor instead.
+func (*NavigationMenu) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *NavigationMenu) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *NavigationMenu) GetParentId() int64 {
+	if x != nil {
+		return x.ParentId
+	}
+	return 0
+}
+
+func (x *NavigationMenu) GetType() int32 {
+	if x != nil {
+		return x.Type
+	}
+	return 0
+}
+
+func (x *NavigationMenu) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *NavigationMenu) GetRouteName() string {
+	if x != nil {
+		return x.RouteName
+	}
+	return ""
+}
+
+func (x *NavigationMenu) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *NavigationMenu) GetComponent() string {
+	if x != nil {
+		return x.Component
+	}
+	return ""
+}
+
+func (x *NavigationMenu) GetIcon() string {
+	if x != nil {
+		return x.Icon
+	}
+	return ""
+}
+
+func (x *NavigationMenu) GetSort() int32 {
+	if x != nil {
+		return x.Sort
+	}
+	return 0
+}
+
+func (x *NavigationMenu) GetVisible() bool {
+	if x != nil {
+		return x.Visible
+	}
+	return false
+}
+
+func (x *NavigationMenu) GetKeepAlive() bool {
+	if x != nil {
+		return x.KeepAlive
+	}
+	return false
+}
+
+func (x *NavigationMenu) GetExternal() bool {
+	if x != nil {
+		return x.External
+	}
+	return false
+}
+
+type ListNavigationMenusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*NavigationMenu      `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNavigationMenusResponse) Reset() {
+	*x = ListNavigationMenusResponse{}
+	mi := &file_system_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNavigationMenusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNavigationMenusResponse) ProtoMessage() {}
+
+func (x *ListNavigationMenusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNavigationMenusResponse.ProtoReflect.Descriptor instead.
+func (*ListNavigationMenusResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *ListNavigationMenusResponse) GetItems() []*NavigationMenu {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
 var File_system_proto protoreflect.FileDescriptor
 
 const file_system_proto_rawDesc = "" +
@@ -2611,8 +3451,85 @@ const file_system_proto_rawDesc = "" +
 	"operatorId\"_\n" +
 	"\x1bListUserRoleOptionsResponse\x12*\n" +
 	"\x05items\x18\x01 \x03(\v2\x14.system.UserRoleInfoR\x05items\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x03R\x05total2\xd1\r\n" +
-	"\x06System\x129\n" +
+	"\x05total\x18\x02 \x01(\x03R\x05total\"\xd7\x02\n" +
+	"\n" +
+	"MenuFields\x12\x1b\n" +
+	"\tparent_id\x18\x01 \x01(\x03R\bparentId\x12\x12\n" +
+	"\x04type\x18\x02 \x01(\x05R\x04type\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"route_name\x18\x04 \x01(\tR\trouteName\x12\x12\n" +
+	"\x04path\x18\x05 \x01(\tR\x04path\x12\x1c\n" +
+	"\tcomponent\x18\x06 \x01(\tR\tcomponent\x12\x1e\n" +
+	"\n" +
+	"permission\x18\a \x01(\tR\n" +
+	"permission\x12\x12\n" +
+	"\x04icon\x18\b \x01(\tR\x04icon\x12\x12\n" +
+	"\x04sort\x18\t \x01(\x05R\x04sort\x12\x18\n" +
+	"\avisible\x18\n" +
+	" \x01(\bR\avisible\x12\x1d\n" +
+	"\n" +
+	"keep_alive\x18\v \x01(\bR\tkeepAlive\x12\x1a\n" +
+	"\bexternal\x18\f \x01(\bR\bexternal\x12\x16\n" +
+	"\x06remark\x18\r \x01(\tR\x06remark\"\x98\x01\n" +
+	"\bMenuInfo\x12&\n" +
+	"\x04menu\x18\x01 \x01(\v2\x12.system.MenuFieldsR\x04menu\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\x03R\x02id\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\x05R\x06status\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x05 \x01(\tR\tupdatedAt\"\x12\n" +
+	"\x10ListMenusRequest\";\n" +
+	"\x11ListMenusResponse\x12&\n" +
+	"\x05items\x18\x01 \x03(\v2\x10.system.MenuInfoR\x05items\" \n" +
+	"\x0eGetMenuRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"7\n" +
+	"\x0fGetMenuResponse\x12$\n" +
+	"\x04menu\x18\x01 \x01(\v2\x10.system.MenuInfoR\x04menu\"S\n" +
+	"\x11CreateMenuRequest\x12&\n" +
+	"\x04menu\x18\x01 \x01(\v2\x12.system.MenuFieldsR\x04menu\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\x05R\x06status\"$\n" +
+	"\x12CreateMenuResponse\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"K\n" +
+	"\x11UpdateMenuRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12&\n" +
+	"\x04menu\x18\x02 \x01(\v2\x12.system.MenuFieldsR\x04menu\"A\n" +
+	"\x17UpdateMenuStatusRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\x05R\x06status\"#\n" +
+	"\x11DeleteMenuRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"\x1c\n" +
+	"\x1aListNavigationMenusRequest\"\xb3\x02\n" +
+	"\x0eNavigationMenu\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
+	"\tparent_id\x18\x02 \x01(\x03R\bparentId\x12\x12\n" +
+	"\x04type\x18\x03 \x01(\x05R\x04type\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"route_name\x18\x05 \x01(\tR\trouteName\x12\x12\n" +
+	"\x04path\x18\x06 \x01(\tR\x04path\x12\x1c\n" +
+	"\tcomponent\x18\a \x01(\tR\tcomponent\x12\x12\n" +
+	"\x04icon\x18\b \x01(\tR\x04icon\x12\x12\n" +
+	"\x04sort\x18\t \x01(\x05R\x04sort\x12\x18\n" +
+	"\avisible\x18\n" +
+	" \x01(\bR\avisible\x12\x1d\n" +
+	"\n" +
+	"keep_alive\x18\v \x01(\bR\tkeepAlive\x12\x1a\n" +
+	"\bexternal\x18\f \x01(\bR\bexternal\"K\n" +
+	"\x1bListNavigationMenusResponse\x12,\n" +
+	"\x05items\x18\x01 \x03(\v2\x16.system.NavigationMenuR\x05items2\xc0\x11\n" +
+	"\x06System\x12^\n" +
+	"\x13ListNavigationMenus\x12\".system.ListNavigationMenusRequest\x1a#.system.ListNavigationMenusResponse\x12@\n" +
+	"\tListMenus\x12\x18.system.ListMenusRequest\x1a\x19.system.ListMenusResponse\x12:\n" +
+	"\aGetMenu\x12\x16.system.GetMenuRequest\x1a\x17.system.GetMenuResponse\x12C\n" +
+	"\n" +
+	"CreateMenu\x12\x19.system.CreateMenuRequest\x1a\x1a.system.CreateMenuResponse\x12>\n" +
+	"\n" +
+	"UpdateMenu\x12\x19.system.UpdateMenuRequest\x1a\x15.system.EmptyResponse\x12J\n" +
+	"\x10UpdateMenuStatus\x12\x1f.system.UpdateMenuStatusRequest\x1a\x15.system.EmptyResponse\x12>\n" +
+	"\n" +
+	"DeleteMenu\x12\x19.system.DeleteMenuRequest\x1a\x15.system.EmptyResponse\x129\n" +
 	"\n" +
 	"CheckReady\x12\x14.system.ReadyRequest\x1a\x15.system.ReadyResponse\x124\n" +
 	"\x05Login\x12\x14.system.LoginRequest\x1a\x15.system.LoginResponse\x12N\n" +
@@ -2659,7 +3576,7 @@ func file_system_proto_rawDescGZIP() []byte {
 	return file_system_proto_rawDescData
 }
 
-var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
+var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
 var file_system_proto_goTypes = []any{
 	(*ReadyRequest)(nil),                // 0: system.ReadyRequest
 	(*ReadyResponse)(nil),               // 1: system.ReadyResponse
@@ -2702,6 +3619,20 @@ var file_system_proto_goTypes = []any{
 	(*ReplaceUserRolesRequest)(nil),     // 38: system.ReplaceUserRolesRequest
 	(*ResetUserPasswordRequest)(nil),    // 39: system.ResetUserPasswordRequest
 	(*ListUserRoleOptionsResponse)(nil), // 40: system.ListUserRoleOptionsResponse
+	(*MenuFields)(nil),                  // 41: system.MenuFields
+	(*MenuInfo)(nil),                    // 42: system.MenuInfo
+	(*ListMenusRequest)(nil),            // 43: system.ListMenusRequest
+	(*ListMenusResponse)(nil),           // 44: system.ListMenusResponse
+	(*GetMenuRequest)(nil),              // 45: system.GetMenuRequest
+	(*GetMenuResponse)(nil),             // 46: system.GetMenuResponse
+	(*CreateMenuRequest)(nil),           // 47: system.CreateMenuRequest
+	(*CreateMenuResponse)(nil),          // 48: system.CreateMenuResponse
+	(*UpdateMenuRequest)(nil),           // 49: system.UpdateMenuRequest
+	(*UpdateMenuStatusRequest)(nil),     // 50: system.UpdateMenuStatusRequest
+	(*DeleteMenuRequest)(nil),           // 51: system.DeleteMenuRequest
+	(*ListNavigationMenusRequest)(nil),  // 52: system.ListNavigationMenusRequest
+	(*NavigationMenu)(nil),              // 53: system.NavigationMenu
+	(*ListNavigationMenusResponse)(nil), // 54: system.ListNavigationMenusResponse
 }
 var file_system_proto_depIdxs = []int32{
 	13, // 0: system.ListRolesResponse.items:type_name -> system.RoleInfo
@@ -2711,61 +3642,81 @@ var file_system_proto_depIdxs = []int32{
 	28, // 4: system.ListUsersResponse.items:type_name -> system.UserInfo
 	28, // 5: system.GetUserResponse.user:type_name -> system.UserInfo
 	27, // 6: system.ListUserRoleOptionsResponse.items:type_name -> system.UserRoleInfo
-	0,  // 7: system.System.CheckReady:input_type -> system.ReadyRequest
-	2,  // 8: system.System.Login:input_type -> system.LoginRequest
-	4,  // 9: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
-	6,  // 10: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
-	8,  // 11: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
-	9,  // 12: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
-	10, // 13: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
-	14, // 14: system.System.CreateRole:input_type -> system.CreateRoleRequest
-	12, // 15: system.System.ListRoles:input_type -> system.ListRolesRequest
-	20, // 16: system.System.GetRole:input_type -> system.GetRoleRequest
-	16, // 17: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
-	17, // 18: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
-	18, // 19: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
-	22, // 20: system.System.ListAPIs:input_type -> system.ListAPIsRequest
-	25, // 21: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
-	11, // 22: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
-	29, // 23: system.System.ListUsers:input_type -> system.ListUsersRequest
-	31, // 24: system.System.GetUser:input_type -> system.GetUserRequest
-	33, // 25: system.System.CreateUser:input_type -> system.CreateUserRequest
-	35, // 26: system.System.UpdateUser:input_type -> system.UpdateUserRequest
-	36, // 27: system.System.UpdateUserStatus:input_type -> system.UpdateUserStatusRequest
-	37, // 28: system.System.DeleteUser:input_type -> system.DeleteUserRequest
-	38, // 29: system.System.ReplaceUserRoles:input_type -> system.ReplaceUserRolesRequest
-	39, // 30: system.System.ResetUserPassword:input_type -> system.ResetUserPasswordRequest
-	12, // 31: system.System.ListUserRoleOptions:input_type -> system.ListRolesRequest
-	1,  // 32: system.System.CheckReady:output_type -> system.ReadyResponse
-	3,  // 33: system.System.Login:output_type -> system.LoginResponse
-	3,  // 34: system.System.RefreshCredentials:output_type -> system.LoginResponse
-	7,  // 35: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
-	5,  // 36: system.System.RevokeSession:output_type -> system.EmptyResponse
-	5,  // 37: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
-	5,  // 38: system.System.ChangePassword:output_type -> system.EmptyResponse
-	15, // 39: system.System.CreateRole:output_type -> system.CreateRoleResponse
-	19, // 40: system.System.ListRoles:output_type -> system.ListRolesResponse
-	21, // 41: system.System.GetRole:output_type -> system.GetRoleResponse
-	5,  // 42: system.System.UpdateRole:output_type -> system.EmptyResponse
-	5,  // 43: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
-	5,  // 44: system.System.DeleteRole:output_type -> system.EmptyResponse
-	24, // 45: system.System.ListAPIs:output_type -> system.ListAPIsResponse
-	26, // 46: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
-	5,  // 47: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
-	30, // 48: system.System.ListUsers:output_type -> system.ListUsersResponse
-	32, // 49: system.System.GetUser:output_type -> system.GetUserResponse
-	34, // 50: system.System.CreateUser:output_type -> system.CreateUserResponse
-	5,  // 51: system.System.UpdateUser:output_type -> system.EmptyResponse
-	5,  // 52: system.System.UpdateUserStatus:output_type -> system.EmptyResponse
-	5,  // 53: system.System.DeleteUser:output_type -> system.EmptyResponse
-	5,  // 54: system.System.ReplaceUserRoles:output_type -> system.EmptyResponse
-	5,  // 55: system.System.ResetUserPassword:output_type -> system.EmptyResponse
-	40, // 56: system.System.ListUserRoleOptions:output_type -> system.ListUserRoleOptionsResponse
-	32, // [32:57] is the sub-list for method output_type
-	7,  // [7:32] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	41, // 7: system.MenuInfo.menu:type_name -> system.MenuFields
+	42, // 8: system.ListMenusResponse.items:type_name -> system.MenuInfo
+	42, // 9: system.GetMenuResponse.menu:type_name -> system.MenuInfo
+	41, // 10: system.CreateMenuRequest.menu:type_name -> system.MenuFields
+	41, // 11: system.UpdateMenuRequest.menu:type_name -> system.MenuFields
+	53, // 12: system.ListNavigationMenusResponse.items:type_name -> system.NavigationMenu
+	52, // 13: system.System.ListNavigationMenus:input_type -> system.ListNavigationMenusRequest
+	43, // 14: system.System.ListMenus:input_type -> system.ListMenusRequest
+	45, // 15: system.System.GetMenu:input_type -> system.GetMenuRequest
+	47, // 16: system.System.CreateMenu:input_type -> system.CreateMenuRequest
+	49, // 17: system.System.UpdateMenu:input_type -> system.UpdateMenuRequest
+	50, // 18: system.System.UpdateMenuStatus:input_type -> system.UpdateMenuStatusRequest
+	51, // 19: system.System.DeleteMenu:input_type -> system.DeleteMenuRequest
+	0,  // 20: system.System.CheckReady:input_type -> system.ReadyRequest
+	2,  // 21: system.System.Login:input_type -> system.LoginRequest
+	4,  // 22: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
+	6,  // 23: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
+	8,  // 24: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
+	9,  // 25: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
+	10, // 26: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
+	14, // 27: system.System.CreateRole:input_type -> system.CreateRoleRequest
+	12, // 28: system.System.ListRoles:input_type -> system.ListRolesRequest
+	20, // 29: system.System.GetRole:input_type -> system.GetRoleRequest
+	16, // 30: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
+	17, // 31: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
+	18, // 32: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
+	22, // 33: system.System.ListAPIs:input_type -> system.ListAPIsRequest
+	25, // 34: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
+	11, // 35: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
+	29, // 36: system.System.ListUsers:input_type -> system.ListUsersRequest
+	31, // 37: system.System.GetUser:input_type -> system.GetUserRequest
+	33, // 38: system.System.CreateUser:input_type -> system.CreateUserRequest
+	35, // 39: system.System.UpdateUser:input_type -> system.UpdateUserRequest
+	36, // 40: system.System.UpdateUserStatus:input_type -> system.UpdateUserStatusRequest
+	37, // 41: system.System.DeleteUser:input_type -> system.DeleteUserRequest
+	38, // 42: system.System.ReplaceUserRoles:input_type -> system.ReplaceUserRolesRequest
+	39, // 43: system.System.ResetUserPassword:input_type -> system.ResetUserPasswordRequest
+	12, // 44: system.System.ListUserRoleOptions:input_type -> system.ListRolesRequest
+	54, // 45: system.System.ListNavigationMenus:output_type -> system.ListNavigationMenusResponse
+	44, // 46: system.System.ListMenus:output_type -> system.ListMenusResponse
+	46, // 47: system.System.GetMenu:output_type -> system.GetMenuResponse
+	48, // 48: system.System.CreateMenu:output_type -> system.CreateMenuResponse
+	5,  // 49: system.System.UpdateMenu:output_type -> system.EmptyResponse
+	5,  // 50: system.System.UpdateMenuStatus:output_type -> system.EmptyResponse
+	5,  // 51: system.System.DeleteMenu:output_type -> system.EmptyResponse
+	1,  // 52: system.System.CheckReady:output_type -> system.ReadyResponse
+	3,  // 53: system.System.Login:output_type -> system.LoginResponse
+	3,  // 54: system.System.RefreshCredentials:output_type -> system.LoginResponse
+	7,  // 55: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
+	5,  // 56: system.System.RevokeSession:output_type -> system.EmptyResponse
+	5,  // 57: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
+	5,  // 58: system.System.ChangePassword:output_type -> system.EmptyResponse
+	15, // 59: system.System.CreateRole:output_type -> system.CreateRoleResponse
+	19, // 60: system.System.ListRoles:output_type -> system.ListRolesResponse
+	21, // 61: system.System.GetRole:output_type -> system.GetRoleResponse
+	5,  // 62: system.System.UpdateRole:output_type -> system.EmptyResponse
+	5,  // 63: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
+	5,  // 64: system.System.DeleteRole:output_type -> system.EmptyResponse
+	24, // 65: system.System.ListAPIs:output_type -> system.ListAPIsResponse
+	26, // 66: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
+	5,  // 67: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
+	30, // 68: system.System.ListUsers:output_type -> system.ListUsersResponse
+	32, // 69: system.System.GetUser:output_type -> system.GetUserResponse
+	34, // 70: system.System.CreateUser:output_type -> system.CreateUserResponse
+	5,  // 71: system.System.UpdateUser:output_type -> system.EmptyResponse
+	5,  // 72: system.System.UpdateUserStatus:output_type -> system.EmptyResponse
+	5,  // 73: system.System.DeleteUser:output_type -> system.EmptyResponse
+	5,  // 74: system.System.ReplaceUserRoles:output_type -> system.EmptyResponse
+	5,  // 75: system.System.ResetUserPassword:output_type -> system.EmptyResponse
+	40, // 76: system.System.ListUserRoleOptions:output_type -> system.ListUserRoleOptionsResponse
+	45, // [45:77] is the sub-list for method output_type
+	13, // [13:45] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_system_proto_init() }
@@ -2780,7 +3731,7 @@ func file_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_system_proto_rawDesc), len(file_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   41,
+			NumMessages:   55,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

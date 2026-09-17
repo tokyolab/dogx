@@ -16,15 +16,20 @@ import (
 type (
 	APIInfo                     = system.APIInfo
 	ChangePasswordRequest       = system.ChangePasswordRequest
+	CreateMenuRequest           = system.CreateMenuRequest
+	CreateMenuResponse          = system.CreateMenuResponse
 	CreateRoleRequest           = system.CreateRoleRequest
 	CreateRoleResponse          = system.CreateRoleResponse
 	CreateUserRequest           = system.CreateUserRequest
 	CreateUserResponse          = system.CreateUserResponse
 	CurrentUserRequest          = system.CurrentUserRequest
 	CurrentUserResponse         = system.CurrentUserResponse
+	DeleteMenuRequest           = system.DeleteMenuRequest
 	DeleteRoleRequest           = system.DeleteRoleRequest
 	DeleteUserRequest           = system.DeleteUserRequest
 	EmptyResponse               = system.EmptyResponse
+	GetMenuRequest              = system.GetMenuRequest
+	GetMenuResponse             = system.GetMenuResponse
 	GetRoleAPIsRequest          = system.GetRoleAPIsRequest
 	GetRoleAPIsResponse         = system.GetRoleAPIsResponse
 	GetRoleRequest              = system.GetRoleRequest
@@ -33,6 +38,10 @@ type (
 	GetUserResponse             = system.GetUserResponse
 	ListAPIsRequest             = system.ListAPIsRequest
 	ListAPIsResponse            = system.ListAPIsResponse
+	ListMenusRequest            = system.ListMenusRequest
+	ListMenusResponse           = system.ListMenusResponse
+	ListNavigationMenusRequest  = system.ListNavigationMenusRequest
+	ListNavigationMenusResponse = system.ListNavigationMenusResponse
 	ListRolesRequest            = system.ListRolesRequest
 	ListRolesResponse           = system.ListRolesResponse
 	ListUserRoleOptionsResponse = system.ListUserRoleOptionsResponse
@@ -40,6 +49,9 @@ type (
 	ListUsersResponse           = system.ListUsersResponse
 	LoginRequest                = system.LoginRequest
 	LoginResponse               = system.LoginResponse
+	MenuFields                  = system.MenuFields
+	MenuInfo                    = system.MenuInfo
+	NavigationMenu              = system.NavigationMenu
 	ReadyRequest                = system.ReadyRequest
 	ReadyResponse               = system.ReadyResponse
 	RefreshCredentialsRequest   = system.RefreshCredentialsRequest
@@ -49,6 +61,8 @@ type (
 	RevokeSessionRequest        = system.RevokeSessionRequest
 	RevokeUserSessionsRequest   = system.RevokeUserSessionsRequest
 	RoleInfo                    = system.RoleInfo
+	UpdateMenuRequest           = system.UpdateMenuRequest
+	UpdateMenuStatusRequest     = system.UpdateMenuStatusRequest
 	UpdateRoleRequest           = system.UpdateRoleRequest
 	UpdateRoleStatusRequest     = system.UpdateRoleStatusRequest
 	UpdateUserRequest           = system.UpdateUserRequest
@@ -57,6 +71,13 @@ type (
 	UserRoleInfo                = system.UserRoleInfo
 
 	System interface {
+		ListNavigationMenus(ctx context.Context, in *ListNavigationMenusRequest, opts ...grpc.CallOption) (*ListNavigationMenusResponse, error)
+		ListMenus(ctx context.Context, in *ListMenusRequest, opts ...grpc.CallOption) (*ListMenusResponse, error)
+		GetMenu(ctx context.Context, in *GetMenuRequest, opts ...grpc.CallOption) (*GetMenuResponse, error)
+		CreateMenu(ctx context.Context, in *CreateMenuRequest, opts ...grpc.CallOption) (*CreateMenuResponse, error)
+		UpdateMenu(ctx context.Context, in *UpdateMenuRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		UpdateMenuStatus(ctx context.Context, in *UpdateMenuStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		DeleteMenu(ctx context.Context, in *DeleteMenuRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		CheckReady(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error)
 		Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 		RefreshCredentials(ctx context.Context, in *RefreshCredentialsRequest, opts ...grpc.CallOption) (*LoginResponse, error)
@@ -93,6 +114,41 @@ func NewSystem(cli zrpc.Client) System {
 	return &defaultSystem{
 		cli: cli,
 	}
+}
+
+func (m *defaultSystem) ListNavigationMenus(ctx context.Context, in *ListNavigationMenusRequest, opts ...grpc.CallOption) (*ListNavigationMenusResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ListNavigationMenus(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ListMenus(ctx context.Context, in *ListMenusRequest, opts ...grpc.CallOption) (*ListMenusResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ListMenus(ctx, in, opts...)
+}
+
+func (m *defaultSystem) GetMenu(ctx context.Context, in *GetMenuRequest, opts ...grpc.CallOption) (*GetMenuResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.GetMenu(ctx, in, opts...)
+}
+
+func (m *defaultSystem) CreateMenu(ctx context.Context, in *CreateMenuRequest, opts ...grpc.CallOption) (*CreateMenuResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.CreateMenu(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateMenu(ctx context.Context, in *UpdateMenuRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateMenu(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateMenuStatus(ctx context.Context, in *UpdateMenuStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateMenuStatus(ctx, in, opts...)
+}
+
+func (m *defaultSystem) DeleteMenu(ctx context.Context, in *DeleteMenuRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.DeleteMenu(ctx, in, opts...)
 }
 
 func (m *defaultSystem) CheckReady(ctx context.Context, in *ReadyRequest, opts ...grpc.CallOption) (*ReadyResponse, error) {

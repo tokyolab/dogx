@@ -15,6 +15,14 @@
     "business_error": "Business operation failed"
   },
   "system": {
+    "menu": {
+      "not_found": "Menu not found",
+      "parent_invalid": "The parent node is missing or cannot contain children",
+      "cycle": "A node cannot be its own ancestor",
+      "has_children": "Move or remove child nodes before changing the type or deleting",
+      "route_name_exists": "Route name already exists",
+      "path_exists": "Route path already exists"
+    },
     "auth": {
       "invalid_credentials": "Invalid username or password",
       "user_disabled": "The account is disabled",
