@@ -34,7 +34,11 @@ func assertSystemMenuSeed(t testing.TB, ctx context.Context, db *sql.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			t.Errorf("close system menu seed rows: %v", err)
+		}
+	}()
 	for rows.Next() {
 		var route, appCode, permission string
 		var visible, keepAlive, external bool
@@ -72,7 +76,7 @@ func TestSystemMenuSeedDoesNotOverwriteConflictingMenus(t *testing.T) {
 	`); err != nil {
 		t.Fatal(err)
 	}
-	_, err := provider.Up(ctx)
+	_, err := provider.UpTo(ctx, 20260916160107)
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
 		t.Fatalf("expected a uniqueness conflict: %v", err)
@@ -95,7 +99,9 @@ func TestSystemMenuSeedRollbackProtectsChildrenAndCleansGrants(t *testing.T) {
 	provider := newTestProvider(t, db)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if _, err := provider.Up(ctx); err != nil {
+	// Stop at the migration under test so Down still targets the menu seed
+	// when later migrations are added.
+	if _, err := provider.UpTo(ctx, 20260916160107); err != nil {
 		t.Fatal(err)
 	}
 	var rootID, childID int64
