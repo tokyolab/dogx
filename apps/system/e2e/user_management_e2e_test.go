@@ -64,6 +64,7 @@ func testUserManagement(t *testing.T, client *http.Client, baseURL, adminToken s
 	}
 	credentials := login(e2ePassword)
 	waitForPermissionGrant(t, client, baseURL+"/role/list", credentials.AccessToken, map[string]any{"page": 1, "pageSize": 20}, process)
+	testRoleMenuAuthorization(t, client, baseURL, adminToken, credentials.AccessToken, role.ID, superRoleID)
 	code, envelope := postJSON(t, client, baseURL+"/user/password/reset", credentials.AccessToken, map[string]any{"id": adminID, "operatorId": adminID, "password": "Different-pass123"})
 	assertEnvelope(t, code, envelope, http.StatusOK, bizerror.DefaultCode, subcode.UserSuperAdminProtected)
 	code, envelope = postJSON(t, client, baseURL+"/user/role/update", credentials.AccessToken, map[string]any{"id": user.ID, "roleIds": []int64{superRoleID}})

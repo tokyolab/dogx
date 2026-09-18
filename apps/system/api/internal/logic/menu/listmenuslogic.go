@@ -37,7 +37,7 @@ func (l *ListMenusLogic) ListMenus() (resp *types.MenuListResp, err error) {
 	}
 	items := make([]types.MenuItem, 0, len(result.Items))
 	for _, item := range result.Items {
-		mapped, mapErr := toMenuItem(item)
+		mapped, mapErr := ToMenuItem(item)
 		if mapErr != nil {
 			return nil, mapErr
 		}

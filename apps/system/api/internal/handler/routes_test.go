@@ -69,6 +69,8 @@ type routeSecurityCase struct {
 }
 
 var routeSecurityMatrix = []routeSecurityCase{
+	{name: "role menu get", method: http.MethodPost, path: "/role/menu/get", body: `{"roleId":9}`, level: routeAuthorized, rpcMethod: "GetRoleMenus"},
+	{name: "role menu update", method: http.MethodPost, path: "/role/menu/update", body: `{"roleId":9,"menuIds":[11,12]}`, level: routeAuthorized, rpcMethod: "ReplaceRoleMenus"},
 	{name: "menu list", method: http.MethodPost, path: "/menu/list", level: routeAuthorized, rpcMethod: "ListMenus"},
 	{name: "menu get", method: http.MethodPost, path: "/menu/get", body: `{"id":9}`, level: routeAuthorized, rpcMethod: "GetMenu"},
 	{name: "menu create", method: http.MethodPost, path: "/menu/create", body: `{"parentId":0,"type":1,"name":"Directory","routeName":"Directory","path":"/directory","sort":0,"visible":true,"keepAlive":false,"external":false,"status":1}`, level: routeAuthorized, rpcMethod: "CreateMenu"},
@@ -169,7 +171,7 @@ func TestNavigationRouteRequiresSessionButNotManagementPermission(t *testing.T) 
 		rpc := &routeSystemRPCStub{order: &order}
 		server := newRouteTestServer(t, sessions, enforcer, rpc)
 		recorder := httptest.NewRecorder()
-		request := newSecurityRouteRequest(routeSecurityCase{method: http.MethodPost, path: "/auth/menus"}, signedRouteToken(t, 42, "session-id", nil))
+		request := newSecurityRouteRequest(routeSecurityCase{method: http.MethodPost, path: "/auth/menus", body: `{"roleIds":[999],"isSuperAdmin":true}`}, signedRouteToken(t, 42, "session-id", []int64{7}))
 		server.Serve(recorder, request)
 		if validSession {
 			assertRouteResponseCode(t, recorder, http.StatusOK, commonresponse.SuccessCode)
@@ -181,6 +183,9 @@ func TestNavigationRouteRequiresSessionButNotManagementPermission(t *testing.T) 
 			if strings.Join(order, ",") != "session" {
 				t.Fatalf("invalid session reached RPC: %v", order)
 			}
+		}
+		if validSession && (rpc.navigationRequest == nil || rpc.navigationRequest.IsSuperAdmin || len(rpc.navigationRequest.RoleIds) != 1 || rpc.navigationRequest.RoleIds[0] != 7) {
+			t.Fatalf("navigation trusted body instead of signed identity: %v", rpc.navigationRequest)
 		}
 		if len(enforcer.requests) != 0 {
 			t.Fatal("navigation incorrectly requires management permission")

@@ -9,6 +9,7 @@ import (
 )
 
 type routeSystemRPCStub struct {
+	navigationRequest *systemclient.ListNavigationMenusRequest
 	systemclient.System
 	order              *[]string
 	called             string
@@ -129,8 +130,9 @@ func (s *routeSystemRPCStub) GetRoleAPIs(
 	return &systemclient.GetRoleAPIsResponse{ApiIds: []int64{11, 12}}, nil
 }
 
-func (s *routeSystemRPCStub) ListNavigationMenus(_ context.Context, _ *systemclient.ListNavigationMenusRequest, _ ...grpc.CallOption) (*systemclient.ListNavigationMenusResponse, error) {
+func (s *routeSystemRPCStub) ListNavigationMenus(_ context.Context, request *systemclient.ListNavigationMenusRequest, _ ...grpc.CallOption) (*systemclient.ListNavigationMenusResponse, error) {
 	*s.order = append(*s.order, "rpc")
+	s.navigationRequest = request
 	s.called = "ListNavigationMenus"
 	return &systemclient.ListNavigationMenusResponse{}, nil
 }
@@ -223,6 +225,17 @@ func (s *routeSystemRPCStub) ListMenus(_ context.Context, _ *systemclient.ListMe
 	*s.order = append(*s.order, "rpc")
 	s.called = "ListMenus"
 	return &systemclient.ListMenusResponse{}, nil
+}
+
+func (s *routeSystemRPCStub) GetRoleMenus(_ context.Context, _ *systemclient.GetRoleMenusRequest, _ ...grpc.CallOption) (*systemclient.GetRoleMenusResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "GetRoleMenus"
+	return &systemclient.GetRoleMenusResponse{}, nil
+}
+func (s *routeSystemRPCStub) ReplaceRoleMenus(_ context.Context, _ *systemclient.ReplaceRoleMenusRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "ReplaceRoleMenus"
+	return &systemclient.EmptyResponse{}, nil
 }
 
 var _ systemclient.System = (*routeSystemRPCStub)(nil)

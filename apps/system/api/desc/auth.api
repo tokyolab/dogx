@@ -43,7 +43,8 @@ type (
 	}
 
 	NavigationMenusResp {
-		Items []NavigationMenu `json:"items"`
+		Permissions []string         `json:"permissions"`
+		Items       []NavigationMenu `json:"items"`
 	}
 )
 

@@ -38,5 +38,5 @@ func (l *GetMenuLogic) GetMenu(req *types.IDReq) (resp *types.MenuItem, err erro
 	if result == nil {
 		return nil, invalidMenuResponse()
 	}
-	return toMenuItem(result.Menu)
+	return ToMenuItem(result.Menu)
 }

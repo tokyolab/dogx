@@ -19,6 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	System_GetRoleMenus_FullMethodName        = "/system.System/GetRoleMenus"
+	System_ReplaceRoleMenus_FullMethodName    = "/system.System/ReplaceRoleMenus"
 	System_ListNavigationMenus_FullMethodName = "/system.System/ListNavigationMenus"
 	System_ListMenus_FullMethodName           = "/system.System/ListMenus"
 	System_GetMenu_FullMethodName             = "/system.System/GetMenu"
@@ -57,6 +59,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SystemClient interface {
+	GetRoleMenus(ctx context.Context, in *GetRoleMenusRequest, opts ...grpc.CallOption) (*GetRoleMenusResponse, error)
+	ReplaceRoleMenus(ctx context.Context, in *ReplaceRoleMenusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	ListNavigationMenus(ctx context.Context, in *ListNavigationMenusRequest, opts ...grpc.CallOption) (*ListNavigationMenusResponse, error)
 	ListMenus(ctx context.Context, in *ListMenusRequest, opts ...grpc.CallOption) (*ListMenusResponse, error)
 	GetMenu(ctx context.Context, in *GetMenuRequest, opts ...grpc.CallOption) (*GetMenuResponse, error)
@@ -97,6 +101,26 @@ type systemClient struct {
 
 func NewSystemClient(cc grpc.ClientConnInterface) SystemClient {
 	return &systemClient{cc}
+}
+
+func (c *systemClient) GetRoleMenus(ctx context.Context, in *GetRoleMenusRequest, opts ...grpc.CallOption) (*GetRoleMenusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRoleMenusResponse)
+	err := c.cc.Invoke(ctx, System_GetRoleMenus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) ReplaceRoleMenus(ctx context.Context, in *ReplaceRoleMenusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_ReplaceRoleMenus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *systemClient) ListNavigationMenus(ctx context.Context, in *ListNavigationMenusRequest, opts ...grpc.CallOption) (*ListNavigationMenusResponse, error) {
@@ -423,6 +447,8 @@ func (c *systemClient) ListUserRoleOptions(ctx context.Context, in *ListRolesReq
 // All implementations must embed UnimplementedSystemServer
 // for forward compatibility.
 type SystemServer interface {
+	GetRoleMenus(context.Context, *GetRoleMenusRequest) (*GetRoleMenusResponse, error)
+	ReplaceRoleMenus(context.Context, *ReplaceRoleMenusRequest) (*EmptyResponse, error)
 	ListNavigationMenus(context.Context, *ListNavigationMenusRequest) (*ListNavigationMenusResponse, error)
 	ListMenus(context.Context, *ListMenusRequest) (*ListMenusResponse, error)
 	GetMenu(context.Context, *GetMenuRequest) (*GetMenuResponse, error)
@@ -465,6 +491,12 @@ type SystemServer interface {
 // pointer dereference when methods are called.
 type UnimplementedSystemServer struct{}
 
+func (UnimplementedSystemServer) GetRoleMenus(context.Context, *GetRoleMenusRequest) (*GetRoleMenusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRoleMenus not implemented")
+}
+func (UnimplementedSystemServer) ReplaceRoleMenus(context.Context, *ReplaceRoleMenusRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReplaceRoleMenus not implemented")
+}
 func (UnimplementedSystemServer) ListNavigationMenus(context.Context, *ListNavigationMenusRequest) (*ListNavigationMenusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListNavigationMenus not implemented")
 }
@@ -580,6 +612,42 @@ func RegisterSystemServer(s grpc.ServiceRegistrar, srv SystemServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&System_ServiceDesc, srv)
+}
+
+func _System_GetRoleMenus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRoleMenusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).GetRoleMenus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_GetRoleMenus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).GetRoleMenus(ctx, req.(*GetRoleMenusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_ReplaceRoleMenus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplaceRoleMenusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ReplaceRoleMenus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ReplaceRoleMenus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ReplaceRoleMenus(ctx, req.(*ReplaceRoleMenusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _System_ListNavigationMenus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1165,6 +1233,14 @@ var System_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "system.System",
 	HandlerType: (*SystemServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetRoleMenus",
+			Handler:    _System_GetRoleMenus_Handler,
+		},
+		{
+			MethodName: "ReplaceRoleMenus",
+			Handler:    _System_ReplaceRoleMenus_Handler,
+		},
 		{
 			MethodName: "ListNavigationMenus",
 			Handler:    _System_ListNavigationMenus_Handler,

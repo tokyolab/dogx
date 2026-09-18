@@ -40,6 +40,8 @@
       "self_protected": "不能停用或删除当前登录账号"
     },
     "role": {
+      "menu_unavailable": "菜单或其上级已不存在，请重新加载",
+      "super_admin_menu_protected": "超级管理员拥有全部菜单权限，不能配置菜单权限",
       "not_found": "角色不存在",
       "code_exists": "角色编码已存在",
       "code_reserved": "角色编码为系统保留，不能使用",

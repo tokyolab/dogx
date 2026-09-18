@@ -94,7 +94,7 @@ func TestMenuHTTPLogicFailures(t *testing.T) {
 		}
 	}
 	for _, item := range []*systemclient.MenuInfo{nil, {}, {Id: 1}} {
-		if _, err := toMenuItem(item); status.Code(err) != codes.Internal {
+		if _, err := ToMenuItem(item); status.Code(err) != codes.Internal {
 			t.Fatalf("bad item=%+v err=%v", item, err)
 		}
 	}

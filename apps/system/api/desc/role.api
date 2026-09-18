@@ -1,6 +1,21 @@
 import "base.api"
+import "menu.api"
 
 type (
+	GetRoleMenusReq {
+		RoleId int64 `json:"roleId" validate:"gt=0"`
+	}
+
+	GetRoleMenusResp {
+		Items   []MenuItem `json:"items"`
+		MenuIds []int64    `json:"menuIds"`
+	}
+
+	UpdateRoleMenusReq {
+		RoleId  int64   `json:"roleId" validate:"gt=0"`
+		MenuIds []int64 `json:"menuIds" validate:"max=10000,dive,gt=0"`
+	}
+
 	RoleListReq {
 		Page     int64  `json:"page" validate:"gte=1"`
 		PageSize int64  `json:"pageSize" validate:"gte=1,lte=200"`
@@ -69,6 +84,14 @@ type (
 	middleware: SessionAuth, Authorization
 )
 service system-api {
+	@doc "Get menu resources and authorizations assigned to a role"
+	@handler getRoleMenus
+	post /role/menu/get (GetRoleMenusReq) returns (GetRoleMenusResp)
+
+	@doc "Replace the complete PC menu authorization set for a role"
+	@handler updateRoleMenus
+	post /role/menu/update (UpdateRoleMenusReq) returns (EmptyResp)
+
 	@doc "Create a role"
 	@handler createRole
 	post /role/create (CreateRoleReq) returns (CreateRoleResp)

@@ -280,7 +280,21 @@ message DeleteMenuRequest {
   int64 id = 1;
 }
 
-message ListNavigationMenusRequest {}
+// Identity comes from verified JWT claims in the API, never from request JSON.
+message ListNavigationMenusRequest {
+  repeated int64 role_ids = 1;
+  bool is_super_admin = 2;
+}
+
+message GetRoleMenusRequest { int64 role_id = 1; }
+message GetRoleMenusResponse {
+  repeated MenuInfo items = 1;
+  repeated int64 menu_ids = 2;
+}
+message ReplaceRoleMenusRequest {
+  int64 role_id = 1;
+  repeated int64 menu_ids = 2;
+}
 message NavigationMenu {
   int64 id = 1;
   int64 parent_id = 2;
@@ -297,9 +311,12 @@ message NavigationMenu {
 }
 message ListNavigationMenusResponse {
   repeated NavigationMenu items = 1;
+  repeated string permissions = 2;
 }
 
 service System {
+  rpc GetRoleMenus(GetRoleMenusRequest) returns (GetRoleMenusResponse);
+  rpc ReplaceRoleMenus(ReplaceRoleMenusRequest) returns (EmptyResponse);
   rpc ListNavigationMenus(ListNavigationMenusRequest) returns (ListNavigationMenusResponse);
   rpc ListMenus(ListMenusRequest) returns (ListMenusResponse);
   rpc GetMenu(GetMenuRequest) returns (GetMenuResponse);

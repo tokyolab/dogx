@@ -8,48 +8,9 @@ import (
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/api/internal/types"
 	"github.com/tokyolab/dogx/apps/system/rpc/systemclient"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-type roleQuerySystemRPCStub struct {
-	systemclient.System
-	listRequest  *systemclient.ListRolesRequest
-	listResponse *systemclient.ListRolesResponse
-	getRequest   *systemclient.GetRoleRequest
-	getResponse  *systemclient.GetRoleResponse
-	apiRequest   *systemclient.GetRoleAPIsRequest
-	apiResponse  *systemclient.GetRoleAPIsResponse
-	err          error
-}
-
-func (s *roleQuerySystemRPCStub) ListRoles(
-	_ context.Context,
-	request *systemclient.ListRolesRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.ListRolesResponse, error) {
-	s.listRequest = request
-	return s.listResponse, s.err
-}
-
-func (s *roleQuerySystemRPCStub) GetRole(
-	_ context.Context,
-	request *systemclient.GetRoleRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.GetRoleResponse, error) {
-	s.getRequest = request
-	return s.getResponse, s.err
-}
-
-func (s *roleQuerySystemRPCStub) GetRoleAPIs(
-	_ context.Context,
-	request *systemclient.GetRoleAPIsRequest,
-	_ ...grpc.CallOption,
-) (*systemclient.GetRoleAPIsResponse, error) {
-	s.apiRequest = request
-	return s.apiResponse, s.err
-}
 
 func TestListRolesCallsSystemRPCAndMapsResponse(t *testing.T) {
 	rpc := &roleQuerySystemRPCStub{listResponse: &systemclient.ListRolesResponse{
@@ -175,5 +136,3 @@ func TestRoleQueryLogicPreservesRPCErrors(t *testing.T) {
 		t.Fatalf("get role APIs error = %v, want %v", err, rpcErr)
 	}
 }
-
-var _ systemclient.System = (*roleQuerySystemRPCStub)(nil)

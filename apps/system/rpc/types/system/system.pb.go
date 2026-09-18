@@ -3061,8 +3061,11 @@ func (x *DeleteMenuRequest) GetId() int64 {
 	return 0
 }
 
+// Identity comes from verified JWT claims in the API, never from request JSON.
 type ListNavigationMenusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoleIds       []int64                `protobuf:"varint,1,rep,packed,name=role_ids,json=roleIds,proto3" json:"role_ids,omitempty"`
+	IsSuperAdmin  bool                   `protobuf:"varint,2,opt,name=is_super_admin,json=isSuperAdmin,proto3" json:"is_super_admin,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3097,6 +3100,168 @@ func (*ListNavigationMenusRequest) Descriptor() ([]byte, []int) {
 	return file_system_proto_rawDescGZIP(), []int{52}
 }
 
+func (x *ListNavigationMenusRequest) GetRoleIds() []int64 {
+	if x != nil {
+		return x.RoleIds
+	}
+	return nil
+}
+
+func (x *ListNavigationMenusRequest) GetIsSuperAdmin() bool {
+	if x != nil {
+		return x.IsSuperAdmin
+	}
+	return false
+}
+
+type GetRoleMenusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoleId        int64                  `protobuf:"varint,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRoleMenusRequest) Reset() {
+	*x = GetRoleMenusRequest{}
+	mi := &file_system_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRoleMenusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRoleMenusRequest) ProtoMessage() {}
+
+func (x *GetRoleMenusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRoleMenusRequest.ProtoReflect.Descriptor instead.
+func (*GetRoleMenusRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *GetRoleMenusRequest) GetRoleId() int64 {
+	if x != nil {
+		return x.RoleId
+	}
+	return 0
+}
+
+type GetRoleMenusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*MenuInfo            `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	MenuIds       []int64                `protobuf:"varint,2,rep,packed,name=menu_ids,json=menuIds,proto3" json:"menu_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRoleMenusResponse) Reset() {
+	*x = GetRoleMenusResponse{}
+	mi := &file_system_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRoleMenusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRoleMenusResponse) ProtoMessage() {}
+
+func (x *GetRoleMenusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRoleMenusResponse.ProtoReflect.Descriptor instead.
+func (*GetRoleMenusResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *GetRoleMenusResponse) GetItems() []*MenuInfo {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *GetRoleMenusResponse) GetMenuIds() []int64 {
+	if x != nil {
+		return x.MenuIds
+	}
+	return nil
+}
+
+type ReplaceRoleMenusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoleId        int64                  `protobuf:"varint,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
+	MenuIds       []int64                `protobuf:"varint,2,rep,packed,name=menu_ids,json=menuIds,proto3" json:"menu_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceRoleMenusRequest) Reset() {
+	*x = ReplaceRoleMenusRequest{}
+	mi := &file_system_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceRoleMenusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceRoleMenusRequest) ProtoMessage() {}
+
+func (x *ReplaceRoleMenusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceRoleMenusRequest.ProtoReflect.Descriptor instead.
+func (*ReplaceRoleMenusRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *ReplaceRoleMenusRequest) GetRoleId() int64 {
+	if x != nil {
+		return x.RoleId
+	}
+	return 0
+}
+
+func (x *ReplaceRoleMenusRequest) GetMenuIds() []int64 {
+	if x != nil {
+		return x.MenuIds
+	}
+	return nil
+}
+
 type NavigationMenu struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -3117,7 +3282,7 @@ type NavigationMenu struct {
 
 func (x *NavigationMenu) Reset() {
 	*x = NavigationMenu{}
-	mi := &file_system_proto_msgTypes[53]
+	mi := &file_system_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3129,7 +3294,7 @@ func (x *NavigationMenu) String() string {
 func (*NavigationMenu) ProtoMessage() {}
 
 func (x *NavigationMenu) ProtoReflect() protoreflect.Message {
-	mi := &file_system_proto_msgTypes[53]
+	mi := &file_system_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3142,7 +3307,7 @@ func (x *NavigationMenu) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavigationMenu.ProtoReflect.Descriptor instead.
 func (*NavigationMenu) Descriptor() ([]byte, []int) {
-	return file_system_proto_rawDescGZIP(), []int{53}
+	return file_system_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *NavigationMenu) GetId() int64 {
@@ -3232,13 +3397,14 @@ func (x *NavigationMenu) GetExternal() bool {
 type ListNavigationMenusResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*NavigationMenu      `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Permissions   []string               `protobuf:"bytes,2,rep,name=permissions,proto3" json:"permissions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListNavigationMenusResponse) Reset() {
 	*x = ListNavigationMenusResponse{}
-	mi := &file_system_proto_msgTypes[54]
+	mi := &file_system_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3250,7 +3416,7 @@ func (x *ListNavigationMenusResponse) String() string {
 func (*ListNavigationMenusResponse) ProtoMessage() {}
 
 func (x *ListNavigationMenusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_system_proto_msgTypes[54]
+	mi := &file_system_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3263,12 +3429,19 @@ func (x *ListNavigationMenusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNavigationMenusResponse.ProtoReflect.Descriptor instead.
 func (*ListNavigationMenusResponse) Descriptor() ([]byte, []int) {
-	return file_system_proto_rawDescGZIP(), []int{54}
+	return file_system_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ListNavigationMenusResponse) GetItems() []*NavigationMenu {
 	if x != nil {
 		return x.Items
+	}
+	return nil
+}
+
+func (x *ListNavigationMenusResponse) GetPermissions() []string {
+	if x != nil {
+		return x.Permissions
 	}
 	return nil
 }
@@ -3499,8 +3672,18 @@ const file_system_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\x05R\x06status\"#\n" +
 	"\x11DeleteMenuRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x03R\x02id\"\x1c\n" +
-	"\x1aListNavigationMenusRequest\"\xb3\x02\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"]\n" +
+	"\x1aListNavigationMenusRequest\x12\x19\n" +
+	"\brole_ids\x18\x01 \x03(\x03R\aroleIds\x12$\n" +
+	"\x0eis_super_admin\x18\x02 \x01(\bR\fisSuperAdmin\".\n" +
+	"\x13GetRoleMenusRequest\x12\x17\n" +
+	"\arole_id\x18\x01 \x01(\x03R\x06roleId\"Y\n" +
+	"\x14GetRoleMenusResponse\x12&\n" +
+	"\x05items\x18\x01 \x03(\v2\x10.system.MenuInfoR\x05items\x12\x19\n" +
+	"\bmenu_ids\x18\x02 \x03(\x03R\amenuIds\"M\n" +
+	"\x17ReplaceRoleMenusRequest\x12\x17\n" +
+	"\arole_id\x18\x01 \x01(\x03R\x06roleId\x12\x19\n" +
+	"\bmenu_ids\x18\x02 \x03(\x03R\amenuIds\"\xb3\x02\n" +
 	"\x0eNavigationMenu\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
 	"\tparent_id\x18\x02 \x01(\x03R\bparentId\x12\x12\n" +
@@ -3516,10 +3699,13 @@ const file_system_proto_rawDesc = "" +
 	" \x01(\bR\avisible\x12\x1d\n" +
 	"\n" +
 	"keep_alive\x18\v \x01(\bR\tkeepAlive\x12\x1a\n" +
-	"\bexternal\x18\f \x01(\bR\bexternal\"K\n" +
+	"\bexternal\x18\f \x01(\bR\bexternal\"m\n" +
 	"\x1bListNavigationMenusResponse\x12,\n" +
-	"\x05items\x18\x01 \x03(\v2\x16.system.NavigationMenuR\x05items2\xc0\x11\n" +
-	"\x06System\x12^\n" +
+	"\x05items\x18\x01 \x03(\v2\x16.system.NavigationMenuR\x05items\x12 \n" +
+	"\vpermissions\x18\x02 \x03(\tR\vpermissions2\xd7\x12\n" +
+	"\x06System\x12I\n" +
+	"\fGetRoleMenus\x12\x1b.system.GetRoleMenusRequest\x1a\x1c.system.GetRoleMenusResponse\x12J\n" +
+	"\x10ReplaceRoleMenus\x12\x1f.system.ReplaceRoleMenusRequest\x1a\x15.system.EmptyResponse\x12^\n" +
 	"\x13ListNavigationMenus\x12\".system.ListNavigationMenusRequest\x1a#.system.ListNavigationMenusResponse\x12@\n" +
 	"\tListMenus\x12\x18.system.ListMenusRequest\x1a\x19.system.ListMenusResponse\x12:\n" +
 	"\aGetMenu\x12\x16.system.GetMenuRequest\x1a\x17.system.GetMenuResponse\x12C\n" +
@@ -3576,7 +3762,7 @@ func file_system_proto_rawDescGZIP() []byte {
 	return file_system_proto_rawDescData
 }
 
-var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
+var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
 var file_system_proto_goTypes = []any{
 	(*ReadyRequest)(nil),                // 0: system.ReadyRequest
 	(*ReadyResponse)(nil),               // 1: system.ReadyResponse
@@ -3631,8 +3817,11 @@ var file_system_proto_goTypes = []any{
 	(*UpdateMenuStatusRequest)(nil),     // 50: system.UpdateMenuStatusRequest
 	(*DeleteMenuRequest)(nil),           // 51: system.DeleteMenuRequest
 	(*ListNavigationMenusRequest)(nil),  // 52: system.ListNavigationMenusRequest
-	(*NavigationMenu)(nil),              // 53: system.NavigationMenu
-	(*ListNavigationMenusResponse)(nil), // 54: system.ListNavigationMenusResponse
+	(*GetRoleMenusRequest)(nil),         // 53: system.GetRoleMenusRequest
+	(*GetRoleMenusResponse)(nil),        // 54: system.GetRoleMenusResponse
+	(*ReplaceRoleMenusRequest)(nil),     // 55: system.ReplaceRoleMenusRequest
+	(*NavigationMenu)(nil),              // 56: system.NavigationMenu
+	(*ListNavigationMenusResponse)(nil), // 57: system.ListNavigationMenusResponse
 }
 var file_system_proto_depIdxs = []int32{
 	13, // 0: system.ListRolesResponse.items:type_name -> system.RoleInfo
@@ -3647,76 +3836,81 @@ var file_system_proto_depIdxs = []int32{
 	42, // 9: system.GetMenuResponse.menu:type_name -> system.MenuInfo
 	41, // 10: system.CreateMenuRequest.menu:type_name -> system.MenuFields
 	41, // 11: system.UpdateMenuRequest.menu:type_name -> system.MenuFields
-	53, // 12: system.ListNavigationMenusResponse.items:type_name -> system.NavigationMenu
-	52, // 13: system.System.ListNavigationMenus:input_type -> system.ListNavigationMenusRequest
-	43, // 14: system.System.ListMenus:input_type -> system.ListMenusRequest
-	45, // 15: system.System.GetMenu:input_type -> system.GetMenuRequest
-	47, // 16: system.System.CreateMenu:input_type -> system.CreateMenuRequest
-	49, // 17: system.System.UpdateMenu:input_type -> system.UpdateMenuRequest
-	50, // 18: system.System.UpdateMenuStatus:input_type -> system.UpdateMenuStatusRequest
-	51, // 19: system.System.DeleteMenu:input_type -> system.DeleteMenuRequest
-	0,  // 20: system.System.CheckReady:input_type -> system.ReadyRequest
-	2,  // 21: system.System.Login:input_type -> system.LoginRequest
-	4,  // 22: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
-	6,  // 23: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
-	8,  // 24: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
-	9,  // 25: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
-	10, // 26: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
-	14, // 27: system.System.CreateRole:input_type -> system.CreateRoleRequest
-	12, // 28: system.System.ListRoles:input_type -> system.ListRolesRequest
-	20, // 29: system.System.GetRole:input_type -> system.GetRoleRequest
-	16, // 30: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
-	17, // 31: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
-	18, // 32: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
-	22, // 33: system.System.ListAPIs:input_type -> system.ListAPIsRequest
-	25, // 34: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
-	11, // 35: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
-	29, // 36: system.System.ListUsers:input_type -> system.ListUsersRequest
-	31, // 37: system.System.GetUser:input_type -> system.GetUserRequest
-	33, // 38: system.System.CreateUser:input_type -> system.CreateUserRequest
-	35, // 39: system.System.UpdateUser:input_type -> system.UpdateUserRequest
-	36, // 40: system.System.UpdateUserStatus:input_type -> system.UpdateUserStatusRequest
-	37, // 41: system.System.DeleteUser:input_type -> system.DeleteUserRequest
-	38, // 42: system.System.ReplaceUserRoles:input_type -> system.ReplaceUserRolesRequest
-	39, // 43: system.System.ResetUserPassword:input_type -> system.ResetUserPasswordRequest
-	12, // 44: system.System.ListUserRoleOptions:input_type -> system.ListRolesRequest
-	54, // 45: system.System.ListNavigationMenus:output_type -> system.ListNavigationMenusResponse
-	44, // 46: system.System.ListMenus:output_type -> system.ListMenusResponse
-	46, // 47: system.System.GetMenu:output_type -> system.GetMenuResponse
-	48, // 48: system.System.CreateMenu:output_type -> system.CreateMenuResponse
-	5,  // 49: system.System.UpdateMenu:output_type -> system.EmptyResponse
-	5,  // 50: system.System.UpdateMenuStatus:output_type -> system.EmptyResponse
-	5,  // 51: system.System.DeleteMenu:output_type -> system.EmptyResponse
-	1,  // 52: system.System.CheckReady:output_type -> system.ReadyResponse
-	3,  // 53: system.System.Login:output_type -> system.LoginResponse
-	3,  // 54: system.System.RefreshCredentials:output_type -> system.LoginResponse
-	7,  // 55: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
-	5,  // 56: system.System.RevokeSession:output_type -> system.EmptyResponse
-	5,  // 57: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
-	5,  // 58: system.System.ChangePassword:output_type -> system.EmptyResponse
-	15, // 59: system.System.CreateRole:output_type -> system.CreateRoleResponse
-	19, // 60: system.System.ListRoles:output_type -> system.ListRolesResponse
-	21, // 61: system.System.GetRole:output_type -> system.GetRoleResponse
-	5,  // 62: system.System.UpdateRole:output_type -> system.EmptyResponse
-	5,  // 63: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
-	5,  // 64: system.System.DeleteRole:output_type -> system.EmptyResponse
-	24, // 65: system.System.ListAPIs:output_type -> system.ListAPIsResponse
-	26, // 66: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
-	5,  // 67: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
-	30, // 68: system.System.ListUsers:output_type -> system.ListUsersResponse
-	32, // 69: system.System.GetUser:output_type -> system.GetUserResponse
-	34, // 70: system.System.CreateUser:output_type -> system.CreateUserResponse
-	5,  // 71: system.System.UpdateUser:output_type -> system.EmptyResponse
-	5,  // 72: system.System.UpdateUserStatus:output_type -> system.EmptyResponse
-	5,  // 73: system.System.DeleteUser:output_type -> system.EmptyResponse
-	5,  // 74: system.System.ReplaceUserRoles:output_type -> system.EmptyResponse
-	5,  // 75: system.System.ResetUserPassword:output_type -> system.EmptyResponse
-	40, // 76: system.System.ListUserRoleOptions:output_type -> system.ListUserRoleOptionsResponse
-	45, // [45:77] is the sub-list for method output_type
-	13, // [13:45] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	42, // 12: system.GetRoleMenusResponse.items:type_name -> system.MenuInfo
+	56, // 13: system.ListNavigationMenusResponse.items:type_name -> system.NavigationMenu
+	53, // 14: system.System.GetRoleMenus:input_type -> system.GetRoleMenusRequest
+	55, // 15: system.System.ReplaceRoleMenus:input_type -> system.ReplaceRoleMenusRequest
+	52, // 16: system.System.ListNavigationMenus:input_type -> system.ListNavigationMenusRequest
+	43, // 17: system.System.ListMenus:input_type -> system.ListMenusRequest
+	45, // 18: system.System.GetMenu:input_type -> system.GetMenuRequest
+	47, // 19: system.System.CreateMenu:input_type -> system.CreateMenuRequest
+	49, // 20: system.System.UpdateMenu:input_type -> system.UpdateMenuRequest
+	50, // 21: system.System.UpdateMenuStatus:input_type -> system.UpdateMenuStatusRequest
+	51, // 22: system.System.DeleteMenu:input_type -> system.DeleteMenuRequest
+	0,  // 23: system.System.CheckReady:input_type -> system.ReadyRequest
+	2,  // 24: system.System.Login:input_type -> system.LoginRequest
+	4,  // 25: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
+	6,  // 26: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
+	8,  // 27: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
+	9,  // 28: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
+	10, // 29: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
+	14, // 30: system.System.CreateRole:input_type -> system.CreateRoleRequest
+	12, // 31: system.System.ListRoles:input_type -> system.ListRolesRequest
+	20, // 32: system.System.GetRole:input_type -> system.GetRoleRequest
+	16, // 33: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
+	17, // 34: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
+	18, // 35: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
+	22, // 36: system.System.ListAPIs:input_type -> system.ListAPIsRequest
+	25, // 37: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
+	11, // 38: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
+	29, // 39: system.System.ListUsers:input_type -> system.ListUsersRequest
+	31, // 40: system.System.GetUser:input_type -> system.GetUserRequest
+	33, // 41: system.System.CreateUser:input_type -> system.CreateUserRequest
+	35, // 42: system.System.UpdateUser:input_type -> system.UpdateUserRequest
+	36, // 43: system.System.UpdateUserStatus:input_type -> system.UpdateUserStatusRequest
+	37, // 44: system.System.DeleteUser:input_type -> system.DeleteUserRequest
+	38, // 45: system.System.ReplaceUserRoles:input_type -> system.ReplaceUserRolesRequest
+	39, // 46: system.System.ResetUserPassword:input_type -> system.ResetUserPasswordRequest
+	12, // 47: system.System.ListUserRoleOptions:input_type -> system.ListRolesRequest
+	54, // 48: system.System.GetRoleMenus:output_type -> system.GetRoleMenusResponse
+	5,  // 49: system.System.ReplaceRoleMenus:output_type -> system.EmptyResponse
+	57, // 50: system.System.ListNavigationMenus:output_type -> system.ListNavigationMenusResponse
+	44, // 51: system.System.ListMenus:output_type -> system.ListMenusResponse
+	46, // 52: system.System.GetMenu:output_type -> system.GetMenuResponse
+	48, // 53: system.System.CreateMenu:output_type -> system.CreateMenuResponse
+	5,  // 54: system.System.UpdateMenu:output_type -> system.EmptyResponse
+	5,  // 55: system.System.UpdateMenuStatus:output_type -> system.EmptyResponse
+	5,  // 56: system.System.DeleteMenu:output_type -> system.EmptyResponse
+	1,  // 57: system.System.CheckReady:output_type -> system.ReadyResponse
+	3,  // 58: system.System.Login:output_type -> system.LoginResponse
+	3,  // 59: system.System.RefreshCredentials:output_type -> system.LoginResponse
+	7,  // 60: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
+	5,  // 61: system.System.RevokeSession:output_type -> system.EmptyResponse
+	5,  // 62: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
+	5,  // 63: system.System.ChangePassword:output_type -> system.EmptyResponse
+	15, // 64: system.System.CreateRole:output_type -> system.CreateRoleResponse
+	19, // 65: system.System.ListRoles:output_type -> system.ListRolesResponse
+	21, // 66: system.System.GetRole:output_type -> system.GetRoleResponse
+	5,  // 67: system.System.UpdateRole:output_type -> system.EmptyResponse
+	5,  // 68: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
+	5,  // 69: system.System.DeleteRole:output_type -> system.EmptyResponse
+	24, // 70: system.System.ListAPIs:output_type -> system.ListAPIsResponse
+	26, // 71: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
+	5,  // 72: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
+	30, // 73: system.System.ListUsers:output_type -> system.ListUsersResponse
+	32, // 74: system.System.GetUser:output_type -> system.GetUserResponse
+	34, // 75: system.System.CreateUser:output_type -> system.CreateUserResponse
+	5,  // 76: system.System.UpdateUser:output_type -> system.EmptyResponse
+	5,  // 77: system.System.UpdateUserStatus:output_type -> system.EmptyResponse
+	5,  // 78: system.System.DeleteUser:output_type -> system.EmptyResponse
+	5,  // 79: system.System.ReplaceUserRoles:output_type -> system.EmptyResponse
+	5,  // 80: system.System.ResetUserPassword:output_type -> system.EmptyResponse
+	40, // 81: system.System.ListUserRoleOptions:output_type -> system.ListUserRoleOptionsResponse
+	48, // [48:82] is the sub-list for method output_type
+	14, // [14:48] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_system_proto_init() }
@@ -3731,7 +3925,7 @@ func file_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_system_proto_rawDesc), len(file_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   55,
+			NumMessages:   58,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -83,6 +83,15 @@ type GetRoleAPIsResp struct {
 	ApiIds []int64 `json:"apiIds"`
 }
 
+type GetRoleMenusReq struct {
+	RoleId int64 `json:"roleId" validate:"gt=0"`
+}
+
+type GetRoleMenusResp struct {
+	Items   []MenuItem `json:"items"`
+	MenuIds []int64    `json:"menuIds"`
+}
+
 type HealthResp struct {
 	Status  string `json:"status"`
 	Service string `json:"service"`
@@ -152,7 +161,8 @@ type NavigationMenu struct {
 }
 
 type NavigationMenusResp struct {
-	Items []NavigationMenu `json:"items"`
+	Permissions []string         `json:"permissions"`
+	Items       []NavigationMenu `json:"items"`
 }
 
 type PageMeta struct {
@@ -213,6 +223,11 @@ type UpdateMenuStatusReq struct {
 type UpdateRoleAPIsReq struct {
 	RoleId int64   `json:"roleId" validate:"gt=0"`
 	ApiIds []int64 `json:"apiIds" validate:"dive,gt=0"`
+}
+
+type UpdateRoleMenusReq struct {
+	RoleId  int64   `json:"roleId" validate:"gt=0"`
+	MenuIds []int64 `json:"menuIds" validate:"max=10000,dive,gt=0"`
 }
 
 type UpdateRoleReq struct {

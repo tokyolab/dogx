@@ -25,7 +25,7 @@ func toMenuFields(in types.MenuFields) *systemclient.MenuFields {
 	}
 }
 
-func toMenuItem(in *systemclient.MenuInfo) (*types.MenuItem, error) {
+func ToMenuItem(in *systemclient.MenuInfo) (*types.MenuItem, error) {
 	if in == nil || in.Menu == nil || in.Id <= 0 {
 		return nil, status.Error(codes.Internal, "system RPC returned an invalid menu")
 	}

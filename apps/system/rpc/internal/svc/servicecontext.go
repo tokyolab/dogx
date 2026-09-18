@@ -36,6 +36,7 @@ type ServiceContext struct {
 	UserRepo      repository.UserRepository
 	RoleRepo      repository.RoleRepository
 	MenuRepo      repository.MenuRepository
+	RoleMenuRepo  repository.RoleMenuRepository
 	APIRepo       repository.APIRepository
 	LoginLogRepo  repository.LoginLogRepository
 	Passwords     authn.PasswordHasher
@@ -110,6 +111,11 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("initialize menu repository: %w", err)
 	}
+	roleMenuRepo, err := repository.NewRoleMenuRepository(database)
+	if err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("initialize role menu repository: %w", err)
+	}
 	loginLogRepo, err := repository.NewLoginLogRepository(database)
 	if err != nil {
 		_ = sqlDB.Close()
@@ -134,6 +140,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		UserRepo:        userRepo,
 		RoleRepo:        roleRepo,
 		MenuRepo:        menuRepo,
+		RoleMenuRepo:    roleMenuRepo,
 		APIRepo:         apiRepo,
 		LoginLogRepo:    loginLogRepo,
 		Passwords:       passwords,

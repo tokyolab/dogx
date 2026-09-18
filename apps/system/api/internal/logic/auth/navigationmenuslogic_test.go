@@ -14,12 +14,12 @@ import (
 )
 
 func TestNavigationMenus(t *testing.T) {
-	rpc := &systemRPCStub{navigationResponse: &systemclient.ListNavigationMenusResponse{Items: []*systemclient.NavigationMenu{{Id: 2, ParentId: 1, Type: 2, Name: "原样显示", RouteName: "Example", Path: "/example", Component: "system/user/index", Icon: "lucide:user", Sort: 3, Visible: false, KeepAlive: true, External: false}}}}
+	rpc := &systemRPCStub{navigationResponse: &systemclient.ListNavigationMenusResponse{Permissions: []string{"user.view"}, Items: []*systemclient.NavigationMenu{{Id: 2, ParentId: 1, Type: 2, Name: "原样显示", RouteName: "Example", Path: "/example", Component: "system/user/index", Icon: "lucide:user", Sort: 3, Visible: false, KeepAlive: true, External: false}}}}
 	response, err := NewNavigationMenusLogic(authenticatedTestContext(), &svc.ServiceContext{SystemRpc: rpc}).NavigationMenus()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(response.Items) != 1 || rpc.navigationCalls != 1 {
+	if len(response.Items) != 1 || len(response.Permissions) != 1 || response.Permissions[0] != "user.view" || rpc.navigationCalls != 1 {
 		t.Fatalf("response=%+v calls=%d", response, rpc.navigationCalls)
 	}
 	item := response.Items[0]
@@ -27,12 +27,13 @@ func TestNavigationMenus(t *testing.T) {
 		t.Fatalf("mapping=%+v", item)
 	}
 	rpc.navigationResponse.Items = nil
+	rpc.navigationResponse.Permissions = nil
 	response, err = NewNavigationMenusLogic(authenticatedTestContext(), &svc.ServiceContext{SystemRpc: rpc}).NavigationMenus()
 	if err != nil {
 		t.Fatal(err)
 	}
 	data, err := json.Marshal(response)
-	if err != nil || !strings.Contains(string(data), `"items":[]`) {
+	if err != nil || (!strings.Contains(string(data), `"items":[]`) || !strings.Contains(string(data), `"permissions":[]`)) {
 		t.Fatalf("empty response=%s err=%v", data, err)
 	}
 }

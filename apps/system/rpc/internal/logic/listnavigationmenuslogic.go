@@ -32,15 +32,34 @@ func (l *ListNavigationMenusLogic) ListNavigationMenus(in *system.ListNavigation
 	if l.svcCtx.MenuRepo == nil {
 		return nil, errors.New("menu repository is unavailable")
 	}
+
+	for _, id := range in.RoleIds {
+		if id <= 0 {
+			return nil, invalidMenuRequest()
+		}
+	}
 	menus, err := l.svcCtx.MenuRepo.List(l.ctx)
 	if err != nil {
 		return nil, menuBusinessError(err)
 	}
 
+	granted := make(map[int64]bool)
+	if !in.IsSuperAdmin && len(in.RoleIds) > 0 {
+		if l.svcCtx.RoleMenuRepo == nil {
+			return nil, errors.New("role menu repository is unavailable")
+		}
+		ids, err := l.svcCtx.RoleMenuRepo.ListMenuIDs(l.ctx, in.RoleIds)
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range ids {
+			granted[id] = true
+		}
+	}
 	children := make(map[int64][]model.Menu)
 	for _, menu := range menus {
 		if menu.AppCode != model.MenuAppAdminWeb || menu.Status != model.RecordStatusEnabled ||
-			(menu.Type != model.MenuTypeDirectory && menu.Type != model.MenuTypePage) {
+			(menu.Type != model.MenuTypeDirectory && menu.Type != model.MenuTypePage && menu.Type != model.MenuTypeElement) || (!in.IsSuperAdmin && !granted[menu.ID]) {
 			continue
 		}
 		var parentID int64
@@ -53,6 +72,8 @@ func (l *ListNavigationMenusLogic) ListNavigationMenus(in *system.ListNavigation
 	// Traverse only from enabled roots: a disabled/missing parent excludes its whole
 	// subtree, without changing descendants' stored status. Hidden nodes remain routable.
 	items := make([]*system.NavigationMenu, 0, len(menus))
+	permissions := make([]string, 0)
+	permissionSet := make(map[string]bool)
 	queue := []int64{0}
 	visited := make(map[int64]bool, len(menus))
 	for i := 0; i < len(queue); i++ {
@@ -62,6 +83,13 @@ func (l *ListNavigationMenusLogic) ListNavigationMenus(in *system.ListNavigation
 				continue
 			}
 			visited[menu.ID] = true
+			if menu.Type == model.MenuTypeElement {
+				if menu.Permission != "" && !permissionSet[menu.Permission] {
+					permissions = append(permissions, menu.Permission)
+					permissionSet[menu.Permission] = true
+				}
+				continue
+			}
 			queue = append(queue, menu.ID)
 			items = append(items, &system.NavigationMenu{
 				Id: menu.ID, ParentId: parentID, Type: int32(menu.Type),
@@ -71,5 +99,5 @@ func (l *ListNavigationMenusLogic) ListNavigationMenus(in *system.ListNavigation
 			})
 		}
 	}
-	return &system.ListNavigationMenusResponse{Items: items}, nil
+	return &system.ListNavigationMenusResponse{Items: items, Permissions: permissions}, nil
 }

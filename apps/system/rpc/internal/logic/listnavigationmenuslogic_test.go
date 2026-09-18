@@ -39,7 +39,7 @@ func TestListNavigationMenusFiltersSubtrees(t *testing.T) {
 		node(11, 12, model.MenuTypeDirectory, true), node(12, 11, model.MenuTypeDirectory, true),
 		node(13, 1, model.MenuTypePage, false),
 	}}
-	response, err := NewListNavigationMenusLogic(context.Background(), &svc.ServiceContext{MenuRepo: repo}).ListNavigationMenus(&system.ListNavigationMenusRequest{})
+	response, err := NewListNavigationMenusLogic(context.Background(), &svc.ServiceContext{MenuRepo: repo}).ListNavigationMenus(&system.ListNavigationMenusRequest{IsSuperAdmin: true})
 	if err != nil {
 		t.Fatal(err)
 	}

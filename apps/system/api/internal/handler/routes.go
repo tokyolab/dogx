@@ -186,6 +186,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: role.ListRolesHandler(serverCtx),
 				},
 				{
+					// Get menu resources and authorizations assigned to a role
+					Method:  http.MethodPost,
+					Path:    "/role/menu/get",
+					Handler: role.GetRoleMenusHandler(serverCtx),
+				},
+				{
+					// Replace the complete PC menu authorization set for a role
+					Method:  http.MethodPost,
+					Path:    "/role/menu/update",
+					Handler: role.UpdateRoleMenusHandler(serverCtx),
+				},
+				{
 					// Enable or disable a role
 					Method:  http.MethodPost,
 					Path:    "/role/status/update",

@@ -30,10 +30,11 @@ func NewNavigationMenusLogic(ctx context.Context, svcCtx *svc.ServiceContext) *N
 }
 
 func (l *NavigationMenusLogic) NavigationMenus() (resp *types.NavigationMenusResp, err error) {
-	if _, err := authenticatedIdentity(l.ctx); err != nil {
+	identity, err := authenticatedIdentity(l.ctx)
+	if err != nil {
 		return nil, err
 	}
-	result, err := l.svcCtx.SystemRpc.ListNavigationMenus(l.ctx, &systemclient.ListNavigationMenusRequest{})
+	result, err := l.svcCtx.SystemRpc.ListNavigationMenus(l.ctx, &systemclient.ListNavigationMenusRequest{RoleIds: identity.RoleIDs, IsSuperAdmin: identity.IsSuperAdmin})
 	if err != nil {
 		return nil, err
 	}
@@ -52,5 +53,5 @@ func (l *NavigationMenusLogic) NavigationMenus() (resp *types.NavigationMenusRes
 			Visible: item.Visible, KeepAlive: item.KeepAlive, External: item.External,
 		})
 	}
-	return &types.NavigationMenusResp{Items: items}, nil
+	return &types.NavigationMenusResp{Items: items, Permissions: append([]string{}, result.Permissions...)}, nil
 }

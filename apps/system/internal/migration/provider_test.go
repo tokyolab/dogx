@@ -20,8 +20,11 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 14 {
-		t.Fatalf("unexpected migration count: got %d, want 14", len(sources))
+	if len(sources) != 15 {
+		t.Fatalf("unexpected migration count: got %d, want 15", len(sources))
+	}
+	if sources[14].Version != 20260918160000 || sources[14].Path != "20260918160000_add_role_menu_apis.sql" {
+		t.Fatalf("unexpected role menu migration: %+v", sources[14])
 	}
 	if sources[13].Version != 20260916160107 || sources[13].Path != "20260916160107_seed_system_menus.sql" {
 		t.Fatalf("unexpected system menu seed migration: %+v", sources[13])

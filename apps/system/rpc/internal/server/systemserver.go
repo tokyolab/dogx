@@ -23,6 +23,16 @@ func NewSystemServer(svcCtx *svc.ServiceContext) *SystemServer {
 	}
 }
 
+func (s *SystemServer) GetRoleMenus(ctx context.Context, in *system.GetRoleMenusRequest) (*system.GetRoleMenusResponse, error) {
+	l := logic.NewGetRoleMenusLogic(ctx, s.svcCtx)
+	return l.GetRoleMenus(in)
+}
+
+func (s *SystemServer) ReplaceRoleMenus(ctx context.Context, in *system.ReplaceRoleMenusRequest) (*system.EmptyResponse, error) {
+	l := logic.NewReplaceRoleMenusLogic(ctx, s.svcCtx)
+	return l.ReplaceRoleMenus(in)
+}
+
 func (s *SystemServer) ListNavigationMenus(ctx context.Context, in *system.ListNavigationMenusRequest) (*system.ListNavigationMenusResponse, error) {
 	l := logic.NewListNavigationMenusLogic(ctx, s.svcCtx)
 	return l.ListNavigationMenus(in)

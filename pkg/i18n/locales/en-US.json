@@ -40,6 +40,8 @@
       "self_protected": "You cannot disable or delete your current account"
     },
     "role": {
+      "menu_unavailable": "A menu or its parent no longer exists",
+      "super_admin_menu_protected": "The super administrator always has all menu permissions",
       "not_found": "The role does not exist",
       "code_exists": "The role code already exists",
       "code_reserved": "The role code is reserved by the system",

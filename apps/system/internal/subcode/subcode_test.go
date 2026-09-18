@@ -24,6 +24,8 @@ func TestSystemSubcodesHaveAllTranslations(t *testing.T) {
 		RoleSystemCodeImmutable,
 		RoleUnavailable,
 		RoleAPIUnavailable,
+		RoleMenuUnavailable,
+		RoleSuperAdminMenuProtected,
 		RoleSuperAdminAPIProtected,
 	}
 	for _, key := range keys {
