@@ -97,8 +97,14 @@ func TestDepartmentHTTPLogicRejectsInvalidRPCResponses(t *testing.T) {
 	if _, err := NewGetDepartmentLogic(ctx, &svc.ServiceContext{SystemRpc: &departmentSystemRPCStub{getResponse: &systemclient.GetDepartmentResponse{}}}).GetDepartment(&types.IDReq{Id: 1}); status.Code(err) != codes.Internal {
 		t.Fatalf("invalid get response error=%v", err)
 	}
+	if _, err := NewGetDepartmentLogic(ctx, &svc.ServiceContext{SystemRpc: &departmentSystemRPCStub{getResponse: nil}}).GetDepartment(&types.IDReq{Id: 1}); status.Code(err) != codes.Internal {
+		t.Fatalf("nil get response error=%v", err)
+	}
 	if _, err := NewListDepartmentsLogic(ctx, &svc.ServiceContext{SystemRpc: &departmentSystemRPCStub{listResponse: &systemclient.ListDepartmentsResponse{Items: []*systemclient.DepartmentInfo{nil}}}}).ListDepartments(); status.Code(err) != codes.Internal {
 		t.Fatalf("invalid list response error=%v", err)
+	}
+	if _, err := NewListDepartmentsLogic(ctx, &svc.ServiceContext{SystemRpc: &departmentSystemRPCStub{listResponse: nil}}).ListDepartments(); status.Code(err) != codes.Internal {
+		t.Fatalf("nil list response error=%v", err)
 	}
 	for _, item := range []*systemclient.DepartmentInfo{nil, {}, {Name: "missing id"}} {
 		if _, err := ToDepartmentItem(item); status.Code(err) != codes.Internal {
