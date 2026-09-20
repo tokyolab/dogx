@@ -23,14 +23,26 @@ import (
 
 type userHandlerRPCStub struct {
 	systemclient.System
-	request *systemclient.ListUsersRequest
-	called  string
-	err     error
+	request     *systemclient.ListUsersRequest
+	departments *systemclient.ListDepartmentsResponse
+	called      string
+	err         error
 }
 
 func (s *userHandlerRPCStub) ListUsers(_ context.Context, req *systemclient.ListUsersRequest, _ ...grpc.CallOption) (*systemclient.ListUsersResponse, error) {
 	s.request = req
 	return &systemclient.ListUsersResponse{}, nil
+}
+
+func (s *userHandlerRPCStub) ListDepartments(_ context.Context, _ *systemclient.ListDepartmentsRequest, _ ...grpc.CallOption) (*systemclient.ListDepartmentsResponse, error) {
+	s.called = "ListDepartments"
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.departments != nil {
+		return s.departments, nil
+	}
+	return &systemclient.ListDepartmentsResponse{}, nil
 }
 
 func (s *userHandlerRPCStub) CreateUser(_ context.Context, _ *systemclient.CreateUserRequest, _ ...grpc.CallOption) (*systemclient.CreateUserResponse, error) {
@@ -107,6 +119,59 @@ func TestUserListHTTPPreservesOptionalDisabledStatus(t *testing.T) {
 			}
 			if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil || envelope.Code != 0 || envelope.Data.Items == nil {
 				t.Fatalf("empty items must be an array: %s error=%v", response.Body.String(), err)
+			}
+		})
+	}
+}
+
+func TestUserDepartmentOptionsHTTPContract(t *testing.T) {
+	setupUserResponseHandlers(t)
+	for _, tc := range []struct {
+		name       string
+		rpc        *userHandlerRPCStub
+		wantStatus int
+		wantCode   uint32
+	}{
+		{
+			name: "success",
+			rpc: &userHandlerRPCStub{departments: &systemclient.ListDepartmentsResponse{
+				Items: []*systemclient.DepartmentInfo{{Id: 7, Name: "研发部", ParentId: 2, Sort: 1, Status: 1}},
+			}},
+			wantStatus: http.StatusOK,
+			wantCode:   0,
+		},
+		{
+			name:       "rpc unavailable",
+			rpc:        &userHandlerRPCStub{err: status.Error(codes.Unavailable, "system unavailable")},
+			wantStatus: http.StatusServiceUnavailable,
+			wantCode:   http.StatusServiceUnavailable,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/user/department/options", nil)
+			response := httptest.NewRecorder()
+			ListUserDepartmentOptionsHandler(&svc.ServiceContext{SystemRpc: tc.rpc})(response, req)
+
+			var envelope struct {
+				Code uint32 `json:"code"`
+				Data struct {
+					Items []struct {
+						Id       int64  `json:"id"`
+						ParentId int64  `json:"parentId"`
+						Name     string `json:"name"`
+					} `json:"items"`
+				} `json:"data"`
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+				t.Fatalf("decode response: %v body=%s", err, response.Body.String())
+			}
+			if response.Code != tc.wantStatus || envelope.Code != tc.wantCode || tc.rpc.called != "ListDepartments" {
+				t.Fatalf("unexpected response: status=%d body=%s called=%q", response.Code, response.Body.String(), tc.rpc.called)
+			}
+			if tc.name == "success" {
+				if len(envelope.Data.Items) != 1 || envelope.Data.Items[0].Id != 7 || envelope.Data.Items[0].ParentId != 2 || envelope.Data.Items[0].Name != "研发部" {
+					t.Fatalf("unexpected department options: %+v", envelope.Data.Items)
+				}
 			}
 		})
 	}
