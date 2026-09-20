@@ -18,11 +18,12 @@ import (
 
 type userRPCStub struct {
 	systemclient.System
-	request         proto.Message
-	err             error
-	nilResult       bool
-	listResponse    *systemclient.ListUsersResponse
-	optionsResponse *systemclient.ListUserRoleOptionsResponse
+	request            proto.Message
+	err                error
+	nilResult          bool
+	listResponse       *systemclient.ListUsersResponse
+	optionsResponse    *systemclient.ListUserRoleOptionsResponse
+	departmentResponse *systemclient.ListDepartmentsResponse
 }
 
 func (s *userRPCStub) ListUsers(_ context.Context, in *systemclient.ListUsersRequest, _ ...grpc.CallOption) (*systemclient.ListUsersResponse, error) {
@@ -101,6 +102,17 @@ func (s *userRPCStub) ListUserRoleOptions(_ context.Context, in *systemclient.Li
 		return s.optionsResponse, s.err
 	}
 	return &systemclient.ListUserRoleOptionsResponse{Items: []*systemclient.UserRoleInfo{}}, s.err
+}
+
+func (s *userRPCStub) ListDepartments(_ context.Context, in *systemclient.ListDepartmentsRequest, _ ...grpc.CallOption) (*systemclient.ListDepartmentsResponse, error) {
+	s.request = in
+	if s.nilResult {
+		return nil, s.err
+	}
+	if s.departmentResponse != nil {
+		return s.departmentResponse, s.err
+	}
+	return &systemclient.ListDepartmentsResponse{Items: []*systemclient.DepartmentInfo{}}, s.err
 }
 
 func authenticatedUserContext() context.Context {

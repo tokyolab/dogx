@@ -191,6 +191,42 @@ func (s *routeSystemRPCStub) ListUserRoleOptions(_ context.Context, _ *systemcli
 	return &systemclient.ListUserRoleOptionsResponse{Items: []*systemclient.UserRoleInfo{}}, nil
 }
 
+func (s *routeSystemRPCStub) ListDepartments(_ context.Context, _ *systemclient.ListDepartmentsRequest, _ ...grpc.CallOption) (*systemclient.ListDepartmentsResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "ListDepartments"
+	return &systemclient.ListDepartmentsResponse{}, nil
+}
+
+func (s *routeSystemRPCStub) GetDepartment(_ context.Context, request *systemclient.GetDepartmentRequest, _ ...grpc.CallOption) (*systemclient.GetDepartmentResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "GetDepartment"
+	return &systemclient.GetDepartmentResponse{Department: &systemclient.DepartmentInfo{Id: request.Id, Name: "研发部"}}, nil
+}
+
+func (s *routeSystemRPCStub) CreateDepartment(_ context.Context, _ *systemclient.CreateDepartmentRequest, _ ...grpc.CallOption) (*systemclient.CreateDepartmentResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "CreateDepartment"
+	return &systemclient.CreateDepartmentResponse{Id: 9}, nil
+}
+
+func (s *routeSystemRPCStub) UpdateDepartment(_ context.Context, _ *systemclient.UpdateDepartmentRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "UpdateDepartment"
+	return &systemclient.EmptyResponse{}, nil
+}
+
+func (s *routeSystemRPCStub) UpdateDepartmentStatus(_ context.Context, _ *systemclient.UpdateDepartmentStatusRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "UpdateDepartmentStatus"
+	return &systemclient.EmptyResponse{}, nil
+}
+
+func (s *routeSystemRPCStub) DeleteDepartment(_ context.Context, _ *systemclient.DeleteDepartmentRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "DeleteDepartment"
+	return &systemclient.EmptyResponse{}, nil
+}
+
 func (s *routeSystemRPCStub) CreateMenu(_ context.Context, _ *systemclient.CreateMenuRequest, _ ...grpc.CallOption) (*systemclient.CreateMenuResponse, error) {
 	*s.order = append(*s.order, "rpc")
 	s.called = "CreateMenu"
