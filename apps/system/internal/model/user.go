@@ -9,6 +9,7 @@ type User struct {
 	Nickname     string       `gorm:"column:nickname;size:64;not null"`
 	Email        *string      `gorm:"column:email;size:255"`
 	Phone        *string      `gorm:"column:phone;size:32"`
+	DepartmentID *int64       `gorm:"column:department_id"`
 	Status       RecordStatus `gorm:"column:status;not null"`
 	LastLoginAt  *time.Time   `gorm:"column:last_login_at"`
 	Remark       string       `gorm:"column:remark;size:500;not null"`

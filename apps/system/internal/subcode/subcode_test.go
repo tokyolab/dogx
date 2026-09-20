@@ -8,6 +8,7 @@ import (
 
 func TestSystemSubcodesHaveAllTranslations(t *testing.T) {
 	keys := []string{
+		DepartmentNotFound, DepartmentNameExists, DepartmentHasChildren, DepartmentHasUsers, DepartmentParentInvalid, DepartmentCycle, UserDepartmentUnavailable,
 		MenuNotFound, MenuParentInvalid, MenuCycle, MenuHasChildren, MenuRouteNameExists, MenuPathExists,
 		UserNotFound, UserUsernameExists, UserEmailExists, UserPhoneExists,
 		UserRoleUnavailable, UserSuperAdminNotAssignable, UserSuperAdminProtected, UserSelfProtected,

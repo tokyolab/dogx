@@ -24,7 +24,7 @@ func TestCreateUserHashesPasswordAndMapsProfile(t *testing.T) {
 	repo := &userRepositoryStub{}
 	passwords := &passwordVerifierStub{nextHash: "password-hash"}
 	logic := NewCreateUserLogic(context.Background(), &svc.ServiceContext{UserRepo: repo, Passwords: passwords})
-	result, err := logic.CreateUser(&system.CreateUserRequest{Username: "Alice", Nickname: " 昵称 ", Password: "Valid-pass123", Status: 1, RoleIds: []int64{8}, Remark: " note "})
+	result, err := logic.CreateUser(&system.CreateUserRequest{Username: "Alice", Nickname: " 昵称 ", Password: "Valid-pass123", Status: 1, RoleIds: []int64{8}, Remark: " note ", DepartmentId: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestCreateUserRejectsInvalidInputWithoutWrites(t *testing.T) {
 		func(in *system.CreateUserRequest) { in.RoleIds = []int64{0} },
 		func(in *system.CreateUserRequest) { in.RoleIds = make([]int64, 101) },
 	} {
-		in := &system.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1}
+		in := &system.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1, DepartmentId: 1}
 		change(in)
 		_, err := NewCreateUserLogic(context.Background(), &svc.ServiceContext{}).CreateUser(in)
 		if status.Code(err) != codes.InvalidArgument {
@@ -72,7 +72,7 @@ func TestCreateAndLoginUseTheSameUsernamePolicy(t *testing.T) {
 				Tokens: &credentialIssuerStub{credentials: &authn.Credentials{AccessToken: "access"}},
 			}
 			if _, err := NewCreateUserLogic(context.Background(), sc).CreateUser(&system.CreateUserRequest{
-				Username: username, Nickname: "User", Password: "Valid-pass123", Status: 1,
+				Username: username, Nickname: "User", Password: "Valid-pass123", Status: 1, DepartmentId: 1,
 			}); err != nil || repo.created.Username != username {
 				t.Fatalf("create did not preserve username %q: %v", username, err)
 			}
@@ -88,7 +88,7 @@ func TestCreateAndLoginUseTheSameUsernamePolicy(t *testing.T) {
 			// Nil dependencies prove rejection occurs before hashing or database access.
 			sc := &svc.ServiceContext{}
 			_, err := NewCreateUserLogic(context.Background(), sc).CreateUser(&system.CreateUserRequest{
-				Username: username, Nickname: "User", Password: "Valid-pass123", Status: 1,
+				Username: username, Nickname: "User", Password: "Valid-pass123", Status: 1, DepartmentId: 1,
 			})
 			if status.Code(err) != codes.InvalidArgument {
 				t.Fatalf("create accepted invalid username %q: %v", username, err)
@@ -107,7 +107,7 @@ func TestManagedUserPasswordPolicy(t *testing.T) {
 		hasher := &passwordVerifierStub{nextHash: "new-hash"}
 		sc := &svc.ServiceContext{UserRepo: repo, Passwords: hasher, Sessions: &sessionStoreLogicStub{}}
 		if _, err := NewCreateUserLogic(context.Background(), sc).CreateUser(&system.CreateUserRequest{
-			Username: "alice", Nickname: "Alice", Password: password, Status: 1,
+			Username: "alice", Nickname: "Alice", Password: password, Status: 1, DepartmentId: 1,
 		}); err != nil {
 			t.Fatalf("create user with boundary password: %v", err)
 		}
@@ -157,7 +157,7 @@ func TestUserManagementMapsBusinessAndTechnicalErrors(t *testing.T) {
 			hasher.hashErr = dependencyErr
 		}
 		_, err := NewCreateUserLogic(context.Background(), &svc.ServiceContext{UserRepo: repo, Passwords: hasher}).CreateUser(
-			&system.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1})
+			&system.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1, DepartmentId: 1})
 		if !errors.Is(err, dependencyErr) || (hashFailure && repo.writeCalls != 0) {
 			t.Fatalf("create dependency failure: %v", err)
 		}
@@ -214,7 +214,7 @@ func TestUserProfileUpdateDoesNotChangeCredentialsOrRoles(t *testing.T) {
 	repo := &userRepositoryStub{user: &model.User{Base: model.Base{ID: 9}}}
 	sessions := &sessionStoreLogicStub{}
 	sc := &svc.ServiceContext{UserRepo: repo, Sessions: sessions}
-	_, err := NewUpdateUserLogic(context.Background(), sc).UpdateUser(&system.UpdateUserRequest{Id: 9, OperatorId: 1, Nickname: " 新昵称 "})
+	_, err := NewUpdateUserLogic(context.Background(), sc).UpdateUser(&system.UpdateUserRequest{Id: 9, OperatorId: 1, Nickname: " 新昵称 ", DepartmentId: 1})
 	if err != nil || repo.profile.Nickname != "新昵称" || repo.profile.Email != nil || repo.profile.Phone != nil || repo.profile.Remark != "" || sessions.revokedUserID != 0 || repo.passwordHash != "" || len(repo.roleIDs) != 0 {
 		t.Fatalf("profile update: %+v %v", repo, err)
 	}
@@ -441,7 +441,7 @@ func TestUserMutationDependencyFailuresAreNotReportedAsSuccess(t *testing.T) {
 	dependencyErr := errors.New("database write failed")
 	operations := []func(*svc.ServiceContext) error{
 		func(sc *svc.ServiceContext) error {
-			_, err := NewUpdateUserLogic(context.Background(), sc).UpdateUser(&system.UpdateUserRequest{Id: 9, OperatorId: 1, Nickname: "Alice"})
+			_, err := NewUpdateUserLogic(context.Background(), sc).UpdateUser(&system.UpdateUserRequest{Id: 9, OperatorId: 1, Nickname: "Alice", DepartmentId: 1})
 			return err
 		},
 		func(sc *svc.ServiceContext) error {
@@ -491,7 +491,7 @@ func TestInitializedSuperAdminManagementBoundary(t *testing.T) {
 		call         func(*svc.ServiceContext, int64) error
 	}{
 		{"profile", false, true, func(sc *svc.ServiceContext, operator int64) error {
-			_, err := NewUpdateUserLogic(context.Background(), sc).UpdateUser(&system.UpdateUserRequest{Id: 42, OperatorId: operator, Nickname: "Administrator"})
+			_, err := NewUpdateUserLogic(context.Background(), sc).UpdateUser(&system.UpdateUserRequest{Id: 42, OperatorId: operator, Nickname: "Administrator", DepartmentId: 1})
 			return err
 		}},
 		{"roles", false, false, func(sc *svc.ServiceContext, operator int64) error {
@@ -547,7 +547,7 @@ func TestUserManagementInvalidRequestsStopBeforeDependencies(t *testing.T) {
 		func() error { _, err := NewGetUserLogic(ctx, sc).GetUser(nil); return err },
 		func() error { _, err := NewUpdateUserLogic(ctx, sc).UpdateUser(nil); return err },
 		func() error {
-			_, err := NewUpdateUserLogic(ctx, sc).UpdateUser(&system.UpdateUserRequest{Id: 9, OperatorId: 1, Nickname: " "})
+			_, err := NewUpdateUserLogic(ctx, sc).UpdateUser(&system.UpdateUserRequest{Id: 9, OperatorId: 1, Nickname: " ", DepartmentId: 1})
 			return err
 		},
 		func() error { _, err := NewDeleteUserLogic(ctx, sc).DeleteUser(nil); return err },

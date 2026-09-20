@@ -34,7 +34,7 @@ func (l *CreateUserLogic) CreateUser(req *types.CreateUserReq) (resp *types.Crea
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
-	result, err := l.svcCtx.SystemRpc.CreateUser(l.ctx, &systemclient.CreateUserRequest{Username: req.Username, Nickname: req.Nickname, Password: req.Password, Email: req.Email, Phone: req.Phone, Remark: req.Remark, Status: req.Status, RoleIds: req.RoleIds})
+	result, err := l.svcCtx.SystemRpc.CreateUser(l.ctx, &systemclient.CreateUserRequest{Username: req.Username, Nickname: req.Nickname, Password: req.Password, Email: req.Email, Phone: req.Phone, Remark: req.Remark, Status: req.Status, RoleIds: req.RoleIds, DepartmentId: req.DepartmentId})
 	if err != nil {
 		return nil, err
 	}

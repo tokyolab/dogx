@@ -27,8 +27,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 15 {
-		t.Fatalf("unexpected applied migration count: got %d, want 15", len(results))
+	if len(results) != 16 {
+		t.Fatalf("unexpected applied migration count: got %d, want 16", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -122,19 +122,20 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260918160000 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260918160000", version)
+	if version != 20260920120000 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260920120000", version)
 	}
 
 	expectedTables := map[string]string{
-		"sys_user":      "系统用户表",
-		"sys_role":      "系统角色表",
-		"sys_menu":      "系统多应用目录、页面与页面元素表",
-		"sys_api":       "系统接口授权资源目录表",
-		"casbin_rule":   "Casbin官方GORM Adapter策略持久化表",
-		"sys_user_role": "用户角色关联表",
-		"sys_role_menu": "角色菜单关联表",
-		"sys_login_log": "用户登录审计日志表",
+		"sys_user":       "系统用户表",
+		"sys_role":       "系统角色表",
+		"sys_menu":       "系统多应用目录、页面与页面元素表",
+		"sys_api":        "系统接口授权资源目录表",
+		"casbin_rule":    "Casbin官方GORM Adapter策略持久化表",
+		"sys_user_role":  "用户角色关联表",
+		"sys_role_menu":  "角色菜单关联表",
+		"sys_login_log":  "用户登录审计日志表",
+		"sys_department": "系统部门表",
 	}
 	for table, comment := range expectedTables {
 		assertTableComment(t, ctx, sqlDB, table, comment)
@@ -160,6 +161,9 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		"idx_sys_login_log_user_created_at",
 		"idx_sys_login_log_created_at",
 		"idx_sys_login_log_username_created_at",
+		"uk_sys_department_parent_name_active",
+		"idx_sys_department_parent_sort",
+		"idx_sys_user_department_id",
 	} {
 		assertIndexExists(t, ctx, sqlDB, index)
 	}
@@ -189,10 +193,11 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	)
 
 	for table, constraints := range map[string][]string{
-		"sys_menu": {"ck_sys_menu_app_code_not_blank", "ck_sys_menu_type", "ck_sys_menu_element_permission", "ck_sys_menu_element_route", "ck_sys_menu_status"},
-		"sys_api":  {"ck_sys_api_method_upper", "ck_sys_api_path", "ck_sys_api_status"},
-		"sys_user": {"ck_sys_user_status"},
-		"sys_role": {"ck_sys_role_status", "ck_sys_role_code_format", "ck_sys_role_name_not_blank", "ck_sys_role_sort", "ck_sys_role_super_admin_system"},
+		"sys_menu":       {"ck_sys_menu_app_code_not_blank", "ck_sys_menu_type", "ck_sys_menu_element_permission", "ck_sys_menu_element_route", "ck_sys_menu_status"},
+		"sys_api":        {"ck_sys_api_method_upper", "ck_sys_api_path", "ck_sys_api_status"},
+		"sys_user":       {"ck_sys_user_status"},
+		"sys_role":       {"ck_sys_role_status", "ck_sys_role_code_format", "ck_sys_role_name_not_blank", "ck_sys_role_sort", "ck_sys_role_super_admin_system"},
+		"sys_department": {"ck_sys_department_name_not_blank", "ck_sys_department_sort", "ck_sys_department_status"},
 	} {
 		for _, constraint := range constraints {
 			assertConstraintExists(t, ctx, sqlDB, table, constraint)
@@ -261,11 +266,29 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	}
 
 	assertSystemMenuSeed(t, ctx, sqlDB)
+	assertTableExists(t, ctx, sqlDB, "sys_department")
+	var defaultDepartmentID int64
+	if err := sqlDB.QueryRowContext(ctx, "SELECT id FROM sys_department WHERE name = '默认部门' AND deleted_at IS NULL").Scan(&defaultDepartmentID); err != nil {
+		t.Fatalf("query seeded default department: %v", err)
+	}
+	if defaultDepartmentID <= 0 {
+		t.Fatalf("invalid seeded default department id: %d", defaultDepartmentID)
+	}
 
 	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE path IN ('/role/menu/get','/role/menu/update') AND method = 'POST' AND status = 1 AND is_required = FALSE").Scan(&seedCount); err != nil || seedCount != 2 {
 		t.Fatalf("role menu API seed: %d %v", seedCount, err)
 	}
 	downResult, err := provider.Down(ctx)
+	if err != nil {
+		t.Fatalf("roll back department management migration: %v", err)
+	}
+	if downResult.Source.Version != 20260920120000 || downResult.Source.Path != "20260920120000_add_department_management.sql" {
+		t.Fatalf("unexpected department management rollback: %+v", downResult)
+	}
+	assertTableNotExists(t, ctx, sqlDB, "sys_department")
+	assertColumnNotExists(t, ctx, sqlDB, "sys_user", "department_id")
+
+	downResult, err = provider.Down(ctx)
 	if err != nil || downResult.Source.Version != 20260918160000 {
 		t.Fatalf("role menu API rollback: %+v %v", downResult, err)
 	}
@@ -500,7 +523,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 13 ||
+	if len(reapplyResults) != 14 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
@@ -512,7 +535,9 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		reapplyResults[8].Source.Version != 20260907103000 ||
 		reapplyResults[9].Source.Version != 20260916071004 ||
 		reapplyResults[10].Source.Version != 20260916160000 ||
-		reapplyResults[11].Source.Version != 20260916160107 || reapplyResults[12].Source.Version != 20260918160000 {
+		reapplyResults[11].Source.Version != 20260916160107 ||
+		reapplyResults[12].Source.Version != 20260918160000 ||
+		reapplyResults[13].Source.Version != 20260920120000 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 	assertSystemMenuSeed(t, ctx, sqlDB)

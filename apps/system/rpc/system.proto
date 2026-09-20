@@ -168,6 +168,8 @@ message UserInfo {
   string created_at = 9;
   string updated_at = 10;
   string last_login_at = 11;
+  int64 department_id = 12;
+  string department_name = 13;
 }
 
 message ListUsersRequest {
@@ -175,6 +177,7 @@ message ListUsersRequest {
   int64 page_size = 2;
   string keyword = 3;
   optional int32 status = 4;
+  optional int64 department_id = 5;
 }
 
 message ListUsersResponse {
@@ -194,6 +197,7 @@ message CreateUserRequest {
   string remark = 6;
   int32 status = 7;
   repeated int64 role_ids = 8;
+  int64 department_id = 9;
 }
 message CreateUserResponse { int64 id = 1; }
 
@@ -204,6 +208,7 @@ message UpdateUserRequest {
   string phone = 4;
   string remark = 5;
   int64 operator_id = 6;
+  int64 department_id = 7;
 }
 message UpdateUserStatusRequest {
   int64 id = 1;
@@ -309,6 +314,38 @@ message NavigationMenu {
   bool keep_alive = 11;
   bool external = 12;
 }
+
+message DepartmentInfo {
+  int64 id = 1;
+  int64 parent_id = 2;
+  string name = 3;
+  int32 sort = 4;
+  int32 status = 5;
+  string remark = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+message ListDepartmentsRequest {}
+message ListDepartmentsResponse { repeated DepartmentInfo items = 1; }
+message GetDepartmentRequest { int64 id = 1; }
+message GetDepartmentResponse { DepartmentInfo department = 1; }
+message CreateDepartmentRequest {
+  int64 parent_id = 1;
+  string name = 2;
+  int32 sort = 3;
+  string remark = 4;
+  int32 status = 5;
+}
+message CreateDepartmentResponse { int64 id = 1; }
+message UpdateDepartmentRequest {
+  int64 id = 1;
+  int64 parent_id = 2;
+  string name = 3;
+  int32 sort = 4;
+  string remark = 5;
+}
+message UpdateDepartmentStatusRequest { int64 id = 1; int32 status = 2; }
+message DeleteDepartmentRequest { int64 id = 1; }
 message ListNavigationMenusResponse {
   repeated NavigationMenu items = 1;
   repeated string permissions = 2;
@@ -349,4 +386,10 @@ service System {
   rpc ReplaceUserRoles(ReplaceUserRolesRequest) returns (EmptyResponse);
   rpc ResetUserPassword(ResetUserPasswordRequest) returns (EmptyResponse);
   rpc ListUserRoleOptions(ListRolesRequest) returns (ListUserRoleOptionsResponse);
+  rpc ListDepartments(ListDepartmentsRequest) returns (ListDepartmentsResponse);
+  rpc GetDepartment(GetDepartmentRequest) returns (GetDepartmentResponse);
+  rpc CreateDepartment(CreateDepartmentRequest) returns (CreateDepartmentResponse);
+  rpc UpdateDepartment(UpdateDepartmentRequest) returns (EmptyResponse);
+  rpc UpdateDepartmentStatus(UpdateDepartmentStatusRequest) returns (EmptyResponse);
+  rpc DeleteDepartment(DeleteDepartmentRequest) returns (EmptyResponse);
 }

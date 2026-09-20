@@ -15,6 +15,14 @@
     "business_error": "业务处理失败"
   },
   "system": {
+    "department": {
+      "not_found": "部门不存在",
+      "name_exists": "同级部门名称已存在",
+      "has_children": "部门存在子部门，不能删除",
+      "has_users": "部门存在关联用户，不能删除",
+      "parent_invalid": "父部门不存在或无效",
+      "cycle": "部门不能移动到自己的下级"
+    },
     "menu": {
       "not_found": "菜单不存在",
       "parent_invalid": "上级节点不存在或不能作为父节点",
@@ -35,6 +43,7 @@
       "email_exists": "邮箱已被使用",
       "phone_exists": "手机号已被使用",
       "role_unavailable": "角色不存在或不允许分配",
+      "department_unavailable": "部门不存在或已停用",
       "super_admin_not_assignable": "超管角色不允许授权",
       "super_admin_protected": "初始化超管账号受保护，不能停用、删除、修改角色或由其他账号修改",
       "self_protected": "不能停用或删除当前登录账号"

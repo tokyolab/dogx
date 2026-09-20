@@ -29,7 +29,8 @@ func NewListUsersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListUse
 }
 
 func (l *ListUsersLogic) ListUsers(in *system.ListUsersRequest) (*system.ListUsersResponse, error) {
-	if in == nil || (in.Status != nil && !validRecordStatus(*in.Status)) {
+	if in == nil || (in.Status != nil && !validRecordStatus(*in.Status)) ||
+		(in.DepartmentId != nil && *in.DepartmentId <= 0) {
 		return nil, status.Error(codes.InvalidArgument, "invalid user list request")
 	}
 	offset, err := userPageOffset(in.Page, in.PageSize, in.Keyword)
@@ -40,6 +41,10 @@ func (l *ListUsersLogic) ListUsers(in *system.ListUsersRequest) (*system.ListUse
 	if in.Status != nil {
 		value := model.RecordStatus(*in.Status)
 		query.Status = &value
+	}
+	if in.DepartmentId != nil {
+		departmentID := *in.DepartmentId
+		query.DepartmentID = &departmentID
 	}
 	records, total, err := l.svcCtx.UserRepo.List(l.ctx, query)
 	if err != nil {

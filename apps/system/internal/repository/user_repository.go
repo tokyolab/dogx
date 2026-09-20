@@ -16,32 +16,36 @@ import (
 )
 
 var (
-	ErrUserNotFound            = errors.New("user not found")
-	ErrUsernameExists          = errors.New("username already exists")
-	ErrUserEmailExists         = errors.New("user email already exists")
-	ErrUserPhoneExists         = errors.New("user phone already exists")
-	ErrUserRoleUnavailable     = errors.New("role is unavailable for assignment")
-	ErrSuperAdminNotAssignable = errors.New("super administrator cannot be assigned")
-	ErrSuperAdminProtected     = errors.New("the initialized super administrator account is protected")
+	ErrUserNotFound              = errors.New("user not found")
+	ErrUsernameExists            = errors.New("username already exists")
+	ErrUserEmailExists           = errors.New("user email already exists")
+	ErrUserPhoneExists           = errors.New("user phone already exists")
+	ErrUserRoleUnavailable       = errors.New("role is unavailable for assignment")
+	ErrUserDepartmentUnavailable = errors.New("department is unavailable")
+	ErrSuperAdminNotAssignable   = errors.New("super administrator cannot be assigned")
+	ErrSuperAdminProtected       = errors.New("the initialized super administrator account is protected")
 )
 
 type UserRecord struct {
-	User  model.User
-	Roles []model.Role
+	User           model.User
+	DepartmentName string
+	Roles          []model.Role
 }
 
 type UserListQuery struct {
-	Keyword string
-	Status  *model.RecordStatus
-	Offset  int
-	Limit   int
+	Keyword      string
+	Status       *model.RecordStatus
+	DepartmentID *int64
+	Offset       int
+	Limit        int
 }
 
 type UserProfileUpdate struct {
-	Nickname string
-	Email    *string
-	Phone    *string
-	Remark   string
+	Nickname     string
+	Email        *string
+	Phone        *string
+	Remark       string
+	DepartmentID *int64
 }
 
 type UserRepository interface {
@@ -143,6 +147,9 @@ func (r *userRepository) List(ctx context.Context, query UserListQuery) ([]UserR
 	if query.Status != nil {
 		db = db.Where("status = ?", *query.Status)
 	}
+	if query.DepartmentID != nil {
+		db = db.Where("department_id = ?", *query.DepartmentID)
+	}
 	var total int64
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("count users: %w", err)
@@ -159,9 +166,17 @@ func (r *userRepository) List(ctx context.Context, query UserListQuery) ([]UserR
 	if err != nil {
 		return nil, 0, err
 	}
+	departments, err := loadUserDepartmentNames(r.db.WithContext(ctx), users)
+	if err != nil {
+		return nil, 0, err
+	}
 	records := make([]UserRecord, 0, len(users))
 	for _, user := range users {
-		records = append(records, UserRecord{User: user, Roles: roles[user.ID]})
+		departmentName := ""
+		if user.DepartmentID != nil {
+			departmentName = departments[*user.DepartmentID]
+		}
+		records = append(records, UserRecord{User: user, DepartmentName: departmentName, Roles: roles[user.ID]})
 	}
 	return records, total, nil
 }
@@ -179,7 +194,36 @@ func findUserRecord(db *gorm.DB, id int64) (*UserRecord, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &UserRecord{User: user, Roles: roles[id]}, nil
+	departments, err := loadUserDepartmentNames(db, []model.User{user})
+	if err != nil {
+		return nil, err
+	}
+	departmentName := ""
+	if user.DepartmentID != nil {
+		departmentName = departments[*user.DepartmentID]
+	}
+	return &UserRecord{User: user, DepartmentName: departmentName, Roles: roles[id]}, nil
+}
+
+func loadUserDepartmentNames(db *gorm.DB, users []model.User) (map[int64]string, error) {
+	result := make(map[int64]string)
+	ids := make([]int64, 0, len(users))
+	for _, user := range users {
+		if user.DepartmentID != nil {
+			ids = append(ids, *user.DepartmentID)
+		}
+	}
+	if len(ids) == 0 {
+		return result, nil
+	}
+	var departments []model.Department
+	if err := db.Where("id IN ?", ids).Find(&departments).Error; err != nil {
+		return nil, fmt.Errorf("load user departments: %w", err)
+	}
+	for _, department := range departments {
+		result[department.ID] = department.Name
+	}
+	return result, nil
 }
 
 func loadUserRoleRecords(db *gorm.DB, ids []int64) (map[int64][]model.Role, error) {
@@ -205,6 +249,9 @@ func loadUserRoleRecords(db *gorm.DB, ids []int64) (map[int64][]model.Role, erro
 
 func (r *userRepository) CreateWithRoles(ctx context.Context, user *model.User, roleIDs []int64) error {
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateUserDepartment(tx, user.DepartmentID, nil); err != nil {
+			return err
+		}
 		ids, err := validateUserRoles(tx, roleIDs, nil)
 		if err != nil {
 			return err
@@ -218,15 +265,41 @@ func (r *userRepository) CreateWithRoles(ctx context.Context, user *model.User, 
 }
 
 func (r *userRepository) UpdateProfile(ctx context.Context, id int64, update UserProfileUpdate) error {
+	current, err := r.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := validateUserDepartment(r.db.WithContext(ctx), update.DepartmentID, current.DepartmentID); err != nil {
+		return mapUserWriteError(err)
+	}
 	// Maps preserve intentional clearing of optional fields and remarks.
 	result := r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).Updates(map[string]any{
-		"nickname": update.Nickname, "email": update.Email, "phone": update.Phone, "remark": update.Remark,
+		"nickname": update.Nickname, "email": update.Email, "phone": update.Phone, "remark": update.Remark, "department_id": update.DepartmentID,
 	})
 	if result.Error != nil {
 		return mapUserWriteError(result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return ErrUserNotFound
+	}
+	return nil
+}
+
+func validateUserDepartment(db *gorm.DB, departmentID, currentID *int64) error {
+	if departmentID == nil {
+		return nil
+	}
+	var department model.Department
+	if err := db.Where("id = ?", *departmentID).First(&department).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrUserDepartmentUnavailable
+		}
+		return fmt.Errorf("validate user department: %w", err)
+	}
+	// A disabled department cannot receive new members, but existing users can
+	// retain it while editing unrelated profile fields. No sessions are revoked.
+	if department.Status != model.RecordStatusEnabled && (currentID == nil || *currentID != *departmentID) {
+		return ErrUserDepartmentUnavailable
 	}
 	return nil
 }

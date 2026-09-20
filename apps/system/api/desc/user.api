@@ -1,4 +1,5 @@
 import "base.api"
+import "department.api"
 
 type (
 	UserListReq {
@@ -6,6 +7,7 @@ type (
 		PageSize int64 `json:"pageSize" validate:"gte=1,lte=200"`
 		Keyword string `json:"keyword,optional" validate:"max=128"`
 		Status *int32 `json:"status,optional" validate:"omitempty,oneof=0 1"`
+		DepartmentId *int64 `json:"departmentId,optional" validate:"omitempty,gt=0"`
 	}
 	UserRoleItem {
 		Id int64 `json:"id"`
@@ -25,6 +27,8 @@ type (
 		CreatedAt string `json:"createdAt"`
 		UpdatedAt string `json:"updatedAt"`
 		LastLoginAt string `json:"lastLoginAt"`
+		DepartmentId int64 `json:"departmentId"`
+		DepartmentName string `json:"departmentName"`
 	}
 	UserListResp {
 		Items []UserItem `json:"items"`
@@ -37,6 +41,7 @@ type (
 		Email string `json:"email,optional" validate:"omitempty,max=255,email"`
 		Phone string `json:"phone,optional" validate:"max=32"`
 		Remark string `json:"remark,optional" validate:"max=500"`
+		DepartmentId int64 `json:"departmentId" validate:"gt=0"`
 		Status int32 `json:"status" validate:"oneof=0 1"`
 		RoleIds []int64 `json:"roleIds" validate:"max=100,dive,gt=0"`
 	}
@@ -49,6 +54,7 @@ type (
 		Email string `json:"email,optional" validate:"omitempty,max=255,email"`
 		Phone string `json:"phone,optional" validate:"max=32"`
 		Remark string `json:"remark,optional" validate:"max=500"`
+		DepartmentId int64 `json:"departmentId" validate:"gt=0"`
 	}
 	UpdateUserStatusReq {
 		Id int64 `json:"id" validate:"gt=0"`
@@ -97,4 +103,6 @@ service system-api {
 	post /user/password/reset (ResetUserPasswordReq) returns (EmptyResp)
 	@handler listUserRoleOptions
 	post /user/role/options (UserRoleOptionsReq) returns (UserRoleOptionsResp)
+	@handler listUserDepartmentOptions
+	post /user/department/options returns (DepartmentListResp)
 }

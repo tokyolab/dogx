@@ -20,10 +20,11 @@ func assertSystemMenuSeed(t testing.TB, ctx context.Context, db *sql.DB) {
 		kind, sort                    int
 	}
 	want := map[string]menuSeed{
-		"SystemManagement": {"系统管理", "", "/system", "", 1, 10},
-		"MenuManagement":   {"菜单管理", "SystemManagement", "/system/menu", "system/menu/index", 2, 10},
-		"UserManagement":   {"用户管理", "SystemManagement", "/system/user", "system/user/index", 2, 20},
-		"RoleManagement":   {"角色管理", "SystemManagement", "/system/role", "system/role/index", 2, 30},
+		"SystemManagement":     {"系统管理", "", "/system", "", 1, 10},
+		"MenuManagement":       {"菜单管理", "SystemManagement", "/system/menu", "system/menu/index", 2, 10},
+		"UserManagement":       {"用户管理", "SystemManagement", "/system/user", "system/user/index", 2, 20},
+		"RoleManagement":       {"角色管理", "SystemManagement", "/system/role", "system/role/index", 2, 30},
+		"DepartmentManagement": {"部门管理", "SystemManagement", "/system/department", "system/department/index", 2, 40},
 	}
 	rows, err := db.QueryContext(ctx, `
 		SELECT m.route_name, m.name, COALESCE(p.route_name, ''), m.path, m.component,

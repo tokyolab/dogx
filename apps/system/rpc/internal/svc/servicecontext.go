@@ -30,21 +30,22 @@ type RolePolicyService interface {
 }
 
 type ServiceContext struct {
-	Config        config.Config
-	DB            *gorm.DB
-	Redis         *redis.Redis
-	UserRepo      repository.UserRepository
-	RoleRepo      repository.RoleRepository
-	MenuRepo      repository.MenuRepository
-	RoleMenuRepo  repository.RoleMenuRepository
-	APIRepo       repository.APIRepository
-	LoginLogRepo  repository.LoginLogRepository
-	Passwords     authn.PasswordHasher
-	Tokens        authn.CredentialIssuer
-	RefreshTokens authn.CredentialRefresher
-	Sessions      authn.SessionStore
-	RolePolicies  RolePolicyService
-	Readiness     ReadinessChecker
+	Config         config.Config
+	DB             *gorm.DB
+	Redis          *redis.Redis
+	UserRepo       repository.UserRepository
+	DepartmentRepo repository.DepartmentRepository
+	RoleRepo       repository.RoleRepository
+	MenuRepo       repository.MenuRepository
+	RoleMenuRepo   repository.RoleMenuRepository
+	APIRepo        repository.APIRepository
+	LoginLogRepo   repository.LoginLogRepository
+	Passwords      authn.PasswordHasher
+	Tokens         authn.CredentialIssuer
+	RefreshTokens  authn.CredentialRefresher
+	Sessions       authn.SessionStore
+	RolePolicies   RolePolicyService
+	Readiness      ReadinessChecker
 
 	policyPublisher authorization.PolicyWatcher
 	sqlDB           *sql.DB
@@ -96,6 +97,11 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("initialize user repository: %w", err)
 	}
+	departmentRepo, err := repository.NewDepartmentRepository(database)
+	if err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("initialize department repository: %w", err)
+	}
 	roleRepo, err := repository.NewRoleRepository(database)
 	if err != nil {
 		_ = sqlDB.Close()
@@ -138,6 +144,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		DB:              database,
 		Redis:           redisClient,
 		UserRepo:        userRepo,
+		DepartmentRepo:  departmentRepo,
 		RoleRepo:        roleRepo,
 		MenuRepo:        menuRepo,
 		RoleMenuRepo:    roleMenuRepo,

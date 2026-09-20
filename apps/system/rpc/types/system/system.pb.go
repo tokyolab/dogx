@@ -1590,20 +1590,22 @@ func (x *UserRoleInfo) GetStatus() int32 {
 }
 
 type UserInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
-	Nickname      string                 `protobuf:"bytes,3,opt,name=nickname,proto3" json:"nickname,omitempty"`
-	Email         string                 `protobuf:"bytes,4,opt,name=email,proto3" json:"email,omitempty"`
-	Phone         string                 `protobuf:"bytes,5,opt,name=phone,proto3" json:"phone,omitempty"`
-	Remark        string                 `protobuf:"bytes,6,opt,name=remark,proto3" json:"remark,omitempty"`
-	Status        int32                  `protobuf:"varint,7,opt,name=status,proto3" json:"status,omitempty"`
-	Roles         []*UserRoleInfo        `protobuf:"bytes,8,rep,name=roles,proto3" json:"roles,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     string                 `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	LastLoginAt   string                 `protobuf:"bytes,11,opt,name=last_login_at,json=lastLoginAt,proto3" json:"last_login_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Username       string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Nickname       string                 `protobuf:"bytes,3,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	Email          string                 `protobuf:"bytes,4,opt,name=email,proto3" json:"email,omitempty"`
+	Phone          string                 `protobuf:"bytes,5,opt,name=phone,proto3" json:"phone,omitempty"`
+	Remark         string                 `protobuf:"bytes,6,opt,name=remark,proto3" json:"remark,omitempty"`
+	Status         int32                  `protobuf:"varint,7,opt,name=status,proto3" json:"status,omitempty"`
+	Roles          []*UserRoleInfo        `protobuf:"bytes,8,rep,name=roles,proto3" json:"roles,omitempty"`
+	CreatedAt      string                 `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt      string                 `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	LastLoginAt    string                 `protobuf:"bytes,11,opt,name=last_login_at,json=lastLoginAt,proto3" json:"last_login_at,omitempty"`
+	DepartmentId   int64                  `protobuf:"varint,12,opt,name=department_id,json=departmentId,proto3" json:"department_id,omitempty"`
+	DepartmentName string                 `protobuf:"bytes,13,opt,name=department_name,json=departmentName,proto3" json:"department_name,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *UserInfo) Reset() {
@@ -1713,12 +1715,27 @@ func (x *UserInfo) GetLastLoginAt() string {
 	return ""
 }
 
+func (x *UserInfo) GetDepartmentId() int64 {
+	if x != nil {
+		return x.DepartmentId
+	}
+	return 0
+}
+
+func (x *UserInfo) GetDepartmentName() string {
+	if x != nil {
+		return x.DepartmentName
+	}
+	return ""
+}
+
 type ListUsersRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Page          int64                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
 	PageSize      int64                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	Keyword       string                 `protobuf:"bytes,3,opt,name=keyword,proto3" json:"keyword,omitempty"`
 	Status        *int32                 `protobuf:"varint,4,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	DepartmentId  *int64                 `protobuf:"varint,5,opt,name=department_id,json=departmentId,proto3,oneof" json:"department_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1777,6 +1794,13 @@ func (x *ListUsersRequest) GetKeyword() string {
 func (x *ListUsersRequest) GetStatus() int32 {
 	if x != nil && x.Status != nil {
 		return *x.Status
+	}
+	return 0
+}
+
+func (x *ListUsersRequest) GetDepartmentId() int64 {
+	if x != nil && x.DepartmentId != nil {
+		return *x.DepartmentId
 	}
 	return 0
 }
@@ -1931,6 +1955,7 @@ type CreateUserRequest struct {
 	Remark        string                 `protobuf:"bytes,6,opt,name=remark,proto3" json:"remark,omitempty"`
 	Status        int32                  `protobuf:"varint,7,opt,name=status,proto3" json:"status,omitempty"`
 	RoleIds       []int64                `protobuf:"varint,8,rep,packed,name=role_ids,json=roleIds,proto3" json:"role_ids,omitempty"`
+	DepartmentId  int64                  `protobuf:"varint,9,opt,name=department_id,json=departmentId,proto3" json:"department_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2021,6 +2046,13 @@ func (x *CreateUserRequest) GetRoleIds() []int64 {
 	return nil
 }
 
+func (x *CreateUserRequest) GetDepartmentId() int64 {
+	if x != nil {
+		return x.DepartmentId
+	}
+	return 0
+}
+
 type CreateUserResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -2073,6 +2105,7 @@ type UpdateUserRequest struct {
 	Phone         string                 `protobuf:"bytes,4,opt,name=phone,proto3" json:"phone,omitempty"`
 	Remark        string                 `protobuf:"bytes,5,opt,name=remark,proto3" json:"remark,omitempty"`
 	OperatorId    int64                  `protobuf:"varint,6,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
+	DepartmentId  int64                  `protobuf:"varint,7,opt,name=department_id,json=departmentId,proto3" json:"department_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2145,6 +2178,13 @@ func (x *UpdateUserRequest) GetRemark() string {
 func (x *UpdateUserRequest) GetOperatorId() int64 {
 	if x != nil {
 		return x.OperatorId
+	}
+	return 0
+}
+
+func (x *UpdateUserRequest) GetDepartmentId() int64 {
+	if x != nil {
+		return x.DepartmentId
 	}
 	return 0
 }
@@ -3394,6 +3434,566 @@ func (x *NavigationMenu) GetExternal() bool {
 	return false
 }
 
+type DepartmentInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ParentId      int64                  `protobuf:"varint,2,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Sort          int32                  `protobuf:"varint,4,opt,name=sort,proto3" json:"sort,omitempty"`
+	Status        int32                  `protobuf:"varint,5,opt,name=status,proto3" json:"status,omitempty"`
+	Remark        string                 `protobuf:"bytes,6,opt,name=remark,proto3" json:"remark,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DepartmentInfo) Reset() {
+	*x = DepartmentInfo{}
+	mi := &file_system_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DepartmentInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DepartmentInfo) ProtoMessage() {}
+
+func (x *DepartmentInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DepartmentInfo.ProtoReflect.Descriptor instead.
+func (*DepartmentInfo) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *DepartmentInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *DepartmentInfo) GetParentId() int64 {
+	if x != nil {
+		return x.ParentId
+	}
+	return 0
+}
+
+func (x *DepartmentInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DepartmentInfo) GetSort() int32 {
+	if x != nil {
+		return x.Sort
+	}
+	return 0
+}
+
+func (x *DepartmentInfo) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *DepartmentInfo) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *DepartmentInfo) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *DepartmentInfo) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type ListDepartmentsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDepartmentsRequest) Reset() {
+	*x = ListDepartmentsRequest{}
+	mi := &file_system_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDepartmentsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDepartmentsRequest) ProtoMessage() {}
+
+func (x *ListDepartmentsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDepartmentsRequest.ProtoReflect.Descriptor instead.
+func (*ListDepartmentsRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{58}
+}
+
+type ListDepartmentsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*DepartmentInfo      `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDepartmentsResponse) Reset() {
+	*x = ListDepartmentsResponse{}
+	mi := &file_system_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDepartmentsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDepartmentsResponse) ProtoMessage() {}
+
+func (x *ListDepartmentsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDepartmentsResponse.ProtoReflect.Descriptor instead.
+func (*ListDepartmentsResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *ListDepartmentsResponse) GetItems() []*DepartmentInfo {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type GetDepartmentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDepartmentRequest) Reset() {
+	*x = GetDepartmentRequest{}
+	mi := &file_system_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDepartmentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDepartmentRequest) ProtoMessage() {}
+
+func (x *GetDepartmentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDepartmentRequest.ProtoReflect.Descriptor instead.
+func (*GetDepartmentRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *GetDepartmentRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type GetDepartmentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Department    *DepartmentInfo        `protobuf:"bytes,1,opt,name=department,proto3" json:"department,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDepartmentResponse) Reset() {
+	*x = GetDepartmentResponse{}
+	mi := &file_system_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDepartmentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDepartmentResponse) ProtoMessage() {}
+
+func (x *GetDepartmentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDepartmentResponse.ProtoReflect.Descriptor instead.
+func (*GetDepartmentResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *GetDepartmentResponse) GetDepartment() *DepartmentInfo {
+	if x != nil {
+		return x.Department
+	}
+	return nil
+}
+
+type CreateDepartmentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ParentId      int64                  `protobuf:"varint,1,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Sort          int32                  `protobuf:"varint,3,opt,name=sort,proto3" json:"sort,omitempty"`
+	Remark        string                 `protobuf:"bytes,4,opt,name=remark,proto3" json:"remark,omitempty"`
+	Status        int32                  `protobuf:"varint,5,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDepartmentRequest) Reset() {
+	*x = CreateDepartmentRequest{}
+	mi := &file_system_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDepartmentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDepartmentRequest) ProtoMessage() {}
+
+func (x *CreateDepartmentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDepartmentRequest.ProtoReflect.Descriptor instead.
+func (*CreateDepartmentRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *CreateDepartmentRequest) GetParentId() int64 {
+	if x != nil {
+		return x.ParentId
+	}
+	return 0
+}
+
+func (x *CreateDepartmentRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateDepartmentRequest) GetSort() int32 {
+	if x != nil {
+		return x.Sort
+	}
+	return 0
+}
+
+func (x *CreateDepartmentRequest) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *CreateDepartmentRequest) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+type CreateDepartmentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDepartmentResponse) Reset() {
+	*x = CreateDepartmentResponse{}
+	mi := &file_system_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDepartmentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDepartmentResponse) ProtoMessage() {}
+
+func (x *CreateDepartmentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDepartmentResponse.ProtoReflect.Descriptor instead.
+func (*CreateDepartmentResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *CreateDepartmentResponse) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type UpdateDepartmentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ParentId      int64                  `protobuf:"varint,2,opt,name=parent_id,json=parentId,proto3" json:"parent_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Sort          int32                  `protobuf:"varint,4,opt,name=sort,proto3" json:"sort,omitempty"`
+	Remark        string                 `protobuf:"bytes,5,opt,name=remark,proto3" json:"remark,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDepartmentRequest) Reset() {
+	*x = UpdateDepartmentRequest{}
+	mi := &file_system_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDepartmentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDepartmentRequest) ProtoMessage() {}
+
+func (x *UpdateDepartmentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDepartmentRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDepartmentRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *UpdateDepartmentRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateDepartmentRequest) GetParentId() int64 {
+	if x != nil {
+		return x.ParentId
+	}
+	return 0
+}
+
+func (x *UpdateDepartmentRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateDepartmentRequest) GetSort() int32 {
+	if x != nil {
+		return x.Sort
+	}
+	return 0
+}
+
+func (x *UpdateDepartmentRequest) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+type UpdateDepartmentStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDepartmentStatusRequest) Reset() {
+	*x = UpdateDepartmentStatusRequest{}
+	mi := &file_system_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDepartmentStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDepartmentStatusRequest) ProtoMessage() {}
+
+func (x *UpdateDepartmentStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDepartmentStatusRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDepartmentStatusRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *UpdateDepartmentStatusRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateDepartmentStatusRequest) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+type DeleteDepartmentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDepartmentRequest) Reset() {
+	*x = DeleteDepartmentRequest{}
+	mi := &file_system_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDepartmentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDepartmentRequest) ProtoMessage() {}
+
+func (x *DeleteDepartmentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDepartmentRequest.ProtoReflect.Descriptor instead.
+func (*DeleteDepartmentRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *DeleteDepartmentRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
 type ListNavigationMenusResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*NavigationMenu      `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -3404,7 +4004,7 @@ type ListNavigationMenusResponse struct {
 
 func (x *ListNavigationMenusResponse) Reset() {
 	*x = ListNavigationMenusResponse{}
-	mi := &file_system_proto_msgTypes[57]
+	mi := &file_system_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3416,7 +4016,7 @@ func (x *ListNavigationMenusResponse) String() string {
 func (*ListNavigationMenusResponse) ProtoMessage() {}
 
 func (x *ListNavigationMenusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_system_proto_msgTypes[57]
+	mi := &file_system_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3429,7 +4029,7 @@ func (x *ListNavigationMenusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNavigationMenusResponse.ProtoReflect.Descriptor instead.
 func (*ListNavigationMenusResponse) Descriptor() ([]byte, []int) {
-	return file_system_proto_rawDescGZIP(), []int{57}
+	return file_system_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ListNavigationMenusResponse) GetItems() []*NavigationMenu {
@@ -3555,7 +4155,7 @@ const file_system_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\x05R\x06status\"\xbc\x02\n" +
+	"\x06status\x18\x04 \x01(\x05R\x06status\"\x8a\x03\n" +
 	"\bUserInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
@@ -3570,20 +4170,24 @@ const file_system_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\n" +
 	" \x01(\tR\tupdatedAt\x12\"\n" +
-	"\rlast_login_at\x18\v \x01(\tR\vlastLoginAt\"\x85\x01\n" +
+	"\rlast_login_at\x18\v \x01(\tR\vlastLoginAt\x12#\n" +
+	"\rdepartment_id\x18\f \x01(\x03R\fdepartmentId\x12'\n" +
+	"\x0fdepartment_name\x18\r \x01(\tR\x0edepartmentName\"\xc1\x01\n" +
 	"\x10ListUsersRequest\x12\x12\n" +
 	"\x04page\x18\x01 \x01(\x03R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x02 \x01(\x03R\bpageSize\x12\x18\n" +
 	"\akeyword\x18\x03 \x01(\tR\akeyword\x12\x1b\n" +
-	"\x06status\x18\x04 \x01(\x05H\x00R\x06status\x88\x01\x01B\t\n" +
-	"\a_status\"Q\n" +
+	"\x06status\x18\x04 \x01(\x05H\x00R\x06status\x88\x01\x01\x12(\n" +
+	"\rdepartment_id\x18\x05 \x01(\x03H\x01R\fdepartmentId\x88\x01\x01B\t\n" +
+	"\a_statusB\x10\n" +
+	"\x0e_department_id\"Q\n" +
 	"\x11ListUsersResponse\x12&\n" +
 	"\x05items\x18\x01 \x03(\v2\x10.system.UserInfoR\x05items\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x03R\x05total\" \n" +
 	"\x0eGetUserRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\"7\n" +
 	"\x0fGetUserResponse\x12$\n" +
-	"\x04user\x18\x01 \x01(\v2\x10.system.UserInfoR\x04user\"\xde\x01\n" +
+	"\x04user\x18\x01 \x01(\v2\x10.system.UserInfoR\x04user\"\x83\x02\n" +
 	"\x11CreateUserRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
 	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x1a\n" +
@@ -3592,9 +4196,10 @@ const file_system_proto_rawDesc = "" +
 	"\x05phone\x18\x05 \x01(\tR\x05phone\x12\x16\n" +
 	"\x06remark\x18\x06 \x01(\tR\x06remark\x12\x16\n" +
 	"\x06status\x18\a \x01(\x05R\x06status\x12\x19\n" +
-	"\brole_ids\x18\b \x03(\x03R\aroleIds\"$\n" +
+	"\brole_ids\x18\b \x03(\x03R\aroleIds\x12#\n" +
+	"\rdepartment_id\x18\t \x01(\x03R\fdepartmentId\"$\n" +
 	"\x12CreateUserResponse\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x03R\x02id\"\xa4\x01\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"\xc9\x01\n" +
 	"\x11UpdateUserRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
 	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x14\n" +
@@ -3602,7 +4207,8 @@ const file_system_proto_rawDesc = "" +
 	"\x05phone\x18\x04 \x01(\tR\x05phone\x12\x16\n" +
 	"\x06remark\x18\x05 \x01(\tR\x06remark\x12\x1f\n" +
 	"\voperator_id\x18\x06 \x01(\x03R\n" +
-	"operatorId\"b\n" +
+	"operatorId\x12#\n" +
+	"\rdepartment_id\x18\a \x01(\x03R\fdepartmentId\"b\n" +
 	"\x17UpdateUserStatusRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\x05R\x06status\x12\x1f\n" +
@@ -3699,10 +4305,49 @@ const file_system_proto_rawDesc = "" +
 	" \x01(\bR\avisible\x12\x1d\n" +
 	"\n" +
 	"keep_alive\x18\v \x01(\bR\tkeepAlive\x12\x1a\n" +
-	"\bexternal\x18\f \x01(\bR\bexternal\"m\n" +
+	"\bexternal\x18\f \x01(\bR\bexternal\"\xd3\x01\n" +
+	"\x0eDepartmentInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
+	"\tparent_id\x18\x02 \x01(\x03R\bparentId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
+	"\x04sort\x18\x04 \x01(\x05R\x04sort\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\x05R\x06status\x12\x16\n" +
+	"\x06remark\x18\x06 \x01(\tR\x06remark\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\b \x01(\tR\tupdatedAt\"\x18\n" +
+	"\x16ListDepartmentsRequest\"G\n" +
+	"\x17ListDepartmentsResponse\x12,\n" +
+	"\x05items\x18\x01 \x03(\v2\x16.system.DepartmentInfoR\x05items\"&\n" +
+	"\x14GetDepartmentRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"O\n" +
+	"\x15GetDepartmentResponse\x126\n" +
+	"\n" +
+	"department\x18\x01 \x01(\v2\x16.system.DepartmentInfoR\n" +
+	"department\"\x8e\x01\n" +
+	"\x17CreateDepartmentRequest\x12\x1b\n" +
+	"\tparent_id\x18\x01 \x01(\x03R\bparentId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04sort\x18\x03 \x01(\x05R\x04sort\x12\x16\n" +
+	"\x06remark\x18\x04 \x01(\tR\x06remark\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\x05R\x06status\"*\n" +
+	"\x18CreateDepartmentResponse\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"\x86\x01\n" +
+	"\x17UpdateDepartmentRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
+	"\tparent_id\x18\x02 \x01(\x03R\bparentId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
+	"\x04sort\x18\x04 \x01(\x05R\x04sort\x12\x16\n" +
+	"\x06remark\x18\x05 \x01(\tR\x06remark\"G\n" +
+	"\x1dUpdateDepartmentStatusRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\x05R\x06status\")\n" +
+	"\x17DeleteDepartmentRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"m\n" +
 	"\x1bListNavigationMenusResponse\x12,\n" +
 	"\x05items\x18\x01 \x03(\v2\x16.system.NavigationMenuR\x05items\x12 \n" +
-	"\vpermissions\x18\x02 \x03(\tR\vpermissions2\xd7\x12\n" +
+	"\vpermissions\x18\x02 \x03(\tR\vpermissions2\xc0\x16\n" +
 	"\x06System\x12I\n" +
 	"\fGetRoleMenus\x12\x1b.system.GetRoleMenusRequest\x1a\x1c.system.GetRoleMenusResponse\x12J\n" +
 	"\x10ReplaceRoleMenus\x12\x1f.system.ReplaceRoleMenusRequest\x1a\x15.system.EmptyResponse\x12^\n" +
@@ -3747,7 +4392,13 @@ const file_system_proto_rawDesc = "" +
 	"DeleteUser\x12\x19.system.DeleteUserRequest\x1a\x15.system.EmptyResponse\x12J\n" +
 	"\x10ReplaceUserRoles\x12\x1f.system.ReplaceUserRolesRequest\x1a\x15.system.EmptyResponse\x12L\n" +
 	"\x11ResetUserPassword\x12 .system.ResetUserPasswordRequest\x1a\x15.system.EmptyResponse\x12T\n" +
-	"\x13ListUserRoleOptions\x12\x18.system.ListRolesRequest\x1a#.system.ListUserRoleOptionsResponseB\n" +
+	"\x13ListUserRoleOptions\x12\x18.system.ListRolesRequest\x1a#.system.ListUserRoleOptionsResponse\x12R\n" +
+	"\x0fListDepartments\x12\x1e.system.ListDepartmentsRequest\x1a\x1f.system.ListDepartmentsResponse\x12L\n" +
+	"\rGetDepartment\x12\x1c.system.GetDepartmentRequest\x1a\x1d.system.GetDepartmentResponse\x12U\n" +
+	"\x10CreateDepartment\x12\x1f.system.CreateDepartmentRequest\x1a .system.CreateDepartmentResponse\x12J\n" +
+	"\x10UpdateDepartment\x12\x1f.system.UpdateDepartmentRequest\x1a\x15.system.EmptyResponse\x12V\n" +
+	"\x16UpdateDepartmentStatus\x12%.system.UpdateDepartmentStatusRequest\x1a\x15.system.EmptyResponse\x12J\n" +
+	"\x10DeleteDepartment\x12\x1f.system.DeleteDepartmentRequest\x1a\x15.system.EmptyResponseB\n" +
 	"Z\b./systemb\x06proto3"
 
 var (
@@ -3762,66 +4413,76 @@ func file_system_proto_rawDescGZIP() []byte {
 	return file_system_proto_rawDescData
 }
 
-var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
+var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 68)
 var file_system_proto_goTypes = []any{
-	(*ReadyRequest)(nil),                // 0: system.ReadyRequest
-	(*ReadyResponse)(nil),               // 1: system.ReadyResponse
-	(*LoginRequest)(nil),                // 2: system.LoginRequest
-	(*LoginResponse)(nil),               // 3: system.LoginResponse
-	(*RefreshCredentialsRequest)(nil),   // 4: system.RefreshCredentialsRequest
-	(*EmptyResponse)(nil),               // 5: system.EmptyResponse
-	(*CurrentUserRequest)(nil),          // 6: system.CurrentUserRequest
-	(*CurrentUserResponse)(nil),         // 7: system.CurrentUserResponse
-	(*RevokeSessionRequest)(nil),        // 8: system.RevokeSessionRequest
-	(*RevokeUserSessionsRequest)(nil),   // 9: system.RevokeUserSessionsRequest
-	(*ChangePasswordRequest)(nil),       // 10: system.ChangePasswordRequest
-	(*ReplaceRoleAPIsRequest)(nil),      // 11: system.ReplaceRoleAPIsRequest
-	(*ListRolesRequest)(nil),            // 12: system.ListRolesRequest
-	(*RoleInfo)(nil),                    // 13: system.RoleInfo
-	(*CreateRoleRequest)(nil),           // 14: system.CreateRoleRequest
-	(*CreateRoleResponse)(nil),          // 15: system.CreateRoleResponse
-	(*UpdateRoleRequest)(nil),           // 16: system.UpdateRoleRequest
-	(*UpdateRoleStatusRequest)(nil),     // 17: system.UpdateRoleStatusRequest
-	(*DeleteRoleRequest)(nil),           // 18: system.DeleteRoleRequest
-	(*ListRolesResponse)(nil),           // 19: system.ListRolesResponse
-	(*GetRoleRequest)(nil),              // 20: system.GetRoleRequest
-	(*GetRoleResponse)(nil),             // 21: system.GetRoleResponse
-	(*ListAPIsRequest)(nil),             // 22: system.ListAPIsRequest
-	(*APIInfo)(nil),                     // 23: system.APIInfo
-	(*ListAPIsResponse)(nil),            // 24: system.ListAPIsResponse
-	(*GetRoleAPIsRequest)(nil),          // 25: system.GetRoleAPIsRequest
-	(*GetRoleAPIsResponse)(nil),         // 26: system.GetRoleAPIsResponse
-	(*UserRoleInfo)(nil),                // 27: system.UserRoleInfo
-	(*UserInfo)(nil),                    // 28: system.UserInfo
-	(*ListUsersRequest)(nil),            // 29: system.ListUsersRequest
-	(*ListUsersResponse)(nil),           // 30: system.ListUsersResponse
-	(*GetUserRequest)(nil),              // 31: system.GetUserRequest
-	(*GetUserResponse)(nil),             // 32: system.GetUserResponse
-	(*CreateUserRequest)(nil),           // 33: system.CreateUserRequest
-	(*CreateUserResponse)(nil),          // 34: system.CreateUserResponse
-	(*UpdateUserRequest)(nil),           // 35: system.UpdateUserRequest
-	(*UpdateUserStatusRequest)(nil),     // 36: system.UpdateUserStatusRequest
-	(*DeleteUserRequest)(nil),           // 37: system.DeleteUserRequest
-	(*ReplaceUserRolesRequest)(nil),     // 38: system.ReplaceUserRolesRequest
-	(*ResetUserPasswordRequest)(nil),    // 39: system.ResetUserPasswordRequest
-	(*ListUserRoleOptionsResponse)(nil), // 40: system.ListUserRoleOptionsResponse
-	(*MenuFields)(nil),                  // 41: system.MenuFields
-	(*MenuInfo)(nil),                    // 42: system.MenuInfo
-	(*ListMenusRequest)(nil),            // 43: system.ListMenusRequest
-	(*ListMenusResponse)(nil),           // 44: system.ListMenusResponse
-	(*GetMenuRequest)(nil),              // 45: system.GetMenuRequest
-	(*GetMenuResponse)(nil),             // 46: system.GetMenuResponse
-	(*CreateMenuRequest)(nil),           // 47: system.CreateMenuRequest
-	(*CreateMenuResponse)(nil),          // 48: system.CreateMenuResponse
-	(*UpdateMenuRequest)(nil),           // 49: system.UpdateMenuRequest
-	(*UpdateMenuStatusRequest)(nil),     // 50: system.UpdateMenuStatusRequest
-	(*DeleteMenuRequest)(nil),           // 51: system.DeleteMenuRequest
-	(*ListNavigationMenusRequest)(nil),  // 52: system.ListNavigationMenusRequest
-	(*GetRoleMenusRequest)(nil),         // 53: system.GetRoleMenusRequest
-	(*GetRoleMenusResponse)(nil),        // 54: system.GetRoleMenusResponse
-	(*ReplaceRoleMenusRequest)(nil),     // 55: system.ReplaceRoleMenusRequest
-	(*NavigationMenu)(nil),              // 56: system.NavigationMenu
-	(*ListNavigationMenusResponse)(nil), // 57: system.ListNavigationMenusResponse
+	(*ReadyRequest)(nil),                  // 0: system.ReadyRequest
+	(*ReadyResponse)(nil),                 // 1: system.ReadyResponse
+	(*LoginRequest)(nil),                  // 2: system.LoginRequest
+	(*LoginResponse)(nil),                 // 3: system.LoginResponse
+	(*RefreshCredentialsRequest)(nil),     // 4: system.RefreshCredentialsRequest
+	(*EmptyResponse)(nil),                 // 5: system.EmptyResponse
+	(*CurrentUserRequest)(nil),            // 6: system.CurrentUserRequest
+	(*CurrentUserResponse)(nil),           // 7: system.CurrentUserResponse
+	(*RevokeSessionRequest)(nil),          // 8: system.RevokeSessionRequest
+	(*RevokeUserSessionsRequest)(nil),     // 9: system.RevokeUserSessionsRequest
+	(*ChangePasswordRequest)(nil),         // 10: system.ChangePasswordRequest
+	(*ReplaceRoleAPIsRequest)(nil),        // 11: system.ReplaceRoleAPIsRequest
+	(*ListRolesRequest)(nil),              // 12: system.ListRolesRequest
+	(*RoleInfo)(nil),                      // 13: system.RoleInfo
+	(*CreateRoleRequest)(nil),             // 14: system.CreateRoleRequest
+	(*CreateRoleResponse)(nil),            // 15: system.CreateRoleResponse
+	(*UpdateRoleRequest)(nil),             // 16: system.UpdateRoleRequest
+	(*UpdateRoleStatusRequest)(nil),       // 17: system.UpdateRoleStatusRequest
+	(*DeleteRoleRequest)(nil),             // 18: system.DeleteRoleRequest
+	(*ListRolesResponse)(nil),             // 19: system.ListRolesResponse
+	(*GetRoleRequest)(nil),                // 20: system.GetRoleRequest
+	(*GetRoleResponse)(nil),               // 21: system.GetRoleResponse
+	(*ListAPIsRequest)(nil),               // 22: system.ListAPIsRequest
+	(*APIInfo)(nil),                       // 23: system.APIInfo
+	(*ListAPIsResponse)(nil),              // 24: system.ListAPIsResponse
+	(*GetRoleAPIsRequest)(nil),            // 25: system.GetRoleAPIsRequest
+	(*GetRoleAPIsResponse)(nil),           // 26: system.GetRoleAPIsResponse
+	(*UserRoleInfo)(nil),                  // 27: system.UserRoleInfo
+	(*UserInfo)(nil),                      // 28: system.UserInfo
+	(*ListUsersRequest)(nil),              // 29: system.ListUsersRequest
+	(*ListUsersResponse)(nil),             // 30: system.ListUsersResponse
+	(*GetUserRequest)(nil),                // 31: system.GetUserRequest
+	(*GetUserResponse)(nil),               // 32: system.GetUserResponse
+	(*CreateUserRequest)(nil),             // 33: system.CreateUserRequest
+	(*CreateUserResponse)(nil),            // 34: system.CreateUserResponse
+	(*UpdateUserRequest)(nil),             // 35: system.UpdateUserRequest
+	(*UpdateUserStatusRequest)(nil),       // 36: system.UpdateUserStatusRequest
+	(*DeleteUserRequest)(nil),             // 37: system.DeleteUserRequest
+	(*ReplaceUserRolesRequest)(nil),       // 38: system.ReplaceUserRolesRequest
+	(*ResetUserPasswordRequest)(nil),      // 39: system.ResetUserPasswordRequest
+	(*ListUserRoleOptionsResponse)(nil),   // 40: system.ListUserRoleOptionsResponse
+	(*MenuFields)(nil),                    // 41: system.MenuFields
+	(*MenuInfo)(nil),                      // 42: system.MenuInfo
+	(*ListMenusRequest)(nil),              // 43: system.ListMenusRequest
+	(*ListMenusResponse)(nil),             // 44: system.ListMenusResponse
+	(*GetMenuRequest)(nil),                // 45: system.GetMenuRequest
+	(*GetMenuResponse)(nil),               // 46: system.GetMenuResponse
+	(*CreateMenuRequest)(nil),             // 47: system.CreateMenuRequest
+	(*CreateMenuResponse)(nil),            // 48: system.CreateMenuResponse
+	(*UpdateMenuRequest)(nil),             // 49: system.UpdateMenuRequest
+	(*UpdateMenuStatusRequest)(nil),       // 50: system.UpdateMenuStatusRequest
+	(*DeleteMenuRequest)(nil),             // 51: system.DeleteMenuRequest
+	(*ListNavigationMenusRequest)(nil),    // 52: system.ListNavigationMenusRequest
+	(*GetRoleMenusRequest)(nil),           // 53: system.GetRoleMenusRequest
+	(*GetRoleMenusResponse)(nil),          // 54: system.GetRoleMenusResponse
+	(*ReplaceRoleMenusRequest)(nil),       // 55: system.ReplaceRoleMenusRequest
+	(*NavigationMenu)(nil),                // 56: system.NavigationMenu
+	(*DepartmentInfo)(nil),                // 57: system.DepartmentInfo
+	(*ListDepartmentsRequest)(nil),        // 58: system.ListDepartmentsRequest
+	(*ListDepartmentsResponse)(nil),       // 59: system.ListDepartmentsResponse
+	(*GetDepartmentRequest)(nil),          // 60: system.GetDepartmentRequest
+	(*GetDepartmentResponse)(nil),         // 61: system.GetDepartmentResponse
+	(*CreateDepartmentRequest)(nil),       // 62: system.CreateDepartmentRequest
+	(*CreateDepartmentResponse)(nil),      // 63: system.CreateDepartmentResponse
+	(*UpdateDepartmentRequest)(nil),       // 64: system.UpdateDepartmentRequest
+	(*UpdateDepartmentStatusRequest)(nil), // 65: system.UpdateDepartmentStatusRequest
+	(*DeleteDepartmentRequest)(nil),       // 66: system.DeleteDepartmentRequest
+	(*ListNavigationMenusResponse)(nil),   // 67: system.ListNavigationMenusResponse
 }
 var file_system_proto_depIdxs = []int32{
 	13, // 0: system.ListRolesResponse.items:type_name -> system.RoleInfo
@@ -3837,80 +4498,94 @@ var file_system_proto_depIdxs = []int32{
 	41, // 10: system.CreateMenuRequest.menu:type_name -> system.MenuFields
 	41, // 11: system.UpdateMenuRequest.menu:type_name -> system.MenuFields
 	42, // 12: system.GetRoleMenusResponse.items:type_name -> system.MenuInfo
-	56, // 13: system.ListNavigationMenusResponse.items:type_name -> system.NavigationMenu
-	53, // 14: system.System.GetRoleMenus:input_type -> system.GetRoleMenusRequest
-	55, // 15: system.System.ReplaceRoleMenus:input_type -> system.ReplaceRoleMenusRequest
-	52, // 16: system.System.ListNavigationMenus:input_type -> system.ListNavigationMenusRequest
-	43, // 17: system.System.ListMenus:input_type -> system.ListMenusRequest
-	45, // 18: system.System.GetMenu:input_type -> system.GetMenuRequest
-	47, // 19: system.System.CreateMenu:input_type -> system.CreateMenuRequest
-	49, // 20: system.System.UpdateMenu:input_type -> system.UpdateMenuRequest
-	50, // 21: system.System.UpdateMenuStatus:input_type -> system.UpdateMenuStatusRequest
-	51, // 22: system.System.DeleteMenu:input_type -> system.DeleteMenuRequest
-	0,  // 23: system.System.CheckReady:input_type -> system.ReadyRequest
-	2,  // 24: system.System.Login:input_type -> system.LoginRequest
-	4,  // 25: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
-	6,  // 26: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
-	8,  // 27: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
-	9,  // 28: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
-	10, // 29: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
-	14, // 30: system.System.CreateRole:input_type -> system.CreateRoleRequest
-	12, // 31: system.System.ListRoles:input_type -> system.ListRolesRequest
-	20, // 32: system.System.GetRole:input_type -> system.GetRoleRequest
-	16, // 33: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
-	17, // 34: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
-	18, // 35: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
-	22, // 36: system.System.ListAPIs:input_type -> system.ListAPIsRequest
-	25, // 37: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
-	11, // 38: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
-	29, // 39: system.System.ListUsers:input_type -> system.ListUsersRequest
-	31, // 40: system.System.GetUser:input_type -> system.GetUserRequest
-	33, // 41: system.System.CreateUser:input_type -> system.CreateUserRequest
-	35, // 42: system.System.UpdateUser:input_type -> system.UpdateUserRequest
-	36, // 43: system.System.UpdateUserStatus:input_type -> system.UpdateUserStatusRequest
-	37, // 44: system.System.DeleteUser:input_type -> system.DeleteUserRequest
-	38, // 45: system.System.ReplaceUserRoles:input_type -> system.ReplaceUserRolesRequest
-	39, // 46: system.System.ResetUserPassword:input_type -> system.ResetUserPasswordRequest
-	12, // 47: system.System.ListUserRoleOptions:input_type -> system.ListRolesRequest
-	54, // 48: system.System.GetRoleMenus:output_type -> system.GetRoleMenusResponse
-	5,  // 49: system.System.ReplaceRoleMenus:output_type -> system.EmptyResponse
-	57, // 50: system.System.ListNavigationMenus:output_type -> system.ListNavigationMenusResponse
-	44, // 51: system.System.ListMenus:output_type -> system.ListMenusResponse
-	46, // 52: system.System.GetMenu:output_type -> system.GetMenuResponse
-	48, // 53: system.System.CreateMenu:output_type -> system.CreateMenuResponse
-	5,  // 54: system.System.UpdateMenu:output_type -> system.EmptyResponse
-	5,  // 55: system.System.UpdateMenuStatus:output_type -> system.EmptyResponse
-	5,  // 56: system.System.DeleteMenu:output_type -> system.EmptyResponse
-	1,  // 57: system.System.CheckReady:output_type -> system.ReadyResponse
-	3,  // 58: system.System.Login:output_type -> system.LoginResponse
-	3,  // 59: system.System.RefreshCredentials:output_type -> system.LoginResponse
-	7,  // 60: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
-	5,  // 61: system.System.RevokeSession:output_type -> system.EmptyResponse
-	5,  // 62: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
-	5,  // 63: system.System.ChangePassword:output_type -> system.EmptyResponse
-	15, // 64: system.System.CreateRole:output_type -> system.CreateRoleResponse
-	19, // 65: system.System.ListRoles:output_type -> system.ListRolesResponse
-	21, // 66: system.System.GetRole:output_type -> system.GetRoleResponse
-	5,  // 67: system.System.UpdateRole:output_type -> system.EmptyResponse
-	5,  // 68: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
-	5,  // 69: system.System.DeleteRole:output_type -> system.EmptyResponse
-	24, // 70: system.System.ListAPIs:output_type -> system.ListAPIsResponse
-	26, // 71: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
-	5,  // 72: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
-	30, // 73: system.System.ListUsers:output_type -> system.ListUsersResponse
-	32, // 74: system.System.GetUser:output_type -> system.GetUserResponse
-	34, // 75: system.System.CreateUser:output_type -> system.CreateUserResponse
-	5,  // 76: system.System.UpdateUser:output_type -> system.EmptyResponse
-	5,  // 77: system.System.UpdateUserStatus:output_type -> system.EmptyResponse
-	5,  // 78: system.System.DeleteUser:output_type -> system.EmptyResponse
-	5,  // 79: system.System.ReplaceUserRoles:output_type -> system.EmptyResponse
-	5,  // 80: system.System.ResetUserPassword:output_type -> system.EmptyResponse
-	40, // 81: system.System.ListUserRoleOptions:output_type -> system.ListUserRoleOptionsResponse
-	48, // [48:82] is the sub-list for method output_type
-	14, // [14:48] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	57, // 13: system.ListDepartmentsResponse.items:type_name -> system.DepartmentInfo
+	57, // 14: system.GetDepartmentResponse.department:type_name -> system.DepartmentInfo
+	56, // 15: system.ListNavigationMenusResponse.items:type_name -> system.NavigationMenu
+	53, // 16: system.System.GetRoleMenus:input_type -> system.GetRoleMenusRequest
+	55, // 17: system.System.ReplaceRoleMenus:input_type -> system.ReplaceRoleMenusRequest
+	52, // 18: system.System.ListNavigationMenus:input_type -> system.ListNavigationMenusRequest
+	43, // 19: system.System.ListMenus:input_type -> system.ListMenusRequest
+	45, // 20: system.System.GetMenu:input_type -> system.GetMenuRequest
+	47, // 21: system.System.CreateMenu:input_type -> system.CreateMenuRequest
+	49, // 22: system.System.UpdateMenu:input_type -> system.UpdateMenuRequest
+	50, // 23: system.System.UpdateMenuStatus:input_type -> system.UpdateMenuStatusRequest
+	51, // 24: system.System.DeleteMenu:input_type -> system.DeleteMenuRequest
+	0,  // 25: system.System.CheckReady:input_type -> system.ReadyRequest
+	2,  // 26: system.System.Login:input_type -> system.LoginRequest
+	4,  // 27: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
+	6,  // 28: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
+	8,  // 29: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
+	9,  // 30: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
+	10, // 31: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
+	14, // 32: system.System.CreateRole:input_type -> system.CreateRoleRequest
+	12, // 33: system.System.ListRoles:input_type -> system.ListRolesRequest
+	20, // 34: system.System.GetRole:input_type -> system.GetRoleRequest
+	16, // 35: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
+	17, // 36: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
+	18, // 37: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
+	22, // 38: system.System.ListAPIs:input_type -> system.ListAPIsRequest
+	25, // 39: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
+	11, // 40: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
+	29, // 41: system.System.ListUsers:input_type -> system.ListUsersRequest
+	31, // 42: system.System.GetUser:input_type -> system.GetUserRequest
+	33, // 43: system.System.CreateUser:input_type -> system.CreateUserRequest
+	35, // 44: system.System.UpdateUser:input_type -> system.UpdateUserRequest
+	36, // 45: system.System.UpdateUserStatus:input_type -> system.UpdateUserStatusRequest
+	37, // 46: system.System.DeleteUser:input_type -> system.DeleteUserRequest
+	38, // 47: system.System.ReplaceUserRoles:input_type -> system.ReplaceUserRolesRequest
+	39, // 48: system.System.ResetUserPassword:input_type -> system.ResetUserPasswordRequest
+	12, // 49: system.System.ListUserRoleOptions:input_type -> system.ListRolesRequest
+	58, // 50: system.System.ListDepartments:input_type -> system.ListDepartmentsRequest
+	60, // 51: system.System.GetDepartment:input_type -> system.GetDepartmentRequest
+	62, // 52: system.System.CreateDepartment:input_type -> system.CreateDepartmentRequest
+	64, // 53: system.System.UpdateDepartment:input_type -> system.UpdateDepartmentRequest
+	65, // 54: system.System.UpdateDepartmentStatus:input_type -> system.UpdateDepartmentStatusRequest
+	66, // 55: system.System.DeleteDepartment:input_type -> system.DeleteDepartmentRequest
+	54, // 56: system.System.GetRoleMenus:output_type -> system.GetRoleMenusResponse
+	5,  // 57: system.System.ReplaceRoleMenus:output_type -> system.EmptyResponse
+	67, // 58: system.System.ListNavigationMenus:output_type -> system.ListNavigationMenusResponse
+	44, // 59: system.System.ListMenus:output_type -> system.ListMenusResponse
+	46, // 60: system.System.GetMenu:output_type -> system.GetMenuResponse
+	48, // 61: system.System.CreateMenu:output_type -> system.CreateMenuResponse
+	5,  // 62: system.System.UpdateMenu:output_type -> system.EmptyResponse
+	5,  // 63: system.System.UpdateMenuStatus:output_type -> system.EmptyResponse
+	5,  // 64: system.System.DeleteMenu:output_type -> system.EmptyResponse
+	1,  // 65: system.System.CheckReady:output_type -> system.ReadyResponse
+	3,  // 66: system.System.Login:output_type -> system.LoginResponse
+	3,  // 67: system.System.RefreshCredentials:output_type -> system.LoginResponse
+	7,  // 68: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
+	5,  // 69: system.System.RevokeSession:output_type -> system.EmptyResponse
+	5,  // 70: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
+	5,  // 71: system.System.ChangePassword:output_type -> system.EmptyResponse
+	15, // 72: system.System.CreateRole:output_type -> system.CreateRoleResponse
+	19, // 73: system.System.ListRoles:output_type -> system.ListRolesResponse
+	21, // 74: system.System.GetRole:output_type -> system.GetRoleResponse
+	5,  // 75: system.System.UpdateRole:output_type -> system.EmptyResponse
+	5,  // 76: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
+	5,  // 77: system.System.DeleteRole:output_type -> system.EmptyResponse
+	24, // 78: system.System.ListAPIs:output_type -> system.ListAPIsResponse
+	26, // 79: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
+	5,  // 80: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
+	30, // 81: system.System.ListUsers:output_type -> system.ListUsersResponse
+	32, // 82: system.System.GetUser:output_type -> system.GetUserResponse
+	34, // 83: system.System.CreateUser:output_type -> system.CreateUserResponse
+	5,  // 84: system.System.UpdateUser:output_type -> system.EmptyResponse
+	5,  // 85: system.System.UpdateUserStatus:output_type -> system.EmptyResponse
+	5,  // 86: system.System.DeleteUser:output_type -> system.EmptyResponse
+	5,  // 87: system.System.ReplaceUserRoles:output_type -> system.EmptyResponse
+	5,  // 88: system.System.ResetUserPassword:output_type -> system.EmptyResponse
+	40, // 89: system.System.ListUserRoleOptions:output_type -> system.ListUserRoleOptionsResponse
+	59, // 90: system.System.ListDepartments:output_type -> system.ListDepartmentsResponse
+	61, // 91: system.System.GetDepartment:output_type -> system.GetDepartmentResponse
+	63, // 92: system.System.CreateDepartment:output_type -> system.CreateDepartmentResponse
+	5,  // 93: system.System.UpdateDepartment:output_type -> system.EmptyResponse
+	5,  // 94: system.System.UpdateDepartmentStatus:output_type -> system.EmptyResponse
+	5,  // 95: system.System.DeleteDepartment:output_type -> system.EmptyResponse
+	56, // [56:96] is the sub-list for method output_type
+	16, // [16:56] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_system_proto_init() }
@@ -3925,7 +4600,7 @@ func file_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_system_proto_rawDesc), len(file_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   58,
+			NumMessages:   68,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

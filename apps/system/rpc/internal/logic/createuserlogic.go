@@ -30,7 +30,7 @@ func NewCreateUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 }
 
 func (l *CreateUserLogic) CreateUser(in *system.CreateUserRequest) (*system.CreateUserResponse, error) {
-	if in == nil || !validRecordStatus(in.Status) || !validUserRoleIDs(in.RoleIds) {
+	if in == nil || !validRecordStatus(in.Status) || !validUserRoleIDs(in.RoleIds) || in.DepartmentId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "invalid create user request")
 	}
 	username := in.Username
@@ -45,7 +45,8 @@ func (l *CreateUserLogic) CreateUser(in *system.CreateUserRequest) (*system.Crea
 	if err != nil {
 		return nil, fmt.Errorf("hash initial user password: %w", err)
 	}
-	user := &model.User{Username: username, PasswordHash: hash, Nickname: profile.Nickname, Email: profile.Email, Phone: profile.Phone, Remark: profile.Remark, Status: model.RecordStatus(in.Status)}
+	departmentID := in.DepartmentId
+	user := &model.User{Username: username, PasswordHash: hash, Nickname: profile.Nickname, Email: profile.Email, Phone: profile.Phone, Remark: profile.Remark, DepartmentID: &departmentID, Status: model.RecordStatus(in.Status)}
 	if err := l.svcCtx.UserRepo.CreateWithRoles(l.ctx, user, in.RoleIds); err != nil {
 		return nil, userManagementError(err)
 	}

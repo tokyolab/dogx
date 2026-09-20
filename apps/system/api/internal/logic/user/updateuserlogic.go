@@ -38,7 +38,7 @@ func (l *UpdateUserLogic) UpdateUser(req *types.UpdateUserReq) (resp *types.Empt
 	if err != nil {
 		return nil, err
 	}
-	_, err = l.svcCtx.SystemRpc.UpdateUser(l.ctx, &systemclient.UpdateUserRequest{Id: req.Id, Nickname: req.Nickname, Email: req.Email, Phone: req.Phone, Remark: req.Remark, OperatorId: id})
+	_, err = l.svcCtx.SystemRpc.UpdateUser(l.ctx, &systemclient.UpdateUserRequest{Id: req.Id, Nickname: req.Nickname, Email: req.Email, Phone: req.Phone, Remark: req.Remark, DepartmentId: req.DepartmentId, OperatorId: id})
 	if err != nil {
 		return nil, err
 	}

@@ -47,7 +47,7 @@ func testUserManagement(t *testing.T, client *http.Client, baseURL, adminToken s
 		t.Fatalf("user management API resources missing: %v", ids)
 	}
 	call("/role/api/update", map[string]any{"roleId": role.ID, "apiIds": ids})
-	created := call("/user/create", map[string]any{"username": "managed-user", "nickname": "Managed User", "password": e2ePassword, "email": "managed@example.com", "phone": "123456", "remark": "original", "status": 1, "roleIds": []int64{role.ID}})
+	created := call("/user/create", map[string]any{"username": "managed-user", "nickname": "Managed User", "password": e2ePassword, "email": "managed@example.com", "phone": "123456", "remark": "original", "status": 1, "roleIds": []int64{role.ID}, "departmentId": 1})
 	var user struct {
 		ID int64 `json:"id"`
 	}
@@ -75,7 +75,7 @@ func testUserManagement(t *testing.T, client *http.Client, baseURL, adminToken s
 	call("/user/role/update", map[string]any{"id": user.ID, "roleIds": []int64{role.ID, role.ID}})
 	code, envelope = postJSON(t, client, baseURL+"/auth/me", credentials.AccessToken, nil)
 	assertEnvelope(t, code, envelope, http.StatusOK, 0, "")
-	call("/user/update", map[string]any{"id": user.ID, "nickname": "新昵称", "email": "", "phone": "", "remark": ""})
+	call("/user/update", map[string]any{"id": user.ID, "nickname": "新昵称", "email": "", "phone": "", "remark": "", "departmentId": 1})
 	detail := call("/user/get", map[string]any{"id": user.ID})
 	var profile struct {
 		Username string `json:"username"`

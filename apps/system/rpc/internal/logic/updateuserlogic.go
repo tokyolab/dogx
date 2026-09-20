@@ -27,13 +27,15 @@ func NewUpdateUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Update
 }
 
 func (l *UpdateUserLogic) UpdateUser(in *system.UpdateUserRequest) (*system.EmptyResponse, error) {
-	if in == nil {
+	if in == nil || in.Id <= 0 || in.DepartmentId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "invalid update user request")
 	}
 	profile, err := normalizeUserProfile(in.Nickname, in.Email, in.Phone, in.Remark)
 	if err != nil {
 		return nil, err
 	}
+	departmentID := in.DepartmentId
+	profile.DepartmentID = &departmentID
 	if _, err := managedUser(l.ctx, l.svcCtx, in.OperatorId, in.Id, false); err != nil {
 		return nil, err
 	}

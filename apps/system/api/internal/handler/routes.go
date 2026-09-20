@@ -8,6 +8,7 @@ import (
 
 	api "github.com/tokyolab/dogx/apps/system/api/internal/handler/api"
 	auth "github.com/tokyolab/dogx/apps/system/api/internal/handler/auth"
+	department "github.com/tokyolab/dogx/apps/system/api/internal/handler/department"
 	health "github.com/tokyolab/dogx/apps/system/api/internal/handler/health"
 	menu "github.com/tokyolab/dogx/apps/system/api/internal/handler/menu"
 	role "github.com/tokyolab/dogx/apps/system/api/internal/handler/role"
@@ -83,6 +84,45 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/auth/menus",
 					Handler: auth.NavigationMenusHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/department/create",
+					Handler: department.CreateDepartmentHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/department/delete",
+					Handler: department.DeleteDepartmentHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/department/get",
+					Handler: department.GetDepartmentHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/department/list",
+					Handler: department.ListDepartmentsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/department/status/update",
+					Handler: department.UpdateDepartmentStatusHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/department/update",
+					Handler: department.UpdateDepartmentHandler(serverCtx),
 				},
 			}...,
 		),
@@ -227,6 +267,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/user/delete",
 					Handler: user.DeleteUserHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/department/options",
+					Handler: user.ListUserDepartmentOptionsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,

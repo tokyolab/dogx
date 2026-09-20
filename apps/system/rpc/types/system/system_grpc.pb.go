@@ -19,40 +19,46 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	System_GetRoleMenus_FullMethodName        = "/system.System/GetRoleMenus"
-	System_ReplaceRoleMenus_FullMethodName    = "/system.System/ReplaceRoleMenus"
-	System_ListNavigationMenus_FullMethodName = "/system.System/ListNavigationMenus"
-	System_ListMenus_FullMethodName           = "/system.System/ListMenus"
-	System_GetMenu_FullMethodName             = "/system.System/GetMenu"
-	System_CreateMenu_FullMethodName          = "/system.System/CreateMenu"
-	System_UpdateMenu_FullMethodName          = "/system.System/UpdateMenu"
-	System_UpdateMenuStatus_FullMethodName    = "/system.System/UpdateMenuStatus"
-	System_DeleteMenu_FullMethodName          = "/system.System/DeleteMenu"
-	System_CheckReady_FullMethodName          = "/system.System/CheckReady"
-	System_Login_FullMethodName               = "/system.System/Login"
-	System_RefreshCredentials_FullMethodName  = "/system.System/RefreshCredentials"
-	System_GetCurrentUser_FullMethodName      = "/system.System/GetCurrentUser"
-	System_RevokeSession_FullMethodName       = "/system.System/RevokeSession"
-	System_RevokeUserSessions_FullMethodName  = "/system.System/RevokeUserSessions"
-	System_ChangePassword_FullMethodName      = "/system.System/ChangePassword"
-	System_CreateRole_FullMethodName          = "/system.System/CreateRole"
-	System_ListRoles_FullMethodName           = "/system.System/ListRoles"
-	System_GetRole_FullMethodName             = "/system.System/GetRole"
-	System_UpdateRole_FullMethodName          = "/system.System/UpdateRole"
-	System_UpdateRoleStatus_FullMethodName    = "/system.System/UpdateRoleStatus"
-	System_DeleteRole_FullMethodName          = "/system.System/DeleteRole"
-	System_ListAPIs_FullMethodName            = "/system.System/ListAPIs"
-	System_GetRoleAPIs_FullMethodName         = "/system.System/GetRoleAPIs"
-	System_ReplaceRoleAPIs_FullMethodName     = "/system.System/ReplaceRoleAPIs"
-	System_ListUsers_FullMethodName           = "/system.System/ListUsers"
-	System_GetUser_FullMethodName             = "/system.System/GetUser"
-	System_CreateUser_FullMethodName          = "/system.System/CreateUser"
-	System_UpdateUser_FullMethodName          = "/system.System/UpdateUser"
-	System_UpdateUserStatus_FullMethodName    = "/system.System/UpdateUserStatus"
-	System_DeleteUser_FullMethodName          = "/system.System/DeleteUser"
-	System_ReplaceUserRoles_FullMethodName    = "/system.System/ReplaceUserRoles"
-	System_ResetUserPassword_FullMethodName   = "/system.System/ResetUserPassword"
-	System_ListUserRoleOptions_FullMethodName = "/system.System/ListUserRoleOptions"
+	System_GetRoleMenus_FullMethodName           = "/system.System/GetRoleMenus"
+	System_ReplaceRoleMenus_FullMethodName       = "/system.System/ReplaceRoleMenus"
+	System_ListNavigationMenus_FullMethodName    = "/system.System/ListNavigationMenus"
+	System_ListMenus_FullMethodName              = "/system.System/ListMenus"
+	System_GetMenu_FullMethodName                = "/system.System/GetMenu"
+	System_CreateMenu_FullMethodName             = "/system.System/CreateMenu"
+	System_UpdateMenu_FullMethodName             = "/system.System/UpdateMenu"
+	System_UpdateMenuStatus_FullMethodName       = "/system.System/UpdateMenuStatus"
+	System_DeleteMenu_FullMethodName             = "/system.System/DeleteMenu"
+	System_CheckReady_FullMethodName             = "/system.System/CheckReady"
+	System_Login_FullMethodName                  = "/system.System/Login"
+	System_RefreshCredentials_FullMethodName     = "/system.System/RefreshCredentials"
+	System_GetCurrentUser_FullMethodName         = "/system.System/GetCurrentUser"
+	System_RevokeSession_FullMethodName          = "/system.System/RevokeSession"
+	System_RevokeUserSessions_FullMethodName     = "/system.System/RevokeUserSessions"
+	System_ChangePassword_FullMethodName         = "/system.System/ChangePassword"
+	System_CreateRole_FullMethodName             = "/system.System/CreateRole"
+	System_ListRoles_FullMethodName              = "/system.System/ListRoles"
+	System_GetRole_FullMethodName                = "/system.System/GetRole"
+	System_UpdateRole_FullMethodName             = "/system.System/UpdateRole"
+	System_UpdateRoleStatus_FullMethodName       = "/system.System/UpdateRoleStatus"
+	System_DeleteRole_FullMethodName             = "/system.System/DeleteRole"
+	System_ListAPIs_FullMethodName               = "/system.System/ListAPIs"
+	System_GetRoleAPIs_FullMethodName            = "/system.System/GetRoleAPIs"
+	System_ReplaceRoleAPIs_FullMethodName        = "/system.System/ReplaceRoleAPIs"
+	System_ListUsers_FullMethodName              = "/system.System/ListUsers"
+	System_GetUser_FullMethodName                = "/system.System/GetUser"
+	System_CreateUser_FullMethodName             = "/system.System/CreateUser"
+	System_UpdateUser_FullMethodName             = "/system.System/UpdateUser"
+	System_UpdateUserStatus_FullMethodName       = "/system.System/UpdateUserStatus"
+	System_DeleteUser_FullMethodName             = "/system.System/DeleteUser"
+	System_ReplaceUserRoles_FullMethodName       = "/system.System/ReplaceUserRoles"
+	System_ResetUserPassword_FullMethodName      = "/system.System/ResetUserPassword"
+	System_ListUserRoleOptions_FullMethodName    = "/system.System/ListUserRoleOptions"
+	System_ListDepartments_FullMethodName        = "/system.System/ListDepartments"
+	System_GetDepartment_FullMethodName          = "/system.System/GetDepartment"
+	System_CreateDepartment_FullMethodName       = "/system.System/CreateDepartment"
+	System_UpdateDepartment_FullMethodName       = "/system.System/UpdateDepartment"
+	System_UpdateDepartmentStatus_FullMethodName = "/system.System/UpdateDepartmentStatus"
+	System_DeleteDepartment_FullMethodName       = "/system.System/DeleteDepartment"
 )
 
 // SystemClient is the client API for System service.
@@ -93,6 +99,12 @@ type SystemClient interface {
 	ReplaceUserRoles(ctx context.Context, in *ReplaceUserRolesRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	ResetUserPassword(ctx context.Context, in *ResetUserPasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	ListUserRoleOptions(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListUserRoleOptionsResponse, error)
+	ListDepartments(ctx context.Context, in *ListDepartmentsRequest, opts ...grpc.CallOption) (*ListDepartmentsResponse, error)
+	GetDepartment(ctx context.Context, in *GetDepartmentRequest, opts ...grpc.CallOption) (*GetDepartmentResponse, error)
+	CreateDepartment(ctx context.Context, in *CreateDepartmentRequest, opts ...grpc.CallOption) (*CreateDepartmentResponse, error)
+	UpdateDepartment(ctx context.Context, in *UpdateDepartmentRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	UpdateDepartmentStatus(ctx context.Context, in *UpdateDepartmentStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	DeleteDepartment(ctx context.Context, in *DeleteDepartmentRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 }
 
 type systemClient struct {
@@ -443,6 +455,66 @@ func (c *systemClient) ListUserRoleOptions(ctx context.Context, in *ListRolesReq
 	return out, nil
 }
 
+func (c *systemClient) ListDepartments(ctx context.Context, in *ListDepartmentsRequest, opts ...grpc.CallOption) (*ListDepartmentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDepartmentsResponse)
+	err := c.cc.Invoke(ctx, System_ListDepartments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) GetDepartment(ctx context.Context, in *GetDepartmentRequest, opts ...grpc.CallOption) (*GetDepartmentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetDepartmentResponse)
+	err := c.cc.Invoke(ctx, System_GetDepartment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) CreateDepartment(ctx context.Context, in *CreateDepartmentRequest, opts ...grpc.CallOption) (*CreateDepartmentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateDepartmentResponse)
+	err := c.cc.Invoke(ctx, System_CreateDepartment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateDepartment(ctx context.Context, in *UpdateDepartmentRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateDepartment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateDepartmentStatus(ctx context.Context, in *UpdateDepartmentStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateDepartmentStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) DeleteDepartment(ctx context.Context, in *DeleteDepartmentRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_DeleteDepartment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SystemServer is the server API for System service.
 // All implementations must embed UnimplementedSystemServer
 // for forward compatibility.
@@ -481,6 +553,12 @@ type SystemServer interface {
 	ReplaceUserRoles(context.Context, *ReplaceUserRolesRequest) (*EmptyResponse, error)
 	ResetUserPassword(context.Context, *ResetUserPasswordRequest) (*EmptyResponse, error)
 	ListUserRoleOptions(context.Context, *ListRolesRequest) (*ListUserRoleOptionsResponse, error)
+	ListDepartments(context.Context, *ListDepartmentsRequest) (*ListDepartmentsResponse, error)
+	GetDepartment(context.Context, *GetDepartmentRequest) (*GetDepartmentResponse, error)
+	CreateDepartment(context.Context, *CreateDepartmentRequest) (*CreateDepartmentResponse, error)
+	UpdateDepartment(context.Context, *UpdateDepartmentRequest) (*EmptyResponse, error)
+	UpdateDepartmentStatus(context.Context, *UpdateDepartmentStatusRequest) (*EmptyResponse, error)
+	DeleteDepartment(context.Context, *DeleteDepartmentRequest) (*EmptyResponse, error)
 	mustEmbedUnimplementedSystemServer()
 }
 
@@ -592,6 +670,24 @@ func (UnimplementedSystemServer) ResetUserPassword(context.Context, *ResetUserPa
 }
 func (UnimplementedSystemServer) ListUserRoleOptions(context.Context, *ListRolesRequest) (*ListUserRoleOptionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListUserRoleOptions not implemented")
+}
+func (UnimplementedSystemServer) ListDepartments(context.Context, *ListDepartmentsRequest) (*ListDepartmentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDepartments not implemented")
+}
+func (UnimplementedSystemServer) GetDepartment(context.Context, *GetDepartmentRequest) (*GetDepartmentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDepartment not implemented")
+}
+func (UnimplementedSystemServer) CreateDepartment(context.Context, *CreateDepartmentRequest) (*CreateDepartmentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateDepartment not implemented")
+}
+func (UnimplementedSystemServer) UpdateDepartment(context.Context, *UpdateDepartmentRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateDepartment not implemented")
+}
+func (UnimplementedSystemServer) UpdateDepartmentStatus(context.Context, *UpdateDepartmentStatusRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateDepartmentStatus not implemented")
+}
+func (UnimplementedSystemServer) DeleteDepartment(context.Context, *DeleteDepartmentRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteDepartment not implemented")
 }
 func (UnimplementedSystemServer) mustEmbedUnimplementedSystemServer() {}
 func (UnimplementedSystemServer) testEmbeddedByValue()                {}
@@ -1226,6 +1322,114 @@ func _System_ListUserRoleOptions_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _System_ListDepartments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDepartmentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ListDepartments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ListDepartments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ListDepartments(ctx, req.(*ListDepartmentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_GetDepartment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDepartmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).GetDepartment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_GetDepartment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).GetDepartment(ctx, req.(*GetDepartmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_CreateDepartment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateDepartmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).CreateDepartment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_CreateDepartment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).CreateDepartment(ctx, req.(*CreateDepartmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateDepartment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateDepartmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateDepartment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateDepartment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateDepartment(ctx, req.(*UpdateDepartmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateDepartmentStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateDepartmentStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateDepartmentStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateDepartmentStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateDepartmentStatus(ctx, req.(*UpdateDepartmentStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_DeleteDepartment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteDepartmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).DeleteDepartment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_DeleteDepartment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).DeleteDepartment(ctx, req.(*DeleteDepartmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // System_ServiceDesc is the grpc.ServiceDesc for System service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1368,6 +1572,30 @@ var System_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListUserRoleOptions",
 			Handler:    _System_ListUserRoleOptions_Handler,
+		},
+		{
+			MethodName: "ListDepartments",
+			Handler:    _System_ListDepartments_Handler,
+		},
+		{
+			MethodName: "GetDepartment",
+			Handler:    _System_GetDepartment_Handler,
+		},
+		{
+			MethodName: "CreateDepartment",
+			Handler:    _System_CreateDepartment_Handler,
+		},
+		{
+			MethodName: "UpdateDepartment",
+			Handler:    _System_UpdateDepartment_Handler,
+		},
+		{
+			MethodName: "UpdateDepartmentStatus",
+			Handler:    _System_UpdateDepartmentStatus_Handler,
+		},
+		{
+			MethodName: "DeleteDepartment",
+			Handler:    _System_DeleteDepartment_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -239,7 +239,7 @@ func TestNewPasswordDTOBounds(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, input := range []any{
-				&types.CreateUserReq{Username: "alice", Nickname: "Alice", Password: tc.password, Status: 1},
+				&types.CreateUserReq{Username: "alice", Nickname: "Alice", Password: tc.password, Status: 1, DepartmentId: 1},
 				&types.ResetUserPasswordReq{Id: 1, Password: tc.password},
 				&types.ChangePasswordReq{CurrentPassword: "existing-password", NewPassword: tc.password},
 			} {

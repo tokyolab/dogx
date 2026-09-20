@@ -14,64 +14,74 @@ import (
 )
 
 type (
-	APIInfo                     = system.APIInfo
-	ChangePasswordRequest       = system.ChangePasswordRequest
-	CreateMenuRequest           = system.CreateMenuRequest
-	CreateMenuResponse          = system.CreateMenuResponse
-	CreateRoleRequest           = system.CreateRoleRequest
-	CreateRoleResponse          = system.CreateRoleResponse
-	CreateUserRequest           = system.CreateUserRequest
-	CreateUserResponse          = system.CreateUserResponse
-	CurrentUserRequest          = system.CurrentUserRequest
-	CurrentUserResponse         = system.CurrentUserResponse
-	DeleteMenuRequest           = system.DeleteMenuRequest
-	DeleteRoleRequest           = system.DeleteRoleRequest
-	DeleteUserRequest           = system.DeleteUserRequest
-	EmptyResponse               = system.EmptyResponse
-	GetMenuRequest              = system.GetMenuRequest
-	GetMenuResponse             = system.GetMenuResponse
-	GetRoleAPIsRequest          = system.GetRoleAPIsRequest
-	GetRoleAPIsResponse         = system.GetRoleAPIsResponse
-	GetRoleMenusRequest         = system.GetRoleMenusRequest
-	GetRoleMenusResponse        = system.GetRoleMenusResponse
-	GetRoleRequest              = system.GetRoleRequest
-	GetRoleResponse             = system.GetRoleResponse
-	GetUserRequest              = system.GetUserRequest
-	GetUserResponse             = system.GetUserResponse
-	ListAPIsRequest             = system.ListAPIsRequest
-	ListAPIsResponse            = system.ListAPIsResponse
-	ListMenusRequest            = system.ListMenusRequest
-	ListMenusResponse           = system.ListMenusResponse
-	ListNavigationMenusRequest  = system.ListNavigationMenusRequest
-	ListNavigationMenusResponse = system.ListNavigationMenusResponse
-	ListRolesRequest            = system.ListRolesRequest
-	ListRolesResponse           = system.ListRolesResponse
-	ListUserRoleOptionsResponse = system.ListUserRoleOptionsResponse
-	ListUsersRequest            = system.ListUsersRequest
-	ListUsersResponse           = system.ListUsersResponse
-	LoginRequest                = system.LoginRequest
-	LoginResponse               = system.LoginResponse
-	MenuFields                  = system.MenuFields
-	MenuInfo                    = system.MenuInfo
-	NavigationMenu              = system.NavigationMenu
-	ReadyRequest                = system.ReadyRequest
-	ReadyResponse               = system.ReadyResponse
-	RefreshCredentialsRequest   = system.RefreshCredentialsRequest
-	ReplaceRoleAPIsRequest      = system.ReplaceRoleAPIsRequest
-	ReplaceRoleMenusRequest     = system.ReplaceRoleMenusRequest
-	ReplaceUserRolesRequest     = system.ReplaceUserRolesRequest
-	ResetUserPasswordRequest    = system.ResetUserPasswordRequest
-	RevokeSessionRequest        = system.RevokeSessionRequest
-	RevokeUserSessionsRequest   = system.RevokeUserSessionsRequest
-	RoleInfo                    = system.RoleInfo
-	UpdateMenuRequest           = system.UpdateMenuRequest
-	UpdateMenuStatusRequest     = system.UpdateMenuStatusRequest
-	UpdateRoleRequest           = system.UpdateRoleRequest
-	UpdateRoleStatusRequest     = system.UpdateRoleStatusRequest
-	UpdateUserRequest           = system.UpdateUserRequest
-	UpdateUserStatusRequest     = system.UpdateUserStatusRequest
-	UserInfo                    = system.UserInfo
-	UserRoleInfo                = system.UserRoleInfo
+	APIInfo                       = system.APIInfo
+	ChangePasswordRequest         = system.ChangePasswordRequest
+	CreateDepartmentRequest       = system.CreateDepartmentRequest
+	CreateDepartmentResponse      = system.CreateDepartmentResponse
+	CreateMenuRequest             = system.CreateMenuRequest
+	CreateMenuResponse            = system.CreateMenuResponse
+	CreateRoleRequest             = system.CreateRoleRequest
+	CreateRoleResponse            = system.CreateRoleResponse
+	CreateUserRequest             = system.CreateUserRequest
+	CreateUserResponse            = system.CreateUserResponse
+	CurrentUserRequest            = system.CurrentUserRequest
+	CurrentUserResponse           = system.CurrentUserResponse
+	DeleteDepartmentRequest       = system.DeleteDepartmentRequest
+	DeleteMenuRequest             = system.DeleteMenuRequest
+	DeleteRoleRequest             = system.DeleteRoleRequest
+	DeleteUserRequest             = system.DeleteUserRequest
+	DepartmentInfo                = system.DepartmentInfo
+	EmptyResponse                 = system.EmptyResponse
+	GetDepartmentRequest          = system.GetDepartmentRequest
+	GetDepartmentResponse         = system.GetDepartmentResponse
+	GetMenuRequest                = system.GetMenuRequest
+	GetMenuResponse               = system.GetMenuResponse
+	GetRoleAPIsRequest            = system.GetRoleAPIsRequest
+	GetRoleAPIsResponse           = system.GetRoleAPIsResponse
+	GetRoleMenusRequest           = system.GetRoleMenusRequest
+	GetRoleMenusResponse          = system.GetRoleMenusResponse
+	GetRoleRequest                = system.GetRoleRequest
+	GetRoleResponse               = system.GetRoleResponse
+	GetUserRequest                = system.GetUserRequest
+	GetUserResponse               = system.GetUserResponse
+	ListAPIsRequest               = system.ListAPIsRequest
+	ListAPIsResponse              = system.ListAPIsResponse
+	ListDepartmentsRequest        = system.ListDepartmentsRequest
+	ListDepartmentsResponse       = system.ListDepartmentsResponse
+	ListMenusRequest              = system.ListMenusRequest
+	ListMenusResponse             = system.ListMenusResponse
+	ListNavigationMenusRequest    = system.ListNavigationMenusRequest
+	ListNavigationMenusResponse   = system.ListNavigationMenusResponse
+	ListRolesRequest              = system.ListRolesRequest
+	ListRolesResponse             = system.ListRolesResponse
+	ListUserRoleOptionsResponse   = system.ListUserRoleOptionsResponse
+	ListUsersRequest              = system.ListUsersRequest
+	ListUsersResponse             = system.ListUsersResponse
+	LoginRequest                  = system.LoginRequest
+	LoginResponse                 = system.LoginResponse
+	MenuFields                    = system.MenuFields
+	MenuInfo                      = system.MenuInfo
+	NavigationMenu                = system.NavigationMenu
+	ReadyRequest                  = system.ReadyRequest
+	ReadyResponse                 = system.ReadyResponse
+	RefreshCredentialsRequest     = system.RefreshCredentialsRequest
+	ReplaceRoleAPIsRequest        = system.ReplaceRoleAPIsRequest
+	ReplaceRoleMenusRequest       = system.ReplaceRoleMenusRequest
+	ReplaceUserRolesRequest       = system.ReplaceUserRolesRequest
+	ResetUserPasswordRequest      = system.ResetUserPasswordRequest
+	RevokeSessionRequest          = system.RevokeSessionRequest
+	RevokeUserSessionsRequest     = system.RevokeUserSessionsRequest
+	RoleInfo                      = system.RoleInfo
+	UpdateDepartmentRequest       = system.UpdateDepartmentRequest
+	UpdateDepartmentStatusRequest = system.UpdateDepartmentStatusRequest
+	UpdateMenuRequest             = system.UpdateMenuRequest
+	UpdateMenuStatusRequest       = system.UpdateMenuStatusRequest
+	UpdateRoleRequest             = system.UpdateRoleRequest
+	UpdateRoleStatusRequest       = system.UpdateRoleStatusRequest
+	UpdateUserRequest             = system.UpdateUserRequest
+	UpdateUserStatusRequest       = system.UpdateUserStatusRequest
+	UserInfo                      = system.UserInfo
+	UserRoleInfo                  = system.UserRoleInfo
 
 	System interface {
 		GetRoleMenus(ctx context.Context, in *GetRoleMenusRequest, opts ...grpc.CallOption) (*GetRoleMenusResponse, error)
@@ -108,6 +118,12 @@ type (
 		ReplaceUserRoles(ctx context.Context, in *ReplaceUserRolesRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		ResetUserPassword(ctx context.Context, in *ResetUserPasswordRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		ListUserRoleOptions(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListUserRoleOptionsResponse, error)
+		ListDepartments(ctx context.Context, in *ListDepartmentsRequest, opts ...grpc.CallOption) (*ListDepartmentsResponse, error)
+		GetDepartment(ctx context.Context, in *GetDepartmentRequest, opts ...grpc.CallOption) (*GetDepartmentResponse, error)
+		CreateDepartment(ctx context.Context, in *CreateDepartmentRequest, opts ...grpc.CallOption) (*CreateDepartmentResponse, error)
+		UpdateDepartment(ctx context.Context, in *UpdateDepartmentRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		UpdateDepartmentStatus(ctx context.Context, in *UpdateDepartmentStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		DeleteDepartment(ctx context.Context, in *DeleteDepartmentRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	}
 
 	defaultSystem struct {
@@ -289,4 +305,34 @@ func (m *defaultSystem) ResetUserPassword(ctx context.Context, in *ResetUserPass
 func (m *defaultSystem) ListUserRoleOptions(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListUserRoleOptionsResponse, error) {
 	client := system.NewSystemClient(m.cli.Conn())
 	return client.ListUserRoleOptions(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ListDepartments(ctx context.Context, in *ListDepartmentsRequest, opts ...grpc.CallOption) (*ListDepartmentsResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ListDepartments(ctx, in, opts...)
+}
+
+func (m *defaultSystem) GetDepartment(ctx context.Context, in *GetDepartmentRequest, opts ...grpc.CallOption) (*GetDepartmentResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.GetDepartment(ctx, in, opts...)
+}
+
+func (m *defaultSystem) CreateDepartment(ctx context.Context, in *CreateDepartmentRequest, opts ...grpc.CallOption) (*CreateDepartmentResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.CreateDepartment(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateDepartment(ctx context.Context, in *UpdateDepartmentRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateDepartment(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateDepartmentStatus(ctx context.Context, in *UpdateDepartmentStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateDepartmentStatus(ctx, in, opts...)
+}
+
+func (m *defaultSystem) DeleteDepartment(ctx context.Context, in *DeleteDepartmentRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.DeleteDepartment(ctx, in, opts...)
 }

@@ -79,6 +79,14 @@ func CreateInitialAdministrator(
 		if err != nil {
 			return err
 		}
+		var defaultDepartment model.Department
+		if err := tx.Where("parent_id IS NULL AND status = ?", model.RecordStatusEnabled).Order("id ASC").First(&defaultDepartment).Error; err != nil {
+			return fmt.Errorf("load default department: %w", err)
+		}
+		created.DepartmentID = &defaultDepartment.ID
+		if err := tx.Model(&model.User{}).Where("id = ?", created.ID).Update("department_id", created.DepartmentID).Error; err != nil {
+			return fmt.Errorf("assign default department: %w", err)
+		}
 		if err := tx.WithContext(ctx).Create(&model.UserRole{
 			UserID: created.ID,
 			RoleID: role.ID,

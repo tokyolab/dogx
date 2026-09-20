@@ -192,3 +192,33 @@ func (s *SystemServer) ListUserRoleOptions(ctx context.Context, in *system.ListR
 	l := logic.NewListUserRoleOptionsLogic(ctx, s.svcCtx)
 	return l.ListUserRoleOptions(in)
 }
+
+func (s *SystemServer) ListDepartments(ctx context.Context, in *system.ListDepartmentsRequest) (*system.ListDepartmentsResponse, error) {
+	l := logic.NewListDepartmentsLogic(ctx, s.svcCtx)
+	return l.ListDepartments(in)
+}
+
+func (s *SystemServer) GetDepartment(ctx context.Context, in *system.GetDepartmentRequest) (*system.GetDepartmentResponse, error) {
+	l := logic.NewGetDepartmentLogic(ctx, s.svcCtx)
+	return l.GetDepartment(in)
+}
+
+func (s *SystemServer) CreateDepartment(ctx context.Context, in *system.CreateDepartmentRequest) (*system.CreateDepartmentResponse, error) {
+	l := logic.NewCreateDepartmentLogic(ctx, s.svcCtx)
+	return l.CreateDepartment(in)
+}
+
+func (s *SystemServer) UpdateDepartment(ctx context.Context, in *system.UpdateDepartmentRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateDepartmentLogic(ctx, s.svcCtx)
+	return l.UpdateDepartment(in)
+}
+
+func (s *SystemServer) UpdateDepartmentStatus(ctx context.Context, in *system.UpdateDepartmentStatusRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateDepartmentStatusLogic(ctx, s.svcCtx)
+	return l.UpdateDepartmentStatus(in)
+}
+
+func (s *SystemServer) DeleteDepartment(ctx context.Context, in *system.DeleteDepartmentRequest) (*system.EmptyResponse, error) {
+	l := logic.NewDeleteDepartmentLogic(ctx, s.svcCtx)
+	return l.DeleteDepartment(in)
+}

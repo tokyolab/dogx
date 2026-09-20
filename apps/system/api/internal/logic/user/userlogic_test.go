@@ -125,13 +125,13 @@ func TestUserAPILogicPreservesRequestAndErrorContracts(t *testing.T) {
 			return err
 		}, &systemclient.GetUserRequest{Id: 9}},
 		{"create", func(ctx context.Context, sc *svc.ServiceContext) error {
-			_, err := NewCreateUserLogic(ctx, sc).CreateUser(&types.CreateUserReq{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1, RoleIds: []int64{8}})
+			_, err := NewCreateUserLogic(ctx, sc).CreateUser(&types.CreateUserReq{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1, RoleIds: []int64{8}, DepartmentId: 1})
 			return err
-		}, &systemclient.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1, RoleIds: []int64{8}}},
+		}, &systemclient.CreateUserRequest{Username: "alice", Nickname: "Alice", Password: "Valid-pass123", Status: 1, RoleIds: []int64{8}, DepartmentId: 1}},
 		{"update", func(ctx context.Context, sc *svc.ServiceContext) error {
-			_, err := NewUpdateUserLogic(ctx, sc).UpdateUser(&types.UpdateUserReq{Id: 9, Nickname: "Alice"})
+			_, err := NewUpdateUserLogic(ctx, sc).UpdateUser(&types.UpdateUserReq{Id: 9, Nickname: "Alice", DepartmentId: 1})
 			return err
-		}, &systemclient.UpdateUserRequest{Id: 9, Nickname: "Alice", OperatorId: 42}},
+		}, &systemclient.UpdateUserRequest{Id: 9, Nickname: "Alice", DepartmentId: 1, OperatorId: 42}},
 		{"status", func(ctx context.Context, sc *svc.ServiceContext) error {
 			_, err := NewUpdateUserStatusLogic(ctx, sc).UpdateUserStatus(&types.UpdateUserStatusReq{Id: 9, Status: 0})
 			return err

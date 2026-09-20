@@ -1,0 +1,59 @@
+import "base.api"
+
+type (
+	DepartmentItem {
+		Id        int64  `json:"id"`
+		ParentId  int64  `json:"parentId"`
+		Name      string `json:"name"`
+		Sort      int32  `json:"sort"`
+		Status    int32  `json:"status"`
+		Remark    string `json:"remark"`
+		CreatedAt string `json:"createdAt"`
+		UpdatedAt string `json:"updatedAt"`
+	}
+	DepartmentListResp { Items []DepartmentItem `json:"items"` }
+	CreateDepartmentReq {
+		ParentId int64  `json:"parentId" validate:"gte=0"`
+		Name     string `json:"name" validate:"required,max=128"`
+		Sort     int32  `json:"sort" validate:"gte=0"`
+		Remark   string `json:"remark,optional" validate:"max=500"`
+		Status   int32  `json:"status" validate:"oneof=0 1"`
+	}
+	CreateDepartmentResp { Id int64 `json:"id"` }
+	UpdateDepartmentReq {
+		Id       int64  `json:"id" validate:"gt=0"`
+		ParentId int64  `json:"parentId" validate:"gte=0"`
+		Name     string `json:"name" validate:"required,max=128"`
+		Sort     int32  `json:"sort" validate:"gte=0"`
+		Remark   string `json:"remark,optional" validate:"max=500"`
+	}
+	UpdateDepartmentStatusReq {
+		Id     int64 `json:"id" validate:"gt=0"`
+		Status int32 `json:"status" validate:"oneof=0 1"`
+	}
+)
+
+@server (
+	group: department
+	jwt: Auth
+	middleware: SessionAuth, Authorization
+)
+service system-api {
+	@handler listDepartments
+	post /department/list returns (DepartmentListResp)
+
+	@handler getDepartment
+	post /department/get (IDReq) returns (DepartmentItem)
+
+	@handler createDepartment
+	post /department/create (CreateDepartmentReq) returns (CreateDepartmentResp)
+
+	@handler updateDepartment
+	post /department/update (UpdateDepartmentReq) returns (EmptyResp)
+
+	@handler updateDepartmentStatus
+	post /department/status/update (UpdateDepartmentStatusReq) returns (EmptyResp)
+
+	@handler deleteDepartment
+	post /department/delete (IDReq) returns (EmptyResp)
+}

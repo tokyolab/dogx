@@ -6,6 +6,7 @@ const (
 	UserEmailExists             = "system.user.email_exists"
 	UserPhoneExists             = "system.user.phone_exists"
 	UserRoleUnavailable         = "system.user.role_unavailable"
+	UserDepartmentUnavailable   = "system.user.department_unavailable"
 	UserSuperAdminNotAssignable = "system.user.super_admin_not_assignable"
 	UserSuperAdminProtected     = "system.user.super_admin_protected"
 	UserSelfProtected           = "system.user.self_protected"

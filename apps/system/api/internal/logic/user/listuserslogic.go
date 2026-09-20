@@ -34,7 +34,7 @@ func (l *ListUsersLogic) ListUsers(req *types.UserListReq) (resp *types.UserList
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
-	result, err := l.svcCtx.SystemRpc.ListUsers(l.ctx, &systemclient.ListUsersRequest{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword, Status: req.Status})
+	result, err := l.svcCtx.SystemRpc.ListUsers(l.ctx, &systemclient.ListUsersRequest{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword, Status: req.Status, DepartmentId: req.DepartmentId})
 	if err != nil {
 		return nil, err
 	}

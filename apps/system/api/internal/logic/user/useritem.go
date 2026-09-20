@@ -29,5 +29,6 @@ func toUserItem(user *systemclient.UserInfo) types.UserItem {
 	}
 	return types.UserItem{Id: user.GetId(), Username: user.GetUsername(), Nickname: user.GetNickname(),
 		Email: user.GetEmail(), Phone: user.GetPhone(), Remark: user.GetRemark(), Status: user.GetStatus(), Roles: roles,
-		CreatedAt: user.GetCreatedAt(), UpdatedAt: user.GetUpdatedAt(), LastLoginAt: user.GetLastLoginAt()}
+		CreatedAt: user.GetCreatedAt(), UpdatedAt: user.GetUpdatedAt(), LastLoginAt: user.GetLastLoginAt(),
+		DepartmentId: user.GetDepartmentId(), DepartmentName: user.GetDepartmentName()}
 }

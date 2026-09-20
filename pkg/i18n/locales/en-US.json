@@ -15,6 +15,14 @@
     "business_error": "Business operation failed"
   },
   "system": {
+    "department": {
+      "not_found": "Department not found",
+      "name_exists": "A department with this name already exists under the same parent",
+      "has_children": "Remove child departments before deleting this department",
+      "has_users": "Move users out of this department before deleting it",
+      "parent_invalid": "The parent department does not exist or is invalid",
+      "cycle": "A department cannot be moved under itself or its descendants"
+    },
     "menu": {
       "not_found": "Menu not found",
       "parent_invalid": "The parent node is missing or cannot contain children",
@@ -35,6 +43,7 @@
       "email_exists": "The email address is already in use",
       "phone_exists": "The phone number is already in use",
       "role_unavailable": "A role does not exist or cannot be assigned",
+      "department_unavailable": "The department does not exist or is disabled",
       "super_admin_not_assignable": "The super administrator role cannot be assigned",
       "super_admin_protected": "The initialized super administrator cannot be disabled, deleted, have its roles changed, or be modified by another account",
       "self_protected": "You cannot disable or delete your current account"

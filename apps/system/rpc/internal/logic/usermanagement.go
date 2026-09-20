@@ -92,8 +92,11 @@ func toUserInfo(record repository.UserRecord) *system.UserInfo {
 		roles = append(roles, toUserRoleInfo(role))
 	}
 	info := &system.UserInfo{Id: user.ID, Username: user.Username, Nickname: user.Nickname,
-		Remark: user.Remark, Status: int32(user.Status), Roles: roles,
+		Remark: user.Remark, Status: int32(user.Status), Roles: roles, DepartmentName: record.DepartmentName,
 		CreatedAt: user.CreatedAt.UTC().Format(time.RFC3339Nano), UpdatedAt: user.UpdatedAt.UTC().Format(time.RFC3339Nano)}
+	if user.DepartmentID != nil {
+		info.DepartmentId = *user.DepartmentID
+	}
 	if user.Email != nil {
 		info.Email = *user.Email
 	}
@@ -122,6 +125,8 @@ func userManagementError(err error) error {
 		return bizerror.New(subcode.UserSuperAdminNotAssignable, "超管角色不允许授权")
 	case errors.Is(err, repository.ErrUserRoleUnavailable):
 		return bizerror.New(subcode.UserRoleUnavailable, "角色不存在或不允许分配")
+	case errors.Is(err, repository.ErrUserDepartmentUnavailable):
+		return bizerror.New(subcode.UserDepartmentUnavailable, "部门不存在或已停用")
 	case errors.Is(err, repository.ErrSuperAdminProtected):
 		return bizerror.New(subcode.UserSuperAdminProtected, "初始化超管账号受保护，不能停用、删除、修改角色或由其他账号修改")
 	default:

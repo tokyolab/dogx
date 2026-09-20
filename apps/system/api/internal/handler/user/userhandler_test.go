@@ -125,7 +125,7 @@ func TestUserHTTPRejectsInvalidFieldsBeforeRPC(t *testing.T) {
 		{name: "malformed json", body: `{"page":"wrong","pageSize":20}`, handler: ListUsersHandler},
 		{name: "invalid role id", body: `{"id":1,"roleIds":[0]}`, handler: UpdateUserRolesHandler},
 		{name: "short reset password", body: `{"id":1,"password":"short"}`, handler: ResetUserPasswordHandler},
-		{name: "missing create nickname", body: `{"username":"alice","nickname":"","password":"Valid-pass123","status":1,"roleIds":[]}`, handler: CreateUserHandler},
+		{name: "missing create nickname", body: `{"username":"alice","nickname":"","password":"Valid-pass123","status":1,"roleIds":[],"departmentId":1}`, handler: CreateUserHandler},
 		{name: "missing update nickname", body: `{"id":1,"nickname":""}`, handler: UpdateUserHandler},
 		{name: "invalid mutation status", body: `{"id":1,"status":2}`, handler: UpdateUserStatusHandler},
 	} {
@@ -154,8 +154,8 @@ func TestUserMutationHTTPErrorContracts(t *testing.T) {
 		reason  string
 		handler func(*svc.ServiceContext) http.HandlerFunc
 	}{
-		{"CreateUser", "/user/create", `{"username":"alice","nickname":"Alice","password":"Valid-pass123","status":1,"roleIds":[]}`, systemsubcode.UserUsernameExists, CreateUserHandler},
-		{"UpdateUser", "/user/update", `{"id":9,"nickname":"Alice"}`, systemsubcode.UserEmailExists, UpdateUserHandler},
+		{"CreateUser", "/user/create", `{"username":"alice","nickname":"Alice","password":"Valid-pass123","status":1,"roleIds":[],"departmentId":1}`, systemsubcode.UserUsernameExists, CreateUserHandler},
+		{"UpdateUser", "/user/update", `{"id":9,"nickname":"Alice","departmentId":1}`, systemsubcode.UserEmailExists, UpdateUserHandler},
 		{"UpdateUserStatus", "/user/status/update", `{"id":9,"status":0}`, systemsubcode.UserSuperAdminProtected, UpdateUserStatusHandler},
 		{"DeleteUser", "/user/delete", `{"id":9}`, systemsubcode.UserSelfProtected, DeleteUserHandler},
 		{"ReplaceUserRoles", "/user/role/update", `{"id":9,"roleIds":[8]}`, systemsubcode.UserRoleUnavailable, UpdateUserRolesHandler},
