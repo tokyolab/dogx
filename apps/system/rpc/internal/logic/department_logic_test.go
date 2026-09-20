@@ -148,6 +148,97 @@ func TestDepartmentQueryLogicMapsDataAndErrors(t *testing.T) {
 	}
 }
 
+func TestDepartmentMutationLogicMapsRepositoryErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		call func(*svc.ServiceContext) error
+		want string
+	}{
+		{
+			name: "create duplicate name",
+			err:  repository.ErrDepartmentNameExists,
+			call: func(s *svc.ServiceContext) error {
+				_, err := NewCreateDepartmentLogic(context.Background(), s).CreateDepartment(&system.CreateDepartmentRequest{Name: "部门", Status: 1})
+				return err
+			},
+			want: subcode.DepartmentNameExists,
+		},
+		{
+			name: "update cycle",
+			err:  repository.ErrDepartmentCycle,
+			call: func(s *svc.ServiceContext) error {
+				_, err := NewUpdateDepartmentLogic(context.Background(), s).UpdateDepartment(&system.UpdateDepartmentRequest{Id: 1, Name: "部门"})
+				return err
+			},
+			want: subcode.DepartmentCycle,
+		},
+		{
+			name: "status not found",
+			err:  repository.ErrDepartmentNotFound,
+			call: func(s *svc.ServiceContext) error {
+				_, err := NewUpdateDepartmentStatusLogic(context.Background(), s).UpdateDepartmentStatus(&system.UpdateDepartmentStatusRequest{Id: 1, Status: 0})
+				return err
+			},
+			want: subcode.DepartmentNotFound,
+		},
+		{
+			name: "delete has users",
+			err:  repository.ErrDepartmentHasUsers,
+			call: func(s *svc.ServiceContext) error {
+				_, err := NewDeleteDepartmentLogic(context.Background(), s).DeleteDepartment(&system.DeleteDepartmentRequest{Id: 1})
+				return err
+			},
+			want: subcode.DepartmentHasUsers,
+		},
+		{
+			name: "list storage failure",
+			err:  errors.New("postgres unavailable"),
+			call: func(s *svc.ServiceContext) error {
+				_, err := NewListDepartmentsLogic(context.Background(), s).ListDepartments(&system.ListDepartmentsRequest{})
+				return err
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			stub := &departmentRepositoryStub{createErr: test.err, updateErr: test.err, statusErr: test.err, deleteErr: test.err, listErr: test.err}
+			err := test.call(&svc.ServiceContext{DepartmentRepo: stub})
+			if err == nil {
+				t.Fatal("repository error was accepted")
+			}
+			if test.want != "" {
+				if !hasDepartmentSubcode(err, test.want) {
+					t.Fatalf("error=%v, want subcode %s", err, test.want)
+				}
+			} else if !errors.Is(err, test.err) {
+				t.Fatalf("error=%v, want wrapped %v", err, test.err)
+			}
+		})
+	}
+}
+
+func TestDepartmentErrorPreservesNilAndMapsAllKnownFailures(t *testing.T) {
+	if departmentError(nil) != nil {
+		t.Fatal("nil repository error should remain nil")
+	}
+	for _, test := range []struct {
+		err  error
+		want string
+	}{
+		{repository.ErrDepartmentNotFound, subcode.DepartmentNotFound},
+		{repository.ErrDepartmentNameExists, subcode.DepartmentNameExists},
+		{repository.ErrDepartmentHasChildren, subcode.DepartmentHasChildren},
+		{repository.ErrDepartmentHasUsers, subcode.DepartmentHasUsers},
+		{repository.ErrDepartmentParentInvalid, subcode.DepartmentParentInvalid},
+		{repository.ErrDepartmentCycle, subcode.DepartmentCycle},
+	} {
+		if err := departmentError(test.err); !hasDepartmentSubcode(err, test.want) {
+			t.Fatalf("error=%v, want subcode %s", err, test.want)
+		}
+	}
+}
+
 func hasDepartmentSubcode(err error, want string) bool {
 	businessErr, ok := bizerror.From(err)
 	return ok && businessErr.Subcode() == want
