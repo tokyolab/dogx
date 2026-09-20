@@ -5,7 +5,9 @@ coverage:
         informational: true
     patch:
       default:
-        informational: true
+        target: 80%
+        threshold: 0%
+        informational: false
 
 ignore:
   - "**/*.pb.go"

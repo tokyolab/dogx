@@ -4,8 +4,29 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 )
+
+func TestDepartmentWriteErrorsAndConstructor(t *testing.T) {
+	if _, err := NewDepartmentRepository(nil); err == nil {
+		t.Fatal("expected nil department repository database to be rejected")
+	}
+	for constraint, want := range map[string]error{
+		"uk_sys_department_parent_name_active": ErrDepartmentNameExists,
+	} {
+		if got := mapDepartmentWriteError(&pgconn.PgError{Code: "23505", ConstraintName: constraint}); !errors.Is(got, want) {
+			t.Fatalf("%s: got %v, want %v", constraint, got, want)
+		}
+	}
+	databaseErr := errors.New("database unavailable")
+	if !errors.Is(mapDepartmentWriteError(databaseErr), databaseErr) {
+		t.Fatal("database error was lost")
+	}
+	if mapDepartmentWriteError(nil) != nil {
+		t.Fatal("nil error was changed")
+	}
+}
 
 func TestValidateDepartmentTree(t *testing.T) {
 	parentID := int64(1)
