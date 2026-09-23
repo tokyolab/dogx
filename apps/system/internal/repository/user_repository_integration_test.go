@@ -79,6 +79,66 @@ func TestUserRepositoryCreatesAndFindsUserInPostgreSQL(t *testing.T) {
 	}
 }
 
+func TestUserContactUpdatePreservesManagedFields(t *testing.T) {
+	repo, db := newPostgreSQLUserRepository(t)
+	ctx := context.Background()
+	department := model.Department{Name: "Profile department", Status: model.RecordStatusEnabled}
+	if err := db.Create(&department).Error; err != nil {
+		t.Fatal(err)
+	}
+	email, phone := "profile@example.com", "123"
+	user := model.User{Username: "profile-user", Nickname: "Before", PasswordHash: "hash", Status: model.RecordStatusEnabled, DepartmentID: &department.ID, Remark: "Admin remark", Email: &email, Phone: &phone}
+	if err := repo.Create(ctx, &user); err != nil {
+		t.Fatal(err)
+	}
+	role := model.Role{Code: "profile_role", Name: "Profile role", Status: model.RecordStatusEnabled}
+	if err := db.Create(&role).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.UserRole{UserID: user.ID, RoleID: role.ID}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.UpdateContacts(ctx, user.ID, UserContactUpdate{Nickname: "After"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := repo.FindByID(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Nickname != "After" || got.Email != nil || got.Phone != nil || got.Username != user.Username || got.PasswordHash != "hash" || got.Remark != "Admin remark" || got.DepartmentID == nil || *got.DepartmentID != department.ID || got.Status != model.RecordStatusEnabled {
+		t.Fatalf("unexpected persisted profile: %+v", got)
+	}
+	record, err := repo.FindWithRoles(ctx, user.ID)
+	if err != nil || len(record.Roles) != 1 || record.Roles[0].ID != role.ID {
+		t.Fatalf("roles changed: %+v %v", record, err)
+	}
+	other := model.User{Username: "profile-other", Nickname: "Other", PasswordHash: "hash", Status: model.RecordStatusEnabled, Email: &email, Phone: &phone}
+	if err := repo.Create(ctx, &other); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.UpdateContacts(ctx, user.ID, UserContactUpdate{Nickname: "Bad", Email: &email}); !errors.Is(err, ErrUserEmailExists) {
+		t.Fatalf("email conflict: %v", err)
+	}
+	if err := repo.UpdateContacts(ctx, user.ID, UserContactUpdate{Nickname: "Bad", Phone: &phone}); !errors.Is(err, ErrUserPhoneExists) {
+		t.Fatalf("phone conflict: %v", err)
+	}
+	if err := repo.UpdateContacts(ctx, 999999, UserContactUpdate{Nickname: "Missing"}); !errors.Is(err, ErrUserNotFound) {
+		t.Fatalf("missing user: %v", err)
+	}
+	if err := db.Model(&user).Update("status", model.RecordStatusDisabled).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.UpdateContacts(ctx, user.ID, UserContactUpdate{Nickname: "Disabled"}); !errors.Is(err, ErrUserNotFound) {
+		t.Fatalf("disabled user updated: %v", err)
+	}
+	if err := db.Delete(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.UpdateContacts(ctx, user.ID, UserContactUpdate{Nickname: "Deleted"}); !errors.Is(err, ErrUserNotFound) {
+		t.Fatalf("deleted user updated: %v", err)
+	}
+}
+
 func TestUserRepositoryHonorsActiveUsernameUniquenessAndSoftDelete(t *testing.T) {
 	repository, gormDB := newPostgreSQLUserRepository(t)
 

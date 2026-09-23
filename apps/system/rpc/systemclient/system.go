@@ -62,6 +62,7 @@ type (
 	MenuFields                    = system.MenuFields
 	MenuInfo                      = system.MenuInfo
 	NavigationMenu                = system.NavigationMenu
+	ProfileResponse               = system.ProfileResponse
 	ReadyRequest                  = system.ReadyRequest
 	ReadyResponse                 = system.ReadyResponse
 	RefreshCredentialsRequest     = system.RefreshCredentialsRequest
@@ -76,6 +77,7 @@ type (
 	UpdateDepartmentStatusRequest = system.UpdateDepartmentStatusRequest
 	UpdateMenuRequest             = system.UpdateMenuRequest
 	UpdateMenuStatusRequest       = system.UpdateMenuStatusRequest
+	UpdateProfileRequest          = system.UpdateProfileRequest
 	UpdateRoleRequest             = system.UpdateRoleRequest
 	UpdateRoleStatusRequest       = system.UpdateRoleStatusRequest
 	UpdateUserRequest             = system.UpdateUserRequest
@@ -84,6 +86,8 @@ type (
 	UserRoleInfo                  = system.UserRoleInfo
 
 	System interface {
+		GetProfile(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*ProfileResponse, error)
+		UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		GetRoleMenus(ctx context.Context, in *GetRoleMenusRequest, opts ...grpc.CallOption) (*GetRoleMenusResponse, error)
 		ReplaceRoleMenus(ctx context.Context, in *ReplaceRoleMenusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		ListNavigationMenus(ctx context.Context, in *ListNavigationMenusRequest, opts ...grpc.CallOption) (*ListNavigationMenusResponse, error)
@@ -135,6 +139,16 @@ func NewSystem(cli zrpc.Client) System {
 	return &defaultSystem{
 		cli: cli,
 	}
+}
+
+func (m *defaultSystem) GetProfile(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*ProfileResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.GetProfile(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateProfile(ctx, in, opts...)
 }
 
 func (m *defaultSystem) GetRoleMenus(ctx context.Context, in *GetRoleMenusRequest, opts ...grpc.CallOption) (*GetRoleMenusResponse, error) {

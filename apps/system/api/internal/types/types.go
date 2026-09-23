@@ -202,6 +202,15 @@ type PageReq struct {
 	PageSize int64 `json:"pageSize" validate:"gte=1,lte=200"`
 }
 
+type ProfileResp struct {
+	Username       string   `json:"username"`
+	Nickname       string   `json:"nickname"`
+	Email          string   `json:"email"`
+	Phone          string   `json:"phone"`
+	DepartmentName string   `json:"departmentName"`
+	Roles          []string `json:"roles"`
+}
+
 type ReadyResp struct {
 	Status string `json:"status"`
 }
@@ -259,6 +268,12 @@ type UpdateMenuReq struct {
 type UpdateMenuStatusReq struct {
 	Id     int64 `json:"id" validate:"gt=0"`
 	Status int32 `json:"status" validate:"oneof=0 1"`
+}
+
+type UpdateProfileReq struct {
+	Nickname string `json:"nickname" validate:"required,max=64"`
+	Email    string `json:"email,optional" validate:"omitempty,max=255,email"`
+	Phone    string `json:"phone,optional" validate:"omitempty,max=32"`
 }
 
 type UpdateRoleAPIsReq struct {

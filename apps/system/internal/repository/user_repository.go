@@ -48,6 +48,12 @@ type UserProfileUpdate struct {
 	DepartmentID *int64
 }
 
+type UserContactUpdate struct {
+	Nickname string
+	Email    *string
+	Phone    *string
+}
+
 type UserRepository interface {
 	Create(ctx context.Context, user *model.User) error
 	FindByID(ctx context.Context, id int64) (*model.User, error)
@@ -59,6 +65,7 @@ type UserRepository interface {
 	CreateWithRoles(ctx context.Context, user *model.User, roleIDs []int64) error
 	ValidateRoles(ctx context.Context, roleIDs []int64, current []model.Role) error
 	UpdateProfile(ctx context.Context, id int64, update UserProfileUpdate) error
+	UpdateContacts(ctx context.Context, id int64, update UserContactUpdate) error
 	ReplaceRoles(ctx context.Context, id int64, roleIDs []int64) error
 	UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error
 	Delete(ctx context.Context, id int64) error
@@ -276,6 +283,21 @@ func (r *userRepository) UpdateProfile(ctx context.Context, id int64, update Use
 	result := r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).Updates(map[string]any{
 		"nickname": update.Nickname, "email": update.Email, "phone": update.Phone, "remark": update.Remark, "department_id": update.DepartmentID,
 	})
+	if result.Error != nil {
+		return mapUserWriteError(result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *userRepository) UpdateContacts(ctx context.Context, id int64, update UserContactUpdate) error {
+	// Self-service must never overwrite administrator-managed fields, even if
+	// the department or roles change concurrently with this profile save.
+	result := r.db.WithContext(ctx).Model(&model.User{}).
+		Where("id = ? AND status = ?", id, model.RecordStatusEnabled).
+		Updates(map[string]any{"nickname": update.Nickname, "email": update.Email, "phone": update.Phone})
 	if result.Error != nil {
 		return mapUserWriteError(result.Error)
 	}

@@ -19,6 +19,19 @@ type systemRPCStub struct {
 	navigationResponse    *systemclient.ListNavigationMenusResponse
 	navigationCalls       int
 	err                   error
+	profileRequest        *systemclient.CurrentUserRequest
+	profileResponse       *systemclient.ProfileResponse
+	updateProfileRequest  *systemclient.UpdateProfileRequest
+}
+
+func (s *systemRPCStub) GetProfile(_ context.Context, req *systemclient.CurrentUserRequest, _ ...grpc.CallOption) (*systemclient.ProfileResponse, error) {
+	s.profileRequest = req
+	return s.profileResponse, s.err
+}
+
+func (s *systemRPCStub) UpdateProfile(_ context.Context, req *systemclient.UpdateProfileRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	s.updateProfileRequest = req
+	return &systemclient.EmptyResponse{}, s.err
 }
 
 func (s *systemRPCStub) RefreshCredentials(

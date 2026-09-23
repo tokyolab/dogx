@@ -85,6 +85,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/auth/menus",
 					Handler: auth.NavigationMenusHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/auth/profile",
+					Handler: auth.GetProfileHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/auth/profile/update",
+					Handler: auth.UpdateProfileHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),

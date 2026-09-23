@@ -98,6 +98,8 @@ var routeSecurityMatrix = []routeSecurityCase{
 	{name: "health", method: http.MethodGet, path: "/health", level: routePublic, publicStatus: http.StatusOK},
 	{name: "ready", method: http.MethodGet, path: "/ready", level: routePublic, publicStatus: http.StatusServiceUnavailable},
 	{name: "current user", method: http.MethodPost, path: "/auth/me", level: routeAuthenticated},
+	{name: "profile", method: http.MethodPost, path: "/auth/profile", level: routeAuthenticated},
+	{name: "update profile", method: http.MethodPost, path: "/auth/profile/update", body: `{"nickname":"Reader"}`, level: routeAuthenticated},
 	{name: "navigation menus", method: http.MethodPost, path: "/auth/menus", level: routeAuthenticated},
 	{name: "logout", method: http.MethodPost, path: "/auth/logout", level: routeAuthenticated},
 	{name: "logout all", method: http.MethodPost, path: "/auth/logout-all", level: routeAuthenticated},

@@ -33,6 +33,22 @@ message CurrentUserRequest {
   int64 user_id = 1;
 }
 
+message ProfileResponse {
+  string username = 1;
+  string nickname = 2;
+  string email = 3;
+  string phone = 4;
+  string department_name = 5;
+  repeated string roles = 6;
+}
+
+message UpdateProfileRequest {
+  int64 user_id = 1;
+  string nickname = 2;
+  string email = 3;
+  string phone = 4;
+}
+
 message CurrentUserResponse {
   int64 id = 1;
   string username = 2;
@@ -352,6 +368,8 @@ message ListNavigationMenusResponse {
 }
 
 service System {
+  rpc GetProfile(CurrentUserRequest) returns (ProfileResponse);
+  rpc UpdateProfile(UpdateProfileRequest) returns (EmptyResponse);
   rpc GetRoleMenus(GetRoleMenusRequest) returns (GetRoleMenusResponse);
   rpc ReplaceRoleMenus(ReplaceRoleMenusRequest) returns (EmptyResponse);
   rpc ListNavigationMenus(ListNavigationMenusRequest) returns (ListNavigationMenusResponse);

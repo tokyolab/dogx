@@ -23,6 +23,16 @@ func NewSystemServer(svcCtx *svc.ServiceContext) *SystemServer {
 	}
 }
 
+func (s *SystemServer) GetProfile(ctx context.Context, in *system.CurrentUserRequest) (*system.ProfileResponse, error) {
+	l := logic.NewGetProfileLogic(ctx, s.svcCtx)
+	return l.GetProfile(in)
+}
+
+func (s *SystemServer) UpdateProfile(ctx context.Context, in *system.UpdateProfileRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateProfileLogic(ctx, s.svcCtx)
+	return l.UpdateProfile(in)
+}
+
 func (s *SystemServer) GetRoleMenus(ctx context.Context, in *system.GetRoleMenusRequest) (*system.GetRoleMenusResponse, error) {
 	l := logic.NewGetRoleMenusLogic(ctx, s.svcCtx)
 	return l.GetRoleMenus(in)

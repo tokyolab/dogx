@@ -19,6 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	System_GetProfile_FullMethodName             = "/system.System/GetProfile"
+	System_UpdateProfile_FullMethodName          = "/system.System/UpdateProfile"
 	System_GetRoleMenus_FullMethodName           = "/system.System/GetRoleMenus"
 	System_ReplaceRoleMenus_FullMethodName       = "/system.System/ReplaceRoleMenus"
 	System_ListNavigationMenus_FullMethodName    = "/system.System/ListNavigationMenus"
@@ -65,6 +67,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SystemClient interface {
+	GetProfile(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*ProfileResponse, error)
+	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	GetRoleMenus(ctx context.Context, in *GetRoleMenusRequest, opts ...grpc.CallOption) (*GetRoleMenusResponse, error)
 	ReplaceRoleMenus(ctx context.Context, in *ReplaceRoleMenusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	ListNavigationMenus(ctx context.Context, in *ListNavigationMenusRequest, opts ...grpc.CallOption) (*ListNavigationMenusResponse, error)
@@ -113,6 +117,26 @@ type systemClient struct {
 
 func NewSystemClient(cc grpc.ClientConnInterface) SystemClient {
 	return &systemClient{cc}
+}
+
+func (c *systemClient) GetProfile(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*ProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProfileResponse)
+	err := c.cc.Invoke(ctx, System_GetProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *systemClient) GetRoleMenus(ctx context.Context, in *GetRoleMenusRequest, opts ...grpc.CallOption) (*GetRoleMenusResponse, error) {
@@ -519,6 +543,8 @@ func (c *systemClient) DeleteDepartment(ctx context.Context, in *DeleteDepartmen
 // All implementations must embed UnimplementedSystemServer
 // for forward compatibility.
 type SystemServer interface {
+	GetProfile(context.Context, *CurrentUserRequest) (*ProfileResponse, error)
+	UpdateProfile(context.Context, *UpdateProfileRequest) (*EmptyResponse, error)
 	GetRoleMenus(context.Context, *GetRoleMenusRequest) (*GetRoleMenusResponse, error)
 	ReplaceRoleMenus(context.Context, *ReplaceRoleMenusRequest) (*EmptyResponse, error)
 	ListNavigationMenus(context.Context, *ListNavigationMenusRequest) (*ListNavigationMenusResponse, error)
@@ -569,6 +595,12 @@ type SystemServer interface {
 // pointer dereference when methods are called.
 type UnimplementedSystemServer struct{}
 
+func (UnimplementedSystemServer) GetProfile(context.Context, *CurrentUserRequest) (*ProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetProfile not implemented")
+}
+func (UnimplementedSystemServer) UpdateProfile(context.Context, *UpdateProfileRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateProfile not implemented")
+}
 func (UnimplementedSystemServer) GetRoleMenus(context.Context, *GetRoleMenusRequest) (*GetRoleMenusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetRoleMenus not implemented")
 }
@@ -708,6 +740,42 @@ func RegisterSystemServer(s grpc.ServiceRegistrar, srv SystemServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&System_ServiceDesc, srv)
+}
+
+func _System_GetProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CurrentUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).GetProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_GetProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).GetProfile(ctx, req.(*CurrentUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateProfile(ctx, req.(*UpdateProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _System_GetRoleMenus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1437,6 +1505,14 @@ var System_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "system.System",
 	HandlerType: (*SystemServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetProfile",
+			Handler:    _System_GetProfile_Handler,
+		},
+		{
+			MethodName: "UpdateProfile",
+			Handler:    _System_UpdateProfile_Handler,
+		},
 		{
 			MethodName: "GetRoleMenus",
 			Handler:    _System_GetRoleMenus_Handler,

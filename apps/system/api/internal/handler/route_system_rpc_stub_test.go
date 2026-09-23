@@ -11,13 +11,27 @@ import (
 type routeSystemRPCStub struct {
 	navigationRequest *systemclient.ListNavigationMenusRequest
 	systemclient.System
-	order              *[]string
-	called             string
-	request            *systemclient.ReplaceRoleAPIsRequest
-	listRolesRequest   *systemclient.ListRolesRequest
-	getRoleRequest     *systemclient.GetRoleRequest
-	listAPIsRequest    *systemclient.ListAPIsRequest
-	getRoleAPIsRequest *systemclient.GetRoleAPIsRequest
+	order                *[]string
+	called               string
+	request              *systemclient.ReplaceRoleAPIsRequest
+	listRolesRequest     *systemclient.ListRolesRequest
+	getRoleRequest       *systemclient.GetRoleRequest
+	listAPIsRequest      *systemclient.ListAPIsRequest
+	getRoleAPIsRequest   *systemclient.GetRoleAPIsRequest
+	profileRequest       *systemclient.CurrentUserRequest
+	updateProfileRequest *systemclient.UpdateProfileRequest
+}
+
+func (s *routeSystemRPCStub) GetProfile(_ context.Context, req *systemclient.CurrentUserRequest, _ ...grpc.CallOption) (*systemclient.ProfileResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.profileRequest = req
+	return &systemclient.ProfileResponse{Username: "alice", Roles: []string{}}, nil
+}
+
+func (s *routeSystemRPCStub) UpdateProfile(_ context.Context, req *systemclient.UpdateProfileRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.updateProfileRequest = req
+	return &systemclient.EmptyResponse{}, nil
 }
 
 func (s *routeSystemRPCStub) CreateRole(

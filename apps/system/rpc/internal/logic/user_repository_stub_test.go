@@ -15,6 +15,8 @@ type userRepositoryStub struct {
 	total              int64
 	created            *model.User
 	profile            repository.UserProfileUpdate
+	contacts           repository.UserContactUpdate
+	contactUserID      int64
 	roleIDs            []int64
 	rolesErr           error
 	validateRolesCalls int
@@ -112,3 +114,9 @@ func (s *userRepositoryStub) Delete(context.Context, int64) error {
 }
 
 var _ repository.UserRepository = (*userRepositoryStub)(nil)
+
+func (s *userRepositoryStub) UpdateContacts(_ context.Context, id int64, update repository.UserContactUpdate) error {
+	s.writeCalls++
+	s.contactUserID, s.contacts = id, update
+	return s.updateErr
+}

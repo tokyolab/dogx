@@ -1,6 +1,21 @@
 import "base.api"
 
 type (
+	UpdateProfileReq {
+		Nickname string `json:"nickname" validate:"required,max=64"`
+		Email    string `json:"email,optional" validate:"omitempty,max=255,email"`
+		Phone    string `json:"phone,optional" validate:"omitempty,max=32"`
+	}
+
+	ProfileResp {
+		Username       string   `json:"username"`
+		Nickname       string   `json:"nickname"`
+		Email          string   `json:"email"`
+		Phone          string   `json:"phone"`
+		DepartmentName string   `json:"departmentName"`
+		Roles          []string `json:"roles"`
+	}
+
 	LoginReq {
 		Username string `json:"username" validate:"required,max=64"`
 		Password string `json:"password" validate:"required,max=72"`
@@ -70,6 +85,12 @@ service system-api {
 	@doc "Return the current signed-in user"
 	@handler currentUser
 	post /auth/me returns (CurrentUserResp)
+
+	@handler getProfile
+	post /auth/profile returns (ProfileResp)
+
+	@handler updateProfile
+	post /auth/profile/update (UpdateProfileReq) returns (EmptyResp)
 
 	@doc "Return enabled navigation for signed-in users"
 	@handler navigationMenus
