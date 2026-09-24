@@ -2,7 +2,6 @@ package authn
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,11 +23,14 @@ var (
 )
 
 type Session struct {
-	ID               string    `json:"id"`
-	UserID           int64     `json:"userId"`
-	RefreshTokenHash string    `json:"refreshTokenHash"`
-	CreatedAt        time.Time `json:"createdAt"`
-	ExpiresAt        time.Time `json:"expiresAt"`
+	ID                       string    `json:"id"`
+	UserID                   int64     `json:"userId"`
+	RefreshTokenHash         string    `json:"refreshTokenHash"`
+	CreatedAt                time.Time `json:"createdAt"`
+	ExpiresAt                time.Time `json:"expiresAt"`
+	PreviousRefreshTokenHash string    `json:"previousRefreshTokenHash,omitempty"`
+	RefreshReplayUntil       int64     `json:"refreshReplayUntil,omitempty"`
+	EncryptedRefreshResult   string    `json:"encryptedRefreshResult,omitempty"`
 }
 
 type SessionReader interface {
@@ -45,6 +47,7 @@ type SessionStore interface {
 		nextHash string,
 		expiresAt time.Time,
 		ttl time.Duration,
+		encryptedResult string,
 	) (*Session, error)
 	Revoke(ctx context.Context, userID int64, sessionID string) error
 	RevokeAll(ctx context.Context, userID int64) error
@@ -172,9 +175,8 @@ func (s *RedisSessionReader) Get(ctx context.Context, sessionID string) (*Sessio
 	return &session, nil
 }
 
-// RotateRefreshToken treats a stale secret as token reuse and revokes the
-// entire session. This also makes concurrent refresh requests fail closed;
-// clients must serialize refresh attempts for a session.
+// RotateRefreshToken uses Redis time and a single-key atomic decision. A Go-side
+// hash check could revoke a session using a snapshot from before another refresh.
 func (s *RedisSessionStore) RotateRefreshToken(
 	ctx context.Context,
 	sessionID string,
@@ -182,8 +184,9 @@ func (s *RedisSessionStore) RotateRefreshToken(
 	nextHash string,
 	expiresAt time.Time,
 	ttl time.Duration,
+	encryptedResult string,
 ) (*Session, error) {
-	if strings.TrimSpace(sessionID) == "" || currentHash == "" || nextHash == "" || expiresAt.IsZero() {
+	if strings.TrimSpace(sessionID) == "" || currentHash == "" || nextHash == "" || expiresAt.IsZero() || encryptedResult == "" {
 		return nil, errors.New("invalid refresh token rotation")
 	}
 	seconds, err := ttlSeconds(ttl)
@@ -195,13 +198,6 @@ func (s *RedisSessionStore) RotateRefreshToken(
 	if err != nil {
 		return nil, err
 	}
-	if !secureHashEqual(session.RefreshTokenHash, currentHash) {
-		if revokeErr := s.Revoke(ctx, session.UserID, sessionID); revokeErr != nil {
-			return nil, fmt.Errorf("revoke session after refresh token reuse: %w", revokeErr)
-		}
-		return nil, ErrRefreshTokenMismatch
-	}
-
 	userKey := s.userSessionsKey(session.UserID)
 	if _, err := s.client.SaddCtx(ctx, userKey, sessionID); err != nil {
 		return nil, fmt.Errorf("index rotated session: %w", err)
@@ -210,8 +206,8 @@ func (s *RedisSessionStore) RotateRefreshToken(
 		return nil, fmt.Errorf("extend user session index: %w", err)
 	}
 
-	// Lua performs the hash comparison and rotation atomically: 1 means rotated,
-	// -1 means mismatch and revoked, and 0 means the session no longer exists.
+	// Success returns the winning stored JSON, including on retries. Returning our
+	// locally generated candidate here would give concurrent callers invalid tokens.
 	result, err := s.client.EvalCtx(
 		ctx,
 		rotateRefreshTokenScript,
@@ -220,16 +216,22 @@ func (s *RedisSessionStore) RotateRefreshToken(
 		nextHash,
 		expiresAt.UTC().Format(time.RFC3339Nano),
 		seconds,
+		encryptedResult,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("rotate refresh token: %w", err)
 	}
 
-	switch scriptInteger(result) {
-	case 1:
-		session.RefreshTokenHash = nextHash
-		session.ExpiresAt = expiresAt.UTC()
+	if value, ok := result.(string); ok && strings.HasPrefix(value, "{") {
+		if err := json.Unmarshal([]byte(value), session); err != nil {
+			return nil, fmt.Errorf("decode rotated session: %w", err)
+		}
+		if err := validateSession(*session); err != nil || session.ID != sessionID {
+			return nil, errors.New("invalid rotated session")
+		}
 		return session, nil
+	}
+	switch scriptInteger(result) {
 	case -1:
 		_, _ = s.client.SremCtx(ctx, userKey, sessionID)
 		return nil, ErrRefreshTokenMismatch
@@ -346,10 +348,6 @@ func ttlSeconds(ttl time.Duration) (int, error) {
 	return int(seconds), nil
 }
 
-func secureHashEqual(left, right string) bool {
-	return subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
-}
-
 func scriptInteger(value any) int64 {
 	switch typed := value.(type) {
 	case int64:
@@ -372,13 +370,24 @@ if not value then
 end
 
 local session = cjson.decode(value)
+local clock = redis.call('TIME')
+local now = tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
+local withinWindow = session.refreshReplayUntil and now < session.refreshReplayUntil
+if withinWindow and session.encryptedRefreshResult and
+    (session.refreshTokenHash == ARGV[1] or session.previousRefreshTokenHash == ARGV[1]) then
+    return value
+end
 if session.refreshTokenHash ~= ARGV[1] then
     redis.call('DEL', KEYS[1])
     return -1
 end
 
+session.previousRefreshTokenHash = session.refreshTokenHash
 session.refreshTokenHash = ARGV[2]
 session.expiresAt = ARGV[3]
-redis.call('SETEX', KEYS[1], tonumber(ARGV[4]), cjson.encode(session))
-return 1
+session.refreshReplayUntil = now + 5000
+session.encryptedRefreshResult = ARGV[5]
+local updated = cjson.encode(session)
+redis.call('SETEX', KEYS[1], tonumber(ARGV[4]), updated)
+return updated
 `

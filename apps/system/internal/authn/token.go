@@ -161,13 +161,19 @@ func (i *TokenIssuer) Refresh(ctx context.Context, refreshToken string) (*Creden
 		return nil, err
 	}
 
-	_, err = i.sessions.RotateRefreshToken(
+	candidate := i.credentials(accessToken, sessionID, nextSecret)
+	encrypted, err := i.encryptRefreshResult(sessionID, candidate, now.Add(i.config.AccessExpire).Truncate(time.Second))
+	if err != nil {
+		return nil, err
+	}
+	rotated, err := i.sessions.RotateRefreshToken(
 		ctx,
 		sessionID,
 		hashRefreshSecret(currentSecret),
 		hashRefreshSecret(nextSecret),
 		now.Add(i.config.RefreshExpire),
 		i.config.RefreshExpire,
+		encrypted,
 	)
 	if errors.Is(err, ErrSessionNotFound) || errors.Is(err, ErrRefreshTokenMismatch) {
 		return nil, ErrInvalidRefreshToken
@@ -176,7 +182,7 @@ func (i *TokenIssuer) Refresh(ctx context.Context, refreshToken string) (*Creden
 		return nil, err
 	}
 
-	return i.credentials(accessToken, sessionID, nextSecret), nil
+	return i.decryptRefreshResult(sessionID, rotated.EncryptedRefreshResult)
 }
 
 func (i *TokenIssuer) signAccessToken(

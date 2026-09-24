@@ -40,10 +40,10 @@ DogX 的浏览器请求先进入 `system-api`，业务逻辑由 `system-rpc` 执
 ### 刷新令牌与会话
 
 - 刷新令牌是密码学安全随机值，不使用 JWT，默认有效期 7 天。
-- 客户端持有的格式为 `<sessionId>.<secret>`；Redis 只保存 `secret` 的 SHA-256 摘要。
+- 客户端持有的格式为 `<sessionId>.<secret>`；Redis 保存 `secret` 的 SHA-256 摘要。刷新幂等窗口内可使用的结果以密文保存，见 [ADR-0006](0006-refresh-rotation-and-browser-sync.md)。
 - 会话由 `system-rpc` 写入 Redis，键格式为 `<配置前缀>:<sessionId>`，值包含用户 ID、刷新令牌摘要和过期时间。Redis Session 不重复保存 `roleIds` 或 `isSuperAdmin`，避免 JWT 与 Session 形成两份授权快照。
 - 每个用户同时维护 `<用户会话索引前缀>:<userId>` Set，成员是该用户的 Session ID，用于全部退出、账号停用和管理员强制下线；禁止通过 Redis `KEYS` 命令查找会话。
-- 刷新时同时轮换 Access Token 和 Refresh Token，并延长 Session 有效期；旧 Refresh Token 再次使用时撤销整个 Session。
+- 首次刷新同时轮换 Access Token 和 Refresh Token，并延长 Session 有效期；固定 5 秒幂等窗口内的当前/上一代令牌返回同一组结果，不再次延期。窗口外重用旧令牌撤销整个 Session，具体边界见 [ADR-0006](0006-refresh-rotation-and-browser-sync.md)。
 - 当前设备退出时删除一个 Session；全部退出、密码变更、用户角色变更、账号停用和管理员强制下线时通过用户 Session Set 撤销该用户的全部 Session。
 - 按用户撤销时使用 `SSCAN` 分批读取显式索引并精确删除 Session，不全量扫描 Redis 键空间。
 

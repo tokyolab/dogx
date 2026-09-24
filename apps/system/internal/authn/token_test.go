@@ -15,89 +15,6 @@ import (
 
 const testAccessSecret = "0123456789abcdef0123456789abcdef"
 
-type sessionStoreStub struct {
-	session Session
-	ttl     time.Duration
-	err     error
-	revoked bool
-}
-
-type roleProviderStub struct {
-	roleIDs      []int64
-	isSuperAdmin bool
-	err          error
-	superErr     error
-}
-
-func (s *roleProviderStub) ListEnabledRoleIDs(context.Context, int64) ([]int64, error) {
-	return append([]int64(nil), s.roleIDs...), s.err
-}
-
-func (s *roleProviderStub) IsSuperAdmin(context.Context, int64) (bool, error) {
-	return s.isSuperAdmin, s.superErr
-}
-
-func testRoleProvider() RoleProvider {
-	return &roleProviderStub{roleIDs: []int64{2, 7}}
-}
-
-func (s *sessionStoreStub) Create(_ context.Context, session Session, ttl time.Duration) error {
-	s.session = session
-	s.ttl = ttl
-	return s.err
-}
-
-func (s *sessionStoreStub) Get(_ context.Context, sessionID string) (*Session, error) {
-	if s.err != nil {
-		return nil, s.err
-	}
-	if s.revoked || s.session.ID == "" || s.session.ID != sessionID {
-		return nil, ErrSessionNotFound
-	}
-	copy := s.session
-	return &copy, nil
-}
-
-func (s *sessionStoreStub) RotateRefreshToken(
-	_ context.Context,
-	sessionID string,
-	currentHash string,
-	nextHash string,
-	expiresAt time.Time,
-	ttl time.Duration,
-) (*Session, error) {
-	if s.err != nil {
-		return nil, s.err
-	}
-	if s.revoked || s.session.ID != sessionID {
-		return nil, ErrSessionNotFound
-	}
-	if s.session.RefreshTokenHash != currentHash {
-		s.revoked = true
-		return nil, ErrRefreshTokenMismatch
-	}
-	s.session.RefreshTokenHash = nextHash
-	s.session.ExpiresAt = expiresAt
-	s.ttl = ttl
-	copy := s.session
-	return &copy, nil
-}
-
-func (s *sessionStoreStub) Revoke(_ context.Context, userID int64, sessionID string) error {
-	if s.session.UserID != userID || s.session.ID != sessionID {
-		return ErrSessionUserMismatch
-	}
-	s.revoked = true
-	return nil
-}
-
-func (s *sessionStoreStub) RevokeAll(_ context.Context, userID int64) error {
-	if s.session.UserID == userID {
-		s.revoked = true
-	}
-	return nil
-}
-
 func TestTokenIssuerIssue(t *testing.T) {
 	store := &sessionStoreStub{}
 	issuer, err := NewTokenIssuer(validTokenConfig(), store, &roleProviderStub{
@@ -208,6 +125,7 @@ func TestTokenIssuerRefreshRotatesTokenAndRejectsReuse(t *testing.T) {
 	}
 
 	issuer.random = bytes.NewReader(bytes.Repeat([]byte{2}, refreshSecretBytes+tokenIDBytes))
+	store.now = store.now.Add(5 * time.Second)
 	if _, err := issuer.Refresh(context.Background(), original.RefreshToken); !errors.Is(err, ErrInvalidRefreshToken) {
 		t.Fatalf("expected old refresh token reuse to be rejected, got: %v", err)
 	}

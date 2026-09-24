@@ -276,6 +276,9 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 		"id": createdRole.ID, "status": 1,
 	})
 	assertEnvelope(t, statusCode, envelope, http.StatusOK, 0, "")
+	// A refresh inside ADR-0006's fixed replay window intentionally returns the
+	// previous issuance-time role snapshot. Wait before testing a new issuance.
+	time.Sleep(5 * time.Second)
 	statusCode, envelope = postJSON(t, client, baseURL+"/auth/refresh", "", map[string]any{
 		"refreshToken": disabledRoleCredentials.RefreshToken,
 	})

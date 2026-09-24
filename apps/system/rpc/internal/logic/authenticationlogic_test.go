@@ -51,6 +51,7 @@ func (s *sessionStoreLogicStub) RotateRefreshToken(
 	string,
 	time.Time,
 	time.Duration,
+	string,
 ) (*authn.Session, error) {
 	return nil, nil
 }
