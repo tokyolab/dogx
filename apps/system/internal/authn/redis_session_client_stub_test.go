@@ -21,6 +21,7 @@ type redisSessionClientStub struct {
 	expireErr  error
 	evalErr    error
 	evalResult *int64
+	evalValue  *string
 	now        time.Time
 }
 
@@ -142,6 +143,9 @@ func (s *redisSessionClientStub) EvalCtx(
 ) (any, error) {
 	if s.evalErr != nil {
 		return nil, s.evalErr
+	}
+	if s.evalValue != nil {
+		return *s.evalValue, nil
 	}
 	if s.evalResult != nil {
 		result := *s.evalResult

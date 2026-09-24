@@ -86,6 +86,92 @@ func TestRefreshReturnsWinningCredentialsWithoutExtendingSession(t *testing.T) {
 	}
 }
 
+func TestRefreshRejectsAuthenticatedInvalidResult(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		plain string
+	}{
+		{"malformed JSON", `{`},
+		{"invalid expiry type", `{"expiresAt":42}`},
+		{"missing access token", `{"refreshToken":"refresh","expiresAt":"2026-09-24T10:15:00Z"}`},
+		{"missing refresh token", `{"accessToken":"access","expiresAt":"2026-09-24T10:15:00Z"}`},
+		{"missing expiry", `{"accessToken":"access","refreshToken":"refresh"}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			now := time.Date(2026, 9, 24, 10, 0, 0, 0, time.UTC)
+			store := &sessionStoreStub{now: now}
+			issuer, _ := NewTokenIssuer(validTokenConfig(), store, testRoleProvider())
+			issuer.now = func() time.Time { return now }
+			original, err := issuer.Issue(context.Background(), 42)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := issuer.Refresh(context.Background(), original.RefreshToken); err != nil {
+				t.Fatal(err)
+			}
+			aead, err := issuer.refreshResultCipher()
+			if err != nil {
+				t.Fatal(err)
+			}
+			// A valid authentication tag isolates payload validation from tampering checks.
+			// This fixed nonce is used only for this test fixture, never for issued tokens.
+			nonce := make([]byte, aead.NonceSize())
+			sealed := aead.Seal(nonce, nonce, []byte(tc.plain), []byte(store.session.ID))
+			store.session.EncryptedRefreshResult = base64.RawURLEncoding.EncodeToString(sealed)
+			before := store.session
+			got, err := issuer.Refresh(context.Background(), original.RefreshToken)
+			if err == nil || got != nil {
+				t.Fatal("invalid winning result returned credentials")
+			}
+			if errors.Is(err, ErrInvalidRefreshToken) {
+				t.Fatalf("corrupt server result classified as an invalid credential: %v", err)
+			}
+			if store.revoked || store.session != before {
+				t.Fatal("invalid replay result revoked or rotated the session")
+			}
+		})
+	}
+}
+
+func TestRefreshRedisFailuresDoNotReturnCredentialsOrRevokeSession(t *testing.T) {
+	redisErr := errors.New("redis unavailable")
+	for _, tc := range []struct {
+		name      string
+		configure func(*redisSessionClientStub)
+	}{
+		{"read session", func(c *redisSessionClientStub) { c.getErr = redisErr }},
+		{"index session", func(c *redisSessionClientStub) { c.saddErr = redisErr }},
+		{"expire index", func(c *redisSessionClientStub) { c.expireErr = redisErr }},
+		{"rotate session", func(c *redisSessionClientStub) { c.evalErr = redisErr }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := newRedisSessionClientStub()
+			store, _ := NewRedisSessionStore(client, "session", "users")
+			issuer, _ := NewTokenIssuer(validTokenConfig(), store, testRoleProvider())
+			original, err := issuer.Issue(context.Background(), 42)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sessionID, _, err := parseRefreshToken(original.RefreshToken)
+			if err != nil {
+				t.Fatal(err)
+			}
+			before := client.values["session:"+sessionID]
+			tc.configure(client)
+			got, err := issuer.Refresh(context.Background(), original.RefreshToken)
+			if !errors.Is(err, redisErr) || got != nil {
+				t.Fatalf("refresh must return only the Redis failure, got %v", err)
+			}
+			if client.values["session:"+sessionID] != before {
+				t.Fatal("failed refresh revoked or changed the session")
+			}
+			if _, exists := client.sets["users:42"][sessionID]; !exists {
+				t.Fatal("failed refresh removed the session index")
+			}
+		})
+	}
+}
+
 func TestRedisRotationWindowBoundaries(t *testing.T) {
 	for _, tc := range []struct {
 		name    string

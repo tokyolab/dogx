@@ -347,6 +347,77 @@ func TestRedisSessionStoreRevokeAllPropagatesScanAndDeleteFailures(t *testing.T)
 	}
 }
 
+func TestRedisSessionStoreRejectsInvalidRotationResult(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value string
+	}{
+		{"malformed JSON", `{`},
+		{"invalid user", `{"userId":0}`},
+		{"different session", `{"id":"other-session"}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := newRedisSessionClientStub()
+			store, _ := NewRedisSessionStore(client, "session", "users")
+			session := validSession("sid", 42)
+			if err := store.Create(context.Background(), session, time.Hour); err != nil {
+				t.Fatal(err)
+			}
+			client.evalValue = &tc.value
+			got, err := store.RotateRefreshToken(context.Background(), session.ID,
+				session.RefreshTokenHash, "next-hash", session.ExpiresAt, time.Hour, "ciphertext")
+			if err == nil || got != nil {
+				t.Fatal("invalid rotation result returned a session")
+			}
+			if errors.Is(err, ErrSessionNotFound) || errors.Is(err, ErrRefreshTokenMismatch) {
+				t.Fatalf("corrupt result classified as an invalid credential: %v", err)
+			}
+		})
+	}
+}
+
+func TestRedisSessionStoreRevokeFailurePreservesRetryState(t *testing.T) {
+	redisErr := errors.New("redis unavailable")
+	for _, tc := range []struct {
+		name           string
+		configure      func(*redisSessionClientStub)
+		sessionDeleted bool
+	}{
+		{"read failure", func(c *redisSessionClientStub) { c.getErr = redisErr }, false},
+		{"delete failure", func(c *redisSessionClientStub) { c.delErr = redisErr }, false},
+		{"index removal failure", func(c *redisSessionClientStub) { c.sremErr = redisErr }, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := newRedisSessionClientStub()
+			store, _ := NewRedisSessionStore(client, "session", "users")
+			session := validSession("sid", 42)
+			if err := store.Create(context.Background(), session, time.Hour); err != nil {
+				t.Fatal(err)
+			}
+			tc.configure(client)
+			if err := store.Revoke(context.Background(), 42, session.ID); !errors.Is(err, redisErr) {
+				t.Fatalf("expected Redis failure, got %v", err)
+			}
+			if _, exists := client.values["session:sid"]; exists == tc.sessionDeleted {
+				t.Fatal("unexpected session deletion state")
+			}
+			if _, exists := client.sets["users:42"][session.ID]; !exists {
+				t.Fatal("failed revocation removed the retry index")
+			}
+			client.getErr, client.delErr, client.sremErr = nil, nil, nil
+			if err := store.Revoke(context.Background(), 42, session.ID); err != nil {
+				t.Fatalf("retry revocation: %v", err)
+			}
+			if _, exists := client.values["session:sid"]; exists {
+				t.Fatal("retry left the session active")
+			}
+			if _, exists := client.sets["users:42"][session.ID]; exists {
+				t.Fatal("retry left the session indexed")
+			}
+		})
+	}
+}
+
 func validSession(id string, userID int64) Session {
 	now := time.Date(2026, 8, 24, 10, 0, 0, 0, time.UTC)
 	return Session{
