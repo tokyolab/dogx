@@ -367,7 +367,157 @@ message ListNavigationMenusResponse {
   repeated string permissions = 2;
 }
 
+message ClearDictionaryCacheRequest {}
+
+message DictionaryInfo {
+  int64 id = 1;
+  string name = 2;
+  string code = 3;
+  string remark = 4;
+  int32 status = 5;
+  bool is_public = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message DictionaryItemInfo {
+  int64 id = 1;
+  int64 dictionary_id = 2;
+  string label = 3;
+  string value = 4;
+  int32 sort = 5;
+  string remark = 6;
+  int32 status = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message ListDictionariesRequest {
+
+}
+
+message ListDictionariesResponse {
+  repeated DictionaryInfo items = 1;
+}
+
+message GetDictionaryRequest {
+  int64 id = 1;
+}
+
+message GetDictionaryResponse {
+  DictionaryInfo dictionary = 1;
+}
+
+message CreateDictionaryRequest {
+  string name = 1;
+  string code = 2;
+  string remark = 3;
+  int32 status = 4;
+  bool is_public = 5;
+}
+
+message CreateDictionaryResponse {
+  int64 id = 1;
+}
+
+message UpdateDictionaryRequest {
+  int64 id = 1;
+  string name = 2;
+  string remark = 3;
+  bool is_public = 4;
+}
+
+message UpdateDictionaryStatusRequest {
+  int64 id = 1;
+  int32 status = 2;
+}
+
+message DeleteDictionaryRequest {
+  int64 id = 1;
+}
+
+message ListDictionaryItemsRequest {
+  int64 dictionary_id = 1;
+}
+
+message ListDictionaryItemsResponse {
+  repeated DictionaryItemInfo items = 1;
+}
+
+message GetDictionaryItemRequest {
+  int64 id = 1;
+}
+
+message GetDictionaryItemResponse {
+  DictionaryItemInfo item = 1;
+}
+
+message CreateDictionaryItemRequest {
+  int64 dictionary_id = 1;
+  string label = 2;
+  string value = 3;
+  int32 sort = 4;
+  string remark = 5;
+  int32 status = 6;
+}
+
+message CreateDictionaryItemResponse {
+  int64 id = 1;
+}
+
+message UpdateDictionaryItemRequest {
+  int64 id = 1;
+  string label = 2;
+  int32 sort = 3;
+  string remark = 4;
+}
+
+message UpdateDictionaryItemStatusRequest {
+  int64 id = 1;
+  int32 status = 2;
+}
+
+message DeleteDictionaryItemRequest {
+  int64 id = 1;
+}
+
+message ReadDictionariesRequest {
+  repeated string codes = 1;
+  bool public_only = 2;
+}
+
+message DictionaryOption {
+  string label = 1;
+  string value = 2;
+  int32 sort = 3;
+  int32 status = 4;
+}
+
+message DictionaryOptions {
+  string code = 1;
+  int32 status = 2;
+  repeated DictionaryOption items = 3;
+}
+
+message ReadDictionariesResponse {
+  repeated DictionaryOptions items = 1;
+}
+
 service System {
+  rpc ListDictionaries(ListDictionariesRequest) returns (ListDictionariesResponse);
+  rpc GetDictionary(GetDictionaryRequest) returns (GetDictionaryResponse);
+  rpc CreateDictionary(CreateDictionaryRequest) returns (CreateDictionaryResponse);
+  rpc UpdateDictionary(UpdateDictionaryRequest) returns (EmptyResponse);
+  rpc UpdateDictionaryStatus(UpdateDictionaryStatusRequest) returns (EmptyResponse);
+  rpc DeleteDictionary(DeleteDictionaryRequest) returns (EmptyResponse);
+  rpc ListDictionaryItems(ListDictionaryItemsRequest) returns (ListDictionaryItemsResponse);
+  rpc GetDictionaryItem(GetDictionaryItemRequest) returns (GetDictionaryItemResponse);
+  rpc CreateDictionaryItem(CreateDictionaryItemRequest) returns (CreateDictionaryItemResponse);
+  rpc UpdateDictionaryItem(UpdateDictionaryItemRequest) returns (EmptyResponse);
+  rpc UpdateDictionaryItemStatus(UpdateDictionaryItemStatusRequest) returns (EmptyResponse);
+  rpc DeleteDictionaryItem(DeleteDictionaryItemRequest) returns (EmptyResponse);
+  rpc ClearDictionaryCache(ClearDictionaryCacheRequest) returns (EmptyResponse);
+  rpc ReadDictionaries(ReadDictionariesRequest) returns (ReadDictionariesResponse);
   rpc GetProfile(CurrentUserRequest) returns (ProfileResponse);
   rpc UpdateProfile(UpdateProfileRequest) returns (EmptyResponse);
   rpc GetRoleMenus(GetRoleMenusRequest) returns (GetRoleMenusResponse);

@@ -42,6 +42,31 @@ type CreateDepartmentResp struct {
 	Id int64 `json:"id"`
 }
 
+type CreateDictionaryItemReq struct {
+	DictionaryId int64  `json:"dictionaryId" validate:"gt=0"`
+	Label        string `json:"label" validate:"required,max=128"`
+	Value        string `json:"value" validate:"required,max=128"`
+	Sort         int32  `json:"sort" validate:"gte=0"`
+	Remark       string `json:"remark,optional" validate:"max=500"`
+	Status       int32  `json:"status" validate:"oneof=0 1"`
+}
+
+type CreateDictionaryItemResp struct {
+	Id int64 `json:"id"`
+}
+
+type CreateDictionaryReq struct {
+	Name     string `json:"name" validate:"required,max=128"`
+	Code     string `json:"code" validate:"required,max=64"`
+	Remark   string `json:"remark,optional" validate:"max=500"`
+	Status   int32  `json:"status" validate:"oneof=0 1"`
+	IsPublic bool   `json:"isPublic"`
+}
+
+type CreateDictionaryResp struct {
+	Id int64 `json:"id"`
+}
+
 type CreateMenuReq struct {
 	MenuFields
 	Status int32 `json:"status" validate:"oneof=0 1"`
@@ -85,6 +110,14 @@ type CurrentUserResp struct {
 	Nickname string `json:"nickname"`
 }
 
+type DeleteDictionaryItemReq struct {
+	Id int64 `json:"id" validate:"gt=0"`
+}
+
+type DeleteDictionaryReq struct {
+	Id int64 `json:"id" validate:"gt=0"`
+}
+
 type DepartmentItem struct {
 	Id        int64  `json:"id"`
 	ParentId  int64  `json:"parentId"`
@@ -100,7 +133,59 @@ type DepartmentListResp struct {
 	Items []DepartmentItem `json:"items"`
 }
 
+type DictionaryInfo struct {
+	Id        int64  `json:"id"`
+	Name      string `json:"name"`
+	Code      string `json:"code"`
+	Remark    string `json:"remark"`
+	Status    int32  `json:"status"`
+	IsPublic  bool   `json:"isPublic"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+type DictionaryItemInfo struct {
+	Id           int64  `json:"id"`
+	DictionaryId int64  `json:"dictionaryId"`
+	Label        string `json:"label"`
+	Value        string `json:"value"`
+	Sort         int32  `json:"sort"`
+	Remark       string `json:"remark"`
+	Status       int32  `json:"status"`
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
+}
+
+type DictionaryOption struct {
+	Label  string `json:"label"`
+	Value  string `json:"value"`
+	Sort   int32  `json:"sort"`
+	Status int32  `json:"status"`
+}
+
+type DictionaryOptions struct {
+	Code   string             `json:"code"`
+	Status int32              `json:"status"`
+	Items  []DictionaryOption `json:"items"`
+}
+
 type EmptyResp struct {
+}
+
+type GetDictionaryItemReq struct {
+	Id int64 `json:"id" validate:"gt=0"`
+}
+
+type GetDictionaryItemResp struct {
+	Item DictionaryItemInfo `json:"item"`
+}
+
+type GetDictionaryReq struct {
+	Id int64 `json:"id" validate:"gt=0"`
+}
+
+type GetDictionaryResp struct {
+	Dictionary DictionaryInfo `json:"dictionary"`
 }
 
 type GetRoleAPIsReq struct {
@@ -132,6 +217,18 @@ type IDReq struct {
 
 type IDsReq struct {
 	Ids []int64 `json:"ids" validate:"min=1,dive,gt=0"`
+}
+
+type ListDictionariesResp struct {
+	Items []DictionaryInfo `json:"items"`
+}
+
+type ListDictionaryItemsReq struct {
+	DictionaryId int64 `json:"dictionaryId" validate:"gt=0"`
+}
+
+type ListDictionaryItemsResp struct {
+	Items []DictionaryItemInfo `json:"items"`
 }
 
 type LoginReq struct {
@@ -211,6 +308,14 @@ type ProfileResp struct {
 	Roles          []string `json:"roles"`
 }
 
+type ReadDictionariesReq struct {
+	Codes []string `json:"codes" validate:"required,min=1,max=50,dive,required,max=64"`
+}
+
+type ReadDictionariesResp struct {
+	Items []DictionaryOptions `json:"items"`
+}
+
 type ReadyResp struct {
 	Status string `json:"status"`
 }
@@ -256,6 +361,30 @@ type UpdateDepartmentReq struct {
 }
 
 type UpdateDepartmentStatusReq struct {
+	Id     int64 `json:"id" validate:"gt=0"`
+	Status int32 `json:"status" validate:"oneof=0 1"`
+}
+
+type UpdateDictionaryItemReq struct {
+	Id     int64  `json:"id" validate:"gt=0"`
+	Label  string `json:"label" validate:"required,max=128"`
+	Sort   int32  `json:"sort" validate:"gte=0"`
+	Remark string `json:"remark,optional" validate:"max=500"`
+}
+
+type UpdateDictionaryItemStatusReq struct {
+	Id     int64 `json:"id" validate:"gt=0"`
+	Status int32 `json:"status" validate:"oneof=0 1"`
+}
+
+type UpdateDictionaryReq struct {
+	Id       int64  `json:"id" validate:"gt=0"`
+	Name     string `json:"name" validate:"required,max=128"`
+	Remark   string `json:"remark,optional" validate:"max=500"`
+	IsPublic bool   `json:"isPublic"`
+}
+
+type UpdateDictionaryStatusReq struct {
 	Id     int64 `json:"id" validate:"gt=0"`
 	Status int32 `json:"status" validate:"oneof=0 1"`
 }

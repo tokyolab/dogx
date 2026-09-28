@@ -14,78 +14,117 @@ import (
 )
 
 type (
-	APIInfo                       = system.APIInfo
-	ChangePasswordRequest         = system.ChangePasswordRequest
-	CreateDepartmentRequest       = system.CreateDepartmentRequest
-	CreateDepartmentResponse      = system.CreateDepartmentResponse
-	CreateMenuRequest             = system.CreateMenuRequest
-	CreateMenuResponse            = system.CreateMenuResponse
-	CreateRoleRequest             = system.CreateRoleRequest
-	CreateRoleResponse            = system.CreateRoleResponse
-	CreateUserRequest             = system.CreateUserRequest
-	CreateUserResponse            = system.CreateUserResponse
-	CurrentUserRequest            = system.CurrentUserRequest
-	CurrentUserResponse           = system.CurrentUserResponse
-	DeleteDepartmentRequest       = system.DeleteDepartmentRequest
-	DeleteMenuRequest             = system.DeleteMenuRequest
-	DeleteRoleRequest             = system.DeleteRoleRequest
-	DeleteUserRequest             = system.DeleteUserRequest
-	DepartmentInfo                = system.DepartmentInfo
-	EmptyResponse                 = system.EmptyResponse
-	GetDepartmentRequest          = system.GetDepartmentRequest
-	GetDepartmentResponse         = system.GetDepartmentResponse
-	GetMenuRequest                = system.GetMenuRequest
-	GetMenuResponse               = system.GetMenuResponse
-	GetRoleAPIsRequest            = system.GetRoleAPIsRequest
-	GetRoleAPIsResponse           = system.GetRoleAPIsResponse
-	GetRoleMenusRequest           = system.GetRoleMenusRequest
-	GetRoleMenusResponse          = system.GetRoleMenusResponse
-	GetRoleRequest                = system.GetRoleRequest
-	GetRoleResponse               = system.GetRoleResponse
-	GetUserRequest                = system.GetUserRequest
-	GetUserResponse               = system.GetUserResponse
-	ListAPIsRequest               = system.ListAPIsRequest
-	ListAPIsResponse              = system.ListAPIsResponse
-	ListDepartmentsRequest        = system.ListDepartmentsRequest
-	ListDepartmentsResponse       = system.ListDepartmentsResponse
-	ListMenusRequest              = system.ListMenusRequest
-	ListMenusResponse             = system.ListMenusResponse
-	ListNavigationMenusRequest    = system.ListNavigationMenusRequest
-	ListNavigationMenusResponse   = system.ListNavigationMenusResponse
-	ListRolesRequest              = system.ListRolesRequest
-	ListRolesResponse             = system.ListRolesResponse
-	ListUserRoleOptionsResponse   = system.ListUserRoleOptionsResponse
-	ListUsersRequest              = system.ListUsersRequest
-	ListUsersResponse             = system.ListUsersResponse
-	LoginRequest                  = system.LoginRequest
-	LoginResponse                 = system.LoginResponse
-	MenuFields                    = system.MenuFields
-	MenuInfo                      = system.MenuInfo
-	NavigationMenu                = system.NavigationMenu
-	ProfileResponse               = system.ProfileResponse
-	ReadyRequest                  = system.ReadyRequest
-	ReadyResponse                 = system.ReadyResponse
-	RefreshCredentialsRequest     = system.RefreshCredentialsRequest
-	ReplaceRoleAPIsRequest        = system.ReplaceRoleAPIsRequest
-	ReplaceRoleMenusRequest       = system.ReplaceRoleMenusRequest
-	ReplaceUserRolesRequest       = system.ReplaceUserRolesRequest
-	ResetUserPasswordRequest      = system.ResetUserPasswordRequest
-	RevokeSessionRequest          = system.RevokeSessionRequest
-	RevokeUserSessionsRequest     = system.RevokeUserSessionsRequest
-	RoleInfo                      = system.RoleInfo
-	UpdateDepartmentRequest       = system.UpdateDepartmentRequest
-	UpdateDepartmentStatusRequest = system.UpdateDepartmentStatusRequest
-	UpdateMenuRequest             = system.UpdateMenuRequest
-	UpdateMenuStatusRequest       = system.UpdateMenuStatusRequest
-	UpdateProfileRequest          = system.UpdateProfileRequest
-	UpdateRoleRequest             = system.UpdateRoleRequest
-	UpdateRoleStatusRequest       = system.UpdateRoleStatusRequest
-	UpdateUserRequest             = system.UpdateUserRequest
-	UpdateUserStatusRequest       = system.UpdateUserStatusRequest
-	UserInfo                      = system.UserInfo
-	UserRoleInfo                  = system.UserRoleInfo
+	APIInfo                           = system.APIInfo
+	ChangePasswordRequest             = system.ChangePasswordRequest
+	ClearDictionaryCacheRequest       = system.ClearDictionaryCacheRequest
+	CreateDepartmentRequest           = system.CreateDepartmentRequest
+	CreateDepartmentResponse          = system.CreateDepartmentResponse
+	CreateDictionaryItemRequest       = system.CreateDictionaryItemRequest
+	CreateDictionaryItemResponse      = system.CreateDictionaryItemResponse
+	CreateDictionaryRequest           = system.CreateDictionaryRequest
+	CreateDictionaryResponse          = system.CreateDictionaryResponse
+	CreateMenuRequest                 = system.CreateMenuRequest
+	CreateMenuResponse                = system.CreateMenuResponse
+	CreateRoleRequest                 = system.CreateRoleRequest
+	CreateRoleResponse                = system.CreateRoleResponse
+	CreateUserRequest                 = system.CreateUserRequest
+	CreateUserResponse                = system.CreateUserResponse
+	CurrentUserRequest                = system.CurrentUserRequest
+	CurrentUserResponse               = system.CurrentUserResponse
+	DeleteDepartmentRequest           = system.DeleteDepartmentRequest
+	DeleteDictionaryItemRequest       = system.DeleteDictionaryItemRequest
+	DeleteDictionaryRequest           = system.DeleteDictionaryRequest
+	DeleteMenuRequest                 = system.DeleteMenuRequest
+	DeleteRoleRequest                 = system.DeleteRoleRequest
+	DeleteUserRequest                 = system.DeleteUserRequest
+	DepartmentInfo                    = system.DepartmentInfo
+	DictionaryInfo                    = system.DictionaryInfo
+	DictionaryItemInfo                = system.DictionaryItemInfo
+	DictionaryOption                  = system.DictionaryOption
+	DictionaryOptions                 = system.DictionaryOptions
+	EmptyResponse                     = system.EmptyResponse
+	GetDepartmentRequest              = system.GetDepartmentRequest
+	GetDepartmentResponse             = system.GetDepartmentResponse
+	GetDictionaryItemRequest          = system.GetDictionaryItemRequest
+	GetDictionaryItemResponse         = system.GetDictionaryItemResponse
+	GetDictionaryRequest              = system.GetDictionaryRequest
+	GetDictionaryResponse             = system.GetDictionaryResponse
+	GetMenuRequest                    = system.GetMenuRequest
+	GetMenuResponse                   = system.GetMenuResponse
+	GetRoleAPIsRequest                = system.GetRoleAPIsRequest
+	GetRoleAPIsResponse               = system.GetRoleAPIsResponse
+	GetRoleMenusRequest               = system.GetRoleMenusRequest
+	GetRoleMenusResponse              = system.GetRoleMenusResponse
+	GetRoleRequest                    = system.GetRoleRequest
+	GetRoleResponse                   = system.GetRoleResponse
+	GetUserRequest                    = system.GetUserRequest
+	GetUserResponse                   = system.GetUserResponse
+	ListAPIsRequest                   = system.ListAPIsRequest
+	ListAPIsResponse                  = system.ListAPIsResponse
+	ListDepartmentsRequest            = system.ListDepartmentsRequest
+	ListDepartmentsResponse           = system.ListDepartmentsResponse
+	ListDictionariesRequest           = system.ListDictionariesRequest
+	ListDictionariesResponse          = system.ListDictionariesResponse
+	ListDictionaryItemsRequest        = system.ListDictionaryItemsRequest
+	ListDictionaryItemsResponse       = system.ListDictionaryItemsResponse
+	ListMenusRequest                  = system.ListMenusRequest
+	ListMenusResponse                 = system.ListMenusResponse
+	ListNavigationMenusRequest        = system.ListNavigationMenusRequest
+	ListNavigationMenusResponse       = system.ListNavigationMenusResponse
+	ListRolesRequest                  = system.ListRolesRequest
+	ListRolesResponse                 = system.ListRolesResponse
+	ListUserRoleOptionsResponse       = system.ListUserRoleOptionsResponse
+	ListUsersRequest                  = system.ListUsersRequest
+	ListUsersResponse                 = system.ListUsersResponse
+	LoginRequest                      = system.LoginRequest
+	LoginResponse                     = system.LoginResponse
+	MenuFields                        = system.MenuFields
+	MenuInfo                          = system.MenuInfo
+	NavigationMenu                    = system.NavigationMenu
+	ProfileResponse                   = system.ProfileResponse
+	ReadDictionariesRequest           = system.ReadDictionariesRequest
+	ReadDictionariesResponse          = system.ReadDictionariesResponse
+	ReadyRequest                      = system.ReadyRequest
+	ReadyResponse                     = system.ReadyResponse
+	RefreshCredentialsRequest         = system.RefreshCredentialsRequest
+	ReplaceRoleAPIsRequest            = system.ReplaceRoleAPIsRequest
+	ReplaceRoleMenusRequest           = system.ReplaceRoleMenusRequest
+	ReplaceUserRolesRequest           = system.ReplaceUserRolesRequest
+	ResetUserPasswordRequest          = system.ResetUserPasswordRequest
+	RevokeSessionRequest              = system.RevokeSessionRequest
+	RevokeUserSessionsRequest         = system.RevokeUserSessionsRequest
+	RoleInfo                          = system.RoleInfo
+	UpdateDepartmentRequest           = system.UpdateDepartmentRequest
+	UpdateDepartmentStatusRequest     = system.UpdateDepartmentStatusRequest
+	UpdateDictionaryItemRequest       = system.UpdateDictionaryItemRequest
+	UpdateDictionaryItemStatusRequest = system.UpdateDictionaryItemStatusRequest
+	UpdateDictionaryRequest           = system.UpdateDictionaryRequest
+	UpdateDictionaryStatusRequest     = system.UpdateDictionaryStatusRequest
+	UpdateMenuRequest                 = system.UpdateMenuRequest
+	UpdateMenuStatusRequest           = system.UpdateMenuStatusRequest
+	UpdateProfileRequest              = system.UpdateProfileRequest
+	UpdateRoleRequest                 = system.UpdateRoleRequest
+	UpdateRoleStatusRequest           = system.UpdateRoleStatusRequest
+	UpdateUserRequest                 = system.UpdateUserRequest
+	UpdateUserStatusRequest           = system.UpdateUserStatusRequest
+	UserInfo                          = system.UserInfo
+	UserRoleInfo                      = system.UserRoleInfo
 
 	System interface {
+		ListDictionaries(ctx context.Context, in *ListDictionariesRequest, opts ...grpc.CallOption) (*ListDictionariesResponse, error)
+		GetDictionary(ctx context.Context, in *GetDictionaryRequest, opts ...grpc.CallOption) (*GetDictionaryResponse, error)
+		CreateDictionary(ctx context.Context, in *CreateDictionaryRequest, opts ...grpc.CallOption) (*CreateDictionaryResponse, error)
+		UpdateDictionary(ctx context.Context, in *UpdateDictionaryRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		UpdateDictionaryStatus(ctx context.Context, in *UpdateDictionaryStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		DeleteDictionary(ctx context.Context, in *DeleteDictionaryRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		ListDictionaryItems(ctx context.Context, in *ListDictionaryItemsRequest, opts ...grpc.CallOption) (*ListDictionaryItemsResponse, error)
+		GetDictionaryItem(ctx context.Context, in *GetDictionaryItemRequest, opts ...grpc.CallOption) (*GetDictionaryItemResponse, error)
+		CreateDictionaryItem(ctx context.Context, in *CreateDictionaryItemRequest, opts ...grpc.CallOption) (*CreateDictionaryItemResponse, error)
+		UpdateDictionaryItem(ctx context.Context, in *UpdateDictionaryItemRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		UpdateDictionaryItemStatus(ctx context.Context, in *UpdateDictionaryItemStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		DeleteDictionaryItem(ctx context.Context, in *DeleteDictionaryItemRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		ClearDictionaryCache(ctx context.Context, in *ClearDictionaryCacheRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		ReadDictionaries(ctx context.Context, in *ReadDictionariesRequest, opts ...grpc.CallOption) (*ReadDictionariesResponse, error)
 		GetProfile(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*ProfileResponse, error)
 		UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		GetRoleMenus(ctx context.Context, in *GetRoleMenusRequest, opts ...grpc.CallOption) (*GetRoleMenusResponse, error)
@@ -139,6 +178,76 @@ func NewSystem(cli zrpc.Client) System {
 	return &defaultSystem{
 		cli: cli,
 	}
+}
+
+func (m *defaultSystem) ListDictionaries(ctx context.Context, in *ListDictionariesRequest, opts ...grpc.CallOption) (*ListDictionariesResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ListDictionaries(ctx, in, opts...)
+}
+
+func (m *defaultSystem) GetDictionary(ctx context.Context, in *GetDictionaryRequest, opts ...grpc.CallOption) (*GetDictionaryResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.GetDictionary(ctx, in, opts...)
+}
+
+func (m *defaultSystem) CreateDictionary(ctx context.Context, in *CreateDictionaryRequest, opts ...grpc.CallOption) (*CreateDictionaryResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.CreateDictionary(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateDictionary(ctx context.Context, in *UpdateDictionaryRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateDictionary(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateDictionaryStatus(ctx context.Context, in *UpdateDictionaryStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateDictionaryStatus(ctx, in, opts...)
+}
+
+func (m *defaultSystem) DeleteDictionary(ctx context.Context, in *DeleteDictionaryRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.DeleteDictionary(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ListDictionaryItems(ctx context.Context, in *ListDictionaryItemsRequest, opts ...grpc.CallOption) (*ListDictionaryItemsResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ListDictionaryItems(ctx, in, opts...)
+}
+
+func (m *defaultSystem) GetDictionaryItem(ctx context.Context, in *GetDictionaryItemRequest, opts ...grpc.CallOption) (*GetDictionaryItemResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.GetDictionaryItem(ctx, in, opts...)
+}
+
+func (m *defaultSystem) CreateDictionaryItem(ctx context.Context, in *CreateDictionaryItemRequest, opts ...grpc.CallOption) (*CreateDictionaryItemResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.CreateDictionaryItem(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateDictionaryItem(ctx context.Context, in *UpdateDictionaryItemRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateDictionaryItem(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateDictionaryItemStatus(ctx context.Context, in *UpdateDictionaryItemStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateDictionaryItemStatus(ctx, in, opts...)
+}
+
+func (m *defaultSystem) DeleteDictionaryItem(ctx context.Context, in *DeleteDictionaryItemRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.DeleteDictionaryItem(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ClearDictionaryCache(ctx context.Context, in *ClearDictionaryCacheRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ClearDictionaryCache(ctx, in, opts...)
+}
+
+func (m *defaultSystem) ReadDictionaries(ctx context.Context, in *ReadDictionariesRequest, opts ...grpc.CallOption) (*ReadDictionariesResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ReadDictionaries(ctx, in, opts...)
 }
 
 func (m *defaultSystem) GetProfile(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*ProfileResponse, error) {

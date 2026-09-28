@@ -19,54 +19,82 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	System_GetProfile_FullMethodName             = "/system.System/GetProfile"
-	System_UpdateProfile_FullMethodName          = "/system.System/UpdateProfile"
-	System_GetRoleMenus_FullMethodName           = "/system.System/GetRoleMenus"
-	System_ReplaceRoleMenus_FullMethodName       = "/system.System/ReplaceRoleMenus"
-	System_ListNavigationMenus_FullMethodName    = "/system.System/ListNavigationMenus"
-	System_ListMenus_FullMethodName              = "/system.System/ListMenus"
-	System_GetMenu_FullMethodName                = "/system.System/GetMenu"
-	System_CreateMenu_FullMethodName             = "/system.System/CreateMenu"
-	System_UpdateMenu_FullMethodName             = "/system.System/UpdateMenu"
-	System_UpdateMenuStatus_FullMethodName       = "/system.System/UpdateMenuStatus"
-	System_DeleteMenu_FullMethodName             = "/system.System/DeleteMenu"
-	System_CheckReady_FullMethodName             = "/system.System/CheckReady"
-	System_Login_FullMethodName                  = "/system.System/Login"
-	System_RefreshCredentials_FullMethodName     = "/system.System/RefreshCredentials"
-	System_GetCurrentUser_FullMethodName         = "/system.System/GetCurrentUser"
-	System_RevokeSession_FullMethodName          = "/system.System/RevokeSession"
-	System_RevokeUserSessions_FullMethodName     = "/system.System/RevokeUserSessions"
-	System_ChangePassword_FullMethodName         = "/system.System/ChangePassword"
-	System_CreateRole_FullMethodName             = "/system.System/CreateRole"
-	System_ListRoles_FullMethodName              = "/system.System/ListRoles"
-	System_GetRole_FullMethodName                = "/system.System/GetRole"
-	System_UpdateRole_FullMethodName             = "/system.System/UpdateRole"
-	System_UpdateRoleStatus_FullMethodName       = "/system.System/UpdateRoleStatus"
-	System_DeleteRole_FullMethodName             = "/system.System/DeleteRole"
-	System_ListAPIs_FullMethodName               = "/system.System/ListAPIs"
-	System_GetRoleAPIs_FullMethodName            = "/system.System/GetRoleAPIs"
-	System_ReplaceRoleAPIs_FullMethodName        = "/system.System/ReplaceRoleAPIs"
-	System_ListUsers_FullMethodName              = "/system.System/ListUsers"
-	System_GetUser_FullMethodName                = "/system.System/GetUser"
-	System_CreateUser_FullMethodName             = "/system.System/CreateUser"
-	System_UpdateUser_FullMethodName             = "/system.System/UpdateUser"
-	System_UpdateUserStatus_FullMethodName       = "/system.System/UpdateUserStatus"
-	System_DeleteUser_FullMethodName             = "/system.System/DeleteUser"
-	System_ReplaceUserRoles_FullMethodName       = "/system.System/ReplaceUserRoles"
-	System_ResetUserPassword_FullMethodName      = "/system.System/ResetUserPassword"
-	System_ListUserRoleOptions_FullMethodName    = "/system.System/ListUserRoleOptions"
-	System_ListDepartments_FullMethodName        = "/system.System/ListDepartments"
-	System_GetDepartment_FullMethodName          = "/system.System/GetDepartment"
-	System_CreateDepartment_FullMethodName       = "/system.System/CreateDepartment"
-	System_UpdateDepartment_FullMethodName       = "/system.System/UpdateDepartment"
-	System_UpdateDepartmentStatus_FullMethodName = "/system.System/UpdateDepartmentStatus"
-	System_DeleteDepartment_FullMethodName       = "/system.System/DeleteDepartment"
+	System_ListDictionaries_FullMethodName           = "/system.System/ListDictionaries"
+	System_GetDictionary_FullMethodName              = "/system.System/GetDictionary"
+	System_CreateDictionary_FullMethodName           = "/system.System/CreateDictionary"
+	System_UpdateDictionary_FullMethodName           = "/system.System/UpdateDictionary"
+	System_UpdateDictionaryStatus_FullMethodName     = "/system.System/UpdateDictionaryStatus"
+	System_DeleteDictionary_FullMethodName           = "/system.System/DeleteDictionary"
+	System_ListDictionaryItems_FullMethodName        = "/system.System/ListDictionaryItems"
+	System_GetDictionaryItem_FullMethodName          = "/system.System/GetDictionaryItem"
+	System_CreateDictionaryItem_FullMethodName       = "/system.System/CreateDictionaryItem"
+	System_UpdateDictionaryItem_FullMethodName       = "/system.System/UpdateDictionaryItem"
+	System_UpdateDictionaryItemStatus_FullMethodName = "/system.System/UpdateDictionaryItemStatus"
+	System_DeleteDictionaryItem_FullMethodName       = "/system.System/DeleteDictionaryItem"
+	System_ClearDictionaryCache_FullMethodName       = "/system.System/ClearDictionaryCache"
+	System_ReadDictionaries_FullMethodName           = "/system.System/ReadDictionaries"
+	System_GetProfile_FullMethodName                 = "/system.System/GetProfile"
+	System_UpdateProfile_FullMethodName              = "/system.System/UpdateProfile"
+	System_GetRoleMenus_FullMethodName               = "/system.System/GetRoleMenus"
+	System_ReplaceRoleMenus_FullMethodName           = "/system.System/ReplaceRoleMenus"
+	System_ListNavigationMenus_FullMethodName        = "/system.System/ListNavigationMenus"
+	System_ListMenus_FullMethodName                  = "/system.System/ListMenus"
+	System_GetMenu_FullMethodName                    = "/system.System/GetMenu"
+	System_CreateMenu_FullMethodName                 = "/system.System/CreateMenu"
+	System_UpdateMenu_FullMethodName                 = "/system.System/UpdateMenu"
+	System_UpdateMenuStatus_FullMethodName           = "/system.System/UpdateMenuStatus"
+	System_DeleteMenu_FullMethodName                 = "/system.System/DeleteMenu"
+	System_CheckReady_FullMethodName                 = "/system.System/CheckReady"
+	System_Login_FullMethodName                      = "/system.System/Login"
+	System_RefreshCredentials_FullMethodName         = "/system.System/RefreshCredentials"
+	System_GetCurrentUser_FullMethodName             = "/system.System/GetCurrentUser"
+	System_RevokeSession_FullMethodName              = "/system.System/RevokeSession"
+	System_RevokeUserSessions_FullMethodName         = "/system.System/RevokeUserSessions"
+	System_ChangePassword_FullMethodName             = "/system.System/ChangePassword"
+	System_CreateRole_FullMethodName                 = "/system.System/CreateRole"
+	System_ListRoles_FullMethodName                  = "/system.System/ListRoles"
+	System_GetRole_FullMethodName                    = "/system.System/GetRole"
+	System_UpdateRole_FullMethodName                 = "/system.System/UpdateRole"
+	System_UpdateRoleStatus_FullMethodName           = "/system.System/UpdateRoleStatus"
+	System_DeleteRole_FullMethodName                 = "/system.System/DeleteRole"
+	System_ListAPIs_FullMethodName                   = "/system.System/ListAPIs"
+	System_GetRoleAPIs_FullMethodName                = "/system.System/GetRoleAPIs"
+	System_ReplaceRoleAPIs_FullMethodName            = "/system.System/ReplaceRoleAPIs"
+	System_ListUsers_FullMethodName                  = "/system.System/ListUsers"
+	System_GetUser_FullMethodName                    = "/system.System/GetUser"
+	System_CreateUser_FullMethodName                 = "/system.System/CreateUser"
+	System_UpdateUser_FullMethodName                 = "/system.System/UpdateUser"
+	System_UpdateUserStatus_FullMethodName           = "/system.System/UpdateUserStatus"
+	System_DeleteUser_FullMethodName                 = "/system.System/DeleteUser"
+	System_ReplaceUserRoles_FullMethodName           = "/system.System/ReplaceUserRoles"
+	System_ResetUserPassword_FullMethodName          = "/system.System/ResetUserPassword"
+	System_ListUserRoleOptions_FullMethodName        = "/system.System/ListUserRoleOptions"
+	System_ListDepartments_FullMethodName            = "/system.System/ListDepartments"
+	System_GetDepartment_FullMethodName              = "/system.System/GetDepartment"
+	System_CreateDepartment_FullMethodName           = "/system.System/CreateDepartment"
+	System_UpdateDepartment_FullMethodName           = "/system.System/UpdateDepartment"
+	System_UpdateDepartmentStatus_FullMethodName     = "/system.System/UpdateDepartmentStatus"
+	System_DeleteDepartment_FullMethodName           = "/system.System/DeleteDepartment"
 )
 
 // SystemClient is the client API for System service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SystemClient interface {
+	ListDictionaries(ctx context.Context, in *ListDictionariesRequest, opts ...grpc.CallOption) (*ListDictionariesResponse, error)
+	GetDictionary(ctx context.Context, in *GetDictionaryRequest, opts ...grpc.CallOption) (*GetDictionaryResponse, error)
+	CreateDictionary(ctx context.Context, in *CreateDictionaryRequest, opts ...grpc.CallOption) (*CreateDictionaryResponse, error)
+	UpdateDictionary(ctx context.Context, in *UpdateDictionaryRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	UpdateDictionaryStatus(ctx context.Context, in *UpdateDictionaryStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	DeleteDictionary(ctx context.Context, in *DeleteDictionaryRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	ListDictionaryItems(ctx context.Context, in *ListDictionaryItemsRequest, opts ...grpc.CallOption) (*ListDictionaryItemsResponse, error)
+	GetDictionaryItem(ctx context.Context, in *GetDictionaryItemRequest, opts ...grpc.CallOption) (*GetDictionaryItemResponse, error)
+	CreateDictionaryItem(ctx context.Context, in *CreateDictionaryItemRequest, opts ...grpc.CallOption) (*CreateDictionaryItemResponse, error)
+	UpdateDictionaryItem(ctx context.Context, in *UpdateDictionaryItemRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	UpdateDictionaryItemStatus(ctx context.Context, in *UpdateDictionaryItemStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	DeleteDictionaryItem(ctx context.Context, in *DeleteDictionaryItemRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	ClearDictionaryCache(ctx context.Context, in *ClearDictionaryCacheRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	ReadDictionaries(ctx context.Context, in *ReadDictionariesRequest, opts ...grpc.CallOption) (*ReadDictionariesResponse, error)
 	GetProfile(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*ProfileResponse, error)
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	GetRoleMenus(ctx context.Context, in *GetRoleMenusRequest, opts ...grpc.CallOption) (*GetRoleMenusResponse, error)
@@ -117,6 +145,146 @@ type systemClient struct {
 
 func NewSystemClient(cc grpc.ClientConnInterface) SystemClient {
 	return &systemClient{cc}
+}
+
+func (c *systemClient) ListDictionaries(ctx context.Context, in *ListDictionariesRequest, opts ...grpc.CallOption) (*ListDictionariesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDictionariesResponse)
+	err := c.cc.Invoke(ctx, System_ListDictionaries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) GetDictionary(ctx context.Context, in *GetDictionaryRequest, opts ...grpc.CallOption) (*GetDictionaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetDictionaryResponse)
+	err := c.cc.Invoke(ctx, System_GetDictionary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) CreateDictionary(ctx context.Context, in *CreateDictionaryRequest, opts ...grpc.CallOption) (*CreateDictionaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateDictionaryResponse)
+	err := c.cc.Invoke(ctx, System_CreateDictionary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateDictionary(ctx context.Context, in *UpdateDictionaryRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateDictionary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateDictionaryStatus(ctx context.Context, in *UpdateDictionaryStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateDictionaryStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) DeleteDictionary(ctx context.Context, in *DeleteDictionaryRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_DeleteDictionary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) ListDictionaryItems(ctx context.Context, in *ListDictionaryItemsRequest, opts ...grpc.CallOption) (*ListDictionaryItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDictionaryItemsResponse)
+	err := c.cc.Invoke(ctx, System_ListDictionaryItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) GetDictionaryItem(ctx context.Context, in *GetDictionaryItemRequest, opts ...grpc.CallOption) (*GetDictionaryItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetDictionaryItemResponse)
+	err := c.cc.Invoke(ctx, System_GetDictionaryItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) CreateDictionaryItem(ctx context.Context, in *CreateDictionaryItemRequest, opts ...grpc.CallOption) (*CreateDictionaryItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateDictionaryItemResponse)
+	err := c.cc.Invoke(ctx, System_CreateDictionaryItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateDictionaryItem(ctx context.Context, in *UpdateDictionaryItemRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateDictionaryItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateDictionaryItemStatus(ctx context.Context, in *UpdateDictionaryItemStatusRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateDictionaryItemStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) DeleteDictionaryItem(ctx context.Context, in *DeleteDictionaryItemRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_DeleteDictionaryItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) ClearDictionaryCache(ctx context.Context, in *ClearDictionaryCacheRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_ClearDictionaryCache_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) ReadDictionaries(ctx context.Context, in *ReadDictionariesRequest, opts ...grpc.CallOption) (*ReadDictionariesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReadDictionariesResponse)
+	err := c.cc.Invoke(ctx, System_ReadDictionaries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *systemClient) GetProfile(ctx context.Context, in *CurrentUserRequest, opts ...grpc.CallOption) (*ProfileResponse, error) {
@@ -543,6 +711,20 @@ func (c *systemClient) DeleteDepartment(ctx context.Context, in *DeleteDepartmen
 // All implementations must embed UnimplementedSystemServer
 // for forward compatibility.
 type SystemServer interface {
+	ListDictionaries(context.Context, *ListDictionariesRequest) (*ListDictionariesResponse, error)
+	GetDictionary(context.Context, *GetDictionaryRequest) (*GetDictionaryResponse, error)
+	CreateDictionary(context.Context, *CreateDictionaryRequest) (*CreateDictionaryResponse, error)
+	UpdateDictionary(context.Context, *UpdateDictionaryRequest) (*EmptyResponse, error)
+	UpdateDictionaryStatus(context.Context, *UpdateDictionaryStatusRequest) (*EmptyResponse, error)
+	DeleteDictionary(context.Context, *DeleteDictionaryRequest) (*EmptyResponse, error)
+	ListDictionaryItems(context.Context, *ListDictionaryItemsRequest) (*ListDictionaryItemsResponse, error)
+	GetDictionaryItem(context.Context, *GetDictionaryItemRequest) (*GetDictionaryItemResponse, error)
+	CreateDictionaryItem(context.Context, *CreateDictionaryItemRequest) (*CreateDictionaryItemResponse, error)
+	UpdateDictionaryItem(context.Context, *UpdateDictionaryItemRequest) (*EmptyResponse, error)
+	UpdateDictionaryItemStatus(context.Context, *UpdateDictionaryItemStatusRequest) (*EmptyResponse, error)
+	DeleteDictionaryItem(context.Context, *DeleteDictionaryItemRequest) (*EmptyResponse, error)
+	ClearDictionaryCache(context.Context, *ClearDictionaryCacheRequest) (*EmptyResponse, error)
+	ReadDictionaries(context.Context, *ReadDictionariesRequest) (*ReadDictionariesResponse, error)
 	GetProfile(context.Context, *CurrentUserRequest) (*ProfileResponse, error)
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*EmptyResponse, error)
 	GetRoleMenus(context.Context, *GetRoleMenusRequest) (*GetRoleMenusResponse, error)
@@ -595,6 +777,48 @@ type SystemServer interface {
 // pointer dereference when methods are called.
 type UnimplementedSystemServer struct{}
 
+func (UnimplementedSystemServer) ListDictionaries(context.Context, *ListDictionariesRequest) (*ListDictionariesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDictionaries not implemented")
+}
+func (UnimplementedSystemServer) GetDictionary(context.Context, *GetDictionaryRequest) (*GetDictionaryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDictionary not implemented")
+}
+func (UnimplementedSystemServer) CreateDictionary(context.Context, *CreateDictionaryRequest) (*CreateDictionaryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateDictionary not implemented")
+}
+func (UnimplementedSystemServer) UpdateDictionary(context.Context, *UpdateDictionaryRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateDictionary not implemented")
+}
+func (UnimplementedSystemServer) UpdateDictionaryStatus(context.Context, *UpdateDictionaryStatusRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateDictionaryStatus not implemented")
+}
+func (UnimplementedSystemServer) DeleteDictionary(context.Context, *DeleteDictionaryRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteDictionary not implemented")
+}
+func (UnimplementedSystemServer) ListDictionaryItems(context.Context, *ListDictionaryItemsRequest) (*ListDictionaryItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDictionaryItems not implemented")
+}
+func (UnimplementedSystemServer) GetDictionaryItem(context.Context, *GetDictionaryItemRequest) (*GetDictionaryItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDictionaryItem not implemented")
+}
+func (UnimplementedSystemServer) CreateDictionaryItem(context.Context, *CreateDictionaryItemRequest) (*CreateDictionaryItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateDictionaryItem not implemented")
+}
+func (UnimplementedSystemServer) UpdateDictionaryItem(context.Context, *UpdateDictionaryItemRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateDictionaryItem not implemented")
+}
+func (UnimplementedSystemServer) UpdateDictionaryItemStatus(context.Context, *UpdateDictionaryItemStatusRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateDictionaryItemStatus not implemented")
+}
+func (UnimplementedSystemServer) DeleteDictionaryItem(context.Context, *DeleteDictionaryItemRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteDictionaryItem not implemented")
+}
+func (UnimplementedSystemServer) ClearDictionaryCache(context.Context, *ClearDictionaryCacheRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClearDictionaryCache not implemented")
+}
+func (UnimplementedSystemServer) ReadDictionaries(context.Context, *ReadDictionariesRequest) (*ReadDictionariesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReadDictionaries not implemented")
+}
 func (UnimplementedSystemServer) GetProfile(context.Context, *CurrentUserRequest) (*ProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetProfile not implemented")
 }
@@ -740,6 +964,258 @@ func RegisterSystemServer(s grpc.ServiceRegistrar, srv SystemServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&System_ServiceDesc, srv)
+}
+
+func _System_ListDictionaries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDictionariesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ListDictionaries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ListDictionaries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ListDictionaries(ctx, req.(*ListDictionariesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_GetDictionary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDictionaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).GetDictionary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_GetDictionary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).GetDictionary(ctx, req.(*GetDictionaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_CreateDictionary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateDictionaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).CreateDictionary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_CreateDictionary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).CreateDictionary(ctx, req.(*CreateDictionaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateDictionary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateDictionaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateDictionary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateDictionary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateDictionary(ctx, req.(*UpdateDictionaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateDictionaryStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateDictionaryStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateDictionaryStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateDictionaryStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateDictionaryStatus(ctx, req.(*UpdateDictionaryStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_DeleteDictionary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteDictionaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).DeleteDictionary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_DeleteDictionary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).DeleteDictionary(ctx, req.(*DeleteDictionaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_ListDictionaryItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDictionaryItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ListDictionaryItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ListDictionaryItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ListDictionaryItems(ctx, req.(*ListDictionaryItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_GetDictionaryItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDictionaryItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).GetDictionaryItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_GetDictionaryItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).GetDictionaryItem(ctx, req.(*GetDictionaryItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_CreateDictionaryItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateDictionaryItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).CreateDictionaryItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_CreateDictionaryItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).CreateDictionaryItem(ctx, req.(*CreateDictionaryItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateDictionaryItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateDictionaryItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateDictionaryItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateDictionaryItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateDictionaryItem(ctx, req.(*UpdateDictionaryItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateDictionaryItemStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateDictionaryItemStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateDictionaryItemStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateDictionaryItemStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateDictionaryItemStatus(ctx, req.(*UpdateDictionaryItemStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_DeleteDictionaryItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteDictionaryItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).DeleteDictionaryItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_DeleteDictionaryItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).DeleteDictionaryItem(ctx, req.(*DeleteDictionaryItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_ClearDictionaryCache_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClearDictionaryCacheRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ClearDictionaryCache(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ClearDictionaryCache_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ClearDictionaryCache(ctx, req.(*ClearDictionaryCacheRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_ReadDictionaries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadDictionariesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ReadDictionaries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ReadDictionaries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ReadDictionaries(ctx, req.(*ReadDictionariesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _System_GetProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1505,6 +1981,62 @@ var System_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "system.System",
 	HandlerType: (*SystemServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListDictionaries",
+			Handler:    _System_ListDictionaries_Handler,
+		},
+		{
+			MethodName: "GetDictionary",
+			Handler:    _System_GetDictionary_Handler,
+		},
+		{
+			MethodName: "CreateDictionary",
+			Handler:    _System_CreateDictionary_Handler,
+		},
+		{
+			MethodName: "UpdateDictionary",
+			Handler:    _System_UpdateDictionary_Handler,
+		},
+		{
+			MethodName: "UpdateDictionaryStatus",
+			Handler:    _System_UpdateDictionaryStatus_Handler,
+		},
+		{
+			MethodName: "DeleteDictionary",
+			Handler:    _System_DeleteDictionary_Handler,
+		},
+		{
+			MethodName: "ListDictionaryItems",
+			Handler:    _System_ListDictionaryItems_Handler,
+		},
+		{
+			MethodName: "GetDictionaryItem",
+			Handler:    _System_GetDictionaryItem_Handler,
+		},
+		{
+			MethodName: "CreateDictionaryItem",
+			Handler:    _System_CreateDictionaryItem_Handler,
+		},
+		{
+			MethodName: "UpdateDictionaryItem",
+			Handler:    _System_UpdateDictionaryItem_Handler,
+		},
+		{
+			MethodName: "UpdateDictionaryItemStatus",
+			Handler:    _System_UpdateDictionaryItemStatus_Handler,
+		},
+		{
+			MethodName: "DeleteDictionaryItem",
+			Handler:    _System_DeleteDictionaryItem_Handler,
+		},
+		{
+			MethodName: "ClearDictionaryCache",
+			Handler:    _System_ClearDictionaryCache_Handler,
+		},
+		{
+			MethodName: "ReadDictionaries",
+			Handler:    _System_ReadDictionaries_Handler,
+		},
 		{
 			MethodName: "GetProfile",
 			Handler:    _System_GetProfile_Handler,

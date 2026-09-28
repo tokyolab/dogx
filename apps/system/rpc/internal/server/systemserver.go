@@ -23,6 +23,76 @@ func NewSystemServer(svcCtx *svc.ServiceContext) *SystemServer {
 	}
 }
 
+func (s *SystemServer) ListDictionaries(ctx context.Context, in *system.ListDictionariesRequest) (*system.ListDictionariesResponse, error) {
+	l := logic.NewListDictionariesLogic(ctx, s.svcCtx)
+	return l.ListDictionaries(in)
+}
+
+func (s *SystemServer) GetDictionary(ctx context.Context, in *system.GetDictionaryRequest) (*system.GetDictionaryResponse, error) {
+	l := logic.NewGetDictionaryLogic(ctx, s.svcCtx)
+	return l.GetDictionary(in)
+}
+
+func (s *SystemServer) CreateDictionary(ctx context.Context, in *system.CreateDictionaryRequest) (*system.CreateDictionaryResponse, error) {
+	l := logic.NewCreateDictionaryLogic(ctx, s.svcCtx)
+	return l.CreateDictionary(in)
+}
+
+func (s *SystemServer) UpdateDictionary(ctx context.Context, in *system.UpdateDictionaryRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateDictionaryLogic(ctx, s.svcCtx)
+	return l.UpdateDictionary(in)
+}
+
+func (s *SystemServer) UpdateDictionaryStatus(ctx context.Context, in *system.UpdateDictionaryStatusRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateDictionaryStatusLogic(ctx, s.svcCtx)
+	return l.UpdateDictionaryStatus(in)
+}
+
+func (s *SystemServer) DeleteDictionary(ctx context.Context, in *system.DeleteDictionaryRequest) (*system.EmptyResponse, error) {
+	l := logic.NewDeleteDictionaryLogic(ctx, s.svcCtx)
+	return l.DeleteDictionary(in)
+}
+
+func (s *SystemServer) ListDictionaryItems(ctx context.Context, in *system.ListDictionaryItemsRequest) (*system.ListDictionaryItemsResponse, error) {
+	l := logic.NewListDictionaryItemsLogic(ctx, s.svcCtx)
+	return l.ListDictionaryItems(in)
+}
+
+func (s *SystemServer) GetDictionaryItem(ctx context.Context, in *system.GetDictionaryItemRequest) (*system.GetDictionaryItemResponse, error) {
+	l := logic.NewGetDictionaryItemLogic(ctx, s.svcCtx)
+	return l.GetDictionaryItem(in)
+}
+
+func (s *SystemServer) CreateDictionaryItem(ctx context.Context, in *system.CreateDictionaryItemRequest) (*system.CreateDictionaryItemResponse, error) {
+	l := logic.NewCreateDictionaryItemLogic(ctx, s.svcCtx)
+	return l.CreateDictionaryItem(in)
+}
+
+func (s *SystemServer) UpdateDictionaryItem(ctx context.Context, in *system.UpdateDictionaryItemRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateDictionaryItemLogic(ctx, s.svcCtx)
+	return l.UpdateDictionaryItem(in)
+}
+
+func (s *SystemServer) UpdateDictionaryItemStatus(ctx context.Context, in *system.UpdateDictionaryItemStatusRequest) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateDictionaryItemStatusLogic(ctx, s.svcCtx)
+	return l.UpdateDictionaryItemStatus(in)
+}
+
+func (s *SystemServer) DeleteDictionaryItem(ctx context.Context, in *system.DeleteDictionaryItemRequest) (*system.EmptyResponse, error) {
+	l := logic.NewDeleteDictionaryItemLogic(ctx, s.svcCtx)
+	return l.DeleteDictionaryItem(in)
+}
+
+func (s *SystemServer) ClearDictionaryCache(ctx context.Context, in *system.ClearDictionaryCacheRequest) (*system.EmptyResponse, error) {
+	l := logic.NewClearDictionaryCacheLogic(ctx, s.svcCtx)
+	return l.ClearDictionaryCache(in)
+}
+
+func (s *SystemServer) ReadDictionaries(ctx context.Context, in *system.ReadDictionariesRequest) (*system.ReadDictionariesResponse, error) {
+	l := logic.NewReadDictionariesLogic(ctx, s.svcCtx)
+	return l.ReadDictionaries(in)
+}
+
 func (s *SystemServer) GetProfile(ctx context.Context, in *system.CurrentUserRequest) (*system.ProfileResponse, error) {
 	l := logic.NewGetProfileLogic(ctx, s.svcCtx)
 	return l.GetProfile(in)

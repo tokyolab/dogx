@@ -27,8 +27,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 16 {
-		t.Fatalf("unexpected applied migration count: got %d, want 16", len(results))
+	if len(results) != 17 {
+		t.Fatalf("unexpected applied migration count: got %d, want 17", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -122,8 +122,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260920120000 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260920120000", version)
+	if version != 20260928120000 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260928120000", version)
 	}
 
 	expectedTables := map[string]string{
@@ -278,6 +278,14 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE path IN ('/role/menu/get','/role/menu/update') AND method = 'POST' AND status = 1 AND is_required = FALSE").Scan(&seedCount); err != nil || seedCount != 2 {
 		t.Fatalf("role menu API seed: %d %v", seedCount, err)
 	}
+	assertTableExists(t, ctx, sqlDB, "sys_dictionary")
+	assertTableExists(t, ctx, sqlDB, "sys_dictionary_item")
+	dictionaryDown, err := provider.Down(ctx)
+	if err != nil || dictionaryDown.Source.Version != 20260928120000 {
+		t.Fatalf("dictionary rollback: %+v %v", dictionaryDown, err)
+	}
+	assertTableNotExists(t, ctx, sqlDB, "sys_dictionary")
+	assertTableNotExists(t, ctx, sqlDB, "sys_dictionary_item")
 	downResult, err := provider.Down(ctx)
 	if err != nil {
 		t.Fatalf("roll back department management migration: %v", err)
@@ -523,7 +531,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 14 ||
+	if len(reapplyResults) != 15 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
@@ -537,7 +545,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		reapplyResults[10].Source.Version != 20260916160000 ||
 		reapplyResults[11].Source.Version != 20260916160107 ||
 		reapplyResults[12].Source.Version != 20260918160000 ||
-		reapplyResults[13].Source.Version != 20260920120000 {
+		reapplyResults[13].Source.Version != 20260920120000 ||
+		reapplyResults[14].Source.Version != 20260928120000 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 	assertSystemMenuSeed(t, ctx, sqlDB)

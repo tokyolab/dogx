@@ -20,8 +20,11 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 16 {
-		t.Fatalf("unexpected migration count: got %d, want 16", len(sources))
+	if len(sources) != 17 {
+		t.Fatalf("unexpected migration count: got %d, want 17", len(sources))
+	}
+	if sources[16].Version != 20260928120000 {
+		t.Fatalf("unexpected dictionary migration: %+v", sources[16])
 	}
 	if sources[15].Version != 20260920120000 || sources[15].Path != "20260920120000_add_department_management.sql" {
 		t.Fatalf("unexpected department migration: %+v", sources[15])

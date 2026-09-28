@@ -4198,6 +4198,1394 @@ func (x *ListNavigationMenusResponse) GetPermissions() []string {
 	return nil
 }
 
+type ClearDictionaryCacheRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClearDictionaryCacheRequest) Reset() {
+	*x = ClearDictionaryCacheRequest{}
+	mi := &file_system_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClearDictionaryCacheRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClearDictionaryCacheRequest) ProtoMessage() {}
+
+func (x *ClearDictionaryCacheRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClearDictionaryCacheRequest.ProtoReflect.Descriptor instead.
+func (*ClearDictionaryCacheRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{70}
+}
+
+type DictionaryInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Code          string                 `protobuf:"bytes,3,opt,name=code,proto3" json:"code,omitempty"`
+	Remark        string                 `protobuf:"bytes,4,opt,name=remark,proto3" json:"remark,omitempty"`
+	Status        int32                  `protobuf:"varint,5,opt,name=status,proto3" json:"status,omitempty"`
+	IsPublic      bool                   `protobuf:"varint,6,opt,name=is_public,json=isPublic,proto3" json:"is_public,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DictionaryInfo) Reset() {
+	*x = DictionaryInfo{}
+	mi := &file_system_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DictionaryInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DictionaryInfo) ProtoMessage() {}
+
+func (x *DictionaryInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DictionaryInfo.ProtoReflect.Descriptor instead.
+func (*DictionaryInfo) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *DictionaryInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *DictionaryInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DictionaryInfo) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *DictionaryInfo) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *DictionaryInfo) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *DictionaryInfo) GetIsPublic() bool {
+	if x != nil {
+		return x.IsPublic
+	}
+	return false
+}
+
+func (x *DictionaryInfo) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *DictionaryInfo) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type DictionaryItemInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	DictionaryId  int64                  `protobuf:"varint,2,opt,name=dictionary_id,json=dictionaryId,proto3" json:"dictionary_id,omitempty"`
+	Label         string                 `protobuf:"bytes,3,opt,name=label,proto3" json:"label,omitempty"`
+	Value         string                 `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	Sort          int32                  `protobuf:"varint,5,opt,name=sort,proto3" json:"sort,omitempty"`
+	Remark        string                 `protobuf:"bytes,6,opt,name=remark,proto3" json:"remark,omitempty"`
+	Status        int32                  `protobuf:"varint,7,opt,name=status,proto3" json:"status,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DictionaryItemInfo) Reset() {
+	*x = DictionaryItemInfo{}
+	mi := &file_system_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DictionaryItemInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DictionaryItemInfo) ProtoMessage() {}
+
+func (x *DictionaryItemInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DictionaryItemInfo.ProtoReflect.Descriptor instead.
+func (*DictionaryItemInfo) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *DictionaryItemInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *DictionaryItemInfo) GetDictionaryId() int64 {
+	if x != nil {
+		return x.DictionaryId
+	}
+	return 0
+}
+
+func (x *DictionaryItemInfo) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *DictionaryItemInfo) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *DictionaryItemInfo) GetSort() int32 {
+	if x != nil {
+		return x.Sort
+	}
+	return 0
+}
+
+func (x *DictionaryItemInfo) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *DictionaryItemInfo) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *DictionaryItemInfo) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *DictionaryItemInfo) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type ListDictionariesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDictionariesRequest) Reset() {
+	*x = ListDictionariesRequest{}
+	mi := &file_system_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDictionariesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDictionariesRequest) ProtoMessage() {}
+
+func (x *ListDictionariesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDictionariesRequest.ProtoReflect.Descriptor instead.
+func (*ListDictionariesRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{73}
+}
+
+type ListDictionariesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*DictionaryInfo      `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDictionariesResponse) Reset() {
+	*x = ListDictionariesResponse{}
+	mi := &file_system_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDictionariesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDictionariesResponse) ProtoMessage() {}
+
+func (x *ListDictionariesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDictionariesResponse.ProtoReflect.Descriptor instead.
+func (*ListDictionariesResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *ListDictionariesResponse) GetItems() []*DictionaryInfo {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type GetDictionaryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDictionaryRequest) Reset() {
+	*x = GetDictionaryRequest{}
+	mi := &file_system_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDictionaryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDictionaryRequest) ProtoMessage() {}
+
+func (x *GetDictionaryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDictionaryRequest.ProtoReflect.Descriptor instead.
+func (*GetDictionaryRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *GetDictionaryRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type GetDictionaryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Dictionary    *DictionaryInfo        `protobuf:"bytes,1,opt,name=dictionary,proto3" json:"dictionary,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDictionaryResponse) Reset() {
+	*x = GetDictionaryResponse{}
+	mi := &file_system_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDictionaryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDictionaryResponse) ProtoMessage() {}
+
+func (x *GetDictionaryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDictionaryResponse.ProtoReflect.Descriptor instead.
+func (*GetDictionaryResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *GetDictionaryResponse) GetDictionary() *DictionaryInfo {
+	if x != nil {
+		return x.Dictionary
+	}
+	return nil
+}
+
+type CreateDictionaryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	Remark        string                 `protobuf:"bytes,3,opt,name=remark,proto3" json:"remark,omitempty"`
+	Status        int32                  `protobuf:"varint,4,opt,name=status,proto3" json:"status,omitempty"`
+	IsPublic      bool                   `protobuf:"varint,5,opt,name=is_public,json=isPublic,proto3" json:"is_public,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDictionaryRequest) Reset() {
+	*x = CreateDictionaryRequest{}
+	mi := &file_system_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDictionaryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDictionaryRequest) ProtoMessage() {}
+
+func (x *CreateDictionaryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDictionaryRequest.ProtoReflect.Descriptor instead.
+func (*CreateDictionaryRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *CreateDictionaryRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateDictionaryRequest) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *CreateDictionaryRequest) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *CreateDictionaryRequest) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *CreateDictionaryRequest) GetIsPublic() bool {
+	if x != nil {
+		return x.IsPublic
+	}
+	return false
+}
+
+type CreateDictionaryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDictionaryResponse) Reset() {
+	*x = CreateDictionaryResponse{}
+	mi := &file_system_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDictionaryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDictionaryResponse) ProtoMessage() {}
+
+func (x *CreateDictionaryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDictionaryResponse.ProtoReflect.Descriptor instead.
+func (*CreateDictionaryResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *CreateDictionaryResponse) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type UpdateDictionaryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Remark        string                 `protobuf:"bytes,3,opt,name=remark,proto3" json:"remark,omitempty"`
+	IsPublic      bool                   `protobuf:"varint,4,opt,name=is_public,json=isPublic,proto3" json:"is_public,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDictionaryRequest) Reset() {
+	*x = UpdateDictionaryRequest{}
+	mi := &file_system_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDictionaryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDictionaryRequest) ProtoMessage() {}
+
+func (x *UpdateDictionaryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDictionaryRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDictionaryRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *UpdateDictionaryRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateDictionaryRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateDictionaryRequest) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *UpdateDictionaryRequest) GetIsPublic() bool {
+	if x != nil {
+		return x.IsPublic
+	}
+	return false
+}
+
+type UpdateDictionaryStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDictionaryStatusRequest) Reset() {
+	*x = UpdateDictionaryStatusRequest{}
+	mi := &file_system_proto_msgTypes[80]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDictionaryStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDictionaryStatusRequest) ProtoMessage() {}
+
+func (x *UpdateDictionaryStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[80]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDictionaryStatusRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDictionaryStatusRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{80}
+}
+
+func (x *UpdateDictionaryStatusRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateDictionaryStatusRequest) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+type DeleteDictionaryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDictionaryRequest) Reset() {
+	*x = DeleteDictionaryRequest{}
+	mi := &file_system_proto_msgTypes[81]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDictionaryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDictionaryRequest) ProtoMessage() {}
+
+func (x *DeleteDictionaryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[81]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDictionaryRequest.ProtoReflect.Descriptor instead.
+func (*DeleteDictionaryRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{81}
+}
+
+func (x *DeleteDictionaryRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type ListDictionaryItemsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DictionaryId  int64                  `protobuf:"varint,1,opt,name=dictionary_id,json=dictionaryId,proto3" json:"dictionary_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDictionaryItemsRequest) Reset() {
+	*x = ListDictionaryItemsRequest{}
+	mi := &file_system_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDictionaryItemsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDictionaryItemsRequest) ProtoMessage() {}
+
+func (x *ListDictionaryItemsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDictionaryItemsRequest.ProtoReflect.Descriptor instead.
+func (*ListDictionaryItemsRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{82}
+}
+
+func (x *ListDictionaryItemsRequest) GetDictionaryId() int64 {
+	if x != nil {
+		return x.DictionaryId
+	}
+	return 0
+}
+
+type ListDictionaryItemsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*DictionaryItemInfo  `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDictionaryItemsResponse) Reset() {
+	*x = ListDictionaryItemsResponse{}
+	mi := &file_system_proto_msgTypes[83]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDictionaryItemsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDictionaryItemsResponse) ProtoMessage() {}
+
+func (x *ListDictionaryItemsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[83]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDictionaryItemsResponse.ProtoReflect.Descriptor instead.
+func (*ListDictionaryItemsResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *ListDictionaryItemsResponse) GetItems() []*DictionaryItemInfo {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type GetDictionaryItemRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDictionaryItemRequest) Reset() {
+	*x = GetDictionaryItemRequest{}
+	mi := &file_system_proto_msgTypes[84]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDictionaryItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDictionaryItemRequest) ProtoMessage() {}
+
+func (x *GetDictionaryItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[84]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDictionaryItemRequest.ProtoReflect.Descriptor instead.
+func (*GetDictionaryItemRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{84}
+}
+
+func (x *GetDictionaryItemRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type GetDictionaryItemResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Item          *DictionaryItemInfo    `protobuf:"bytes,1,opt,name=item,proto3" json:"item,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDictionaryItemResponse) Reset() {
+	*x = GetDictionaryItemResponse{}
+	mi := &file_system_proto_msgTypes[85]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDictionaryItemResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDictionaryItemResponse) ProtoMessage() {}
+
+func (x *GetDictionaryItemResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[85]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDictionaryItemResponse.ProtoReflect.Descriptor instead.
+func (*GetDictionaryItemResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{85}
+}
+
+func (x *GetDictionaryItemResponse) GetItem() *DictionaryItemInfo {
+	if x != nil {
+		return x.Item
+	}
+	return nil
+}
+
+type CreateDictionaryItemRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DictionaryId  int64                  `protobuf:"varint,1,opt,name=dictionary_id,json=dictionaryId,proto3" json:"dictionary_id,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	Value         string                 `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Sort          int32                  `protobuf:"varint,4,opt,name=sort,proto3" json:"sort,omitempty"`
+	Remark        string                 `protobuf:"bytes,5,opt,name=remark,proto3" json:"remark,omitempty"`
+	Status        int32                  `protobuf:"varint,6,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDictionaryItemRequest) Reset() {
+	*x = CreateDictionaryItemRequest{}
+	mi := &file_system_proto_msgTypes[86]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDictionaryItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDictionaryItemRequest) ProtoMessage() {}
+
+func (x *CreateDictionaryItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[86]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDictionaryItemRequest.ProtoReflect.Descriptor instead.
+func (*CreateDictionaryItemRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{86}
+}
+
+func (x *CreateDictionaryItemRequest) GetDictionaryId() int64 {
+	if x != nil {
+		return x.DictionaryId
+	}
+	return 0
+}
+
+func (x *CreateDictionaryItemRequest) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *CreateDictionaryItemRequest) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *CreateDictionaryItemRequest) GetSort() int32 {
+	if x != nil {
+		return x.Sort
+	}
+	return 0
+}
+
+func (x *CreateDictionaryItemRequest) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *CreateDictionaryItemRequest) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+type CreateDictionaryItemResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDictionaryItemResponse) Reset() {
+	*x = CreateDictionaryItemResponse{}
+	mi := &file_system_proto_msgTypes[87]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDictionaryItemResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDictionaryItemResponse) ProtoMessage() {}
+
+func (x *CreateDictionaryItemResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[87]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDictionaryItemResponse.ProtoReflect.Descriptor instead.
+func (*CreateDictionaryItemResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{87}
+}
+
+func (x *CreateDictionaryItemResponse) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type UpdateDictionaryItemRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	Sort          int32                  `protobuf:"varint,3,opt,name=sort,proto3" json:"sort,omitempty"`
+	Remark        string                 `protobuf:"bytes,4,opt,name=remark,proto3" json:"remark,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDictionaryItemRequest) Reset() {
+	*x = UpdateDictionaryItemRequest{}
+	mi := &file_system_proto_msgTypes[88]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDictionaryItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDictionaryItemRequest) ProtoMessage() {}
+
+func (x *UpdateDictionaryItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[88]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDictionaryItemRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDictionaryItemRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{88}
+}
+
+func (x *UpdateDictionaryItemRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateDictionaryItemRequest) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *UpdateDictionaryItemRequest) GetSort() int32 {
+	if x != nil {
+		return x.Sort
+	}
+	return 0
+}
+
+func (x *UpdateDictionaryItemRequest) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+type UpdateDictionaryItemStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDictionaryItemStatusRequest) Reset() {
+	*x = UpdateDictionaryItemStatusRequest{}
+	mi := &file_system_proto_msgTypes[89]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDictionaryItemStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDictionaryItemStatusRequest) ProtoMessage() {}
+
+func (x *UpdateDictionaryItemStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[89]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDictionaryItemStatusRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDictionaryItemStatusRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{89}
+}
+
+func (x *UpdateDictionaryItemStatusRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateDictionaryItemStatusRequest) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+type DeleteDictionaryItemRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDictionaryItemRequest) Reset() {
+	*x = DeleteDictionaryItemRequest{}
+	mi := &file_system_proto_msgTypes[90]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDictionaryItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDictionaryItemRequest) ProtoMessage() {}
+
+func (x *DeleteDictionaryItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[90]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDictionaryItemRequest.ProtoReflect.Descriptor instead.
+func (*DeleteDictionaryItemRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{90}
+}
+
+func (x *DeleteDictionaryItemRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type ReadDictionariesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Codes         []string               `protobuf:"bytes,1,rep,name=codes,proto3" json:"codes,omitempty"`
+	PublicOnly    bool                   `protobuf:"varint,2,opt,name=public_only,json=publicOnly,proto3" json:"public_only,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadDictionariesRequest) Reset() {
+	*x = ReadDictionariesRequest{}
+	mi := &file_system_proto_msgTypes[91]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadDictionariesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadDictionariesRequest) ProtoMessage() {}
+
+func (x *ReadDictionariesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[91]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadDictionariesRequest.ProtoReflect.Descriptor instead.
+func (*ReadDictionariesRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{91}
+}
+
+func (x *ReadDictionariesRequest) GetCodes() []string {
+	if x != nil {
+		return x.Codes
+	}
+	return nil
+}
+
+func (x *ReadDictionariesRequest) GetPublicOnly() bool {
+	if x != nil {
+		return x.PublicOnly
+	}
+	return false
+}
+
+type DictionaryOption struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Label         string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Sort          int32                  `protobuf:"varint,3,opt,name=sort,proto3" json:"sort,omitempty"`
+	Status        int32                  `protobuf:"varint,4,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DictionaryOption) Reset() {
+	*x = DictionaryOption{}
+	mi := &file_system_proto_msgTypes[92]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DictionaryOption) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DictionaryOption) ProtoMessage() {}
+
+func (x *DictionaryOption) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[92]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DictionaryOption.ProtoReflect.Descriptor instead.
+func (*DictionaryOption) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{92}
+}
+
+func (x *DictionaryOption) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *DictionaryOption) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *DictionaryOption) GetSort() int32 {
+	if x != nil {
+		return x.Sort
+	}
+	return 0
+}
+
+func (x *DictionaryOption) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+type DictionaryOptions struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	Items         []*DictionaryOption    `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DictionaryOptions) Reset() {
+	*x = DictionaryOptions{}
+	mi := &file_system_proto_msgTypes[93]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DictionaryOptions) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DictionaryOptions) ProtoMessage() {}
+
+func (x *DictionaryOptions) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[93]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DictionaryOptions.ProtoReflect.Descriptor instead.
+func (*DictionaryOptions) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{93}
+}
+
+func (x *DictionaryOptions) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *DictionaryOptions) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *DictionaryOptions) GetItems() []*DictionaryOption {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type ReadDictionariesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*DictionaryOptions   `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadDictionariesResponse) Reset() {
+	*x = ReadDictionariesResponse{}
+	mi := &file_system_proto_msgTypes[94]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadDictionariesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadDictionariesResponse) ProtoMessage() {}
+
+func (x *ReadDictionariesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[94]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadDictionariesResponse.ProtoReflect.Descriptor instead.
+func (*ReadDictionariesResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{94}
+}
+
+func (x *ReadDictionariesResponse) GetItems() []*DictionaryOptions {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
 var File_system_proto protoreflect.FileDescriptor
 
 const file_system_proto_rawDesc = "" +
@@ -4511,8 +5899,115 @@ const file_system_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\"m\n" +
 	"\x1bListNavigationMenusResponse\x12,\n" +
 	"\x05items\x18\x01 \x03(\v2\x16.system.NavigationMenuR\x05items\x12 \n" +
-	"\vpermissions\x18\x02 \x03(\tR\vpermissions2\xc9\x17\n" +
-	"\x06System\x12A\n" +
+	"\vpermissions\x18\x02 \x03(\tR\vpermissions\"\x1d\n" +
+	"\x1bClearDictionaryCacheRequest\"\xd3\x01\n" +
+	"\x0eDictionaryInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04code\x18\x03 \x01(\tR\x04code\x12\x16\n" +
+	"\x06remark\x18\x04 \x01(\tR\x06remark\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\x05R\x06status\x12\x1b\n" +
+	"\tis_public\x18\x06 \x01(\bR\bisPublic\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\b \x01(\tR\tupdatedAt\"\xf7\x01\n" +
+	"\x12DictionaryItemInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12#\n" +
+	"\rdictionary_id\x18\x02 \x01(\x03R\fdictionaryId\x12\x14\n" +
+	"\x05label\x18\x03 \x01(\tR\x05label\x12\x14\n" +
+	"\x05value\x18\x04 \x01(\tR\x05value\x12\x12\n" +
+	"\x04sort\x18\x05 \x01(\x05R\x04sort\x12\x16\n" +
+	"\x06remark\x18\x06 \x01(\tR\x06remark\x12\x16\n" +
+	"\x06status\x18\a \x01(\x05R\x06status\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\b \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\t \x01(\tR\tupdatedAt\"\x19\n" +
+	"\x17ListDictionariesRequest\"H\n" +
+	"\x18ListDictionariesResponse\x12,\n" +
+	"\x05items\x18\x01 \x03(\v2\x16.system.DictionaryInfoR\x05items\"&\n" +
+	"\x14GetDictionaryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"O\n" +
+	"\x15GetDictionaryResponse\x126\n" +
+	"\n" +
+	"dictionary\x18\x01 \x01(\v2\x16.system.DictionaryInfoR\n" +
+	"dictionary\"\x8e\x01\n" +
+	"\x17CreateDictionaryRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\x12\x16\n" +
+	"\x06remark\x18\x03 \x01(\tR\x06remark\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\x05R\x06status\x12\x1b\n" +
+	"\tis_public\x18\x05 \x01(\bR\bisPublic\"*\n" +
+	"\x18CreateDictionaryResponse\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"r\n" +
+	"\x17UpdateDictionaryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
+	"\x06remark\x18\x03 \x01(\tR\x06remark\x12\x1b\n" +
+	"\tis_public\x18\x04 \x01(\bR\bisPublic\"G\n" +
+	"\x1dUpdateDictionaryStatusRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\x05R\x06status\")\n" +
+	"\x17DeleteDictionaryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"A\n" +
+	"\x1aListDictionaryItemsRequest\x12#\n" +
+	"\rdictionary_id\x18\x01 \x01(\x03R\fdictionaryId\"O\n" +
+	"\x1bListDictionaryItemsResponse\x120\n" +
+	"\x05items\x18\x01 \x03(\v2\x1a.system.DictionaryItemInfoR\x05items\"*\n" +
+	"\x18GetDictionaryItemRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"K\n" +
+	"\x19GetDictionaryItemResponse\x12.\n" +
+	"\x04item\x18\x01 \x01(\v2\x1a.system.DictionaryItemInfoR\x04item\"\xb2\x01\n" +
+	"\x1bCreateDictionaryItemRequest\x12#\n" +
+	"\rdictionary_id\x18\x01 \x01(\x03R\fdictionaryId\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\tR\x05value\x12\x12\n" +
+	"\x04sort\x18\x04 \x01(\x05R\x04sort\x12\x16\n" +
+	"\x06remark\x18\x05 \x01(\tR\x06remark\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\x05R\x06status\".\n" +
+	"\x1cCreateDictionaryItemResponse\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"o\n" +
+	"\x1bUpdateDictionaryItemRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x12\n" +
+	"\x04sort\x18\x03 \x01(\x05R\x04sort\x12\x16\n" +
+	"\x06remark\x18\x04 \x01(\tR\x06remark\"K\n" +
+	"!UpdateDictionaryItemStatusRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\x05R\x06status\"-\n" +
+	"\x1bDeleteDictionaryItemRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"P\n" +
+	"\x17ReadDictionariesRequest\x12\x14\n" +
+	"\x05codes\x18\x01 \x03(\tR\x05codes\x12\x1f\n" +
+	"\vpublic_only\x18\x02 \x01(\bR\n" +
+	"publicOnly\"j\n" +
+	"\x10DictionaryOption\x12\x14\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\x12\x12\n" +
+	"\x04sort\x18\x03 \x01(\x05R\x04sort\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\x05R\x06status\"o\n" +
+	"\x11DictionaryOptions\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\x05R\x06status\x12.\n" +
+	"\x05items\x18\x03 \x03(\v2\x18.system.DictionaryOptionR\x05items\"K\n" +
+	"\x18ReadDictionariesResponse\x12/\n" +
+	"\x05items\x18\x01 \x03(\v2\x19.system.DictionaryOptionsR\x05items2\x85!\n" +
+	"\x06System\x12U\n" +
+	"\x10ListDictionaries\x12\x1f.system.ListDictionariesRequest\x1a .system.ListDictionariesResponse\x12L\n" +
+	"\rGetDictionary\x12\x1c.system.GetDictionaryRequest\x1a\x1d.system.GetDictionaryResponse\x12U\n" +
+	"\x10CreateDictionary\x12\x1f.system.CreateDictionaryRequest\x1a .system.CreateDictionaryResponse\x12J\n" +
+	"\x10UpdateDictionary\x12\x1f.system.UpdateDictionaryRequest\x1a\x15.system.EmptyResponse\x12V\n" +
+	"\x16UpdateDictionaryStatus\x12%.system.UpdateDictionaryStatusRequest\x1a\x15.system.EmptyResponse\x12J\n" +
+	"\x10DeleteDictionary\x12\x1f.system.DeleteDictionaryRequest\x1a\x15.system.EmptyResponse\x12^\n" +
+	"\x13ListDictionaryItems\x12\".system.ListDictionaryItemsRequest\x1a#.system.ListDictionaryItemsResponse\x12X\n" +
+	"\x11GetDictionaryItem\x12 .system.GetDictionaryItemRequest\x1a!.system.GetDictionaryItemResponse\x12a\n" +
+	"\x14CreateDictionaryItem\x12#.system.CreateDictionaryItemRequest\x1a$.system.CreateDictionaryItemResponse\x12R\n" +
+	"\x14UpdateDictionaryItem\x12#.system.UpdateDictionaryItemRequest\x1a\x15.system.EmptyResponse\x12^\n" +
+	"\x1aUpdateDictionaryItemStatus\x12).system.UpdateDictionaryItemStatusRequest\x1a\x15.system.EmptyResponse\x12R\n" +
+	"\x14DeleteDictionaryItem\x12#.system.DeleteDictionaryItemRequest\x1a\x15.system.EmptyResponse\x12R\n" +
+	"\x14ClearDictionaryCache\x12#.system.ClearDictionaryCacheRequest\x1a\x15.system.EmptyResponse\x12U\n" +
+	"\x10ReadDictionaries\x12\x1f.system.ReadDictionariesRequest\x1a .system.ReadDictionariesResponse\x12A\n" +
 	"\n" +
 	"GetProfile\x12\x1a.system.CurrentUserRequest\x1a\x17.system.ProfileResponse\x12D\n" +
 	"\rUpdateProfile\x12\x1c.system.UpdateProfileRequest\x1a\x15.system.EmptyResponse\x12I\n" +
@@ -4580,78 +6075,103 @@ func file_system_proto_rawDescGZIP() []byte {
 	return file_system_proto_rawDescData
 }
 
-var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 70)
+var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 95)
 var file_system_proto_goTypes = []any{
-	(*ReadyRequest)(nil),                  // 0: system.ReadyRequest
-	(*ReadyResponse)(nil),                 // 1: system.ReadyResponse
-	(*LoginRequest)(nil),                  // 2: system.LoginRequest
-	(*LoginResponse)(nil),                 // 3: system.LoginResponse
-	(*RefreshCredentialsRequest)(nil),     // 4: system.RefreshCredentialsRequest
-	(*EmptyResponse)(nil),                 // 5: system.EmptyResponse
-	(*CurrentUserRequest)(nil),            // 6: system.CurrentUserRequest
-	(*ProfileResponse)(nil),               // 7: system.ProfileResponse
-	(*UpdateProfileRequest)(nil),          // 8: system.UpdateProfileRequest
-	(*CurrentUserResponse)(nil),           // 9: system.CurrentUserResponse
-	(*RevokeSessionRequest)(nil),          // 10: system.RevokeSessionRequest
-	(*RevokeUserSessionsRequest)(nil),     // 11: system.RevokeUserSessionsRequest
-	(*ChangePasswordRequest)(nil),         // 12: system.ChangePasswordRequest
-	(*ReplaceRoleAPIsRequest)(nil),        // 13: system.ReplaceRoleAPIsRequest
-	(*ListRolesRequest)(nil),              // 14: system.ListRolesRequest
-	(*RoleInfo)(nil),                      // 15: system.RoleInfo
-	(*CreateRoleRequest)(nil),             // 16: system.CreateRoleRequest
-	(*CreateRoleResponse)(nil),            // 17: system.CreateRoleResponse
-	(*UpdateRoleRequest)(nil),             // 18: system.UpdateRoleRequest
-	(*UpdateRoleStatusRequest)(nil),       // 19: system.UpdateRoleStatusRequest
-	(*DeleteRoleRequest)(nil),             // 20: system.DeleteRoleRequest
-	(*ListRolesResponse)(nil),             // 21: system.ListRolesResponse
-	(*GetRoleRequest)(nil),                // 22: system.GetRoleRequest
-	(*GetRoleResponse)(nil),               // 23: system.GetRoleResponse
-	(*ListAPIsRequest)(nil),               // 24: system.ListAPIsRequest
-	(*APIInfo)(nil),                       // 25: system.APIInfo
-	(*ListAPIsResponse)(nil),              // 26: system.ListAPIsResponse
-	(*GetRoleAPIsRequest)(nil),            // 27: system.GetRoleAPIsRequest
-	(*GetRoleAPIsResponse)(nil),           // 28: system.GetRoleAPIsResponse
-	(*UserRoleInfo)(nil),                  // 29: system.UserRoleInfo
-	(*UserInfo)(nil),                      // 30: system.UserInfo
-	(*ListUsersRequest)(nil),              // 31: system.ListUsersRequest
-	(*ListUsersResponse)(nil),             // 32: system.ListUsersResponse
-	(*GetUserRequest)(nil),                // 33: system.GetUserRequest
-	(*GetUserResponse)(nil),               // 34: system.GetUserResponse
-	(*CreateUserRequest)(nil),             // 35: system.CreateUserRequest
-	(*CreateUserResponse)(nil),            // 36: system.CreateUserResponse
-	(*UpdateUserRequest)(nil),             // 37: system.UpdateUserRequest
-	(*UpdateUserStatusRequest)(nil),       // 38: system.UpdateUserStatusRequest
-	(*DeleteUserRequest)(nil),             // 39: system.DeleteUserRequest
-	(*ReplaceUserRolesRequest)(nil),       // 40: system.ReplaceUserRolesRequest
-	(*ResetUserPasswordRequest)(nil),      // 41: system.ResetUserPasswordRequest
-	(*ListUserRoleOptionsResponse)(nil),   // 42: system.ListUserRoleOptionsResponse
-	(*MenuFields)(nil),                    // 43: system.MenuFields
-	(*MenuInfo)(nil),                      // 44: system.MenuInfo
-	(*ListMenusRequest)(nil),              // 45: system.ListMenusRequest
-	(*ListMenusResponse)(nil),             // 46: system.ListMenusResponse
-	(*GetMenuRequest)(nil),                // 47: system.GetMenuRequest
-	(*GetMenuResponse)(nil),               // 48: system.GetMenuResponse
-	(*CreateMenuRequest)(nil),             // 49: system.CreateMenuRequest
-	(*CreateMenuResponse)(nil),            // 50: system.CreateMenuResponse
-	(*UpdateMenuRequest)(nil),             // 51: system.UpdateMenuRequest
-	(*UpdateMenuStatusRequest)(nil),       // 52: system.UpdateMenuStatusRequest
-	(*DeleteMenuRequest)(nil),             // 53: system.DeleteMenuRequest
-	(*ListNavigationMenusRequest)(nil),    // 54: system.ListNavigationMenusRequest
-	(*GetRoleMenusRequest)(nil),           // 55: system.GetRoleMenusRequest
-	(*GetRoleMenusResponse)(nil),          // 56: system.GetRoleMenusResponse
-	(*ReplaceRoleMenusRequest)(nil),       // 57: system.ReplaceRoleMenusRequest
-	(*NavigationMenu)(nil),                // 58: system.NavigationMenu
-	(*DepartmentInfo)(nil),                // 59: system.DepartmentInfo
-	(*ListDepartmentsRequest)(nil),        // 60: system.ListDepartmentsRequest
-	(*ListDepartmentsResponse)(nil),       // 61: system.ListDepartmentsResponse
-	(*GetDepartmentRequest)(nil),          // 62: system.GetDepartmentRequest
-	(*GetDepartmentResponse)(nil),         // 63: system.GetDepartmentResponse
-	(*CreateDepartmentRequest)(nil),       // 64: system.CreateDepartmentRequest
-	(*CreateDepartmentResponse)(nil),      // 65: system.CreateDepartmentResponse
-	(*UpdateDepartmentRequest)(nil),       // 66: system.UpdateDepartmentRequest
-	(*UpdateDepartmentStatusRequest)(nil), // 67: system.UpdateDepartmentStatusRequest
-	(*DeleteDepartmentRequest)(nil),       // 68: system.DeleteDepartmentRequest
-	(*ListNavigationMenusResponse)(nil),   // 69: system.ListNavigationMenusResponse
+	(*ReadyRequest)(nil),                      // 0: system.ReadyRequest
+	(*ReadyResponse)(nil),                     // 1: system.ReadyResponse
+	(*LoginRequest)(nil),                      // 2: system.LoginRequest
+	(*LoginResponse)(nil),                     // 3: system.LoginResponse
+	(*RefreshCredentialsRequest)(nil),         // 4: system.RefreshCredentialsRequest
+	(*EmptyResponse)(nil),                     // 5: system.EmptyResponse
+	(*CurrentUserRequest)(nil),                // 6: system.CurrentUserRequest
+	(*ProfileResponse)(nil),                   // 7: system.ProfileResponse
+	(*UpdateProfileRequest)(nil),              // 8: system.UpdateProfileRequest
+	(*CurrentUserResponse)(nil),               // 9: system.CurrentUserResponse
+	(*RevokeSessionRequest)(nil),              // 10: system.RevokeSessionRequest
+	(*RevokeUserSessionsRequest)(nil),         // 11: system.RevokeUserSessionsRequest
+	(*ChangePasswordRequest)(nil),             // 12: system.ChangePasswordRequest
+	(*ReplaceRoleAPIsRequest)(nil),            // 13: system.ReplaceRoleAPIsRequest
+	(*ListRolesRequest)(nil),                  // 14: system.ListRolesRequest
+	(*RoleInfo)(nil),                          // 15: system.RoleInfo
+	(*CreateRoleRequest)(nil),                 // 16: system.CreateRoleRequest
+	(*CreateRoleResponse)(nil),                // 17: system.CreateRoleResponse
+	(*UpdateRoleRequest)(nil),                 // 18: system.UpdateRoleRequest
+	(*UpdateRoleStatusRequest)(nil),           // 19: system.UpdateRoleStatusRequest
+	(*DeleteRoleRequest)(nil),                 // 20: system.DeleteRoleRequest
+	(*ListRolesResponse)(nil),                 // 21: system.ListRolesResponse
+	(*GetRoleRequest)(nil),                    // 22: system.GetRoleRequest
+	(*GetRoleResponse)(nil),                   // 23: system.GetRoleResponse
+	(*ListAPIsRequest)(nil),                   // 24: system.ListAPIsRequest
+	(*APIInfo)(nil),                           // 25: system.APIInfo
+	(*ListAPIsResponse)(nil),                  // 26: system.ListAPIsResponse
+	(*GetRoleAPIsRequest)(nil),                // 27: system.GetRoleAPIsRequest
+	(*GetRoleAPIsResponse)(nil),               // 28: system.GetRoleAPIsResponse
+	(*UserRoleInfo)(nil),                      // 29: system.UserRoleInfo
+	(*UserInfo)(nil),                          // 30: system.UserInfo
+	(*ListUsersRequest)(nil),                  // 31: system.ListUsersRequest
+	(*ListUsersResponse)(nil),                 // 32: system.ListUsersResponse
+	(*GetUserRequest)(nil),                    // 33: system.GetUserRequest
+	(*GetUserResponse)(nil),                   // 34: system.GetUserResponse
+	(*CreateUserRequest)(nil),                 // 35: system.CreateUserRequest
+	(*CreateUserResponse)(nil),                // 36: system.CreateUserResponse
+	(*UpdateUserRequest)(nil),                 // 37: system.UpdateUserRequest
+	(*UpdateUserStatusRequest)(nil),           // 38: system.UpdateUserStatusRequest
+	(*DeleteUserRequest)(nil),                 // 39: system.DeleteUserRequest
+	(*ReplaceUserRolesRequest)(nil),           // 40: system.ReplaceUserRolesRequest
+	(*ResetUserPasswordRequest)(nil),          // 41: system.ResetUserPasswordRequest
+	(*ListUserRoleOptionsResponse)(nil),       // 42: system.ListUserRoleOptionsResponse
+	(*MenuFields)(nil),                        // 43: system.MenuFields
+	(*MenuInfo)(nil),                          // 44: system.MenuInfo
+	(*ListMenusRequest)(nil),                  // 45: system.ListMenusRequest
+	(*ListMenusResponse)(nil),                 // 46: system.ListMenusResponse
+	(*GetMenuRequest)(nil),                    // 47: system.GetMenuRequest
+	(*GetMenuResponse)(nil),                   // 48: system.GetMenuResponse
+	(*CreateMenuRequest)(nil),                 // 49: system.CreateMenuRequest
+	(*CreateMenuResponse)(nil),                // 50: system.CreateMenuResponse
+	(*UpdateMenuRequest)(nil),                 // 51: system.UpdateMenuRequest
+	(*UpdateMenuStatusRequest)(nil),           // 52: system.UpdateMenuStatusRequest
+	(*DeleteMenuRequest)(nil),                 // 53: system.DeleteMenuRequest
+	(*ListNavigationMenusRequest)(nil),        // 54: system.ListNavigationMenusRequest
+	(*GetRoleMenusRequest)(nil),               // 55: system.GetRoleMenusRequest
+	(*GetRoleMenusResponse)(nil),              // 56: system.GetRoleMenusResponse
+	(*ReplaceRoleMenusRequest)(nil),           // 57: system.ReplaceRoleMenusRequest
+	(*NavigationMenu)(nil),                    // 58: system.NavigationMenu
+	(*DepartmentInfo)(nil),                    // 59: system.DepartmentInfo
+	(*ListDepartmentsRequest)(nil),            // 60: system.ListDepartmentsRequest
+	(*ListDepartmentsResponse)(nil),           // 61: system.ListDepartmentsResponse
+	(*GetDepartmentRequest)(nil),              // 62: system.GetDepartmentRequest
+	(*GetDepartmentResponse)(nil),             // 63: system.GetDepartmentResponse
+	(*CreateDepartmentRequest)(nil),           // 64: system.CreateDepartmentRequest
+	(*CreateDepartmentResponse)(nil),          // 65: system.CreateDepartmentResponse
+	(*UpdateDepartmentRequest)(nil),           // 66: system.UpdateDepartmentRequest
+	(*UpdateDepartmentStatusRequest)(nil),     // 67: system.UpdateDepartmentStatusRequest
+	(*DeleteDepartmentRequest)(nil),           // 68: system.DeleteDepartmentRequest
+	(*ListNavigationMenusResponse)(nil),       // 69: system.ListNavigationMenusResponse
+	(*ClearDictionaryCacheRequest)(nil),       // 70: system.ClearDictionaryCacheRequest
+	(*DictionaryInfo)(nil),                    // 71: system.DictionaryInfo
+	(*DictionaryItemInfo)(nil),                // 72: system.DictionaryItemInfo
+	(*ListDictionariesRequest)(nil),           // 73: system.ListDictionariesRequest
+	(*ListDictionariesResponse)(nil),          // 74: system.ListDictionariesResponse
+	(*GetDictionaryRequest)(nil),              // 75: system.GetDictionaryRequest
+	(*GetDictionaryResponse)(nil),             // 76: system.GetDictionaryResponse
+	(*CreateDictionaryRequest)(nil),           // 77: system.CreateDictionaryRequest
+	(*CreateDictionaryResponse)(nil),          // 78: system.CreateDictionaryResponse
+	(*UpdateDictionaryRequest)(nil),           // 79: system.UpdateDictionaryRequest
+	(*UpdateDictionaryStatusRequest)(nil),     // 80: system.UpdateDictionaryStatusRequest
+	(*DeleteDictionaryRequest)(nil),           // 81: system.DeleteDictionaryRequest
+	(*ListDictionaryItemsRequest)(nil),        // 82: system.ListDictionaryItemsRequest
+	(*ListDictionaryItemsResponse)(nil),       // 83: system.ListDictionaryItemsResponse
+	(*GetDictionaryItemRequest)(nil),          // 84: system.GetDictionaryItemRequest
+	(*GetDictionaryItemResponse)(nil),         // 85: system.GetDictionaryItemResponse
+	(*CreateDictionaryItemRequest)(nil),       // 86: system.CreateDictionaryItemRequest
+	(*CreateDictionaryItemResponse)(nil),      // 87: system.CreateDictionaryItemResponse
+	(*UpdateDictionaryItemRequest)(nil),       // 88: system.UpdateDictionaryItemRequest
+	(*UpdateDictionaryItemStatusRequest)(nil), // 89: system.UpdateDictionaryItemStatusRequest
+	(*DeleteDictionaryItemRequest)(nil),       // 90: system.DeleteDictionaryItemRequest
+	(*ReadDictionariesRequest)(nil),           // 91: system.ReadDictionariesRequest
+	(*DictionaryOption)(nil),                  // 92: system.DictionaryOption
+	(*DictionaryOptions)(nil),                 // 93: system.DictionaryOptions
+	(*ReadDictionariesResponse)(nil),          // 94: system.ReadDictionariesResponse
 }
 var file_system_proto_depIdxs = []int32{
 	15, // 0: system.ListRolesResponse.items:type_name -> system.RoleInfo
@@ -4670,95 +6190,129 @@ var file_system_proto_depIdxs = []int32{
 	59, // 13: system.ListDepartmentsResponse.items:type_name -> system.DepartmentInfo
 	59, // 14: system.GetDepartmentResponse.department:type_name -> system.DepartmentInfo
 	58, // 15: system.ListNavigationMenusResponse.items:type_name -> system.NavigationMenu
-	6,  // 16: system.System.GetProfile:input_type -> system.CurrentUserRequest
-	8,  // 17: system.System.UpdateProfile:input_type -> system.UpdateProfileRequest
-	55, // 18: system.System.GetRoleMenus:input_type -> system.GetRoleMenusRequest
-	57, // 19: system.System.ReplaceRoleMenus:input_type -> system.ReplaceRoleMenusRequest
-	54, // 20: system.System.ListNavigationMenus:input_type -> system.ListNavigationMenusRequest
-	45, // 21: system.System.ListMenus:input_type -> system.ListMenusRequest
-	47, // 22: system.System.GetMenu:input_type -> system.GetMenuRequest
-	49, // 23: system.System.CreateMenu:input_type -> system.CreateMenuRequest
-	51, // 24: system.System.UpdateMenu:input_type -> system.UpdateMenuRequest
-	52, // 25: system.System.UpdateMenuStatus:input_type -> system.UpdateMenuStatusRequest
-	53, // 26: system.System.DeleteMenu:input_type -> system.DeleteMenuRequest
-	0,  // 27: system.System.CheckReady:input_type -> system.ReadyRequest
-	2,  // 28: system.System.Login:input_type -> system.LoginRequest
-	4,  // 29: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
-	6,  // 30: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
-	10, // 31: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
-	11, // 32: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
-	12, // 33: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
-	16, // 34: system.System.CreateRole:input_type -> system.CreateRoleRequest
-	14, // 35: system.System.ListRoles:input_type -> system.ListRolesRequest
-	22, // 36: system.System.GetRole:input_type -> system.GetRoleRequest
-	18, // 37: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
-	19, // 38: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
-	20, // 39: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
-	24, // 40: system.System.ListAPIs:input_type -> system.ListAPIsRequest
-	27, // 41: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
-	13, // 42: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
-	31, // 43: system.System.ListUsers:input_type -> system.ListUsersRequest
-	33, // 44: system.System.GetUser:input_type -> system.GetUserRequest
-	35, // 45: system.System.CreateUser:input_type -> system.CreateUserRequest
-	37, // 46: system.System.UpdateUser:input_type -> system.UpdateUserRequest
-	38, // 47: system.System.UpdateUserStatus:input_type -> system.UpdateUserStatusRequest
-	39, // 48: system.System.DeleteUser:input_type -> system.DeleteUserRequest
-	40, // 49: system.System.ReplaceUserRoles:input_type -> system.ReplaceUserRolesRequest
-	41, // 50: system.System.ResetUserPassword:input_type -> system.ResetUserPasswordRequest
-	14, // 51: system.System.ListUserRoleOptions:input_type -> system.ListRolesRequest
-	60, // 52: system.System.ListDepartments:input_type -> system.ListDepartmentsRequest
-	62, // 53: system.System.GetDepartment:input_type -> system.GetDepartmentRequest
-	64, // 54: system.System.CreateDepartment:input_type -> system.CreateDepartmentRequest
-	66, // 55: system.System.UpdateDepartment:input_type -> system.UpdateDepartmentRequest
-	67, // 56: system.System.UpdateDepartmentStatus:input_type -> system.UpdateDepartmentStatusRequest
-	68, // 57: system.System.DeleteDepartment:input_type -> system.DeleteDepartmentRequest
-	7,  // 58: system.System.GetProfile:output_type -> system.ProfileResponse
-	5,  // 59: system.System.UpdateProfile:output_type -> system.EmptyResponse
-	56, // 60: system.System.GetRoleMenus:output_type -> system.GetRoleMenusResponse
-	5,  // 61: system.System.ReplaceRoleMenus:output_type -> system.EmptyResponse
-	69, // 62: system.System.ListNavigationMenus:output_type -> system.ListNavigationMenusResponse
-	46, // 63: system.System.ListMenus:output_type -> system.ListMenusResponse
-	48, // 64: system.System.GetMenu:output_type -> system.GetMenuResponse
-	50, // 65: system.System.CreateMenu:output_type -> system.CreateMenuResponse
-	5,  // 66: system.System.UpdateMenu:output_type -> system.EmptyResponse
-	5,  // 67: system.System.UpdateMenuStatus:output_type -> system.EmptyResponse
-	5,  // 68: system.System.DeleteMenu:output_type -> system.EmptyResponse
-	1,  // 69: system.System.CheckReady:output_type -> system.ReadyResponse
-	3,  // 70: system.System.Login:output_type -> system.LoginResponse
-	3,  // 71: system.System.RefreshCredentials:output_type -> system.LoginResponse
-	9,  // 72: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
-	5,  // 73: system.System.RevokeSession:output_type -> system.EmptyResponse
-	5,  // 74: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
-	5,  // 75: system.System.ChangePassword:output_type -> system.EmptyResponse
-	17, // 76: system.System.CreateRole:output_type -> system.CreateRoleResponse
-	21, // 77: system.System.ListRoles:output_type -> system.ListRolesResponse
-	23, // 78: system.System.GetRole:output_type -> system.GetRoleResponse
-	5,  // 79: system.System.UpdateRole:output_type -> system.EmptyResponse
-	5,  // 80: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
-	5,  // 81: system.System.DeleteRole:output_type -> system.EmptyResponse
-	26, // 82: system.System.ListAPIs:output_type -> system.ListAPIsResponse
-	28, // 83: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
-	5,  // 84: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
-	32, // 85: system.System.ListUsers:output_type -> system.ListUsersResponse
-	34, // 86: system.System.GetUser:output_type -> system.GetUserResponse
-	36, // 87: system.System.CreateUser:output_type -> system.CreateUserResponse
-	5,  // 88: system.System.UpdateUser:output_type -> system.EmptyResponse
-	5,  // 89: system.System.UpdateUserStatus:output_type -> system.EmptyResponse
-	5,  // 90: system.System.DeleteUser:output_type -> system.EmptyResponse
-	5,  // 91: system.System.ReplaceUserRoles:output_type -> system.EmptyResponse
-	5,  // 92: system.System.ResetUserPassword:output_type -> system.EmptyResponse
-	42, // 93: system.System.ListUserRoleOptions:output_type -> system.ListUserRoleOptionsResponse
-	61, // 94: system.System.ListDepartments:output_type -> system.ListDepartmentsResponse
-	63, // 95: system.System.GetDepartment:output_type -> system.GetDepartmentResponse
-	65, // 96: system.System.CreateDepartment:output_type -> system.CreateDepartmentResponse
-	5,  // 97: system.System.UpdateDepartment:output_type -> system.EmptyResponse
-	5,  // 98: system.System.UpdateDepartmentStatus:output_type -> system.EmptyResponse
-	5,  // 99: system.System.DeleteDepartment:output_type -> system.EmptyResponse
-	58, // [58:100] is the sub-list for method output_type
-	16, // [16:58] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	71, // 16: system.ListDictionariesResponse.items:type_name -> system.DictionaryInfo
+	71, // 17: system.GetDictionaryResponse.dictionary:type_name -> system.DictionaryInfo
+	72, // 18: system.ListDictionaryItemsResponse.items:type_name -> system.DictionaryItemInfo
+	72, // 19: system.GetDictionaryItemResponse.item:type_name -> system.DictionaryItemInfo
+	92, // 20: system.DictionaryOptions.items:type_name -> system.DictionaryOption
+	93, // 21: system.ReadDictionariesResponse.items:type_name -> system.DictionaryOptions
+	73, // 22: system.System.ListDictionaries:input_type -> system.ListDictionariesRequest
+	75, // 23: system.System.GetDictionary:input_type -> system.GetDictionaryRequest
+	77, // 24: system.System.CreateDictionary:input_type -> system.CreateDictionaryRequest
+	79, // 25: system.System.UpdateDictionary:input_type -> system.UpdateDictionaryRequest
+	80, // 26: system.System.UpdateDictionaryStatus:input_type -> system.UpdateDictionaryStatusRequest
+	81, // 27: system.System.DeleteDictionary:input_type -> system.DeleteDictionaryRequest
+	82, // 28: system.System.ListDictionaryItems:input_type -> system.ListDictionaryItemsRequest
+	84, // 29: system.System.GetDictionaryItem:input_type -> system.GetDictionaryItemRequest
+	86, // 30: system.System.CreateDictionaryItem:input_type -> system.CreateDictionaryItemRequest
+	88, // 31: system.System.UpdateDictionaryItem:input_type -> system.UpdateDictionaryItemRequest
+	89, // 32: system.System.UpdateDictionaryItemStatus:input_type -> system.UpdateDictionaryItemStatusRequest
+	90, // 33: system.System.DeleteDictionaryItem:input_type -> system.DeleteDictionaryItemRequest
+	70, // 34: system.System.ClearDictionaryCache:input_type -> system.ClearDictionaryCacheRequest
+	91, // 35: system.System.ReadDictionaries:input_type -> system.ReadDictionariesRequest
+	6,  // 36: system.System.GetProfile:input_type -> system.CurrentUserRequest
+	8,  // 37: system.System.UpdateProfile:input_type -> system.UpdateProfileRequest
+	55, // 38: system.System.GetRoleMenus:input_type -> system.GetRoleMenusRequest
+	57, // 39: system.System.ReplaceRoleMenus:input_type -> system.ReplaceRoleMenusRequest
+	54, // 40: system.System.ListNavigationMenus:input_type -> system.ListNavigationMenusRequest
+	45, // 41: system.System.ListMenus:input_type -> system.ListMenusRequest
+	47, // 42: system.System.GetMenu:input_type -> system.GetMenuRequest
+	49, // 43: system.System.CreateMenu:input_type -> system.CreateMenuRequest
+	51, // 44: system.System.UpdateMenu:input_type -> system.UpdateMenuRequest
+	52, // 45: system.System.UpdateMenuStatus:input_type -> system.UpdateMenuStatusRequest
+	53, // 46: system.System.DeleteMenu:input_type -> system.DeleteMenuRequest
+	0,  // 47: system.System.CheckReady:input_type -> system.ReadyRequest
+	2,  // 48: system.System.Login:input_type -> system.LoginRequest
+	4,  // 49: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
+	6,  // 50: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
+	10, // 51: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
+	11, // 52: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
+	12, // 53: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
+	16, // 54: system.System.CreateRole:input_type -> system.CreateRoleRequest
+	14, // 55: system.System.ListRoles:input_type -> system.ListRolesRequest
+	22, // 56: system.System.GetRole:input_type -> system.GetRoleRequest
+	18, // 57: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
+	19, // 58: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
+	20, // 59: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
+	24, // 60: system.System.ListAPIs:input_type -> system.ListAPIsRequest
+	27, // 61: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
+	13, // 62: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
+	31, // 63: system.System.ListUsers:input_type -> system.ListUsersRequest
+	33, // 64: system.System.GetUser:input_type -> system.GetUserRequest
+	35, // 65: system.System.CreateUser:input_type -> system.CreateUserRequest
+	37, // 66: system.System.UpdateUser:input_type -> system.UpdateUserRequest
+	38, // 67: system.System.UpdateUserStatus:input_type -> system.UpdateUserStatusRequest
+	39, // 68: system.System.DeleteUser:input_type -> system.DeleteUserRequest
+	40, // 69: system.System.ReplaceUserRoles:input_type -> system.ReplaceUserRolesRequest
+	41, // 70: system.System.ResetUserPassword:input_type -> system.ResetUserPasswordRequest
+	14, // 71: system.System.ListUserRoleOptions:input_type -> system.ListRolesRequest
+	60, // 72: system.System.ListDepartments:input_type -> system.ListDepartmentsRequest
+	62, // 73: system.System.GetDepartment:input_type -> system.GetDepartmentRequest
+	64, // 74: system.System.CreateDepartment:input_type -> system.CreateDepartmentRequest
+	66, // 75: system.System.UpdateDepartment:input_type -> system.UpdateDepartmentRequest
+	67, // 76: system.System.UpdateDepartmentStatus:input_type -> system.UpdateDepartmentStatusRequest
+	68, // 77: system.System.DeleteDepartment:input_type -> system.DeleteDepartmentRequest
+	74, // 78: system.System.ListDictionaries:output_type -> system.ListDictionariesResponse
+	76, // 79: system.System.GetDictionary:output_type -> system.GetDictionaryResponse
+	78, // 80: system.System.CreateDictionary:output_type -> system.CreateDictionaryResponse
+	5,  // 81: system.System.UpdateDictionary:output_type -> system.EmptyResponse
+	5,  // 82: system.System.UpdateDictionaryStatus:output_type -> system.EmptyResponse
+	5,  // 83: system.System.DeleteDictionary:output_type -> system.EmptyResponse
+	83, // 84: system.System.ListDictionaryItems:output_type -> system.ListDictionaryItemsResponse
+	85, // 85: system.System.GetDictionaryItem:output_type -> system.GetDictionaryItemResponse
+	87, // 86: system.System.CreateDictionaryItem:output_type -> system.CreateDictionaryItemResponse
+	5,  // 87: system.System.UpdateDictionaryItem:output_type -> system.EmptyResponse
+	5,  // 88: system.System.UpdateDictionaryItemStatus:output_type -> system.EmptyResponse
+	5,  // 89: system.System.DeleteDictionaryItem:output_type -> system.EmptyResponse
+	5,  // 90: system.System.ClearDictionaryCache:output_type -> system.EmptyResponse
+	94, // 91: system.System.ReadDictionaries:output_type -> system.ReadDictionariesResponse
+	7,  // 92: system.System.GetProfile:output_type -> system.ProfileResponse
+	5,  // 93: system.System.UpdateProfile:output_type -> system.EmptyResponse
+	56, // 94: system.System.GetRoleMenus:output_type -> system.GetRoleMenusResponse
+	5,  // 95: system.System.ReplaceRoleMenus:output_type -> system.EmptyResponse
+	69, // 96: system.System.ListNavigationMenus:output_type -> system.ListNavigationMenusResponse
+	46, // 97: system.System.ListMenus:output_type -> system.ListMenusResponse
+	48, // 98: system.System.GetMenu:output_type -> system.GetMenuResponse
+	50, // 99: system.System.CreateMenu:output_type -> system.CreateMenuResponse
+	5,  // 100: system.System.UpdateMenu:output_type -> system.EmptyResponse
+	5,  // 101: system.System.UpdateMenuStatus:output_type -> system.EmptyResponse
+	5,  // 102: system.System.DeleteMenu:output_type -> system.EmptyResponse
+	1,  // 103: system.System.CheckReady:output_type -> system.ReadyResponse
+	3,  // 104: system.System.Login:output_type -> system.LoginResponse
+	3,  // 105: system.System.RefreshCredentials:output_type -> system.LoginResponse
+	9,  // 106: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
+	5,  // 107: system.System.RevokeSession:output_type -> system.EmptyResponse
+	5,  // 108: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
+	5,  // 109: system.System.ChangePassword:output_type -> system.EmptyResponse
+	17, // 110: system.System.CreateRole:output_type -> system.CreateRoleResponse
+	21, // 111: system.System.ListRoles:output_type -> system.ListRolesResponse
+	23, // 112: system.System.GetRole:output_type -> system.GetRoleResponse
+	5,  // 113: system.System.UpdateRole:output_type -> system.EmptyResponse
+	5,  // 114: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
+	5,  // 115: system.System.DeleteRole:output_type -> system.EmptyResponse
+	26, // 116: system.System.ListAPIs:output_type -> system.ListAPIsResponse
+	28, // 117: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
+	5,  // 118: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
+	32, // 119: system.System.ListUsers:output_type -> system.ListUsersResponse
+	34, // 120: system.System.GetUser:output_type -> system.GetUserResponse
+	36, // 121: system.System.CreateUser:output_type -> system.CreateUserResponse
+	5,  // 122: system.System.UpdateUser:output_type -> system.EmptyResponse
+	5,  // 123: system.System.UpdateUserStatus:output_type -> system.EmptyResponse
+	5,  // 124: system.System.DeleteUser:output_type -> system.EmptyResponse
+	5,  // 125: system.System.ReplaceUserRoles:output_type -> system.EmptyResponse
+	5,  // 126: system.System.ResetUserPassword:output_type -> system.EmptyResponse
+	42, // 127: system.System.ListUserRoleOptions:output_type -> system.ListUserRoleOptionsResponse
+	61, // 128: system.System.ListDepartments:output_type -> system.ListDepartmentsResponse
+	63, // 129: system.System.GetDepartment:output_type -> system.GetDepartmentResponse
+	65, // 130: system.System.CreateDepartment:output_type -> system.CreateDepartmentResponse
+	5,  // 131: system.System.UpdateDepartment:output_type -> system.EmptyResponse
+	5,  // 132: system.System.UpdateDepartmentStatus:output_type -> system.EmptyResponse
+	5,  // 133: system.System.DeleteDepartment:output_type -> system.EmptyResponse
+	78, // [78:134] is the sub-list for method output_type
+	22, // [22:78] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_system_proto_init() }
@@ -4773,7 +6327,7 @@ func file_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_system_proto_rawDesc), len(file_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   70,
+			NumMessages:   95,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

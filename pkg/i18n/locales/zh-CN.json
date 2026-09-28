@@ -15,6 +15,14 @@
     "business_error": "业务处理失败"
   },
   "system": {
+    "dictionary": {
+      "not_found": "字典不存在",
+      "code_exists": "字典编码已存在",
+      "has_items": "字典存在字典项，不能删除",
+      "item_not_found": "字典项不存在",
+      "value_exists": "该字典值已存在",
+      "cache_invalidation_failed": "数据已保存，但缓存清理失败，请使用刷新缓存重试"
+    },
     "department": {
       "not_found": "部门不存在",
       "name_exists": "同级部门名称已存在",

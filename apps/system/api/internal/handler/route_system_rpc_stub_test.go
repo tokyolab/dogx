@@ -9,6 +9,7 @@ import (
 )
 
 type routeSystemRPCStub struct {
+	dictionaryRead    *systemclient.ReadDictionariesRequest
 	navigationRequest *systemclient.ListNavigationMenusRequest
 	systemclient.System
 	order                *[]string
@@ -289,3 +290,88 @@ func (s *routeSystemRPCStub) ReplaceRoleMenus(_ context.Context, _ *systemclient
 }
 
 var _ systemclient.System = (*routeSystemRPCStub)(nil)
+
+func (s *routeSystemRPCStub) ListDictionaries(_ context.Context, in *systemclient.ListDictionariesRequest, _ ...grpc.CallOption) (*systemclient.ListDictionariesResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "ListDictionaries"
+
+	return &systemclient.ListDictionariesResponse{Items: []*systemclient.DictionaryInfo{{Id: 7, Name: "来源", Code: "source", Status: 1}, nil}}, nil
+}
+func (s *routeSystemRPCStub) GetDictionary(_ context.Context, in *systemclient.GetDictionaryRequest, _ ...grpc.CallOption) (*systemclient.GetDictionaryResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "GetDictionary"
+
+	return &systemclient.GetDictionaryResponse{Dictionary: &systemclient.DictionaryInfo{Id: 7, Name: "来源", Code: "source", Status: 1, IsPublic: true}}, nil
+}
+func (s *routeSystemRPCStub) CreateDictionary(_ context.Context, in *systemclient.CreateDictionaryRequest, _ ...grpc.CallOption) (*systemclient.CreateDictionaryResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "CreateDictionary"
+
+	return &systemclient.CreateDictionaryResponse{Id: 7}, nil
+}
+func (s *routeSystemRPCStub) UpdateDictionary(_ context.Context, in *systemclient.UpdateDictionaryRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "UpdateDictionary"
+
+	return &systemclient.EmptyResponse{}, nil
+}
+func (s *routeSystemRPCStub) UpdateDictionaryStatus(_ context.Context, in *systemclient.UpdateDictionaryStatusRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "UpdateDictionaryStatus"
+
+	return &systemclient.EmptyResponse{}, nil
+}
+func (s *routeSystemRPCStub) DeleteDictionary(_ context.Context, in *systemclient.DeleteDictionaryRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "DeleteDictionary"
+
+	return &systemclient.EmptyResponse{}, nil
+}
+func (s *routeSystemRPCStub) ListDictionaryItems(_ context.Context, in *systemclient.ListDictionaryItemsRequest, _ ...grpc.CallOption) (*systemclient.ListDictionaryItemsResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "ListDictionaryItems"
+
+	return &systemclient.ListDictionaryItemsResponse{Items: []*systemclient.DictionaryItemInfo{{Id: 8, DictionaryId: 7, Label: "官网", Value: "web", Status: 0}, nil}}, nil
+}
+func (s *routeSystemRPCStub) GetDictionaryItem(_ context.Context, in *systemclient.GetDictionaryItemRequest, _ ...grpc.CallOption) (*systemclient.GetDictionaryItemResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "GetDictionaryItem"
+
+	return &systemclient.GetDictionaryItemResponse{Item: &systemclient.DictionaryItemInfo{Id: 8, DictionaryId: 7, Label: "官网", Value: "web", Sort: 2, Status: 0}}, nil
+}
+func (s *routeSystemRPCStub) CreateDictionaryItem(_ context.Context, in *systemclient.CreateDictionaryItemRequest, _ ...grpc.CallOption) (*systemclient.CreateDictionaryItemResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "CreateDictionaryItem"
+
+	return &systemclient.CreateDictionaryItemResponse{Id: 7}, nil
+}
+func (s *routeSystemRPCStub) UpdateDictionaryItem(_ context.Context, in *systemclient.UpdateDictionaryItemRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "UpdateDictionaryItem"
+
+	return &systemclient.EmptyResponse{}, nil
+}
+func (s *routeSystemRPCStub) UpdateDictionaryItemStatus(_ context.Context, in *systemclient.UpdateDictionaryItemStatusRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "UpdateDictionaryItemStatus"
+
+	return &systemclient.EmptyResponse{}, nil
+}
+func (s *routeSystemRPCStub) DeleteDictionaryItem(_ context.Context, in *systemclient.DeleteDictionaryItemRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "DeleteDictionaryItem"
+
+	return &systemclient.EmptyResponse{}, nil
+}
+func (s *routeSystemRPCStub) ClearDictionaryCache(_ context.Context, in *systemclient.ClearDictionaryCacheRequest, _ ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "ClearDictionaryCache"
+
+	return &systemclient.EmptyResponse{}, nil
+}
+func (s *routeSystemRPCStub) ReadDictionaries(_ context.Context, in *systemclient.ReadDictionariesRequest, _ ...grpc.CallOption) (*systemclient.ReadDictionariesResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "ReadDictionaries"
+	s.dictionaryRead = in
+	return &systemclient.ReadDictionariesResponse{Items: []*systemclient.DictionaryOptions{{Code: "source", Status: 1, Items: []*systemclient.DictionaryOption{{Label: "官网", Value: "web", Status: 0}, nil}}, nil}}, nil
+}

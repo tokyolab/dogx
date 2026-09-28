@@ -15,6 +15,14 @@
     "business_error": "Business operation failed"
   },
   "system": {
+    "dictionary": {
+      "not_found": "Dictionary not found",
+      "code_exists": "Dictionary code already exists",
+      "has_items": "Remove dictionary items before deleting the dictionary",
+      "item_not_found": "Dictionary item not found",
+      "value_exists": "Dictionary value already exists",
+      "cache_invalidation_failed": "Data was saved, but cache invalidation failed. Use Refresh cache to retry"
+    },
     "department": {
       "not_found": "Department not found",
       "name_exists": "A department with this name already exists under the same parent",

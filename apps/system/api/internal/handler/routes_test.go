@@ -69,6 +69,21 @@ type routeSecurityCase struct {
 }
 
 var routeSecurityMatrix = []routeSecurityCase{
+	{name: "ListDictionaries", method: http.MethodPost, path: "/dictionary/list", body: `{}`, level: routeAuthorized, rpcMethod: "ListDictionaries"},
+	{name: "GetDictionary", method: http.MethodPost, path: "/dictionary/get", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "GetDictionary"},
+	{name: "CreateDictionary", method: http.MethodPost, path: "/dictionary/create", body: `{"name":"test","code":"source","remark":"test","status":1,"isPublic":true}`, level: routeAuthorized, rpcMethod: "CreateDictionary"},
+	{name: "UpdateDictionary", method: http.MethodPost, path: "/dictionary/update", body: `{"id":7,"name":"test","remark":"test","isPublic":true}`, level: routeAuthorized, rpcMethod: "UpdateDictionary"},
+	{name: "UpdateDictionaryStatus", method: http.MethodPost, path: "/dictionary/status/update", body: `{"id":7,"status":1}`, level: routeAuthorized, rpcMethod: "UpdateDictionaryStatus"},
+	{name: "DeleteDictionary", method: http.MethodPost, path: "/dictionary/delete", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "DeleteDictionary"},
+	{name: "ListDictionaryItems", method: http.MethodPost, path: "/dictionary/item/list", body: `{"dictionaryId":7}`, level: routeAuthorized, rpcMethod: "ListDictionaryItems"},
+	{name: "GetDictionaryItem", method: http.MethodPost, path: "/dictionary/item/get", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "GetDictionaryItem"},
+	{name: "CreateDictionaryItem", method: http.MethodPost, path: "/dictionary/item/create", body: `{"dictionaryId":7,"label":"test","value":"test","sort":7,"remark":"test","status":1}`, level: routeAuthorized, rpcMethod: "CreateDictionaryItem"},
+	{name: "UpdateDictionaryItem", method: http.MethodPost, path: "/dictionary/item/update", body: `{"id":7,"label":"test","sort":7,"remark":"test"}`, level: routeAuthorized, rpcMethod: "UpdateDictionaryItem"},
+	{name: "UpdateDictionaryItemStatus", method: http.MethodPost, path: "/dictionary/item/status/update", body: `{"id":7,"status":1}`, level: routeAuthorized, rpcMethod: "UpdateDictionaryItemStatus"},
+	{name: "DeleteDictionaryItem", method: http.MethodPost, path: "/dictionary/item/delete", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "DeleteDictionaryItem"},
+	{name: "ClearDictionaryCache", method: http.MethodPost, path: "/dictionary/cache/clear", body: `{}`, level: routeAuthorized, rpcMethod: "ClearDictionaryCache"},
+	{name: "ReadDictionaries", method: http.MethodPost, path: "/dictionary/read", body: `{"codes":["source"]}`, level: routeAuthenticated, rpcMethod: "ReadDictionaries"},
+	{name: "public dictionary malformed", method: http.MethodPost, path: "/dictionary/public/read", body: `{"codes":`, level: routePublic, publicStatus: http.StatusBadRequest},
 	{name: "role menu get", method: http.MethodPost, path: "/role/menu/get", body: `{"roleId":9}`, level: routeAuthorized, rpcMethod: "GetRoleMenus"},
 	{name: "role menu update", method: http.MethodPost, path: "/role/menu/update", body: `{"roleId":9,"menuIds":[11,12]}`, level: routeAuthorized, rpcMethod: "ReplaceRoleMenus"},
 	{name: "menu list", method: http.MethodPost, path: "/menu/list", level: routeAuthorized, rpcMethod: "ListMenus"},

@@ -8,6 +8,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
 	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
+	"github.com/tokyolab/dogx/apps/system/internal/dictcache"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/health"
@@ -30,22 +31,25 @@ type RolePolicyService interface {
 }
 
 type ServiceContext struct {
-	Config         config.Config
-	DB             *gorm.DB
-	Redis          *redis.Redis
-	UserRepo       repository.UserRepository
-	DepartmentRepo repository.DepartmentRepository
-	RoleRepo       repository.RoleRepository
-	MenuRepo       repository.MenuRepository
-	RoleMenuRepo   repository.RoleMenuRepository
-	APIRepo        repository.APIRepository
-	LoginLogRepo   repository.LoginLogRepository
-	Passwords      authn.PasswordHasher
-	Tokens         authn.CredentialIssuer
-	RefreshTokens  authn.CredentialRefresher
-	Sessions       authn.SessionStore
-	RolePolicies   RolePolicyService
-	Readiness      ReadinessChecker
+	DictionaryRepo     repository.DictionaryRepository
+	DictionaryItemRepo repository.DictionaryItemRepository
+	DictionaryCache    dictcache.Store
+	Config             config.Config
+	DB                 *gorm.DB
+	Redis              *redis.Redis
+	UserRepo           repository.UserRepository
+	DepartmentRepo     repository.DepartmentRepository
+	RoleRepo           repository.RoleRepository
+	MenuRepo           repository.MenuRepository
+	RoleMenuRepo       repository.RoleMenuRepository
+	APIRepo            repository.APIRepository
+	LoginLogRepo       repository.LoginLogRepository
+	Passwords          authn.PasswordHasher
+	Tokens             authn.CredentialIssuer
+	RefreshTokens      authn.CredentialRefresher
+	Sessions           authn.SessionStore
+	RolePolicies       RolePolicyService
+	Readiness          ReadinessChecker
 
 	policyPublisher authorization.PolicyWatcher
 	sqlDB           *sql.DB
@@ -138,26 +142,39 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		return nil, fmt.Errorf("initialize token issuer: %w", err)
 	}
 
+	dictionaryRepo, err := repository.NewDictionaryRepository(database)
+	if err != nil {
+		_ = sqlDB.Close()
+		return nil, err
+	}
+	dictionaryItemRepo, err := repository.NewDictionaryItemRepository(database)
+	if err != nil {
+		_ = sqlDB.Close()
+		return nil, err
+	}
 	closePublisher = false
 	return &ServiceContext{
-		Config:          c,
-		DB:              database,
-		Redis:           redisClient,
-		UserRepo:        userRepo,
-		DepartmentRepo:  departmentRepo,
-		RoleRepo:        roleRepo,
-		MenuRepo:        menuRepo,
-		RoleMenuRepo:    roleMenuRepo,
-		APIRepo:         apiRepo,
-		LoginLogRepo:    loginLogRepo,
-		Passwords:       passwords,
-		Tokens:          tokenIssuer,
-		RefreshTokens:   tokenIssuer,
-		Sessions:        sessionStore,
-		RolePolicies:    rolePolicies,
-		Readiness:       health.NewReadiness(sqlDB, redisClient),
-		policyPublisher: policyPublisher,
-		sqlDB:           sqlDB,
+		DictionaryRepo:     dictionaryRepo,
+		DictionaryItemRepo: dictionaryItemRepo,
+		DictionaryCache:    dictcache.New(redisClient),
+		Config:             c,
+		DB:                 database,
+		Redis:              redisClient,
+		UserRepo:           userRepo,
+		DepartmentRepo:     departmentRepo,
+		RoleRepo:           roleRepo,
+		MenuRepo:           menuRepo,
+		RoleMenuRepo:       roleMenuRepo,
+		APIRepo:            apiRepo,
+		LoginLogRepo:       loginLogRepo,
+		Passwords:          passwords,
+		Tokens:             tokenIssuer,
+		RefreshTokens:      tokenIssuer,
+		Sessions:           sessionStore,
+		RolePolicies:       rolePolicies,
+		Readiness:          health.NewReadiness(sqlDB, redisClient),
+		policyPublisher:    policyPublisher,
+		sqlDB:              sqlDB,
 	}, nil
 }
 

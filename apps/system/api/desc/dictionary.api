@@ -1,0 +1,177 @@
+import "base.api"
+
+type (
+ DictionaryInfo {
+  Id int64 `json:"id"`
+  Name string `json:"name"`
+  Code string `json:"code"`
+  Remark string `json:"remark"`
+  Status int32 `json:"status"`
+  IsPublic bool `json:"isPublic"`
+  CreatedAt string `json:"createdAt"`
+  UpdatedAt string `json:"updatedAt"`
+ }
+ DictionaryItemInfo {
+  Id int64 `json:"id"`
+  DictionaryId int64 `json:"dictionaryId"`
+  Label string `json:"label"`
+  Value string `json:"value"`
+  Sort int32 `json:"sort"`
+  Remark string `json:"remark"`
+  Status int32 `json:"status"`
+  CreatedAt string `json:"createdAt"`
+  UpdatedAt string `json:"updatedAt"`
+ }
+ ListDictionariesResp {
+  Items []DictionaryInfo `json:"items"`
+ }
+ GetDictionaryReq {
+  Id int64 `json:"id" validate:"gt=0"`
+ }
+ GetDictionaryResp {
+  Dictionary DictionaryInfo `json:"dictionary"`
+ }
+ CreateDictionaryReq {
+  Name string `json:"name" validate:"required,max=128"`
+  Code string `json:"code" validate:"required,max=64"`
+  Remark string `json:"remark,optional" validate:"max=500"`
+  Status int32 `json:"status" validate:"oneof=0 1"`
+  IsPublic bool `json:"isPublic"`
+ }
+ CreateDictionaryResp {
+  Id int64 `json:"id"`
+ }
+ UpdateDictionaryReq {
+  Id int64 `json:"id" validate:"gt=0"`
+  Name string `json:"name" validate:"required,max=128"`
+  Remark string `json:"remark,optional" validate:"max=500"`
+  IsPublic bool `json:"isPublic"`
+ }
+ UpdateDictionaryStatusReq {
+  Id int64 `json:"id" validate:"gt=0"`
+  Status int32 `json:"status" validate:"oneof=0 1"`
+ }
+ DeleteDictionaryReq {
+  Id int64 `json:"id" validate:"gt=0"`
+ }
+ ListDictionaryItemsReq {
+  DictionaryId int64 `json:"dictionaryId" validate:"gt=0"`
+ }
+ ListDictionaryItemsResp {
+  Items []DictionaryItemInfo `json:"items"`
+ }
+ GetDictionaryItemReq {
+  Id int64 `json:"id" validate:"gt=0"`
+ }
+ GetDictionaryItemResp {
+  Item DictionaryItemInfo `json:"item"`
+ }
+ CreateDictionaryItemReq {
+  DictionaryId int64 `json:"dictionaryId" validate:"gt=0"`
+  Label string `json:"label" validate:"required,max=128"`
+  Value string `json:"value" validate:"required,max=128"`
+  Sort int32 `json:"sort" validate:"gte=0"`
+  Remark string `json:"remark,optional" validate:"max=500"`
+  Status int32 `json:"status" validate:"oneof=0 1"`
+ }
+ CreateDictionaryItemResp {
+  Id int64 `json:"id"`
+ }
+ UpdateDictionaryItemReq {
+  Id int64 `json:"id" validate:"gt=0"`
+  Label string `json:"label" validate:"required,max=128"`
+  Sort int32 `json:"sort" validate:"gte=0"`
+  Remark string `json:"remark,optional" validate:"max=500"`
+ }
+ UpdateDictionaryItemStatusReq {
+  Id int64 `json:"id" validate:"gt=0"`
+  Status int32 `json:"status" validate:"oneof=0 1"`
+ }
+ DeleteDictionaryItemReq {
+  Id int64 `json:"id" validate:"gt=0"`
+ }
+ ReadDictionariesReq {
+  Codes []string `json:"codes" validate:"required,min=1,max=50,dive,required,max=64"`
+ }
+ DictionaryOption {
+  Label string `json:"label"`
+  Value string `json:"value"`
+  Sort int32 `json:"sort"`
+  Status int32 `json:"status"`
+ }
+ DictionaryOptions {
+  Code string `json:"code"`
+  Status int32 `json:"status"`
+  Items []DictionaryOption `json:"items"`
+ }
+ ReadDictionariesResp {
+  Items []DictionaryOptions `json:"items"`
+ }
+)
+
+@server (
+ group: dictionary
+ jwt: Auth
+ middleware: SessionAuth, Authorization
+)
+service system-api {
+ @handler listDictionaries
+ post /dictionary/list returns (ListDictionariesResp)
+
+ @handler getDictionary
+ post /dictionary/get (GetDictionaryReq) returns (GetDictionaryResp)
+
+ @handler createDictionary
+ post /dictionary/create (CreateDictionaryReq) returns (CreateDictionaryResp)
+
+ @handler updateDictionary
+ post /dictionary/update (UpdateDictionaryReq) returns (EmptyResp)
+
+ @handler updateDictionaryStatus
+ post /dictionary/status/update (UpdateDictionaryStatusReq) returns (EmptyResp)
+
+ @handler deleteDictionary
+ post /dictionary/delete (DeleteDictionaryReq) returns (EmptyResp)
+
+ @handler listDictionaryItems
+ post /dictionary/item/list (ListDictionaryItemsReq) returns (ListDictionaryItemsResp)
+
+ @handler getDictionaryItem
+ post /dictionary/item/get (GetDictionaryItemReq) returns (GetDictionaryItemResp)
+
+ @handler createDictionaryItem
+ post /dictionary/item/create (CreateDictionaryItemReq) returns (CreateDictionaryItemResp)
+
+ @handler updateDictionaryItem
+ post /dictionary/item/update (UpdateDictionaryItemReq) returns (EmptyResp)
+
+ @handler updateDictionaryItemStatus
+ post /dictionary/item/status/update (UpdateDictionaryItemStatusReq) returns (EmptyResp)
+
+ @handler deleteDictionaryItem
+ post /dictionary/item/delete (DeleteDictionaryItemReq) returns (EmptyResp)
+
+ @handler clearDictionaryCache
+ post /dictionary/cache/clear returns (EmptyResp)
+
+}
+
+@server (
+ group: dictionary
+ jwt: Auth
+ middleware: SessionAuth
+)
+service system-api {
+ @handler readDictionaries
+ post /dictionary/read (ReadDictionariesReq) returns (ReadDictionariesResp)
+
+}
+
+@server (
+ group: dictionary
+)
+service system-api {
+ @handler readPublicDictionaries
+ post /dictionary/public/read (ReadDictionariesReq) returns (ReadDictionariesResp)
+
+}

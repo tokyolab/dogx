@@ -9,6 +9,7 @@ import (
 	api "github.com/tokyolab/dogx/apps/system/api/internal/handler/api"
 	auth "github.com/tokyolab/dogx/apps/system/api/internal/handler/auth"
 	department "github.com/tokyolab/dogx/apps/system/api/internal/handler/department"
+	dictionary "github.com/tokyolab/dogx/apps/system/api/internal/handler/dictionary"
 	health "github.com/tokyolab/dogx/apps/system/api/internal/handler/health"
 	menu "github.com/tokyolab/dogx/apps/system/api/internal/handler/menu"
 	role "github.com/tokyolab/dogx/apps/system/api/internal/handler/role"
@@ -137,6 +138,104 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/cache/clear",
+					Handler: dictionary.ClearDictionaryCacheHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/create",
+					Handler: dictionary.CreateDictionaryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/delete",
+					Handler: dictionary.DeleteDictionaryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/get",
+					Handler: dictionary.GetDictionaryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/item/create",
+					Handler: dictionary.CreateDictionaryItemHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/item/delete",
+					Handler: dictionary.DeleteDictionaryItemHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/item/get",
+					Handler: dictionary.GetDictionaryItemHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/item/list",
+					Handler: dictionary.ListDictionaryItemsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/item/status/update",
+					Handler: dictionary.UpdateDictionaryItemStatusHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/item/update",
+					Handler: dictionary.UpdateDictionaryItemHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/list",
+					Handler: dictionary.ListDictionariesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/status/update",
+					Handler: dictionary.UpdateDictionaryStatusHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/update",
+					Handler: dictionary.UpdateDictionaryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/dictionary/read",
+					Handler: dictionary.ReadDictionariesHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/dictionary/public/read",
+				Handler: dictionary.ReadPublicDictionariesHandler(serverCtx),
+			},
+		},
 	)
 
 	server.AddRoutes(
