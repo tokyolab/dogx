@@ -23,6 +23,12 @@ type routeSystemRPCStub struct {
 	updateProfileRequest *systemclient.UpdateProfileRequest
 }
 
+func (s *routeSystemRPCStub) ListLoginLogs(context.Context, *systemclient.ListLoginLogsRequest, ...grpc.CallOption) (*systemclient.ListLoginLogsResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "ListLoginLogs"
+	return &systemclient.ListLoginLogsResponse{}, nil
+}
+
 func (s *routeSystemRPCStub) GetProfile(_ context.Context, req *systemclient.CurrentUserRequest, _ ...grpc.CallOption) (*systemclient.ProfileResponse, error) {
 	*s.order = append(*s.order, "rpc")
 	s.profileRequest = req

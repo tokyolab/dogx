@@ -20,8 +20,14 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 17 {
-		t.Fatalf("unexpected migration count: got %d, want 17", len(sources))
+	if len(sources) != 19 {
+		t.Fatalf("unexpected migration count: got %d, want 19", len(sources))
+	}
+	if sources[18].Version != 20260929072931 {
+		t.Fatalf("unexpected login log icon migration: %+v", sources[18])
+	}
+	if sources[17].Version != 20260929061655 {
+		t.Fatalf("unexpected login log query migration: %+v", sources[17])
 	}
 	if sources[16].Version != 20260928120000 {
 		t.Fatalf("unexpected dictionary migration: %+v", sources[16])

@@ -67,6 +67,8 @@ type (
 	ListDictionariesResponse          = system.ListDictionariesResponse
 	ListDictionaryItemsRequest        = system.ListDictionaryItemsRequest
 	ListDictionaryItemsResponse       = system.ListDictionaryItemsResponse
+	ListLoginLogsRequest              = system.ListLoginLogsRequest
+	ListLoginLogsResponse             = system.ListLoginLogsResponse
 	ListMenusRequest                  = system.ListMenusRequest
 	ListMenusResponse                 = system.ListMenusResponse
 	ListNavigationMenusRequest        = system.ListNavigationMenusRequest
@@ -76,6 +78,7 @@ type (
 	ListUserRoleOptionsResponse       = system.ListUserRoleOptionsResponse
 	ListUsersRequest                  = system.ListUsersRequest
 	ListUsersResponse                 = system.ListUsersResponse
+	LoginLogInfo                      = system.LoginLogInfo
 	LoginRequest                      = system.LoginRequest
 	LoginResponse                     = system.LoginResponse
 	MenuFields                        = system.MenuFields
@@ -111,6 +114,7 @@ type (
 	UserRoleInfo                      = system.UserRoleInfo
 
 	System interface {
+		ListLoginLogs(ctx context.Context, in *ListLoginLogsRequest, opts ...grpc.CallOption) (*ListLoginLogsResponse, error)
 		ListDictionaries(ctx context.Context, in *ListDictionariesRequest, opts ...grpc.CallOption) (*ListDictionariesResponse, error)
 		GetDictionary(ctx context.Context, in *GetDictionaryRequest, opts ...grpc.CallOption) (*GetDictionaryResponse, error)
 		CreateDictionary(ctx context.Context, in *CreateDictionaryRequest, opts ...grpc.CallOption) (*CreateDictionaryResponse, error)
@@ -178,6 +182,11 @@ func NewSystem(cli zrpc.Client) System {
 	return &defaultSystem{
 		cli: cli,
 	}
+}
+
+func (m *defaultSystem) ListLoginLogs(ctx context.Context, in *ListLoginLogsRequest, opts ...grpc.CallOption) (*ListLoginLogsResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.ListLoginLogs(ctx, in, opts...)
 }
 
 func (m *defaultSystem) ListDictionaries(ctx context.Context, in *ListDictionariesRequest, opts ...grpc.CallOption) (*ListDictionariesResponse, error) {

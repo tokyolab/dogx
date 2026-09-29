@@ -231,6 +231,28 @@ type ListDictionaryItemsResp struct {
 	Items []DictionaryItemInfo `json:"items"`
 }
 
+type LoginLogItem struct {
+	Id            int64  `json:"id"`
+	Username      string `json:"username"`
+	Success       bool   `json:"success"`
+	FailureReason string `json:"failureReason"`
+	IpAddress     string `json:"ipAddress"`
+	UserAgent     string `json:"userAgent"`
+	CreatedAt     string `json:"createdAt"`
+}
+
+type LoginLogListReq struct {
+	Page     int64  `json:"page" validate:"gte=1"`
+	PageSize int64  `json:"pageSize" validate:"gte=1,lte=200"`
+	Username string `json:"username,optional" validate:"max=64"`
+	Result   string `json:"result,optional" validate:"omitempty,oneof=success failure"`
+}
+
+type LoginLogListResp struct {
+	Items []LoginLogItem `json:"items"`
+	Total int64          `json:"total"`
+}
+
 type LoginReq struct {
 	Username string `json:"username" validate:"required,max=64"`
 	Password string `json:"password" validate:"required,max=72"`

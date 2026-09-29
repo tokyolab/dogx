@@ -5586,6 +5586,218 @@ func (x *ReadDictionariesResponse) GetItems() []*DictionaryOptions {
 	return nil
 }
 
+type ListLoginLogsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Page          int64                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int64                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	Username      string                 `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"`
+	Result        string                 `protobuf:"bytes,4,opt,name=result,proto3" json:"result,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLoginLogsRequest) Reset() {
+	*x = ListLoginLogsRequest{}
+	mi := &file_system_proto_msgTypes[95]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLoginLogsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLoginLogsRequest) ProtoMessage() {}
+
+func (x *ListLoginLogsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[95]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLoginLogsRequest.ProtoReflect.Descriptor instead.
+func (*ListLoginLogsRequest) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{95}
+}
+
+func (x *ListLoginLogsRequest) GetPage() int64 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListLoginLogsRequest) GetPageSize() int64 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListLoginLogsRequest) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *ListLoginLogsRequest) GetResult() string {
+	if x != nil {
+		return x.Result
+	}
+	return ""
+}
+
+type LoginLogInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Success       bool                   `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	FailureReason string                 `protobuf:"bytes,4,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
+	IpAddress     string                 `protobuf:"bytes,5,opt,name=ip_address,json=ipAddress,proto3" json:"ip_address,omitempty"`
+	UserAgent     string                 `protobuf:"bytes,6,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoginLogInfo) Reset() {
+	*x = LoginLogInfo{}
+	mi := &file_system_proto_msgTypes[96]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoginLogInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoginLogInfo) ProtoMessage() {}
+
+func (x *LoginLogInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[96]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoginLogInfo.ProtoReflect.Descriptor instead.
+func (*LoginLogInfo) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{96}
+}
+
+func (x *LoginLogInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *LoginLogInfo) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *LoginLogInfo) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *LoginLogInfo) GetFailureReason() string {
+	if x != nil {
+		return x.FailureReason
+	}
+	return ""
+}
+
+func (x *LoginLogInfo) GetIpAddress() string {
+	if x != nil {
+		return x.IpAddress
+	}
+	return ""
+}
+
+func (x *LoginLogInfo) GetUserAgent() string {
+	if x != nil {
+		return x.UserAgent
+	}
+	return ""
+}
+
+func (x *LoginLogInfo) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type ListLoginLogsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*LoginLogInfo        `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Total         int64                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLoginLogsResponse) Reset() {
+	*x = ListLoginLogsResponse{}
+	mi := &file_system_proto_msgTypes[97]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLoginLogsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLoginLogsResponse) ProtoMessage() {}
+
+func (x *ListLoginLogsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_system_proto_msgTypes[97]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLoginLogsResponse.ProtoReflect.Descriptor instead.
+func (*ListLoginLogsResponse) Descriptor() ([]byte, []int) {
+	return file_system_proto_rawDescGZIP(), []int{97}
+}
+
+func (x *ListLoginLogsResponse) GetItems() []*LoginLogInfo {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *ListLoginLogsResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
 var File_system_proto protoreflect.FileDescriptor
 
 const file_system_proto_rawDesc = "" +
@@ -5992,8 +6204,28 @@ const file_system_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\x05R\x06status\x12.\n" +
 	"\x05items\x18\x03 \x03(\v2\x18.system.DictionaryOptionR\x05items\"K\n" +
 	"\x18ReadDictionariesResponse\x12/\n" +
-	"\x05items\x18\x01 \x03(\v2\x19.system.DictionaryOptionsR\x05items2\x85!\n" +
-	"\x06System\x12U\n" +
+	"\x05items\x18\x01 \x03(\v2\x19.system.DictionaryOptionsR\x05items\"{\n" +
+	"\x14ListLoginLogsRequest\x12\x12\n" +
+	"\x04page\x18\x01 \x01(\x03R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x03R\bpageSize\x12\x1a\n" +
+	"\busername\x18\x03 \x01(\tR\busername\x12\x16\n" +
+	"\x06result\x18\x04 \x01(\tR\x06result\"\xd8\x01\n" +
+	"\fLoginLogInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x18\n" +
+	"\asuccess\x18\x03 \x01(\bR\asuccess\x12%\n" +
+	"\x0efailure_reason\x18\x04 \x01(\tR\rfailureReason\x12\x1d\n" +
+	"\n" +
+	"ip_address\x18\x05 \x01(\tR\tipAddress\x12\x1d\n" +
+	"\n" +
+	"user_agent\x18\x06 \x01(\tR\tuserAgent\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAt\"Y\n" +
+	"\x15ListLoginLogsResponse\x12*\n" +
+	"\x05items\x18\x01 \x03(\v2\x14.system.LoginLogInfoR\x05items\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x03R\x05total2\xd3!\n" +
+	"\x06System\x12L\n" +
+	"\rListLoginLogs\x12\x1c.system.ListLoginLogsRequest\x1a\x1d.system.ListLoginLogsResponse\x12U\n" +
 	"\x10ListDictionaries\x12\x1f.system.ListDictionariesRequest\x1a .system.ListDictionariesResponse\x12L\n" +
 	"\rGetDictionary\x12\x1c.system.GetDictionaryRequest\x1a\x1d.system.GetDictionaryResponse\x12U\n" +
 	"\x10CreateDictionary\x12\x1f.system.CreateDictionaryRequest\x1a .system.CreateDictionaryResponse\x12J\n" +
@@ -6075,7 +6307,7 @@ func file_system_proto_rawDescGZIP() []byte {
 	return file_system_proto_rawDescData
 }
 
-var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 95)
+var file_system_proto_msgTypes = make([]protoimpl.MessageInfo, 98)
 var file_system_proto_goTypes = []any{
 	(*ReadyRequest)(nil),                      // 0: system.ReadyRequest
 	(*ReadyResponse)(nil),                     // 1: system.ReadyResponse
@@ -6172,6 +6404,9 @@ var file_system_proto_goTypes = []any{
 	(*DictionaryOption)(nil),                  // 92: system.DictionaryOption
 	(*DictionaryOptions)(nil),                 // 93: system.DictionaryOptions
 	(*ReadDictionariesResponse)(nil),          // 94: system.ReadDictionariesResponse
+	(*ListLoginLogsRequest)(nil),              // 95: system.ListLoginLogsRequest
+	(*LoginLogInfo)(nil),                      // 96: system.LoginLogInfo
+	(*ListLoginLogsResponse)(nil),             // 97: system.ListLoginLogsResponse
 }
 var file_system_proto_depIdxs = []int32{
 	15, // 0: system.ListRolesResponse.items:type_name -> system.RoleInfo
@@ -6196,123 +6431,126 @@ var file_system_proto_depIdxs = []int32{
 	72, // 19: system.GetDictionaryItemResponse.item:type_name -> system.DictionaryItemInfo
 	92, // 20: system.DictionaryOptions.items:type_name -> system.DictionaryOption
 	93, // 21: system.ReadDictionariesResponse.items:type_name -> system.DictionaryOptions
-	73, // 22: system.System.ListDictionaries:input_type -> system.ListDictionariesRequest
-	75, // 23: system.System.GetDictionary:input_type -> system.GetDictionaryRequest
-	77, // 24: system.System.CreateDictionary:input_type -> system.CreateDictionaryRequest
-	79, // 25: system.System.UpdateDictionary:input_type -> system.UpdateDictionaryRequest
-	80, // 26: system.System.UpdateDictionaryStatus:input_type -> system.UpdateDictionaryStatusRequest
-	81, // 27: system.System.DeleteDictionary:input_type -> system.DeleteDictionaryRequest
-	82, // 28: system.System.ListDictionaryItems:input_type -> system.ListDictionaryItemsRequest
-	84, // 29: system.System.GetDictionaryItem:input_type -> system.GetDictionaryItemRequest
-	86, // 30: system.System.CreateDictionaryItem:input_type -> system.CreateDictionaryItemRequest
-	88, // 31: system.System.UpdateDictionaryItem:input_type -> system.UpdateDictionaryItemRequest
-	89, // 32: system.System.UpdateDictionaryItemStatus:input_type -> system.UpdateDictionaryItemStatusRequest
-	90, // 33: system.System.DeleteDictionaryItem:input_type -> system.DeleteDictionaryItemRequest
-	70, // 34: system.System.ClearDictionaryCache:input_type -> system.ClearDictionaryCacheRequest
-	91, // 35: system.System.ReadDictionaries:input_type -> system.ReadDictionariesRequest
-	6,  // 36: system.System.GetProfile:input_type -> system.CurrentUserRequest
-	8,  // 37: system.System.UpdateProfile:input_type -> system.UpdateProfileRequest
-	55, // 38: system.System.GetRoleMenus:input_type -> system.GetRoleMenusRequest
-	57, // 39: system.System.ReplaceRoleMenus:input_type -> system.ReplaceRoleMenusRequest
-	54, // 40: system.System.ListNavigationMenus:input_type -> system.ListNavigationMenusRequest
-	45, // 41: system.System.ListMenus:input_type -> system.ListMenusRequest
-	47, // 42: system.System.GetMenu:input_type -> system.GetMenuRequest
-	49, // 43: system.System.CreateMenu:input_type -> system.CreateMenuRequest
-	51, // 44: system.System.UpdateMenu:input_type -> system.UpdateMenuRequest
-	52, // 45: system.System.UpdateMenuStatus:input_type -> system.UpdateMenuStatusRequest
-	53, // 46: system.System.DeleteMenu:input_type -> system.DeleteMenuRequest
-	0,  // 47: system.System.CheckReady:input_type -> system.ReadyRequest
-	2,  // 48: system.System.Login:input_type -> system.LoginRequest
-	4,  // 49: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
-	6,  // 50: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
-	10, // 51: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
-	11, // 52: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
-	12, // 53: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
-	16, // 54: system.System.CreateRole:input_type -> system.CreateRoleRequest
-	14, // 55: system.System.ListRoles:input_type -> system.ListRolesRequest
-	22, // 56: system.System.GetRole:input_type -> system.GetRoleRequest
-	18, // 57: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
-	19, // 58: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
-	20, // 59: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
-	24, // 60: system.System.ListAPIs:input_type -> system.ListAPIsRequest
-	27, // 61: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
-	13, // 62: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
-	31, // 63: system.System.ListUsers:input_type -> system.ListUsersRequest
-	33, // 64: system.System.GetUser:input_type -> system.GetUserRequest
-	35, // 65: system.System.CreateUser:input_type -> system.CreateUserRequest
-	37, // 66: system.System.UpdateUser:input_type -> system.UpdateUserRequest
-	38, // 67: system.System.UpdateUserStatus:input_type -> system.UpdateUserStatusRequest
-	39, // 68: system.System.DeleteUser:input_type -> system.DeleteUserRequest
-	40, // 69: system.System.ReplaceUserRoles:input_type -> system.ReplaceUserRolesRequest
-	41, // 70: system.System.ResetUserPassword:input_type -> system.ResetUserPasswordRequest
-	14, // 71: system.System.ListUserRoleOptions:input_type -> system.ListRolesRequest
-	60, // 72: system.System.ListDepartments:input_type -> system.ListDepartmentsRequest
-	62, // 73: system.System.GetDepartment:input_type -> system.GetDepartmentRequest
-	64, // 74: system.System.CreateDepartment:input_type -> system.CreateDepartmentRequest
-	66, // 75: system.System.UpdateDepartment:input_type -> system.UpdateDepartmentRequest
-	67, // 76: system.System.UpdateDepartmentStatus:input_type -> system.UpdateDepartmentStatusRequest
-	68, // 77: system.System.DeleteDepartment:input_type -> system.DeleteDepartmentRequest
-	74, // 78: system.System.ListDictionaries:output_type -> system.ListDictionariesResponse
-	76, // 79: system.System.GetDictionary:output_type -> system.GetDictionaryResponse
-	78, // 80: system.System.CreateDictionary:output_type -> system.CreateDictionaryResponse
-	5,  // 81: system.System.UpdateDictionary:output_type -> system.EmptyResponse
-	5,  // 82: system.System.UpdateDictionaryStatus:output_type -> system.EmptyResponse
-	5,  // 83: system.System.DeleteDictionary:output_type -> system.EmptyResponse
-	83, // 84: system.System.ListDictionaryItems:output_type -> system.ListDictionaryItemsResponse
-	85, // 85: system.System.GetDictionaryItem:output_type -> system.GetDictionaryItemResponse
-	87, // 86: system.System.CreateDictionaryItem:output_type -> system.CreateDictionaryItemResponse
-	5,  // 87: system.System.UpdateDictionaryItem:output_type -> system.EmptyResponse
-	5,  // 88: system.System.UpdateDictionaryItemStatus:output_type -> system.EmptyResponse
-	5,  // 89: system.System.DeleteDictionaryItem:output_type -> system.EmptyResponse
-	5,  // 90: system.System.ClearDictionaryCache:output_type -> system.EmptyResponse
-	94, // 91: system.System.ReadDictionaries:output_type -> system.ReadDictionariesResponse
-	7,  // 92: system.System.GetProfile:output_type -> system.ProfileResponse
-	5,  // 93: system.System.UpdateProfile:output_type -> system.EmptyResponse
-	56, // 94: system.System.GetRoleMenus:output_type -> system.GetRoleMenusResponse
-	5,  // 95: system.System.ReplaceRoleMenus:output_type -> system.EmptyResponse
-	69, // 96: system.System.ListNavigationMenus:output_type -> system.ListNavigationMenusResponse
-	46, // 97: system.System.ListMenus:output_type -> system.ListMenusResponse
-	48, // 98: system.System.GetMenu:output_type -> system.GetMenuResponse
-	50, // 99: system.System.CreateMenu:output_type -> system.CreateMenuResponse
-	5,  // 100: system.System.UpdateMenu:output_type -> system.EmptyResponse
-	5,  // 101: system.System.UpdateMenuStatus:output_type -> system.EmptyResponse
-	5,  // 102: system.System.DeleteMenu:output_type -> system.EmptyResponse
-	1,  // 103: system.System.CheckReady:output_type -> system.ReadyResponse
-	3,  // 104: system.System.Login:output_type -> system.LoginResponse
-	3,  // 105: system.System.RefreshCredentials:output_type -> system.LoginResponse
-	9,  // 106: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
-	5,  // 107: system.System.RevokeSession:output_type -> system.EmptyResponse
-	5,  // 108: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
-	5,  // 109: system.System.ChangePassword:output_type -> system.EmptyResponse
-	17, // 110: system.System.CreateRole:output_type -> system.CreateRoleResponse
-	21, // 111: system.System.ListRoles:output_type -> system.ListRolesResponse
-	23, // 112: system.System.GetRole:output_type -> system.GetRoleResponse
-	5,  // 113: system.System.UpdateRole:output_type -> system.EmptyResponse
-	5,  // 114: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
-	5,  // 115: system.System.DeleteRole:output_type -> system.EmptyResponse
-	26, // 116: system.System.ListAPIs:output_type -> system.ListAPIsResponse
-	28, // 117: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
-	5,  // 118: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
-	32, // 119: system.System.ListUsers:output_type -> system.ListUsersResponse
-	34, // 120: system.System.GetUser:output_type -> system.GetUserResponse
-	36, // 121: system.System.CreateUser:output_type -> system.CreateUserResponse
-	5,  // 122: system.System.UpdateUser:output_type -> system.EmptyResponse
-	5,  // 123: system.System.UpdateUserStatus:output_type -> system.EmptyResponse
-	5,  // 124: system.System.DeleteUser:output_type -> system.EmptyResponse
-	5,  // 125: system.System.ReplaceUserRoles:output_type -> system.EmptyResponse
-	5,  // 126: system.System.ResetUserPassword:output_type -> system.EmptyResponse
-	42, // 127: system.System.ListUserRoleOptions:output_type -> system.ListUserRoleOptionsResponse
-	61, // 128: system.System.ListDepartments:output_type -> system.ListDepartmentsResponse
-	63, // 129: system.System.GetDepartment:output_type -> system.GetDepartmentResponse
-	65, // 130: system.System.CreateDepartment:output_type -> system.CreateDepartmentResponse
-	5,  // 131: system.System.UpdateDepartment:output_type -> system.EmptyResponse
-	5,  // 132: system.System.UpdateDepartmentStatus:output_type -> system.EmptyResponse
-	5,  // 133: system.System.DeleteDepartment:output_type -> system.EmptyResponse
-	78, // [78:134] is the sub-list for method output_type
-	22, // [22:78] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	96, // 22: system.ListLoginLogsResponse.items:type_name -> system.LoginLogInfo
+	95, // 23: system.System.ListLoginLogs:input_type -> system.ListLoginLogsRequest
+	73, // 24: system.System.ListDictionaries:input_type -> system.ListDictionariesRequest
+	75, // 25: system.System.GetDictionary:input_type -> system.GetDictionaryRequest
+	77, // 26: system.System.CreateDictionary:input_type -> system.CreateDictionaryRequest
+	79, // 27: system.System.UpdateDictionary:input_type -> system.UpdateDictionaryRequest
+	80, // 28: system.System.UpdateDictionaryStatus:input_type -> system.UpdateDictionaryStatusRequest
+	81, // 29: system.System.DeleteDictionary:input_type -> system.DeleteDictionaryRequest
+	82, // 30: system.System.ListDictionaryItems:input_type -> system.ListDictionaryItemsRequest
+	84, // 31: system.System.GetDictionaryItem:input_type -> system.GetDictionaryItemRequest
+	86, // 32: system.System.CreateDictionaryItem:input_type -> system.CreateDictionaryItemRequest
+	88, // 33: system.System.UpdateDictionaryItem:input_type -> system.UpdateDictionaryItemRequest
+	89, // 34: system.System.UpdateDictionaryItemStatus:input_type -> system.UpdateDictionaryItemStatusRequest
+	90, // 35: system.System.DeleteDictionaryItem:input_type -> system.DeleteDictionaryItemRequest
+	70, // 36: system.System.ClearDictionaryCache:input_type -> system.ClearDictionaryCacheRequest
+	91, // 37: system.System.ReadDictionaries:input_type -> system.ReadDictionariesRequest
+	6,  // 38: system.System.GetProfile:input_type -> system.CurrentUserRequest
+	8,  // 39: system.System.UpdateProfile:input_type -> system.UpdateProfileRequest
+	55, // 40: system.System.GetRoleMenus:input_type -> system.GetRoleMenusRequest
+	57, // 41: system.System.ReplaceRoleMenus:input_type -> system.ReplaceRoleMenusRequest
+	54, // 42: system.System.ListNavigationMenus:input_type -> system.ListNavigationMenusRequest
+	45, // 43: system.System.ListMenus:input_type -> system.ListMenusRequest
+	47, // 44: system.System.GetMenu:input_type -> system.GetMenuRequest
+	49, // 45: system.System.CreateMenu:input_type -> system.CreateMenuRequest
+	51, // 46: system.System.UpdateMenu:input_type -> system.UpdateMenuRequest
+	52, // 47: system.System.UpdateMenuStatus:input_type -> system.UpdateMenuStatusRequest
+	53, // 48: system.System.DeleteMenu:input_type -> system.DeleteMenuRequest
+	0,  // 49: system.System.CheckReady:input_type -> system.ReadyRequest
+	2,  // 50: system.System.Login:input_type -> system.LoginRequest
+	4,  // 51: system.System.RefreshCredentials:input_type -> system.RefreshCredentialsRequest
+	6,  // 52: system.System.GetCurrentUser:input_type -> system.CurrentUserRequest
+	10, // 53: system.System.RevokeSession:input_type -> system.RevokeSessionRequest
+	11, // 54: system.System.RevokeUserSessions:input_type -> system.RevokeUserSessionsRequest
+	12, // 55: system.System.ChangePassword:input_type -> system.ChangePasswordRequest
+	16, // 56: system.System.CreateRole:input_type -> system.CreateRoleRequest
+	14, // 57: system.System.ListRoles:input_type -> system.ListRolesRequest
+	22, // 58: system.System.GetRole:input_type -> system.GetRoleRequest
+	18, // 59: system.System.UpdateRole:input_type -> system.UpdateRoleRequest
+	19, // 60: system.System.UpdateRoleStatus:input_type -> system.UpdateRoleStatusRequest
+	20, // 61: system.System.DeleteRole:input_type -> system.DeleteRoleRequest
+	24, // 62: system.System.ListAPIs:input_type -> system.ListAPIsRequest
+	27, // 63: system.System.GetRoleAPIs:input_type -> system.GetRoleAPIsRequest
+	13, // 64: system.System.ReplaceRoleAPIs:input_type -> system.ReplaceRoleAPIsRequest
+	31, // 65: system.System.ListUsers:input_type -> system.ListUsersRequest
+	33, // 66: system.System.GetUser:input_type -> system.GetUserRequest
+	35, // 67: system.System.CreateUser:input_type -> system.CreateUserRequest
+	37, // 68: system.System.UpdateUser:input_type -> system.UpdateUserRequest
+	38, // 69: system.System.UpdateUserStatus:input_type -> system.UpdateUserStatusRequest
+	39, // 70: system.System.DeleteUser:input_type -> system.DeleteUserRequest
+	40, // 71: system.System.ReplaceUserRoles:input_type -> system.ReplaceUserRolesRequest
+	41, // 72: system.System.ResetUserPassword:input_type -> system.ResetUserPasswordRequest
+	14, // 73: system.System.ListUserRoleOptions:input_type -> system.ListRolesRequest
+	60, // 74: system.System.ListDepartments:input_type -> system.ListDepartmentsRequest
+	62, // 75: system.System.GetDepartment:input_type -> system.GetDepartmentRequest
+	64, // 76: system.System.CreateDepartment:input_type -> system.CreateDepartmentRequest
+	66, // 77: system.System.UpdateDepartment:input_type -> system.UpdateDepartmentRequest
+	67, // 78: system.System.UpdateDepartmentStatus:input_type -> system.UpdateDepartmentStatusRequest
+	68, // 79: system.System.DeleteDepartment:input_type -> system.DeleteDepartmentRequest
+	97, // 80: system.System.ListLoginLogs:output_type -> system.ListLoginLogsResponse
+	74, // 81: system.System.ListDictionaries:output_type -> system.ListDictionariesResponse
+	76, // 82: system.System.GetDictionary:output_type -> system.GetDictionaryResponse
+	78, // 83: system.System.CreateDictionary:output_type -> system.CreateDictionaryResponse
+	5,  // 84: system.System.UpdateDictionary:output_type -> system.EmptyResponse
+	5,  // 85: system.System.UpdateDictionaryStatus:output_type -> system.EmptyResponse
+	5,  // 86: system.System.DeleteDictionary:output_type -> system.EmptyResponse
+	83, // 87: system.System.ListDictionaryItems:output_type -> system.ListDictionaryItemsResponse
+	85, // 88: system.System.GetDictionaryItem:output_type -> system.GetDictionaryItemResponse
+	87, // 89: system.System.CreateDictionaryItem:output_type -> system.CreateDictionaryItemResponse
+	5,  // 90: system.System.UpdateDictionaryItem:output_type -> system.EmptyResponse
+	5,  // 91: system.System.UpdateDictionaryItemStatus:output_type -> system.EmptyResponse
+	5,  // 92: system.System.DeleteDictionaryItem:output_type -> system.EmptyResponse
+	5,  // 93: system.System.ClearDictionaryCache:output_type -> system.EmptyResponse
+	94, // 94: system.System.ReadDictionaries:output_type -> system.ReadDictionariesResponse
+	7,  // 95: system.System.GetProfile:output_type -> system.ProfileResponse
+	5,  // 96: system.System.UpdateProfile:output_type -> system.EmptyResponse
+	56, // 97: system.System.GetRoleMenus:output_type -> system.GetRoleMenusResponse
+	5,  // 98: system.System.ReplaceRoleMenus:output_type -> system.EmptyResponse
+	69, // 99: system.System.ListNavigationMenus:output_type -> system.ListNavigationMenusResponse
+	46, // 100: system.System.ListMenus:output_type -> system.ListMenusResponse
+	48, // 101: system.System.GetMenu:output_type -> system.GetMenuResponse
+	50, // 102: system.System.CreateMenu:output_type -> system.CreateMenuResponse
+	5,  // 103: system.System.UpdateMenu:output_type -> system.EmptyResponse
+	5,  // 104: system.System.UpdateMenuStatus:output_type -> system.EmptyResponse
+	5,  // 105: system.System.DeleteMenu:output_type -> system.EmptyResponse
+	1,  // 106: system.System.CheckReady:output_type -> system.ReadyResponse
+	3,  // 107: system.System.Login:output_type -> system.LoginResponse
+	3,  // 108: system.System.RefreshCredentials:output_type -> system.LoginResponse
+	9,  // 109: system.System.GetCurrentUser:output_type -> system.CurrentUserResponse
+	5,  // 110: system.System.RevokeSession:output_type -> system.EmptyResponse
+	5,  // 111: system.System.RevokeUserSessions:output_type -> system.EmptyResponse
+	5,  // 112: system.System.ChangePassword:output_type -> system.EmptyResponse
+	17, // 113: system.System.CreateRole:output_type -> system.CreateRoleResponse
+	21, // 114: system.System.ListRoles:output_type -> system.ListRolesResponse
+	23, // 115: system.System.GetRole:output_type -> system.GetRoleResponse
+	5,  // 116: system.System.UpdateRole:output_type -> system.EmptyResponse
+	5,  // 117: system.System.UpdateRoleStatus:output_type -> system.EmptyResponse
+	5,  // 118: system.System.DeleteRole:output_type -> system.EmptyResponse
+	26, // 119: system.System.ListAPIs:output_type -> system.ListAPIsResponse
+	28, // 120: system.System.GetRoleAPIs:output_type -> system.GetRoleAPIsResponse
+	5,  // 121: system.System.ReplaceRoleAPIs:output_type -> system.EmptyResponse
+	32, // 122: system.System.ListUsers:output_type -> system.ListUsersResponse
+	34, // 123: system.System.GetUser:output_type -> system.GetUserResponse
+	36, // 124: system.System.CreateUser:output_type -> system.CreateUserResponse
+	5,  // 125: system.System.UpdateUser:output_type -> system.EmptyResponse
+	5,  // 126: system.System.UpdateUserStatus:output_type -> system.EmptyResponse
+	5,  // 127: system.System.DeleteUser:output_type -> system.EmptyResponse
+	5,  // 128: system.System.ReplaceUserRoles:output_type -> system.EmptyResponse
+	5,  // 129: system.System.ResetUserPassword:output_type -> system.EmptyResponse
+	42, // 130: system.System.ListUserRoleOptions:output_type -> system.ListUserRoleOptionsResponse
+	61, // 131: system.System.ListDepartments:output_type -> system.ListDepartmentsResponse
+	63, // 132: system.System.GetDepartment:output_type -> system.GetDepartmentResponse
+	65, // 133: system.System.CreateDepartment:output_type -> system.CreateDepartmentResponse
+	5,  // 134: system.System.UpdateDepartment:output_type -> system.EmptyResponse
+	5,  // 135: system.System.UpdateDepartmentStatus:output_type -> system.EmptyResponse
+	5,  // 136: system.System.DeleteDepartment:output_type -> system.EmptyResponse
+	80, // [80:137] is the sub-list for method output_type
+	23, // [23:80] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_system_proto_init() }
@@ -6327,7 +6565,7 @@ func file_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_system_proto_rawDesc), len(file_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   95,
+			NumMessages:   98,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

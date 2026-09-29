@@ -23,6 +23,11 @@ func NewSystemServer(svcCtx *svc.ServiceContext) *SystemServer {
 	}
 }
 
+func (s *SystemServer) ListLoginLogs(ctx context.Context, in *system.ListLoginLogsRequest) (*system.ListLoginLogsResponse, error) {
+	l := logic.NewListLoginLogsLogic(ctx, s.svcCtx)
+	return l.ListLoginLogs(in)
+}
+
 func (s *SystemServer) ListDictionaries(ctx context.Context, in *system.ListDictionariesRequest) (*system.ListDictionariesResponse, error) {
 	l := logic.NewListDictionariesLogic(ctx, s.svcCtx)
 	return l.ListDictionaries(in)

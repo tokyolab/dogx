@@ -69,6 +69,7 @@ type routeSecurityCase struct {
 }
 
 var routeSecurityMatrix = []routeSecurityCase{
+	{name: "ListLoginLogs", method: http.MethodPost, path: "/login-log/list", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListLoginLogs"},
 	{name: "ListDictionaries", method: http.MethodPost, path: "/dictionary/list", body: `{}`, level: routeAuthorized, rpcMethod: "ListDictionaries"},
 	{name: "GetDictionary", method: http.MethodPost, path: "/dictionary/get", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "GetDictionary"},
 	{name: "CreateDictionary", method: http.MethodPost, path: "/dictionary/create", body: `{"name":"test","code":"source","remark":"test","status":1,"isPublic":true}`, level: routeAuthorized, rpcMethod: "CreateDictionary"},

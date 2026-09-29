@@ -1,0 +1,34 @@
+type (
+	LoginLogListReq {
+		Page     int64  `json:"page" validate:"gte=1"`
+		PageSize int64  `json:"pageSize" validate:"gte=1,lte=200"`
+		Username string `json:"username,optional" validate:"max=64"`
+		Result   string `json:"result,optional" validate:"omitempty,oneof=success failure"`
+	}
+
+	LoginLogItem {
+		Id            int64  `json:"id"`
+		Username      string `json:"username"`
+		Success       bool   `json:"success"`
+		FailureReason string `json:"failureReason"`
+		IpAddress     string `json:"ipAddress"`
+		UserAgent     string `json:"userAgent"`
+		CreatedAt     string `json:"createdAt"`
+	}
+
+	LoginLogListResp {
+		Items []LoginLogItem `json:"items"`
+		Total int64          `json:"total"`
+	}
+)
+
+@server (
+	group:      loginlog
+	jwt:        Auth
+	middleware: SessionAuth, Authorization
+)
+service system-api {
+	@doc "List login audit records"
+	@handler listLoginLogs
+	post /login-log/list (LoginLogListReq) returns (LoginLogListResp)
+}

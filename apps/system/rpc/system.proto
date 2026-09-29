@@ -504,6 +504,7 @@ message ReadDictionariesResponse {
 }
 
 service System {
+  rpc ListLoginLogs(ListLoginLogsRequest) returns (ListLoginLogsResponse);
   rpc ListDictionaries(ListDictionariesRequest) returns (ListDictionariesResponse);
   rpc GetDictionary(GetDictionaryRequest) returns (GetDictionaryResponse);
   rpc CreateDictionary(CreateDictionaryRequest) returns (CreateDictionaryResponse);
@@ -560,4 +561,26 @@ service System {
   rpc UpdateDepartment(UpdateDepartmentRequest) returns (EmptyResponse);
   rpc UpdateDepartmentStatus(UpdateDepartmentStatusRequest) returns (EmptyResponse);
   rpc DeleteDepartment(DeleteDepartmentRequest) returns (EmptyResponse);
+}
+
+message ListLoginLogsRequest {
+  int64 page = 1;
+  int64 page_size = 2;
+  string username = 3;
+  string result = 4;
+}
+
+message LoginLogInfo {
+  int64 id = 1;
+  string username = 2;
+  bool success = 3;
+  string failure_reason = 4;
+  string ip_address = 5;
+  string user_agent = 6;
+  string created_at = 7;
+}
+
+message ListLoginLogsResponse {
+  repeated LoginLogInfo items = 1;
+  int64 total = 2;
 }

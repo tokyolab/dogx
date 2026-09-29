@@ -54,3 +54,62 @@ func TestLoginLogRepositoryCreatesAuditRecord(t *testing.T) {
 		t.Fatalf("unexpected stored login log: %+v", stored)
 	}
 }
+
+func TestLoginLogRepositoryListsAuditRecords(t *testing.T) {
+	_, db := newPostgreSQLUserRepository(t)
+	r, err := NewLoginLogRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	entries := []model.LoginLog{
+		{Username: "Alice", Success: true},
+		{Username: "ALICE", Success: false, FailureReason: model.LoginFailureInvalidCredentials},
+		{Username: "bob", Success: false, FailureReason: model.LoginFailureAccountDisabled},
+		// Failed attempts can contain arbitrary submitted names, unlike valid users.
+		{Username: "percent%_!", Success: false, FailureReason: model.LoginFailureInvalidCredentials},
+	}
+	for i := range entries {
+		if err := r.Create(ctx, &entries[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct {
+		name  string
+		query LoginLogListQuery
+		total int64
+		ids   []int64
+	}{
+		{"all", LoginLogListQuery{Limit: 20}, 4, []int64{entries[3].ID, entries[2].ID, entries[1].ID, entries[0].ID}},
+		{"page", LoginLogListQuery{Limit: 2, Offset: 1}, 4, []int64{entries[2].ID, entries[1].ID}},
+		{"case insensitive", LoginLogListQuery{Username: " ali ", Limit: 20}, 2, []int64{entries[1].ID, entries[0].ID}},
+		{"success", LoginLogListQuery{Success: loginLogBool(true), Limit: 20}, 1, []int64{entries[0].ID}},
+		{"failure", LoginLogListQuery{Success: loginLogBool(false), Limit: 20}, 3, []int64{entries[3].ID, entries[2].ID, entries[1].ID}},
+		{"combined", LoginLogListQuery{Username: "alice", Success: loginLogBool(false), Limit: 20}, 1, []int64{entries[1].ID}},
+		{"literal wildcard", LoginLogListQuery{Username: "%_!", Limit: 20}, 1, []int64{entries[3].ID}},
+		{"empty", LoginLogListQuery{Username: "missing", Limit: 20}, 0, nil},
+		{"beyond last page", LoginLogListQuery{Offset: 4, Limit: 20}, 4, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			logs, total, err := r.List(ctx, tc.query)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if logs == nil || total != tc.total || len(logs) != len(tc.ids) {
+				t.Fatalf("result: %+v total %d", logs, total)
+			}
+			for i, id := range tc.ids {
+				if logs[i].ID != id {
+					t.Fatalf("unexpected order: %+v", logs)
+				}
+			}
+		})
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, _, err := r.List(cancelled, LoginLogListQuery{Limit: 20}); err == nil {
+		t.Fatal("cancelled query succeeded")
+	}
+}
+
+func loginLogBool(value bool) *bool { return &value }

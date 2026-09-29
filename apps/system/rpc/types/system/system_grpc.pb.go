@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	System_ListLoginLogs_FullMethodName              = "/system.System/ListLoginLogs"
 	System_ListDictionaries_FullMethodName           = "/system.System/ListDictionaries"
 	System_GetDictionary_FullMethodName              = "/system.System/GetDictionary"
 	System_CreateDictionary_FullMethodName           = "/system.System/CreateDictionary"
@@ -81,6 +82,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SystemClient interface {
+	ListLoginLogs(ctx context.Context, in *ListLoginLogsRequest, opts ...grpc.CallOption) (*ListLoginLogsResponse, error)
 	ListDictionaries(ctx context.Context, in *ListDictionariesRequest, opts ...grpc.CallOption) (*ListDictionariesResponse, error)
 	GetDictionary(ctx context.Context, in *GetDictionaryRequest, opts ...grpc.CallOption) (*GetDictionaryResponse, error)
 	CreateDictionary(ctx context.Context, in *CreateDictionaryRequest, opts ...grpc.CallOption) (*CreateDictionaryResponse, error)
@@ -145,6 +147,16 @@ type systemClient struct {
 
 func NewSystemClient(cc grpc.ClientConnInterface) SystemClient {
 	return &systemClient{cc}
+}
+
+func (c *systemClient) ListLoginLogs(ctx context.Context, in *ListLoginLogsRequest, opts ...grpc.CallOption) (*ListLoginLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListLoginLogsResponse)
+	err := c.cc.Invoke(ctx, System_ListLoginLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *systemClient) ListDictionaries(ctx context.Context, in *ListDictionariesRequest, opts ...grpc.CallOption) (*ListDictionariesResponse, error) {
@@ -711,6 +723,7 @@ func (c *systemClient) DeleteDepartment(ctx context.Context, in *DeleteDepartmen
 // All implementations must embed UnimplementedSystemServer
 // for forward compatibility.
 type SystemServer interface {
+	ListLoginLogs(context.Context, *ListLoginLogsRequest) (*ListLoginLogsResponse, error)
 	ListDictionaries(context.Context, *ListDictionariesRequest) (*ListDictionariesResponse, error)
 	GetDictionary(context.Context, *GetDictionaryRequest) (*GetDictionaryResponse, error)
 	CreateDictionary(context.Context, *CreateDictionaryRequest) (*CreateDictionaryResponse, error)
@@ -777,6 +790,9 @@ type SystemServer interface {
 // pointer dereference when methods are called.
 type UnimplementedSystemServer struct{}
 
+func (UnimplementedSystemServer) ListLoginLogs(context.Context, *ListLoginLogsRequest) (*ListLoginLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListLoginLogs not implemented")
+}
 func (UnimplementedSystemServer) ListDictionaries(context.Context, *ListDictionariesRequest) (*ListDictionariesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListDictionaries not implemented")
 }
@@ -964,6 +980,24 @@ func RegisterSystemServer(s grpc.ServiceRegistrar, srv SystemServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&System_ServiceDesc, srv)
+}
+
+func _System_ListLoginLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLoginLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).ListLoginLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_ListLoginLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).ListLoginLogs(ctx, req.(*ListLoginLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _System_ListDictionaries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1981,6 +2015,10 @@ var System_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "system.System",
 	HandlerType: (*SystemServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListLoginLogs",
+			Handler:    _System_ListLoginLogs_Handler,
+		},
 		{
 			MethodName: "ListDictionaries",
 			Handler:    _System_ListDictionaries_Handler,

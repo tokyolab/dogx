@@ -44,17 +44,6 @@ type credentialIssuerStub struct {
 	err         error
 }
 
-type loginLogRepositoryStub struct {
-	logs []*model.LoginLog
-	err  error
-}
-
-func (s *loginLogRepositoryStub) Create(_ context.Context, loginLog *model.LoginLog) error {
-	copy := *loginLog
-	s.logs = append(s.logs, &copy)
-	return s.err
-}
-
 func (s *credentialIssuerStub) Issue(_ context.Context, userID int64) (*authn.Credentials, error) {
 	s.userID = userID
 	return s.credentials, s.err

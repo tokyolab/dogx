@@ -11,6 +11,7 @@ import (
 	department "github.com/tokyolab/dogx/apps/system/api/internal/handler/department"
 	dictionary "github.com/tokyolab/dogx/apps/system/api/internal/handler/dictionary"
 	health "github.com/tokyolab/dogx/apps/system/api/internal/handler/health"
+	loginlog "github.com/tokyolab/dogx/apps/system/api/internal/handler/loginlog"
 	menu "github.com/tokyolab/dogx/apps/system/api/internal/handler/menu"
 	role "github.com/tokyolab/dogx/apps/system/api/internal/handler/role"
 	user "github.com/tokyolab/dogx/apps/system/api/internal/handler/user"
@@ -253,6 +254,21 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: health.ReadyHandler(serverCtx),
 			},
 		},
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					// List login audit records
+					Method:  http.MethodPost,
+					Path:    "/login-log/list",
+					Handler: loginlog.ListLoginLogsHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
 	)
 
 	server.AddRoutes(
