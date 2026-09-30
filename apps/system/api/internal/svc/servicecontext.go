@@ -127,7 +127,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		return nil, err
 	}
 
-	securityRuntime, err := loginprotection.NewRuntime(c.RedisConf, func(ctx context.Context) (*system.LoginSecurityConfig, error) {
+	securityRuntime, err := loginprotection.NewLazyRuntime(c.RedisConf, func(ctx context.Context) (*system.LoginSecurityConfig, error) {
 		return systemRPC.GetLoginSecurity(ctx, &system.GetLoginSecurityRequest{})
 	})
 	if err != nil {

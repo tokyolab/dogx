@@ -54,7 +54,7 @@ func (l *LoginLogic) Login(in *system.LoginRequest) (*system.LoginResponse, erro
 	if l.svcCtx.Security == nil || l.svcCtx.LoginFailures == nil {
 		return nil, status.Error(codes.Unavailable, "login protection unavailable")
 	}
-	security, err := l.svcCtx.Security.Current()
+	security, err := l.svcCtx.Security.Current(l.ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, "login protection unavailable")
 	}

@@ -75,9 +75,10 @@ func TestNewServiceContextWiresAuthorizationDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = listener.Close() })
 	server := grpc.NewServer()
 	system.RegisterSystemServer(server, &securityRPCServer{})
-	go func() { _ = server.Serve(listener) }()
+	// The API must initialize before RPC begins serving, then load on first use.
 	t.Cleanup(server.Stop)
 	c.SystemRpc.Endpoints = []string{listener.Addr().String()}
 	unique := fmt.Sprintf("dogx:test:api-svc:%d", time.Now().UnixNano())
@@ -88,6 +89,7 @@ func TestNewServiceContextWiresAuthorizationDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create API service context: %v", err)
 	}
+	go func() { _ = server.Serve(listener) }()
 	closed := false
 	t.Cleanup(func() {
 		if !closed {
@@ -96,6 +98,24 @@ func TestNewServiceContextWiresAuthorizationDependencies(t *testing.T) {
 			}
 		}
 	})
+	// Non-blocking gRPC may still be reconnecting when Serve starts. Demand
+	// loading must recover without recreating the API service context.
+	loadCtx, stopLoad := context.WithTimeout(ctx, 5*time.Second)
+	defer stopLoad()
+	for {
+		cfg, err := serviceCtx.securityRuntime.Current(loadCtx)
+		if err == nil {
+			if cfg.RateLimitMaxRequests != 30 {
+				t.Fatalf("unexpected login configuration: %v", cfg)
+			}
+			break
+		}
+		select {
+		case <-loadCtx.Done():
+			t.Fatalf("load login configuration after RPC starts: %v", err)
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
 
 	if serviceCtx.SystemRpc == nil || serviceCtx.Redis == nil || serviceCtx.Sessions == nil {
 		t.Fatal("API transport or session dependencies were not initialized")

@@ -163,27 +163,64 @@ func TestRuntimeNotificationAndMissedNotificationFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer first.Close()
-	second, err := NewRuntime(conf, load)
+	second, err := NewLazyRuntime(conf, load)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer second.Close()
+	if second.value.Load() != nil {
+		t.Fatal("lazy startup populated the cache")
+	}
+	if cfg, err := second.Current(ctx); err != nil || cfg.RateLimitMaxRequests != 30 {
+		t.Fatalf("first demand load: %v %v", cfg, err)
+	}
 	maximum.Store(41)
 	if err := first.Notify(ctx); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, 5*time.Second, func() bool {
-		a, e1 := first.Current()
-		b, e2 := second.Current()
+		a, e1 := first.Current(ctx)
+		b, e2 := second.Current(ctx)
 		return e1 == nil && e2 == nil && a.RateLimitMaxRequests == 41 && b.RateLimitMaxRequests == 41
 	})
 	maximum.Store(42) // Deliberately no notification: exercise the actual periodic fallback.
 	waitFor(t, ReloadInterval+5*time.Second, func() bool {
-		a, e1 := first.Current()
-		b, e2 := second.Current()
+		a, e1 := first.Current(ctx)
+		b, e2 := second.Current(ctx)
 		return e1 == nil && e2 == nil && a.RateLimitMaxRequests == 42 && b.RateLimitMaxRequests == 42
 	})
 	if _, err := NewRuntime(conf, func(context.Context) (*system.LoginSecurityConfig, error) { return nil, errors.New("db unavailable") }); err == nil {
 		t.Fatal("startup accepted missing config")
+	}
+}
+
+func TestLazyRuntimeStartsWithoutConfigurationAndRecovers(t *testing.T) {
+	_, conf := testRedis(t)
+	var calls atomic.Int32
+	var available atomic.Bool
+	r, err := NewLazyRuntime(conf, func(context.Context) (*system.LoginSecurityConfig, error) {
+		calls.Add(1)
+		if !available.Load() {
+			return nil, errors.New("RPC offline")
+		}
+		return validConfig(), nil
+	})
+	if err != nil {
+		t.Fatalf("lazy startup depended on RPC: %v", err)
+	}
+	defer r.Close()
+	if calls.Load() != 0 {
+		t.Fatal("startup attempted configuration load")
+	}
+	if _, err := r.Current(context.Background()); err == nil {
+		t.Fatal("login accepted missing configuration")
+	}
+	available.Store(true)
+	waitFor(t, 3*time.Second, func() bool {
+		cfg, err := r.Current(context.Background())
+		return err == nil && cfg.FailureThreshold == 5
+	})
+	if calls.Load() != 2 {
+		t.Fatalf("unexpected RPC calls during backoff: %d", calls.Load())
 	}
 }

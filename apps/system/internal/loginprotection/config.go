@@ -1,13 +1,14 @@
 package loginprotection
 
 import (
+	"context"
 	"errors"
 
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 )
 
 type ConfigProvider interface {
-	Current() (*system.LoginSecurityConfig, error)
+	Current(context.Context) (*system.LoginSecurityConfig, error)
 }
 
 func Validate(cfg *system.LoginSecurityConfig) error {

@@ -12,16 +12,23 @@ import (
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/zeromicro/go-zero/core/logx"
 	zeroredis "github.com/zeromicro/go-zero/core/stores/redis"
+	"golang.org/x/sync/singleflight"
 	"google.golang.org/protobuf/proto"
 )
 
 const ConfigChannel = "dogx:security:config:changed"
 const ReloadInterval = 30 * time.Second
+const loadRetryDelay = time.Second
 
 type Runtime struct {
 	load         func(context.Context) (*system.LoginSecurityConfig, error)
 	value        atomic.Pointer[system.LoginSecurityConfig]
 	mu           sync.Mutex
+	lazy         bool
+	ctx          context.Context
+	loads        singleflight.Group
+	retryAt      time.Time
+	loadErr      error
 	client       redisv9.UniversalClient
 	subscription *redisv9.PubSub
 	cancel       context.CancelFunc
@@ -29,9 +36,18 @@ type Runtime struct {
 	closeOnce    sync.Once
 }
 
-// NewRuntime subscribes before loading so an update during startup is not lost.
-// Payloads are only invalidation signals; the authoritative value comes from RPC/DB.
+// NewRuntime eagerly loads the RPC process's database-backed configuration.
 func NewRuntime(conf zeroredis.RedisConf, load func(context.Context) (*system.LoginSecurityConfig, error)) (*Runtime, error) {
+	return newRuntime(conf, load, false)
+}
+
+// NewLazyRuntime lets API startup proceed without a successful configuration RPC.
+// Subscription still precedes all loads; notifications contain no configuration data.
+func NewLazyRuntime(conf zeroredis.RedisConf, load func(context.Context) (*system.LoginSecurityConfig, error)) (*Runtime, error) {
+	return newRuntime(conf, load, true)
+}
+
+func newRuntime(conf zeroredis.RedisConf, load func(context.Context) (*system.LoginSecurityConfig, error), lazy bool) (*Runtime, error) {
 	if load == nil {
 		return nil, errors.New("security configuration loader is nil")
 	}
@@ -49,7 +65,7 @@ func NewRuntime(conf zeroredis.RedisConf, load func(context.Context) (*system.Lo
 		client = redisv9.NewClient(&redisv9.Options{Addr: conf.Host, Username: conf.User, Password: conf.Pass, TLSConfig: tlsConfig})
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &Runtime{load: load, client: client, cancel: cancel, done: make(chan struct{})}
+	r := &Runtime{load: load, client: client, ctx: ctx, lazy: lazy, cancel: cancel, done: make(chan struct{})}
 	r.subscription = client.Subscribe(ctx, ConfigChannel)
 	initial, stop := context.WithTimeout(ctx, 5*time.Second)
 	defer stop()
@@ -59,27 +75,78 @@ func NewRuntime(conf zeroredis.RedisConf, load func(context.Context) (*system.Lo
 		_ = client.Close()
 		return nil, err
 	}
-	if err := r.Reload(initial); err != nil {
-		cancel()
-		_ = r.subscription.Close()
-		_ = client.Close()
-		return nil, err
+	if !lazy {
+		if err := r.Reload(initial); err != nil {
+			cancel()
+			_ = r.subscription.Close()
+			_ = client.Close()
+			return nil, err
+		}
 	}
 	go r.run(ctx)
 	return r, nil
 }
 
-func (r *Runtime) Current() (*system.LoginSecurityConfig, error) {
+func (r *Runtime) Current(ctx context.Context) (*system.LoginSecurityConfig, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if r.lazy && r.ctx.Err() != nil {
+		return nil, r.ctx.Err()
+	}
 	cfg := r.value.Load()
 	if cfg == nil {
+		if r.lazy {
+			return r.loadOnDemand(ctx)
+		}
 		return nil, errors.New("login protection configuration unavailable")
 	}
 	return proto.Clone(cfg).(*system.LoginSecurityConfig), nil
 }
 
+func (r *Runtime) loadOnDemand(ctx context.Context) (*system.LoginSecurityConfig, error) {
+	result := r.loads.DoChan("config", func() (any, error) {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		// A notification or another load may have filled the cache while we waited.
+		if cfg := r.value.Load(); cfg != nil {
+			return cfg, nil
+		}
+		if time.Now().Before(r.retryAt) {
+			return nil, r.loadErr
+		}
+		// One cancelled HTTP request must not cancel the shared load for other
+		// callers. Runtime shutdown and a bounded timeout still cancel the RPC.
+		attempt, cancel := context.WithTimeout(r.ctx, 5*time.Second)
+		defer cancel()
+		if err := r.reloadLocked(attempt); err != nil {
+			logx.Errorf("load login security configuration on demand: %v", err)
+			return nil, err
+		}
+		return r.value.Load(), nil
+	})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-r.ctx.Done():
+		return nil, r.ctx.Err()
+	case loaded := <-result:
+		if loaded.Err != nil {
+			return nil, loaded.Err
+		}
+		return proto.Clone(loaded.Val.(*system.LoginSecurityConfig)).(*system.LoginSecurityConfig), nil
+	}
+}
+
 func (r *Runtime) Reload(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.reloadLocked(ctx)
+}
+
+// Explicit reloads bypass demand-load backoff and run after any in-flight load,
+// so a configuration-change notification cannot be swallowed by singleflight.
+func (r *Runtime) reloadLocked(ctx context.Context) error {
 	cfg, err := r.load(ctx)
 	if err == nil {
 		err = Validate(cfg)
@@ -88,9 +155,13 @@ func (r *Runtime) Reload(ctx context.Context) error {
 		// A missed enable notification must not leave a disabled snapshot usable
 		// indefinitely after its source becomes unavailable.
 		r.value.Store(nil)
+		r.loadErr = err
+		r.retryAt = time.Now().Add(loadRetryDelay)
 		return err
 	}
 	r.value.Store(proto.Clone(cfg).(*system.LoginSecurityConfig))
+	r.loadErr = nil
+	r.retryAt = time.Time{}
 	return nil
 }
 

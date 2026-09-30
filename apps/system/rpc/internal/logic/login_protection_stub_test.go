@@ -11,7 +11,7 @@ type securityRuntimeStub struct {
 	reloads, notifications    int
 }
 
-func (s *securityRuntimeStub) Current() (*system.LoginSecurityConfig, error) {
+func (s *securityRuntimeStub) Current(context.Context) (*system.LoginSecurityConfig, error) {
 	if s.cfg == nil {
 		return &system.LoginSecurityConfig{}, s.err
 	}

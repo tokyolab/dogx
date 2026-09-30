@@ -18,7 +18,7 @@ type loginConfigStub struct {
 	err     error
 }
 
-func (s loginConfigStub) Current() (*system.LoginSecurityConfig, error) {
+func (s loginConfigStub) Current(context.Context) (*system.LoginSecurityConfig, error) {
 	return &system.LoginSecurityConfig{RateLimitEnabled: s.enabled, RateLimitWindowSeconds: 60, RateLimitMaxRequests: 2}, s.err
 }
 

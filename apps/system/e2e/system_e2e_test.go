@@ -138,16 +138,16 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 		"DOGX_E2E_REDIS_HOST="+redisHost,
 		"PGOPTIONS=-c search_path="+schema,
 	)
-	rpcProcess := startProcess(t, "system-rpc", rpcBinary, processEnv, "-f", rpcConfig)
-	// API startup now loads login protection through RPC; starting both processes
-	// together races that initial load against RPC initialization.
-	waitForRPCReady(t, rpcPort, rpcProcess)
+	// Prove API liveness does not depend on RPC configuration loading at startup.
 	apiProcess := startProcess(t, "system-api", apiBinary, processEnv, "-f", apiConfig)
 
 	baseURL := "http://127.0.0.1:" + strconv.Itoa(apiPort)
 	client := &http.Client{Timeout: 2 * time.Second}
 	t.Cleanup(client.CloseIdleConnections)
-	waitForAPIReady(t, client, baseURL+"/ready", rpcProcess, apiProcess)
+	waitForAPIProbe(t, client, baseURL+"/health", apiProcess)
+	rpcProcess := startProcess(t, "system-rpc", rpcBinary, processEnv, "-f", rpcConfig)
+	waitForRPCReady(t, rpcPort, rpcProcess)
+	waitForAPIProbe(t, client, baseURL+"/ready", rpcProcess, apiProcess)
 
 	statusCode, envelope := postJSON(t, client, baseURL+"/auth/login", "", map[string]any{
 		"username": user.Username,
@@ -694,7 +694,7 @@ func waitForRPCReady(t testing.TB, port int, process *runningProcess) {
 	}
 }
 
-func waitForAPIReady(
+func waitForAPIProbe(
 	t testing.TB,
 	client *http.Client,
 	readyURL string,
@@ -740,7 +740,7 @@ func waitForAPIReady(
 			for _, process := range processes {
 				logs = append(logs, process.name+" logs:\n"+process.logs.String())
 			}
-			t.Fatalf("API did not become ready: %s\n%s", lastResult, strings.Join(logs, "\n"))
+			t.Fatalf("API probe %s did not succeed: %s\n%s", readyURL, lastResult, strings.Join(logs, "\n"))
 		case <-ticker.C:
 		}
 	}

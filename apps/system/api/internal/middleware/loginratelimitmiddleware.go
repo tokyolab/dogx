@@ -32,7 +32,7 @@ func NewLoginRateLimitMiddleware(config loginprotection.ConfigProvider, client *
 
 func (m *LoginRateLimitMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cfg, err := m.config.Current()
+		cfg, err := m.config.Current(r.Context())
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, status.Error(codes.Unavailable, "login protection unavailable"))
 			return

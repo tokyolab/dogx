@@ -42,19 +42,19 @@ func TestRuntimeReloadAndSnapshotOwnership(t *testing.T) {
 	cfg := validConfig()
 	var loadErr error
 	r := &Runtime{load: func(context.Context) (*system.LoginSecurityConfig, error) { return cfg, loadErr }}
-	if _, err := r.Current(); err == nil {
+	if _, err := r.Current(context.Background()); err == nil {
 		t.Fatal("missing config accepted")
 	}
 	if err := r.Reload(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	cfg.FailureThreshold = 20
-	snapshot, _ := r.Current()
+	snapshot, _ := r.Current(context.Background())
 	if snapshot.FailureThreshold != 5 {
 		t.Fatal("loader owns stored memory")
 	}
 	snapshot.FailureThreshold = 40
-	snapshot, _ = r.Current()
+	snapshot, _ = r.Current(context.Background())
 	if snapshot.FailureThreshold != 5 {
 		t.Fatal("caller owns stored memory")
 	}
@@ -62,7 +62,7 @@ func TestRuntimeReloadAndSnapshotOwnership(t *testing.T) {
 	if r.Reload(context.Background()) == nil {
 		t.Fatal("missing reload error")
 	}
-	if _, err := r.Current(); err == nil {
+	if _, err := r.Current(context.Background()); err == nil {
 		t.Fatal("stale config usable after source failure")
 	}
 	loadErr = nil
