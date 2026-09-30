@@ -65,12 +65,18 @@ type (
 
 @server (
 	group: auth
+	middleware: LoginRateLimit
 )
 service system-api {
 	@doc "Sign in with username and password"
 	@handler login
 	post /auth/login (LoginReq) returns (LoginResp)
+}
 
+@server (
+    group: auth
+)
+service system-api {
 	@doc "Rotate the refresh token and issue new credentials"
 	@handler refreshToken
 	post /auth/refresh (RefreshTokenReq) returns (LoginResp)

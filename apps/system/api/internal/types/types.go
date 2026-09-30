@@ -264,6 +264,16 @@ type LoginResp struct {
 	ExpiresIn    int64  `json:"expiresIn"`
 }
 
+type LoginSecurityConfig struct {
+	RateLimitEnabled       bool  `json:"rateLimitEnabled"`
+	RateLimitWindowSeconds int32 `json:"rateLimitWindowSeconds" validate:"gte=1,lte=3600"`
+	RateLimitMaxRequests   int32 `json:"rateLimitMaxRequests" validate:"gte=1,lte=10000"`
+	FailureLockEnabled     bool  `json:"failureLockEnabled"`
+	FailureWindowSeconds   int32 `json:"failureWindowSeconds" validate:"gte=60,lte=86400"`
+	FailureThreshold       int32 `json:"failureThreshold" validate:"gte=1,lte=100"`
+	LockDurationSeconds    int32 `json:"lockDurationSeconds" validate:"gte=60,lte=86400"`
+}
+
 type MenuFields struct {
 	ParentId   int64  `json:"parentId" validate:"gte=0"`
 	Type       int32  `json:"type" validate:"oneof=1 2 3"`

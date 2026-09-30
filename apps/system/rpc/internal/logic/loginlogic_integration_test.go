@@ -91,7 +91,7 @@ func TestLoginUsesPostgreSQLPasswordHashAndRedisSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create login log repository: %v", err)
 	}
-	login := NewLoginLogic(ctx, &svc.ServiceContext{
+	login := NewLoginLogic(ctx, &svc.ServiceContext{Security: &securityRuntimeStub{}, LoginFailures: &loginFailuresStub{},
 		UserRepo:     userRepo,
 		LoginLogRepo: loginLogRepo,
 		Passwords:    hasher,

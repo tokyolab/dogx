@@ -20,6 +20,7 @@ func assertSystemMenuSeed(t testing.TB, ctx context.Context, db *sql.DB) {
 		kind, sort                    int
 	}
 	want := map[string]menuSeed{
+		"SecuritySettings":     {"安全设置", "SystemManagement", "/system/security", "system/security/index", 2, 70},
 		"LoginLog":             {"登录日志", "SystemManagement", "/system/login-log", "system/login-log/index", 2, 60},
 		"DictionaryManagement": {"字典管理", "SystemManagement", "/system/dictionary", "system/dictionary/index", 2, 50},
 		"SystemManagement":     {"系统管理", "", "/system", "", 1, 10},

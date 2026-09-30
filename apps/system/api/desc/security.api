@@ -1,0 +1,22 @@
+type LoginSecurityConfig {
+    RateLimitEnabled bool `json:"rateLimitEnabled"`
+    RateLimitWindowSeconds int32 `json:"rateLimitWindowSeconds" validate:"gte=1,lte=3600"`
+    RateLimitMaxRequests int32 `json:"rateLimitMaxRequests" validate:"gte=1,lte=10000"`
+    FailureLockEnabled bool `json:"failureLockEnabled"`
+    FailureWindowSeconds int32 `json:"failureWindowSeconds" validate:"gte=60,lte=86400"`
+    FailureThreshold int32 `json:"failureThreshold" validate:"gte=1,lte=100"`
+    LockDurationSeconds int32 `json:"lockDurationSeconds" validate:"gte=60,lte=86400"`
+}
+
+@server (
+    group: security
+    jwt: Auth
+    middleware: SessionAuth, Authorization
+)
+service system-api {
+    @handler getLoginSecurity
+    post /security/login/get returns (LoginSecurityConfig)
+
+    @handler updateLoginSecurity
+    post /security/login/update (LoginSecurityConfig) returns (EmptyResp)
+}

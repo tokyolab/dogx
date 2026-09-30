@@ -5,6 +5,7 @@ package svc
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -17,6 +18,8 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/testutil"
+	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	"google.golang.org/grpc"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/zeromicro/go-zero/core/stores/redis"
@@ -68,6 +71,15 @@ func TestNewServiceContextWiresAuthorizationDependencies(t *testing.T) {
 	t.Setenv("PGOPTIONS", "-c search_path="+schema)
 
 	c := apiServiceConfig(t)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := grpc.NewServer()
+	system.RegisterSystemServer(server, &securityRPCServer{})
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(server.Stop)
+	c.SystemRpc.Endpoints = []string{listener.Addr().String()}
 	unique := fmt.Sprintf("dogx:test:api-svc:%d", time.Now().UnixNano())
 	c.Auth.SessionKeyPrefix = unique + ":session"
 	c.Authorization.PolicyChannel = unique + ":policy"
@@ -131,6 +143,14 @@ func TestNewServiceContextRejectsInvalidRedisConfiguration(t *testing.T) {
 		}
 		t.Fatal("expected invalid Redis configuration to be rejected")
 	}
+}
+
+type securityRPCServer struct {
+	system.UnimplementedSystemServer
+}
+
+func (*securityRPCServer) GetLoginSecurity(context.Context, *system.GetLoginSecurityRequest) (*system.LoginSecurityConfig, error) {
+	return &system.LoginSecurityConfig{RateLimitEnabled: true, RateLimitWindowSeconds: 60, RateLimitMaxRequests: 30, FailureLockEnabled: true, FailureWindowSeconds: 900, FailureThreshold: 5, LockDurationSeconds: 900}, nil
 }
 
 func apiServiceConfig(t testing.TB) config.Config {

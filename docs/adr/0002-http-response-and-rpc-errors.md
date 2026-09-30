@@ -2,7 +2,7 @@
 
 - 状态：已接受
 - 日期：2026-08-22
-- 最后更新：2026-08-31
+- 最后更新：2026-09-30
 
 ## 背景
 
@@ -84,7 +84,9 @@ Code string `json:"code" validate:"required,max=64"`
 
 API 启动时通过 go-zero v1.10.3 的 `httpx.SetValidator` 注册全局 Validator。goctl 生成 Handler 已调用 `httpx.Parse`，因此不得为接入校验而修改生成 Handler 或维护自定义 Handler 模板。
 
-只允许使用 `go-playground/validator` 官方内置 Tag，不注册 `min_bytes`、`max_bytes`、通用正则等项目自定义 Tag。字符串 `min/max/len` 与 PostgreSQL `VARCHAR(n)` 均按 Unicode 字符数理解。角色编码等无法由官方 Tag 完整表达的业务格式由前端提供即时提示，并由 RPC 手写校验和 PostgreSQL `CHECK` 约束保证安全边界。
+只允许使用 `go-playground/validator` 官方内置 Tag，不注册 `min_bytes`、`max_bytes`、通用正则等项目自定义 Tag。字符串 `min/max/len` 与 PostgreSQL `VARCHAR(n)` 均按 Unicode 字符数理解。角色编码等无法由官方 Tag 完整表达的业务格式由 RPC Logic 手写校验，前端提供即时提示；不能依赖前端校验保证正确性。
+
+数据库约束按数据完整性职责独立设计，不以 API 内置校验能否表达为依据。主键、唯一性、非空等数据完整性规则由数据库兜底；可调整的业务参数范围和业务流程规则由业务层校验。API 校验能力不足不是把业务规则放进数据库的理由，也不能因此要求增加 PostgreSQL `CHECK` 约束。本次修订明确后续设计边界，不代表自动移除已有约束；已有约束需逐项评估并通过迁移调整。
 
 字段校验失败统一使用 `common.invalid_request`，同时保留 Validator 原始详细诊断，便于直接调试接口：
 

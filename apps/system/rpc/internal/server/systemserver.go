@@ -23,6 +23,16 @@ func NewSystemServer(svcCtx *svc.ServiceContext) *SystemServer {
 	}
 }
 
+func (s *SystemServer) GetLoginSecurity(ctx context.Context, in *system.GetLoginSecurityRequest) (*system.LoginSecurityConfig, error) {
+	l := logic.NewGetLoginSecurityLogic(ctx, s.svcCtx)
+	return l.GetLoginSecurity(in)
+}
+
+func (s *SystemServer) UpdateLoginSecurity(ctx context.Context, in *system.LoginSecurityConfig) (*system.EmptyResponse, error) {
+	l := logic.NewUpdateLoginSecurityLogic(ctx, s.svcCtx)
+	return l.UpdateLoginSecurity(in)
+}
+
 func (s *SystemServer) ListLoginLogs(ctx context.Context, in *system.ListLoginLogsRequest) (*system.ListLoginLogsResponse, error) {
 	l := logic.NewListLoginLogsLogic(ctx, s.svcCtx)
 	return l.ListLoginLogs(in)

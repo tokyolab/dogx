@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"github.com/tokyolab/dogx/apps/system/api/internal/clientip"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -252,19 +253,20 @@ func TestNewPasswordDTOBounds(t *testing.T) {
 }
 
 func TestClientIPAddress(t *testing.T) {
+	resolver := &clientip.Resolver{}
 	request := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
 	request.RemoteAddr = "192.0.2.10:54321"
-	if got := clientIPAddress(request); got != "192.0.2.10" {
+	if got := resolver.Resolve(request); got != "192.0.2.10" {
 		t.Fatalf("unexpected remote address: %q", got)
 	}
 
 	request.Header.Set("X-Forwarded-For", "2001:db8::1, 192.0.2.20")
-	if got := clientIPAddress(request); got != "2001:db8::1" {
+	if got := resolver.Resolve(request); got != "2001:db8::1" {
 		t.Fatalf("unexpected forwarded address: %q", got)
 	}
 
 	request.Header.Set("X-Forwarded-For", "not-an-ip")
-	if got := clientIPAddress(request); got != "" {
+	if got := resolver.Resolve(request); got != "192.0.2.10" {
 		t.Fatalf("invalid client address was accepted: %q", got)
 	}
 }

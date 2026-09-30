@@ -25,6 +25,7 @@ type AppConf struct {
 }
 
 type AuthConf struct {
+	TrustedProxies   []string `json:",optional"`
 	AccessSecret     string
 	SessionKeyPrefix string `json:",default=dogx:auth:session"`
 }

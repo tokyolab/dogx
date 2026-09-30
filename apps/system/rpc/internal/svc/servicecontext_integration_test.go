@@ -10,6 +10,7 @@ import (
 	"time"
 
 	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
+	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/internal/testutil"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
 
@@ -20,6 +21,22 @@ import (
 const testRedisHostEnv = "DOGX_TEST_REDIS_HOST"
 
 func TestNewServiceContextWiresDependencies(t *testing.T) {
+	db, sqlDB := testutil.OpenPostgres(t)
+	provider, err := migration.NewProvider(sqlDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.Up(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var schema string
+	if err := db.Raw("SELECT current_schema()").Scan(&schema).Error; err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(schema, "dogx_it_") {
+		t.Fatal("unexpected test schema")
+	}
+	t.Setenv("PGOPTIONS", "-c search_path="+schema)
 	c := testServiceConfig(t)
 	ctx, err := NewServiceContext(c)
 	if err != nil {
@@ -48,6 +65,9 @@ func TestNewServiceContextWiresDependencies(t *testing.T) {
 	}
 	if ctx.LoginLogRepo == nil {
 		t.Error("login log repository was not initialized")
+	}
+	if ctx.SecurityRepo == nil || ctx.Security == nil || ctx.LoginFailures == nil {
+		t.Fatal("security dependencies missing")
 	}
 	if ctx.Passwords == nil {
 		t.Error("password hasher was not initialized")

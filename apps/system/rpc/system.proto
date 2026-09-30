@@ -6,6 +6,18 @@ option go_package = "./system";
 
 message ReadyRequest {}
 
+message GetLoginSecurityRequest {}
+
+message LoginSecurityConfig {
+  bool rate_limit_enabled = 1;
+  int32 rate_limit_window_seconds = 2;
+  int32 rate_limit_max_requests = 3;
+  bool failure_lock_enabled = 4;
+  int32 failure_window_seconds = 5;
+  int32 failure_threshold = 6;
+  int32 lock_duration_seconds = 7;
+}
+
 message ReadyResponse {
   string status = 1;
 }
@@ -504,6 +516,8 @@ message ReadDictionariesResponse {
 }
 
 service System {
+  rpc GetLoginSecurity(GetLoginSecurityRequest) returns (LoginSecurityConfig);
+  rpc UpdateLoginSecurity(LoginSecurityConfig) returns (EmptyResponse);
   rpc ListLoginLogs(ListLoginLogsRequest) returns (ListLoginLogsResponse);
   rpc ListDictionaries(ListDictionariesRequest) returns (ListDictionariesResponse);
   rpc GetDictionary(GetDictionaryRequest) returns (GetDictionaryResponse);

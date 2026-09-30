@@ -21,7 +21,8 @@
 - RPC 业务错误必须保留可读的原始 Message，并通过标准 `google.rpc.ErrorInfo.Reason` 携带 subcode；不设置 ErrorInfo Domain，不自定义错误 Detail protobuf。
 - 参数解析、API 字段校验和 RPC 参数兜底统一使用 `common.invalid_request`，不为每条字段校验规则创建 subcode。
 - API 字段校验标签写入 `.api` 源文件；全局 Validator 通过 `httpx.SetValidator` 注册，不得为校验修改 goctl 生成 Handler。
-- API 字段校验只允许使用 `go-playground/validator` 官方内置 Tag，不注册项目自定义 Tag；无法由内置 Tag 表达的业务格式在前端、RPC 和数据库约束中校验。
+- API 字段校验只允许使用 `go-playground/validator` 官方内置 Tag，不注册项目自定义 Tag；无法由内置 Tag 表达的业务规则由 RPC Logic 手写校验，前端提供即时提示，不能依赖前端校验保证正确性。
+- 数据库约束按数据完整性职责独立设计，不以 API 内置校验能否表达为依据；主键、唯一性、非空等数据完整性规则由数据库兜底，可调整的业务参数范围和业务流程规则由业务层校验，不因 Validator 能力不足而下沉到数据库。
 - Validator 失败向客户端保留原始详细诊断以便接口调试；JSON 解析失败只返回通用参数错误，详细原因仅写服务端日志且不得记录完整请求体。
 - 后端国际化只覆盖业务错误和通用技术错误，不维护 Validator 字段名与规则文案翻译。
 - 扩展 gRPC Code 是 DogX 内部协议，不得直接用于对外 gRPC API。

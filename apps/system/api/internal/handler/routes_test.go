@@ -69,6 +69,8 @@ type routeSecurityCase struct {
 }
 
 var routeSecurityMatrix = []routeSecurityCase{
+	{name: "GetLoginSecurity", method: http.MethodPost, path: "/security/login/get", body: `{}`, level: routeAuthorized, rpcMethod: "GetLoginSecurity"},
+	{name: "UpdateLoginSecurity", method: http.MethodPost, path: "/security/login/update", body: `{"rateLimitEnabled":false,"rateLimitWindowSeconds":60,"rateLimitMaxRequests":30,"failureLockEnabled":false,"failureWindowSeconds":900,"failureThreshold":5,"lockDurationSeconds":900}`, level: routeAuthorized, rpcMethod: "UpdateLoginSecurity"},
 	{name: "ListLoginLogs", method: http.MethodPost, path: "/login-log/list", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListLoginLogs"},
 	{name: "ListDictionaries", method: http.MethodPost, path: "/dictionary/list", body: `{}`, level: routeAuthorized, rpcMethod: "ListDictionaries"},
 	{name: "GetDictionary", method: http.MethodPost, path: "/dictionary/get", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "GetDictionary"},
@@ -317,6 +319,7 @@ func newRouteTestServer(
 	sessions authn.SessionReader,
 	enforcer middleware.BatchEnforcer,
 	rpc systemclient.System,
+	options ...func(*svc.ServiceContext),
 ) *rest.Serverless {
 	t.Helper()
 	httpx.SetOkHandler(commonresponse.HandleSuccess)
@@ -334,11 +337,15 @@ func newRouteTestServer(
 		t.Fatalf("create route test server: %v", err)
 	}
 	serviceCtx := &svc.ServiceContext{
-		Config:        config.Config{Auth: config.AuthConf{AccessSecret: routeTestAccessSecret}},
-		SystemRpc:     rpc,
-		Sessions:      sessions,
-		SessionAuth:   middleware.NewSessionAuthMiddleware(sessions).Handle,
-		Authorization: middleware.NewAuthorizationMiddleware(enforcer).Handle,
+		LoginRateLimit: func(next http.HandlerFunc) http.HandlerFunc { return next },
+		Config:         config.Config{Auth: config.AuthConf{AccessSecret: routeTestAccessSecret}},
+		SystemRpc:      rpc,
+		Sessions:       sessions,
+		SessionAuth:    middleware.NewSessionAuthMiddleware(sessions).Handle,
+		Authorization:  middleware.NewAuthorizationMiddleware(enforcer).Handle,
+	}
+	for _, option := range options {
+		option(serviceCtx)
 	}
 	RegisterHandlers(server, serviceCtx)
 	serverless, err := rest.NewServerless(server)

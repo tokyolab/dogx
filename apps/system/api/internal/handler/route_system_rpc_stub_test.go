@@ -23,6 +23,17 @@ type routeSystemRPCStub struct {
 	updateProfileRequest *systemclient.UpdateProfileRequest
 }
 
+func (s *routeSystemRPCStub) GetLoginSecurity(context.Context, *systemclient.GetLoginSecurityRequest, ...grpc.CallOption) (*systemclient.LoginSecurityConfig, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "GetLoginSecurity"
+	return &systemclient.LoginSecurityConfig{}, nil
+}
+func (s *routeSystemRPCStub) UpdateLoginSecurity(context.Context, *systemclient.LoginSecurityConfig, ...grpc.CallOption) (*systemclient.EmptyResponse, error) {
+	*s.order = append(*s.order, "rpc")
+	s.called = "UpdateLoginSecurity"
+	return &systemclient.EmptyResponse{}, nil
+}
+
 func (s *routeSystemRPCStub) ListLoginLogs(context.Context, *systemclient.ListLoginLogsRequest, ...grpc.CallOption) (*systemclient.ListLoginLogsResponse, error) {
 	*s.order = append(*s.order, "rpc")
 	s.called = "ListLoginLogs"

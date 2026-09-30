@@ -82,11 +82,15 @@ func TestLoginLogRepositoryListsAuditRecords(t *testing.T) {
 	}{
 		{"all", LoginLogListQuery{Limit: 20}, 4, []int64{entries[3].ID, entries[2].ID, entries[1].ID, entries[0].ID}},
 		{"page", LoginLogListQuery{Limit: 2, Offset: 1}, 4, []int64{entries[2].ID, entries[1].ID}},
-		{"case insensitive", LoginLogListQuery{Username: " ali ", Limit: 20}, 2, []int64{entries[1].ID, entries[0].ID}},
+		{"case insensitive", LoginLogListQuery{Username: " aLiCe ", Limit: 20}, 2, []int64{entries[1].ID, entries[0].ID}},
+		{"prefix does not match", LoginLogListQuery{Username: "ali", Limit: 20}, 0, nil},
+		{"substring does not match", LoginLogListQuery{Username: "lic", Limit: 20}, 0, nil},
+		{"suffix does not match", LoginLogListQuery{Username: "ice", Limit: 20}, 0, nil},
 		{"success", LoginLogListQuery{Success: loginLogBool(true), Limit: 20}, 1, []int64{entries[0].ID}},
 		{"failure", LoginLogListQuery{Success: loginLogBool(false), Limit: 20}, 3, []int64{entries[3].ID, entries[2].ID, entries[1].ID}},
 		{"combined", LoginLogListQuery{Username: "alice", Success: loginLogBool(false), Limit: 20}, 1, []int64{entries[1].ID}},
-		{"literal wildcard", LoginLogListQuery{Username: "%_!", Limit: 20}, 1, []int64{entries[3].ID}},
+		{"literal wildcard", LoginLogListQuery{Username: "percent%_!", Limit: 20}, 1, []int64{entries[3].ID}},
+		{"wildcard is not a pattern", LoginLogListQuery{Username: "%", Limit: 20}, 0, nil},
 		{"empty", LoginLogListQuery{Username: "missing", Limit: 20}, 0, nil},
 		{"beyond last page", LoginLogListQuery{Offset: 4, Limit: 20}, 4, nil},
 	} {

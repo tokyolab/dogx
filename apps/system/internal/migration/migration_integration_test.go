@@ -27,8 +27,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 19 {
-		t.Fatalf("unexpected applied migration count: got %d, want 19", len(results))
+	if len(results) != 23 {
+		t.Fatalf("unexpected applied migration count: got %d, want 23", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -122,8 +122,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260929072931 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260929072931", version)
+	if version != 20260930143512 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20260930143512", version)
 	}
 
 	expectedTables := map[string]string{
@@ -160,7 +160,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		"idx_casbin_rule_ptype_v0",
 		"idx_sys_login_log_user_created_at",
 		"idx_sys_login_log_created_at",
-		"idx_sys_login_log_username_created_at",
+		"idx_sys_login_log_username_id",
 		"uk_sys_department_parent_name_active",
 		"idx_sys_department_parent_sort",
 		"idx_sys_user_department_id",
@@ -286,6 +286,52 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	var loginLogIcon string
 	if err := sqlDB.QueryRowContext(ctx, "SELECT icon FROM sys_menu WHERE app_code='admin_web' AND route_name='LoginLog' AND deleted_at IS NULL").Scan(&loginLogIcon); err != nil || loginLogIcon != "lucide:history" {
 		t.Fatalf("login log icon: %q %v", loginLogIcon, err)
+	}
+	assertTableExists(t, ctx, sqlDB, "sys_security_config")
+	assertAllColumnsHaveComments(t, ctx, sqlDB, "sys_security_config")
+	assertColumnComment(t, ctx, sqlDB, "sys_security_config", "id", "配置主键，固定为1")
+	assertColumnComment(t, ctx, sqlDB, "sys_security_config", "created_at", "创建时间")
+	assertColumnComment(t, ctx, sqlDB, "sys_security_config", "updated_at", "更新时间")
+	assertColumnComment(t, ctx, sqlDB, "sys_login_log", "user_id", "登录时关联的用户主键，未识别到用户时为NULL；用户删除后保留原值")
+	commentDown, err := provider.Down(ctx)
+	if err != nil || commentDown.Source.Version != 20260930143512 {
+		t.Fatalf("schema comment rollback: %+v %v", commentDown, err)
+	}
+	for _, column := range []string{"id", "created_at", "updated_at"} {
+		assertColumnComment(t, ctx, sqlDB, "sys_security_config", column, "")
+	}
+	assertColumnComment(t, ctx, sqlDB, "sys_login_log", "user_id", "用户主键，未知账号或用户删除后为NULL")
+	rangeConstraints := []string{
+		"sys_security_config_login_rate_limit_window_seconds_check",
+		"sys_security_config_login_rate_limit_max_requests_check",
+		"sys_security_config_login_failure_window_seconds_check",
+		"sys_security_config_login_failure_threshold_check",
+		"sys_security_config_login_lock_duration_seconds_check",
+	}
+	for _, constraint := range rangeConstraints {
+		assertConstraintNotExists(t, ctx, sqlDB, "sys_security_config", constraint)
+	}
+	assertConstraintExists(t, ctx, sqlDB, "sys_security_config", "sys_security_config_id_check")
+	rangeDown, err := provider.Down(ctx)
+	if err != nil || rangeDown.Source.Version != 20260930142445 {
+		t.Fatalf("security range check rollback: %+v %v", rangeDown, err)
+	}
+	for _, constraint := range rangeConstraints {
+		assertConstraintExists(t, ctx, sqlDB, "sys_security_config", constraint)
+	}
+	assertIndexNotExists(t, ctx, sqlDB, "idx_sys_login_log_username_created_at")
+	indexDown, err := provider.Down(ctx)
+	if err != nil || indexDown.Source.Version != 20260930141521 {
+		t.Fatalf("login log index rollback: %+v %v", indexDown, err)
+	}
+	assertIndexExists(t, ctx, sqlDB, "idx_sys_login_log_username_created_at")
+	assertIndexNotExists(t, ctx, sqlDB, "idx_sys_login_log_username_id")
+	securityDown, err := provider.Down(ctx)
+	if err != nil || securityDown.Source.Version != 20260930120000 {
+		t.Fatalf("security rollback: %+v %v", securityDown, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE path IN ('/security/login/get','/security/login/update')").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("security API cleanup: %d %v", seedCount, err)
 	}
 	iconDown, err := provider.Down(ctx)
 	if err != nil || iconDown.Source.Version != 20260929072931 {
@@ -553,7 +599,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 17 ||
+	if len(reapplyResults) != 21 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
@@ -570,7 +616,11 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		reapplyResults[13].Source.Version != 20260920120000 ||
 		reapplyResults[14].Source.Version != 20260928120000 ||
 		reapplyResults[15].Source.Version != 20260929061655 ||
-		reapplyResults[16].Source.Version != 20260929072931 {
+		reapplyResults[16].Source.Version != 20260929072931 ||
+		reapplyResults[17].Source.Version != 20260930120000 ||
+		reapplyResults[18].Source.Version != 20260930141521 ||
+		reapplyResults[19].Source.Version != 20260930142445 ||
+		reapplyResults[20].Source.Version != 20260930143512 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 	assertSystemMenuSeed(t, ctx, sqlDB)
@@ -920,6 +970,22 @@ func assertTableComment(t testing.TB, ctx context.Context, db *sql.DB, table, wa
 	}
 	if !comment.Valid || comment.String != want {
 		t.Errorf("unexpected table comment for %s: got %q, want %q", table, comment.String, want)
+	}
+}
+
+func assertColumnComment(t testing.TB, ctx context.Context, db *sql.DB, table, column, want string) {
+	t.Helper()
+	var comment sql.NullString
+	if err := db.QueryRowContext(ctx, `
+		SELECT col_description(attrelid, attnum)
+		FROM pg_attribute
+		WHERE attrelid = to_regclass($1) AND attname = $2
+		  AND attnum > 0 AND NOT attisdropped
+	`, table, column).Scan(&comment); err != nil {
+		t.Fatalf("read column comment for %s.%s: %v", table, column, err)
+	}
+	if comment.String != want || comment.Valid != (want != "") {
+		t.Errorf("unexpected column comment for %s.%s: got %+v, want %q", table, column, comment, want)
 	}
 }
 

@@ -19,6 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	System_GetLoginSecurity_FullMethodName           = "/system.System/GetLoginSecurity"
+	System_UpdateLoginSecurity_FullMethodName        = "/system.System/UpdateLoginSecurity"
 	System_ListLoginLogs_FullMethodName              = "/system.System/ListLoginLogs"
 	System_ListDictionaries_FullMethodName           = "/system.System/ListDictionaries"
 	System_GetDictionary_FullMethodName              = "/system.System/GetDictionary"
@@ -82,6 +84,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SystemClient interface {
+	GetLoginSecurity(ctx context.Context, in *GetLoginSecurityRequest, opts ...grpc.CallOption) (*LoginSecurityConfig, error)
+	UpdateLoginSecurity(ctx context.Context, in *LoginSecurityConfig, opts ...grpc.CallOption) (*EmptyResponse, error)
 	ListLoginLogs(ctx context.Context, in *ListLoginLogsRequest, opts ...grpc.CallOption) (*ListLoginLogsResponse, error)
 	ListDictionaries(ctx context.Context, in *ListDictionariesRequest, opts ...grpc.CallOption) (*ListDictionariesResponse, error)
 	GetDictionary(ctx context.Context, in *GetDictionaryRequest, opts ...grpc.CallOption) (*GetDictionaryResponse, error)
@@ -147,6 +151,26 @@ type systemClient struct {
 
 func NewSystemClient(cc grpc.ClientConnInterface) SystemClient {
 	return &systemClient{cc}
+}
+
+func (c *systemClient) GetLoginSecurity(ctx context.Context, in *GetLoginSecurityRequest, opts ...grpc.CallOption) (*LoginSecurityConfig, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LoginSecurityConfig)
+	err := c.cc.Invoke(ctx, System_GetLoginSecurity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UpdateLoginSecurity(ctx context.Context, in *LoginSecurityConfig, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, System_UpdateLoginSecurity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *systemClient) ListLoginLogs(ctx context.Context, in *ListLoginLogsRequest, opts ...grpc.CallOption) (*ListLoginLogsResponse, error) {
@@ -723,6 +747,8 @@ func (c *systemClient) DeleteDepartment(ctx context.Context, in *DeleteDepartmen
 // All implementations must embed UnimplementedSystemServer
 // for forward compatibility.
 type SystemServer interface {
+	GetLoginSecurity(context.Context, *GetLoginSecurityRequest) (*LoginSecurityConfig, error)
+	UpdateLoginSecurity(context.Context, *LoginSecurityConfig) (*EmptyResponse, error)
 	ListLoginLogs(context.Context, *ListLoginLogsRequest) (*ListLoginLogsResponse, error)
 	ListDictionaries(context.Context, *ListDictionariesRequest) (*ListDictionariesResponse, error)
 	GetDictionary(context.Context, *GetDictionaryRequest) (*GetDictionaryResponse, error)
@@ -790,6 +816,12 @@ type SystemServer interface {
 // pointer dereference when methods are called.
 type UnimplementedSystemServer struct{}
 
+func (UnimplementedSystemServer) GetLoginSecurity(context.Context, *GetLoginSecurityRequest) (*LoginSecurityConfig, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetLoginSecurity not implemented")
+}
+func (UnimplementedSystemServer) UpdateLoginSecurity(context.Context, *LoginSecurityConfig) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateLoginSecurity not implemented")
+}
 func (UnimplementedSystemServer) ListLoginLogs(context.Context, *ListLoginLogsRequest) (*ListLoginLogsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListLoginLogs not implemented")
 }
@@ -980,6 +1012,42 @@ func RegisterSystemServer(s grpc.ServiceRegistrar, srv SystemServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&System_ServiceDesc, srv)
+}
+
+func _System_GetLoginSecurity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLoginSecurityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).GetLoginSecurity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_GetLoginSecurity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).GetLoginSecurity(ctx, req.(*GetLoginSecurityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UpdateLoginSecurity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoginSecurityConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UpdateLoginSecurity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UpdateLoginSecurity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UpdateLoginSecurity(ctx, req.(*LoginSecurityConfig))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _System_ListLoginLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -2015,6 +2083,14 @@ var System_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "system.System",
 	HandlerType: (*SystemServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetLoginSecurity",
+			Handler:    _System_GetLoginSecurity_Handler,
+		},
+		{
+			MethodName: "UpdateLoginSecurity",
+			Handler:    _System_UpdateLoginSecurity_Handler,
+		},
 		{
 			MethodName: "ListLoginLogs",
 			Handler:    _System_ListLoginLogs_Handler,

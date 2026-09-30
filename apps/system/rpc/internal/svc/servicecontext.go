@@ -9,9 +9,11 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
 	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
 	"github.com/tokyolab/dogx/apps/system/internal/dictcache"
+	"github.com/tokyolab/dogx/apps/system/internal/loginprotection"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/health"
+	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"gorm.io/gorm"
@@ -31,6 +33,9 @@ type RolePolicyService interface {
 }
 
 type ServiceContext struct {
+	SecurityRepo       repository.SecurityConfigRepository
+	Security           SecurityRuntime
+	LoginFailures      loginprotection.FailureStore
 	DictionaryRepo     repository.DictionaryRepository
 	DictionaryItemRepo repository.DictionaryItemRepository
 	DictionaryCache    dictcache.Store
@@ -52,6 +57,7 @@ type ServiceContext struct {
 	Readiness          ReadinessChecker
 
 	policyPublisher authorization.PolicyWatcher
+	securityRuntime *loginprotection.Runtime
 	sqlDB           *sql.DB
 }
 
@@ -152,8 +158,24 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		_ = sqlDB.Close()
 		return nil, err
 	}
+	securityRepo, err := repository.NewSecurityConfigRepository(database)
+	if err != nil {
+		_ = sqlDB.Close()
+		return nil, err
+	}
+	securityRuntime, err := loginprotection.NewRuntime(c.RedisConf, func(ctx context.Context) (*system.LoginSecurityConfig, error) {
+		return LoadLoginSecurity(ctx, securityRepo)
+	})
+	if err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("initialize login protection: %w", err)
+	}
 	closePublisher = false
 	return &ServiceContext{
+		SecurityRepo:       securityRepo,
+		Security:           securityRuntime,
+		LoginFailures:      loginprotection.NewFailureStore(redisClient),
+		securityRuntime:    securityRuntime,
 		DictionaryRepo:     dictionaryRepo,
 		DictionaryItemRepo: dictionaryItemRepo,
 		DictionaryCache:    dictcache.New(redisClient),
@@ -179,6 +201,9 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 }
 
 func (s *ServiceContext) Close() error {
+	if s.securityRuntime != nil {
+		s.securityRuntime.Close()
+	}
 	if s.policyPublisher != nil {
 		s.policyPublisher.Close()
 	}

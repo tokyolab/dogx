@@ -9,6 +9,10 @@ App:
   ReadinessTimeout: 2s
 
 Auth:
+  # Omitted or empty trusts all proxies; a non-empty CIDR list trusts only those sources.
+  # With the default, isolate the API from users and overwrite forwarding headers at ingress.
+  # Example allowlist: ["127.0.0.1/32", "::1/128"]
+  TrustedProxies: []
   AccessSecret: ${DOGX_ACCESS_SECRET}
   SessionKeyPrefix: dogx:auth:session
 

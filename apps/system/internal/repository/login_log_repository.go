@@ -29,7 +29,7 @@ func (r *loginLogRepository) List(ctx context.Context, query LoginLogListQuery) 
 	}
 	database := r.db.WithContext(ctx).Model(&model.LoginLog{})
 	if username := strings.TrimSpace(query.Username); username != "" {
-		database = database.Where("username ILIKE ? ESCAPE '!'", containsLikePattern(username))
+		database = database.Where("LOWER(username) = LOWER(?)", username)
 	}
 	// A nil filter means all results; false must still filter failed attempts.
 	if query.Success != nil {

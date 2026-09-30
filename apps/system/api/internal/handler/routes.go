@@ -14,6 +14,7 @@ import (
 	loginlog "github.com/tokyolab/dogx/apps/system/api/internal/handler/loginlog"
 	menu "github.com/tokyolab/dogx/apps/system/api/internal/handler/menu"
 	role "github.com/tokyolab/dogx/apps/system/api/internal/handler/role"
+	security "github.com/tokyolab/dogx/apps/system/api/internal/handler/security"
 	user "github.com/tokyolab/dogx/apps/system/api/internal/handler/user"
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
 
@@ -37,13 +38,21 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.LoginRateLimit},
+			[]rest.Route{
+				{
+					// Sign in with username and password
+					Method:  http.MethodPost,
+					Path:    "/auth/login",
+					Handler: auth.LoginHandler(serverCtx),
+				},
+			}...,
+		),
+	)
+
+	server.AddRoutes(
 		[]rest.Route{
-			{
-				// Sign in with username and password
-				Method:  http.MethodPost,
-				Path:    "/auth/login",
-				Handler: auth.LoginHandler(serverCtx),
-			},
 			{
 				// Rotate the refresh token and issue new credentials
 				Method:  http.MethodPost,
@@ -373,6 +382,25 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/role/update",
 					Handler: role.UpdateRoleHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/security/login/get",
+					Handler: security.GetLoginSecurityHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/security/login/update",
+					Handler: security.UpdateLoginSecurityHandler(serverCtx),
 				},
 			}...,
 		),

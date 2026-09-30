@@ -49,6 +49,7 @@ type (
 	GetDictionaryItemResponse         = system.GetDictionaryItemResponse
 	GetDictionaryRequest              = system.GetDictionaryRequest
 	GetDictionaryResponse             = system.GetDictionaryResponse
+	GetLoginSecurityRequest           = system.GetLoginSecurityRequest
 	GetMenuRequest                    = system.GetMenuRequest
 	GetMenuResponse                   = system.GetMenuResponse
 	GetRoleAPIsRequest                = system.GetRoleAPIsRequest
@@ -81,6 +82,7 @@ type (
 	LoginLogInfo                      = system.LoginLogInfo
 	LoginRequest                      = system.LoginRequest
 	LoginResponse                     = system.LoginResponse
+	LoginSecurityConfig               = system.LoginSecurityConfig
 	MenuFields                        = system.MenuFields
 	MenuInfo                          = system.MenuInfo
 	NavigationMenu                    = system.NavigationMenu
@@ -114,6 +116,8 @@ type (
 	UserRoleInfo                      = system.UserRoleInfo
 
 	System interface {
+		GetLoginSecurity(ctx context.Context, in *GetLoginSecurityRequest, opts ...grpc.CallOption) (*LoginSecurityConfig, error)
+		UpdateLoginSecurity(ctx context.Context, in *LoginSecurityConfig, opts ...grpc.CallOption) (*EmptyResponse, error)
 		ListLoginLogs(ctx context.Context, in *ListLoginLogsRequest, opts ...grpc.CallOption) (*ListLoginLogsResponse, error)
 		ListDictionaries(ctx context.Context, in *ListDictionariesRequest, opts ...grpc.CallOption) (*ListDictionariesResponse, error)
 		GetDictionary(ctx context.Context, in *GetDictionaryRequest, opts ...grpc.CallOption) (*GetDictionaryResponse, error)
@@ -182,6 +186,16 @@ func NewSystem(cli zrpc.Client) System {
 	return &defaultSystem{
 		cli: cli,
 	}
+}
+
+func (m *defaultSystem) GetLoginSecurity(ctx context.Context, in *GetLoginSecurityRequest, opts ...grpc.CallOption) (*LoginSecurityConfig, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.GetLoginSecurity(ctx, in, opts...)
+}
+
+func (m *defaultSystem) UpdateLoginSecurity(ctx context.Context, in *LoginSecurityConfig, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := system.NewSystemClient(m.cli.Conn())
+	return client.UpdateLoginSecurity(ctx, in, opts...)
 }
 
 func (m *defaultSystem) ListLoginLogs(ctx context.Context, in *ListLoginLogsRequest, opts ...grpc.CallOption) (*ListLoginLogsResponse, error) {

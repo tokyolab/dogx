@@ -69,6 +69,7 @@ func TestCreateAndLoginUseTheSameUsernamePolicy(t *testing.T) {
 			repo := &userRepositoryStub{user: enabledUser()}
 			sc := &svc.ServiceContext{
 				UserRepo: repo, Passwords: &passwordVerifierStub{nextHash: "hash"},
+				Security: &securityRuntimeStub{}, LoginFailures: &loginFailuresStub{},
 				Tokens: &credentialIssuerStub{credentials: &authn.Credentials{AccessToken: "access"}},
 			}
 			if _, err := NewCreateUserLogic(context.Background(), sc).CreateUser(&system.CreateUserRequest{

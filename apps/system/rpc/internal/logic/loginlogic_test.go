@@ -58,7 +58,7 @@ func TestLogin(t *testing.T) {
 		RefreshToken: "refresh-token",
 		ExpiresIn:    900,
 	}}
-	logic := NewLoginLogic(context.Background(), &svc.ServiceContext{
+	logic := NewLoginLogic(context.Background(), &svc.ServiceContext{Security: &securityRuntimeStub{}, LoginFailures: &loginFailuresStub{},
 		UserRepo:     repo,
 		LoginLogRepo: audit,
 		Passwords:    passwords,
@@ -95,7 +95,7 @@ func TestLogin(t *testing.T) {
 
 func TestLoginRecordsCredentialFailures(t *testing.T) {
 	unknownAudit := &loginLogRepositoryStub{}
-	unknown := NewLoginLogic(context.Background(), &svc.ServiceContext{
+	unknown := NewLoginLogic(context.Background(), &svc.ServiceContext{Security: &securityRuntimeStub{}, LoginFailures: &loginFailuresStub{},
 		UserRepo:     &userRepositoryStub{findErr: repository.ErrUserNotFound},
 		LoginLogRepo: unknownAudit,
 		Passwords:    &passwordVerifierStub{},
@@ -111,7 +111,7 @@ func TestLoginRecordsCredentialFailures(t *testing.T) {
 	disabledUser := enabledUser()
 	disabledUser.Status = model.RecordStatusDisabled
 	disabledAudit := &loginLogRepositoryStub{}
-	disabled := NewLoginLogic(context.Background(), &svc.ServiceContext{
+	disabled := NewLoginLogic(context.Background(), &svc.ServiceContext{Security: &securityRuntimeStub{}, LoginFailures: &loginFailuresStub{},
 		UserRepo:     &userRepositoryStub{user: disabledUser},
 		LoginLogRepo: disabledAudit,
 		Passwords:    &passwordVerifierStub{},
@@ -126,7 +126,7 @@ func TestLoginRecordsCredentialFailures(t *testing.T) {
 }
 
 func TestLoginAuxiliaryWriteFailuresDoNotMaskAuthenticationResult(t *testing.T) {
-	logic := NewLoginLogic(context.Background(), &svc.ServiceContext{
+	logic := NewLoginLogic(context.Background(), &svc.ServiceContext{Security: &securityRuntimeStub{}, LoginFailures: &loginFailuresStub{},
 		UserRepo: &userRepositoryStub{
 			user:      enabledUser(),
 			updateErr: errors.New("last login unavailable"),
@@ -180,7 +180,7 @@ func TestLoginAcceptsExistingPasswordsAtBcryptByteBoundary(t *testing.T) {
 			t.Fatalf("prepare bcrypt password: %v", err)
 		}
 		repo.user.PasswordHash = string(hash)
-		sc := &svc.ServiceContext{
+		sc := &svc.ServiceContext{Security: &securityRuntimeStub{}, LoginFailures: &loginFailuresStub{},
 			UserRepo: repo, Passwords: hasher,
 			Tokens: &credentialIssuerStub{credentials: &authn.Credentials{AccessToken: "access-token"}},
 		}
@@ -272,7 +272,7 @@ func newLoginLogicForTest(
 	passwords authn.PasswordHasher,
 	tokens authn.CredentialIssuer,
 ) *LoginLogic {
-	return NewLoginLogic(context.Background(), &svc.ServiceContext{
+	return NewLoginLogic(context.Background(), &svc.ServiceContext{Security: &securityRuntimeStub{}, LoginFailures: &loginFailuresStub{},
 		UserRepo:  repo,
 		Passwords: passwords,
 		Tokens:    tokens,

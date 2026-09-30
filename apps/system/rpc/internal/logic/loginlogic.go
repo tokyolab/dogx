@@ -51,12 +51,42 @@ func (l *LoginLogic) Login(in *system.LoginRequest) (*system.LoginResponse, erro
 		return nil, status.Error(codes.InvalidArgument, "invalid login request")
 	}
 
+	if l.svcCtx.Security == nil || l.svcCtx.LoginFailures == nil {
+		return nil, status.Error(codes.Unavailable, "login protection unavailable")
+	}
+	security, err := l.svcCtx.Security.Current()
+	if err != nil {
+		return nil, status.Error(codes.Unavailable, "login protection unavailable")
+	}
+	if security.FailureLockEnabled {
+		locked, err := l.svcCtx.LoginFailures.Locked(l.ctx, username)
+		if err != nil {
+			l.Errorf("check login lock: %v", err)
+			return nil, status.Error(codes.Unavailable, "login protection unavailable")
+		}
+		if locked {
+			return nil, bizerror.New(systemsubcode.AuthAccountLocked, "账号已临时锁定，请稍后再试")
+		}
+	}
+	recordFailure := func() error {
+		if !security.FailureLockEnabled {
+			return nil
+		}
+		if err := l.svcCtx.LoginFailures.Fail(l.ctx, username, security); err != nil {
+			l.Errorf("record login failure count: %v", err)
+			return status.Error(codes.Unavailable, "login protection unavailable")
+		}
+		return nil
+	}
 	user, err := l.svcCtx.UserRepo.FindByUsername(l.ctx, username)
 	if errors.Is(err, repository.ErrUserNotFound) {
 		// Run the same bcrypt workload for unknown usernames to reduce
 		// timing-based account enumeration.
 		_ = l.svcCtx.Passwords.Verify(authn.DummyPasswordHash(), in.Password)
 		l.recordLogin(nil, username, false, model.LoginFailureInvalidCredentials, in)
+		if err := recordFailure(); err != nil {
+			return nil, err
+		}
 		return nil, invalidCredentialsError()
 	}
 	if err != nil {
@@ -67,6 +97,11 @@ func (l *LoginLogic) Login(in *system.LoginRequest) (*system.LoginResponse, erro
 	if err := l.svcCtx.Passwords.Verify(user.PasswordHash, in.Password); err != nil {
 		if errors.Is(err, authn.ErrPasswordMismatch) {
 			l.recordLogin(&user.ID, username, false, model.LoginFailureInvalidCredentials, in)
+			if user.Status == model.RecordStatusEnabled {
+				if err := recordFailure(); err != nil {
+					return nil, err
+				}
+			}
 			return nil, invalidCredentialsError()
 		}
 		l.recordLogin(&user.ID, username, false, model.LoginFailureSystemError, in)
@@ -77,6 +112,12 @@ func (l *LoginLogic) Login(in *system.LoginRequest) (*system.LoginResponse, erro
 		return nil, bizerror.New(systemsubcode.AuthUserDisabled, "账号已停用")
 	}
 
+	if security.FailureLockEnabled {
+		if err := l.svcCtx.LoginFailures.Clear(l.ctx, username); err != nil {
+			l.Errorf("clear login failures: %v", err)
+			return nil, status.Error(codes.Unavailable, "login protection unavailable")
+		}
+	}
 	credentials, err := l.svcCtx.Tokens.Issue(l.ctx, user.ID)
 	if err != nil {
 		l.recordLogin(&user.ID, username, false, model.LoginFailureSystemError, in)

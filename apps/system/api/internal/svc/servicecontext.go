@@ -5,13 +5,16 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/tokyolab/dogx/apps/system/api/internal/clientip"
 	"github.com/tokyolab/dogx/apps/system/api/internal/config"
 	"github.com/tokyolab/dogx/apps/system/api/internal/middleware"
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
 	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
+	"github.com/tokyolab/dogx/apps/system/internal/loginprotection"
 	"github.com/tokyolab/dogx/apps/system/internal/rpclog"
 	"github.com/tokyolab/dogx/apps/system/rpc/systemclient"
+	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 
 	"github.com/casbin/casbin/v3"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -29,6 +32,8 @@ type ReadinessChecker interface {
 }
 
 type ServiceContext struct {
+	ClientIP               *clientip.Resolver
+	LoginRateLimit         rest.Middleware
 	Config                 config.Config
 	SystemRpc              systemclient.System
 	Redis                  RedisPinger
@@ -38,14 +43,19 @@ type ServiceContext struct {
 	AuthorizationEnforcer  *casbin.SyncedEnforcer
 	AuthorizationReadiness ReadinessChecker
 
-	policyWatcher  authorization.PolicyWatcher
-	policyReloader *authorization.PolicyReloader
-	cancelPolicy   context.CancelFunc
-	sqlDB          *sql.DB
+	policyWatcher   authorization.PolicyWatcher
+	securityRuntime *loginprotection.Runtime
+	policyReloader  *authorization.PolicyReloader
+	cancelPolicy    context.CancelFunc
+	sqlDB           *sql.DB
 }
 
 func NewServiceContext(c config.Config) (*ServiceContext, error) {
 	rpclog.ProtectClientContent()
+	resolver, err := clientip.New(c.Auth.TrustedProxies)
+	if err != nil {
+		return nil, fmt.Errorf("trusted proxies: %w", err)
+	}
 	systemRPC := systemclient.NewSystem(zrpc.MustNewClient(c.SystemRpc))
 	redisClient, err := redis.NewRedis(c.RedisConf)
 	if err != nil {
@@ -117,8 +127,20 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		return nil, err
 	}
 
+	securityRuntime, err := loginprotection.NewRuntime(c.RedisConf, func(ctx context.Context) (*system.LoginSecurityConfig, error) {
+		return systemRPC.GetLoginSecurity(ctx, &system.GetLoginSecurityRequest{})
+	})
+	if err != nil {
+		cancelPolicy()
+		watcher.Close()
+		reloader.Wait()
+		return nil, err
+	}
 	closeDatabase = false
 	return &ServiceContext{
+		ClientIP:               resolver,
+		LoginRateLimit:         middleware.NewLoginRateLimitMiddleware(securityRuntime, redisClient, resolver, "login").Handle,
+		securityRuntime:        securityRuntime,
 		Config:                 c,
 		SystemRpc:              systemRPC,
 		Redis:                  redisClient,
@@ -135,6 +157,9 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 }
 
 func (s *ServiceContext) Close() error {
+	if s.securityRuntime != nil {
+		s.securityRuntime.Close()
+	}
 	// Stop every policy reload source before waiting for in-flight reloads.
 	if s.cancelPolicy != nil {
 		s.cancelPolicy()
