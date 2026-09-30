@@ -26,9 +26,12 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/internal/testutil"
+	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
 	commonsubcode "github.com/tokyolab/dogx/pkg/subcode"
 	"github.com/zeromicro/go-zero/core/stores/redis"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"gorm.io/gorm"
 )
 
@@ -136,6 +139,9 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 		"PGOPTIONS=-c search_path="+schema,
 	)
 	rpcProcess := startProcess(t, "system-rpc", rpcBinary, processEnv, "-f", rpcConfig)
+	// API startup now loads login protection through RPC; starting both processes
+	// together races that initial load against RPC initialization.
+	waitForRPCReady(t, rpcPort, rpcProcess)
 	apiProcess := startProcess(t, "system-api", apiBinary, processEnv, "-f", apiConfig)
 
 	baseURL := "http://127.0.0.1:" + strconv.Itoa(apiPort)
@@ -647,6 +653,45 @@ func (p *runningProcess) failure() string {
 	err := p.err
 	p.mu.Unlock()
 	return fmt.Sprintf("%s exited: %v\n%s", p.name, err, p.logs.String())
+}
+
+func waitForRPCReady(t testing.TB, port int, process *runningProcess) {
+	t.Helper()
+	conn, err := grpc.NewClient(
+		"passthrough:///127.0.0.1:"+strconv.Itoa(port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		t.Fatalf("create RPC readiness client: %v", err)
+	}
+	defer conn.Close()
+	client := system.NewSystemClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	var lastResult string
+	for {
+		select {
+		case <-process.done:
+			t.Fatal(process.failure())
+		default:
+		}
+		checkCtx, stop := context.WithTimeout(ctx, time.Second)
+		response, err := client.CheckReady(checkCtx, &system.ReadyRequest{})
+		stop()
+		if err == nil && response.GetStatus() == "ready" {
+			return
+		}
+		lastResult = fmt.Sprintf("response=%v error=%v", response, err)
+		select {
+		case <-process.done:
+			t.Fatal(process.failure())
+		case <-ctx.Done():
+			t.Fatalf("RPC did not become ready: %s\n%s", lastResult, process.logs.String())
+		case <-ticker.C:
+		}
+	}
 }
 
 func waitForAPIReady(
