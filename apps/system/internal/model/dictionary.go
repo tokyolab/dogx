@@ -1,7 +1,9 @@
 package model
 
+import basemodel "github.com/tokyolab/dogx/pkg/model"
+
 type Dictionary struct {
-	Base
+	basemodel.Base
 	Name     string       `gorm:"column:name"`
 	Code     string       `gorm:"column:code"`
 	Remark   string       `gorm:"column:remark"`

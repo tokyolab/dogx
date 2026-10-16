@@ -1,4 +1,4 @@
-package database
+package postgres
 
 import (
 	"database/sql"
@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"gorm.io/driver/postgres"
+	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-type PostgresConf struct {
+type Config struct {
 	Host            string
 	Port            int `json:",default=5432"`
 	User            string
@@ -26,7 +26,7 @@ type PostgresConf struct {
 	ConnMaxLifetime time.Duration `json:",default=1h"`
 }
 
-func (c PostgresConf) DSN() string {
+func (c Config) DSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
 		quoteDSNValue(c.Host),
@@ -39,12 +39,12 @@ func (c PostgresConf) DSN() string {
 	)
 }
 
-func OpenPostgres(c PostgresConf) (*gorm.DB, *sql.DB, error) {
-	return openPostgres(c, gorm.Open)
+func Open(c Config) (*gorm.DB, *sql.DB, error) {
+	return open(c, gorm.Open)
 }
 
-func openPostgres(c PostgresConf, open func(gorm.Dialector, ...gorm.Option) (*gorm.DB, error)) (*gorm.DB, *sql.DB, error) {
-	db, err := open(postgres.Open(c.DSN()), &gorm.Config{Logger: newPostgresLogger()})
+func open(c Config, openGORM func(gorm.Dialector, ...gorm.Option) (*gorm.DB, error)) (*gorm.DB, *sql.DB, error) {
+	db, err := openGORM(gormpostgres.Open(c.DSN()), &gorm.Config{Logger: newLogger()})
 	if err != nil {
 		connectErr := fmt.Errorf("connect postgres: %w", err)
 		// GORM can return a database handle together with an automatic Ping
@@ -72,17 +72,17 @@ func openPostgres(c PostgresConf, open func(gorm.Dialector, ...gorm.Option) (*go
 	return db, sqlDB, nil
 }
 
-func newPostgresLogger() logger.Interface {
-	return logger.New(postgresLogWriter{}, logger.Config{
+func newLogger() logger.Interface {
+	return logger.New(logWriter{}, logger.Config{
 		SlowThreshold:        200 * time.Millisecond,
 		LogLevel:             logger.Warn,
 		ParameterizedQueries: true,
 	})
 }
 
-type postgresLogWriter struct{}
+type logWriter struct{}
 
-func (postgresLogWriter) Printf(format string, args ...any) {
+func (logWriter) Printf(format string, args ...any) {
 	// GORM filters ordinary successful queries at Warn. Keep its remaining
 	// diagnostics in the configured logx error stream without expanding params.
 	logx.Errorf(format, args...)

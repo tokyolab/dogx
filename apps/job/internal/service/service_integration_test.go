@@ -40,9 +40,13 @@ func persistenceFixture(t *testing.T) (*gorm.DB, *sql.DB, *Service, *model.JobDe
 	return db, sqlDB, s, job
 }
 
-func TestAutomaticCommitFreezesSnapshotAndPreservesManagementTime(t *testing.T) {
+func TestAutomaticCommitFreezesSnapshotAndUpdatesAuditTime(t *testing.T) {
 	db, _, s, job := persistenceFixture(t)
 	ctx := context.Background()
+	oldAuditTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	if err := db.Model(&model.JobDefinition{}).Where("id = ?", job.ID).UpdateColumn("updated_at", oldAuditTime).Error; err != nil {
+		t.Fatal(err)
+	}
 	var before model.JobDefinition
 	if err := db.First(&before, job.ID).Error; err != nil {
 		t.Fatal(err)
@@ -74,7 +78,7 @@ func TestAutomaticCommitFreezesSnapshotAndPreservesManagementTime(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.NextTriggerAt == nil || !after.NextTriggerAt.Equal(wantNext) || !after.UpdatedAt.Equal(before.UpdatedAt) {
+	if after.NextTriggerAt == nil || !after.NextTriggerAt.Equal(wantNext) || !after.UpdatedAt.After(before.UpdatedAt) || !after.CreatedAt.Equal(before.CreatedAt) {
 		t.Fatalf("progress=%+v before.updated=%v", after, before.UpdatedAt)
 	}
 	if err := s.UpdateJobStatus(ctx, job.ID, model.StatusDisabled); err != nil {

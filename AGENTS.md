@@ -39,6 +39,7 @@
 - 同一业务域的 RPC、MQ、Job 等后端进程可以复用该业务域 `internal` 下的数据层；其他业务域不得直接访问其模型或数据表。
 - 需要跨业务域传递的字段、枚举和消息必须定义在 Protobuf 或版本化事件契约中；其他业务域通过 RPC 客户端或事件契约使用，不复制常量，也不导入持久化模型。
 - `pkg` 只放跨进程或跨业务域复用的稳定技术组件，不放用户、角色、菜单等业务模型或业务常量；只被单个进程使用的代码放在对应 `internal` 中。
+- 公共技术实现集中在 `pkg/model`、`pkg/postgres`、`pkg/migratecmd` 等包；公共 Base 不属于业务模型。复用配置类型、连接工厂和迁移命令执行器，不共享全局连接池，也不合并各域迁移、账本或数据所有权。
 
 ## 跨层类型与契约
 
@@ -49,6 +50,8 @@
 
 ## PostgreSQL 与 GORM
 
+- 具有技术主键、创建时间、更新时间和软删除时间的实体嵌入 `pkg/model.Base`，不得在各域重复定义。`ID` 是技术主键；`CreatedAt` 记录创建时间；`UpdatedAt` 记录最后更新时间；`DeletedAt` 记录软删除时间并提供 GORM 默认软删除过滤。这三个时间字段仅用于审计和记录生命周期，不承担调度进度、配置版本、执行期限等业务语义；业务判断需要独立字段。详见[基础模型与审计字段](docs/development/database-migrations.md#base-model)。
+- 普通更新（包括 Job 触发进度推进）应维护 `updated_at`，Raw／Exec 不经过 GORM 自动时间回调时须显式写入。软删除沿用 GORM `Delete` 的默认行为，仅维护 `deleted_at`，不为补写 `updated_at` 增加事务或 Hook。没有软删除语义的 Instance、日志、关系表等不强行嵌入 Base。
 - 有合理长度边界的短字符串（名称、编码、标识、表达式、备注等）使用 `VARCHAR(n)`，长度依据字段语义和已有同类字段确定；业务参数、长内容等按实际用途使用 `TEXT`，结构化数据按契约选择 `JSONB`。不得因 PostgreSQL 的存储特性或省去未来改表而将字符串一律设计为 `TEXT`。
 - `VARCHAR(n)` 的长度与 API／RPC 校验、GORM 模型及同语义快照字段保持一致，按 Unicode 字符数计量；超长输入明确拒绝，不静默截断。字符串容量约束不等同于可调整业务数值范围 CHECK，详见[数据库字段类型与长度规范](docs/development/database-migrations.md#column-types)。
 - 禁止 N+1 数据库查询：业务列表及关联数据的查询次数不得随结果集记录数线性增长，禁止在 `for`、`range` 或逐条 DTO 转换过程中按记录调用 Repository、GORM 或手写 SQL 查询数据库。
@@ -74,6 +77,7 @@
 
 ## 测试组织
 
+- 跨业务域的 PostgreSQL 测试连接、隔离 Schema 与清理复用 `pkg/testutil/postgres`；执行本域迁移、业务数据准备等仍留在域内。公共测试工具不依赖业务域内部包，不连接共享开发数据库。
 - Logic 单元测试默认使用手写 Stub；同一个 Stub 的结构体与全部方法必须集中在一个 `_test.go` 文件，跨测试文件复用时整体放入消费包内独立的 `<dependency>_stub_test.go`，扩展时不得把新增方法另拆文件。详见 [测试替身规范](docs/development/testing.md#测试替身)。
 
 ## 代码注释

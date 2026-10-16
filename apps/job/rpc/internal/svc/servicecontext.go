@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tokyolab/dogx/apps/job/internal/database"
 	"github.com/tokyolab/dogx/apps/job/internal/service"
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/config"
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/scheduler"
+	"github.com/tokyolab/dogx/pkg/postgres"
 	"github.com/zeromicro/go-zero/core/logx"
 	"go.etcd.io/etcd/client/pkg/v3/transport"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -48,7 +48,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	db, sqlDB, err := database.OpenPostgres(c.Postgres)
+	db, sqlDB, err := postgres.Open(c.Postgres)
 	if err != nil {
 		_ = etcd.Close()
 		return nil, err

@@ -14,11 +14,11 @@ import (
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/tokyolab/dogx/apps/system/api/internal/config"
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
-	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
-	"github.com/tokyolab/dogx/apps/system/internal/testutil"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	"github.com/tokyolab/dogx/pkg/postgres"
+	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 	"google.golang.org/grpc"
 
 	"github.com/jackc/pgx/v5"
@@ -66,7 +66,7 @@ func TestNewServiceContextWiresAuthorizationDependencies(t *testing.T) {
 	if !strings.HasPrefix(schema, "dogx_it_") {
 		t.Fatalf("refuse to wire API service context to unexpected schema %q", schema)
 	}
-	// OpenPostgres creates new connections, so pass the isolated test schema
+	// postgres.Open creates new connections, so pass the isolated test schema
 	// through libpq's standard connection option without changing production
 	// configuration or sharing PostgreSQL's public schema.
 	t.Setenv("PGOPTIONS", "-c search_path="+schema)
@@ -201,7 +201,7 @@ func apiServiceConfig(t testing.TB) config.Config {
 			PolicyChannel:  "dogx:test:api:authorization:policy",
 			ReloadInterval: time.Hour,
 		},
-		Postgres: systemdb.PostgresConf{
+		Postgres: postgres.Config{
 			Host:            parsed.Host,
 			Port:            int(parsed.Port),
 			User:            parsed.User,

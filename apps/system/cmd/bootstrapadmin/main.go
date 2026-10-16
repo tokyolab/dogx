@@ -10,7 +10,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/bootstrapadmin"
-	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
+	"github.com/tokyolab/dogx/pkg/postgres"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"golang.org/x/term"
@@ -23,7 +23,7 @@ var (
 )
 
 type config struct {
-	Postgres systemdb.PostgresConf
+	Postgres postgres.Config
 }
 
 func main() {
@@ -45,7 +45,7 @@ func run() error {
 		return err
 	}
 
-	database, sqlDB, err := systemdb.OpenPostgres(c.Postgres)
+	database, sqlDB, err := postgres.Open(c.Postgres)
 	if err != nil {
 		return err
 	}

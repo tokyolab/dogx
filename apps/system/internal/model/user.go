@@ -1,9 +1,13 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	basemodel "github.com/tokyolab/dogx/pkg/model"
+)
 
 type User struct {
-	Base
+	basemodel.Base
 	Username     string       `gorm:"column:username;size:64;not null"`
 	PasswordHash string       `gorm:"column:password_hash;size:255;not null"`
 	Nickname     string       `gorm:"column:nickname;size:64;not null"`

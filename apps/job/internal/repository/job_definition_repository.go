@@ -140,7 +140,7 @@ func (r *jobDefinitionRepository) Lock(ctx context.Context, id int64) (*model.Jo
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	if result.RowsAffected == 0 || job.DeletedAt != nil {
+	if result.RowsAffected == 0 || job.DeletedAt.Valid {
 		return nil, ErrJobNotFound
 	}
 	return &job, nil
@@ -176,11 +176,12 @@ func (r *jobDefinitionRepository) Disable(ctx context.Context, id int64) error {
 }
 
 func (r *jobDefinitionRepository) Delete(ctx context.Context, id int64) error {
-	return r.checkWrite(ctx, id, r.db.WithContext(ctx).Exec("UPDATE job_definition SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL AND status = 0", id))
+	return r.checkWrite(ctx, id, r.db.WithContext(ctx).
+		Where("id = ? AND status = ?", id, model.StatusDisabled).Delete(&model.JobDefinition{}))
 }
 
 func (r *jobDefinitionRepository) Advance(ctx context.Context, id int64, next time.Time) error {
-	return r.checkWrite(ctx, id, r.db.WithContext(ctx).Exec("UPDATE job_definition SET next_trigger_at = ? WHERE id = ? AND deleted_at IS NULL AND status = 1", next, id))
+	return r.checkWrite(ctx, id, r.db.WithContext(ctx).Exec("UPDATE job_definition SET next_trigger_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL AND status = 1", next, id))
 }
 
 func (r *jobDefinitionRepository) checkWrite(ctx context.Context, id int64, result *gorm.DB) error {

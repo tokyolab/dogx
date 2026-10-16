@@ -13,6 +13,7 @@ import (
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/job/rpc/types/job"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -47,7 +48,7 @@ func TestJobOperationsSuccessAndServiceFailures(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			technical := errors.New("database host secret.internal failed")
 			for _, failure := range []error{nil, service.ErrNotFound, technical} {
-				stub := &jobServiceStub{detail: &repository.JobDetail{JobDefinition: model.JobDefinition{ID: 7}}, err: failure}
+				stub := &jobServiceStub{detail: &repository.JobDetail{JobDefinition: model.JobDefinition{Base: basemodel.Base{ID: 7}}}, err: failure}
 				result, err := test.call(&svc.ServiceContext{Jobs: stub, Clock: testNow})
 				if stub.called != test.name {
 					t.Fatalf("called=%s", stub.called)
@@ -180,7 +181,7 @@ func TestJobProjectionAndCronPreview(t *testing.T) {
 	if business, ok := bizerror.From(err); !ok || business.Subcode() != service.SubcodeNotFound {
 		t.Fatalf("missing detail=%v", err)
 	}
-	stub.detail = &repository.JobDetail{JobDefinition: model.JobDefinition{ID: 7, Status: model.StatusEnabled, NextTriggerAt: &now, Remark: "note", Params: "raw", MaxRetries: 0, TimeoutSeconds: 900}, ExecutorGroupName: pointer("group")}
+	stub.detail = &repository.JobDetail{JobDefinition: model.JobDefinition{Base: basemodel.Base{ID: 7}, Status: model.StatusEnabled, NextTriggerAt: &now, Remark: "note", Params: "raw", MaxRetries: 0, TimeoutSeconds: 900}, ExecutorGroupName: pointer("group")}
 	detail, err := NewGetJobLogic(context.Background(), s).GetJob(&job.GetJobRequest{Id: 7})
 	if err != nil || detail.Job.Remark != "note" || detail.Job.Params != "raw" || *detail.Job.ExecutorGroupName != "group" || *detail.Job.NextTriggerAt != now.Format(time.RFC3339Nano) {
 		t.Fatalf("detail=%+v error=%v", detail, err)

@@ -13,6 +13,7 @@ import (
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/job/rpc/types/job"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -32,7 +33,7 @@ func (*protocolJobsStub) GetJob(_ context.Context, id int64) (*repository.JobDet
 	case 4:
 		return nil, errors.New("postgres secret.internal offline")
 	}
-	return &repository.JobDetail{JobDefinition: model.JobDefinition{ID: id}}, nil
+	return &repository.JobDetail{JobDefinition: model.JobDefinition{Base: basemodel.Base{ID: id}}}, nil
 }
 
 func TestJobRPCWireBusinessAndTechnicalErrors(t *testing.T) {

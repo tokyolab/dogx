@@ -16,6 +16,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -104,7 +105,7 @@ func TestCreateAndLoginUseTheSameUsernamePolicy(t *testing.T) {
 
 func TestManagedUserPasswordPolicy(t *testing.T) {
 	for _, password := range []string{"Abcd123!", "Aa1" + strings.Repeat("!", 29)} {
-		repo := &userRepositoryStub{user: &model.User{Base: model.Base{ID: 9}}}
+		repo := &userRepositoryStub{user: &model.User{Base: basemodel.Base{ID: 9}}}
 		hasher := &passwordVerifierStub{nextHash: "new-hash"}
 		sc := &svc.ServiceContext{UserRepo: repo, Passwords: hasher, Sessions: &sessionStoreLogicStub{}}
 		if _, err := NewCreateUserLogic(context.Background(), sc).CreateUser(&system.CreateUserRequest{
@@ -168,7 +169,7 @@ func TestUserManagementMapsBusinessAndTechnicalErrors(t *testing.T) {
 func TestUserQueriesAndTimeMapping(t *testing.T) {
 	localTime := time.Date(2026, 9, 7, 16, 30, 0, 0, time.FixedZone("test", 8*3600))
 	email, phone := "alice@example.com", "123"
-	record := repository.UserRecord{User: model.User{Base: model.Base{ID: 9, CreatedAt: localTime, UpdatedAt: localTime}, Username: "alice", Nickname: "Alice", Email: &email, Phone: &phone, LastLoginAt: &localTime, PasswordHash: "not-returned"}, Roles: []model.Role{{Base: model.Base{ID: 8}, Code: "reader", Name: "Reader", Status: 1}}}
+	record := repository.UserRecord{User: model.User{Base: basemodel.Base{ID: 9, CreatedAt: localTime, UpdatedAt: localTime}, Username: "alice", Nickname: "Alice", Email: &email, Phone: &phone, LastLoginAt: &localTime, PasswordHash: "not-returned"}, Roles: []model.Role{{Base: basemodel.Base{ID: 8}, Code: "reader", Name: "Reader", Status: 1}}}
 	repo := &userRepositoryStub{record: &record, records: []repository.UserRecord{record}, total: 7}
 	sc := &svc.ServiceContext{UserRepo: repo}
 	disabled := int32(0)
@@ -200,7 +201,7 @@ func TestUserQueriesAndTimeMapping(t *testing.T) {
 }
 
 func TestUserRoleOptionsExcludeSuperAdminAtRepositoryBoundary(t *testing.T) {
-	repo := &roleRepositoryStub{roles: []model.Role{{Base: model.Base{ID: 8}, Code: "reader", Name: "Reader", Status: 1}}, total: 1}
+	repo := &roleRepositoryStub{roles: []model.Role{{Base: basemodel.Base{ID: 8}, Code: "reader", Name: "Reader", Status: 1}}, total: 1}
 	result, err := NewListUserRoleOptionsLogic(context.Background(), &svc.ServiceContext{RoleRepo: repo}).ListUserRoleOptions(&system.ListRolesRequest{Page: 2, PageSize: 20, Keyword: "read"})
 	if err != nil || len(result.Items) != 1 || !repo.listQuery.AssignableOnly || repo.listQuery.Offset != 20 {
 		t.Fatalf("options: %+v %v", result, err)
@@ -212,7 +213,7 @@ func TestUserRoleOptionsExcludeSuperAdminAtRepositoryBoundary(t *testing.T) {
 }
 
 func TestUserProfileUpdateDoesNotChangeCredentialsOrRoles(t *testing.T) {
-	repo := &userRepositoryStub{user: &model.User{Base: model.Base{ID: 9}}}
+	repo := &userRepositoryStub{user: &model.User{Base: basemodel.Base{ID: 9}}}
 	sessions := &sessionStoreLogicStub{}
 	sc := &svc.ServiceContext{UserRepo: repo, Sessions: sessions}
 	_, err := NewUpdateUserLogic(context.Background(), sc).UpdateUser(&system.UpdateUserRequest{Id: 9, OperatorId: 1, Nickname: " 新昵称 ", DepartmentId: 1})
@@ -243,7 +244,7 @@ func TestUserMutationsRevokeSessionsBeforeWriting(t *testing.T) {
 	for name, call := range operations {
 		t.Run(name, func(t *testing.T) {
 			for _, fail := range []bool{false, true} {
-				repo := &userRepositoryStub{user: &model.User{Base: model.Base{ID: 9}, Status: 1}}
+				repo := &userRepositoryStub{user: &model.User{Base: basemodel.Base{ID: 9}, Status: 1}}
 				sessions := &sessionStoreLogicStub{}
 				if fail {
 					sessions.revokeAllErr = errors.New("redis offline")
@@ -265,7 +266,7 @@ func TestUserMutationsRevokeSessionsBeforeWriting(t *testing.T) {
 }
 
 func TestUserProtectionRejectsWithoutSessionSideEffects(t *testing.T) {
-	record := &repository.UserRecord{User: model.User{Base: model.Base{ID: 9}, Status: 1}, Roles: []model.Role{{Code: model.SuperAdminRoleCode, Status: 1}}}
+	record := &repository.UserRecord{User: model.User{Base: basemodel.Base{ID: 9}, Status: 1}, Roles: []model.Role{{Code: model.SuperAdminRoleCode, Status: 1}}}
 	for _, test := range []struct {
 		name     string
 		operator int64
@@ -284,7 +285,7 @@ func TestUserProtectionRejectsWithoutSessionSideEffects(t *testing.T) {
 			}
 		})
 	}
-	repo := &userRepositoryStub{user: &model.User{Base: model.Base{ID: 9}}, rolesErr: repository.ErrSuperAdminNotAssignable}
+	repo := &userRepositoryStub{user: &model.User{Base: basemodel.Base{ID: 9}}, rolesErr: repository.ErrSuperAdminNotAssignable}
 	sessions := &sessionStoreLogicStub{}
 	_, err := NewReplaceUserRolesLogic(context.Background(), &svc.ServiceContext{UserRepo: repo, Sessions: sessions}).ReplaceUserRoles(&system.ReplaceUserRolesRequest{Id: 9, OperatorId: 1, RoleIds: []int64{1}})
 	if !hasBusinessSubcode(err, subcode.UserSuperAdminNotAssignable) || sessions.revokedUserID != 0 || repo.writeCalls != 0 {
@@ -307,10 +308,10 @@ func TestReplaceUserRolesRejectsSuperAdminWithoutSideEffects(t *testing.T) {
 			} {
 				t.Run(fmt.Sprintf("%s/status=%d/operator=%d", test.name, state, operator), func(t *testing.T) {
 					repo := &userRepositoryStub{record: &repository.UserRecord{
-						User: model.User{Base: model.Base{ID: 42}, Status: 1},
+						User: model.User{Base: basemodel.Base{ID: 42}, Status: 1},
 						Roles: []model.Role{
-							{Base: model.Base{ID: 77}, Code: model.SuperAdminRoleCode, Status: state},
-							{Base: model.Base{ID: 2}, Code: "reader", Status: 1},
+							{Base: basemodel.Base{ID: 77}, Code: model.SuperAdminRoleCode, Status: state},
+							{Base: basemodel.Base{ID: 2}, Code: "reader", Status: 1},
 						},
 					}}
 					sessions := &sessionStoreLogicStub{}
@@ -329,9 +330,9 @@ func TestReplaceUserRolesRejectsSuperAdminWithoutSideEffects(t *testing.T) {
 }
 
 func TestReplaceUserRolesNoopDoesNotRevokeSessionsOrWrite(t *testing.T) {
-	reader := model.Role{Base: model.Base{ID: 2}, Code: "reader", Status: 1}
-	reviewer := model.Role{Base: model.Base{ID: 3}, Code: "reviewer", Status: 1}
-	disabled := model.Role{Base: model.Base{ID: 4}, Code: "disabled", Status: 0}
+	reader := model.Role{Base: basemodel.Base{ID: 2}, Code: "reader", Status: 1}
+	reviewer := model.Role{Base: basemodel.Base{ID: 3}, Code: "reviewer", Status: 1}
+	disabled := model.Role{Base: basemodel.Base{ID: 4}, Code: "disabled", Status: 0}
 	for _, test := range []struct {
 		name    string
 		current []model.Role
@@ -345,7 +346,7 @@ func TestReplaceUserRolesNoopDoesNotRevokeSessionsOrWrite(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			repo := &userRepositoryStub{
-				record:    &repository.UserRecord{User: model.User{Base: model.Base{ID: 42}, Status: 1}, Roles: test.current},
+				record:    &repository.UserRecord{User: model.User{Base: basemodel.Base{ID: 42}, Status: 1}, Roles: test.current},
 				updateErr: errors.New("unexpected role write"),
 			}
 			sessions := &sessionStoreLogicStub{revokeAllErr: errors.New("unexpected session revocation")}
@@ -366,7 +367,7 @@ func TestReplaceUserRolesNoopDoesNotRevokeSessionsOrWrite(t *testing.T) {
 }
 
 func TestReplaceUserRolesStillValidatesBeforeNoop(t *testing.T) {
-	reader := model.Role{Base: model.Base{ID: 2}, Code: "reader", Status: 1}
+	reader := model.Role{Base: basemodel.Base{ID: 2}, Code: "reader", Status: 1}
 	for _, test := range []struct {
 		name          string
 		current       []model.Role
@@ -379,7 +380,7 @@ func TestReplaceUserRolesStillValidatesBeforeNoop(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			repo := &userRepositoryStub{
-				record:   &repository.UserRecord{User: model.User{Base: model.Base{ID: 42}, Status: 1}, Roles: test.current},
+				record:   &repository.UserRecord{User: model.User{Base: basemodel.Base{ID: 42}, Status: 1}, Roles: test.current},
 				rolesErr: test.validationErr,
 			}
 			sessions := &sessionStoreLogicStub{}
@@ -394,8 +395,8 @@ func TestReplaceUserRolesStillValidatesBeforeNoop(t *testing.T) {
 }
 
 func TestReplaceUserRolesChangedSetsStillRevokeAndPersist(t *testing.T) {
-	reader := model.Role{Base: model.Base{ID: 2}, Code: "reader", Status: 1}
-	reviewer := model.Role{Base: model.Base{ID: 3}, Code: "reviewer", Status: 1}
+	reader := model.Role{Base: basemodel.Base{ID: 2}, Code: "reader", Status: 1}
+	reviewer := model.Role{Base: basemodel.Base{ID: 3}, Code: "reviewer", Status: 1}
 	for _, test := range []struct {
 		name    string
 		current []model.Role
@@ -408,7 +409,7 @@ func TestReplaceUserRolesChangedSetsStillRevokeAndPersist(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			repo := &userRepositoryStub{record: &repository.UserRecord{
-				User: model.User{Base: model.Base{ID: 42}, Status: 1}, Roles: test.current,
+				User: model.User{Base: basemodel.Base{ID: 42}, Status: 1}, Roles: test.current,
 			}}
 			sessions := &sessionStoreLogicStub{}
 			_, err := NewReplaceUserRolesLogic(context.Background(), &svc.ServiceContext{UserRepo: repo, Sessions: sessions}).
@@ -422,7 +423,7 @@ func TestReplaceUserRolesChangedSetsStillRevokeAndPersist(t *testing.T) {
 }
 
 func TestUserEnableDoesNotRevokeSessionsAndStatusCannotTruncate(t *testing.T) {
-	repo := &userRepositoryStub{user: &model.User{Base: model.Base{ID: 9}}}
+	repo := &userRepositoryStub{user: &model.User{Base: basemodel.Base{ID: 9}}}
 	sessions := &sessionStoreLogicStub{}
 	sc := &svc.ServiceContext{UserRepo: repo, Sessions: sessions}
 	if _, err := NewUpdateUserStatusLogic(context.Background(), sc).UpdateUserStatus(&system.UpdateUserStatusRequest{Id: 9, OperatorId: 1, Status: 1}); err != nil {
@@ -464,7 +465,7 @@ func TestUserMutationDependencyFailuresAreNotReportedAsSuccess(t *testing.T) {
 	}
 	for _, call := range operations {
 		for _, readFailure := range []bool{true, false} {
-			repo := &userRepositoryStub{user: &model.User{Base: model.Base{ID: 9}, Status: 1}, updateErr: dependencyErr}
+			repo := &userRepositoryStub{user: &model.User{Base: basemodel.Base{ID: 9}, Status: 1}, updateErr: dependencyErr}
 			if readFailure {
 				repo.findErr = dependencyErr
 			}
@@ -475,7 +476,7 @@ func TestUserMutationDependencyFailuresAreNotReportedAsSuccess(t *testing.T) {
 			}
 		}
 	}
-	repo := &userRepositoryStub{user: &model.User{Base: model.Base{ID: 9}}}
+	repo := &userRepositoryStub{user: &model.User{Base: basemodel.Base{ID: 9}}}
 	sessions := &sessionStoreLogicStub{}
 	_, err := NewResetUserPasswordLogic(context.Background(), &svc.ServiceContext{UserRepo: repo, Sessions: sessions, Passwords: &passwordVerifierStub{hashErr: dependencyErr}}).
 		ResetUserPassword(&system.ResetUserPasswordRequest{Id: 9, OperatorId: 1, Password: "Valid-pass123"})
@@ -516,7 +517,7 @@ func TestInitializedSuperAdminManagementBoundary(t *testing.T) {
 		for _, operator := range []int64{1, 42} {
 			t.Run(fmt.Sprintf("%s/operator=%d", operation.name, operator), func(t *testing.T) {
 				repo := &userRepositoryStub{record: &repository.UserRecord{
-					User:  model.User{Base: model.Base{ID: 42}, Status: 1},
+					User:  model.User{Base: basemodel.Base{ID: 42}, Status: 1},
 					Roles: []model.Role{{Code: model.SuperAdminRoleCode, Status: 1}},
 				}}
 				sessions := &sessionStoreLogicStub{}

@@ -13,6 +13,7 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/schedule"
 	"github.com/tokyolab/dogx/apps/job/internal/service"
 	"github.com/tokyolab/dogx/apps/job/internal/testutil"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 type scaleCompletion struct {
@@ -57,6 +58,7 @@ func TestEtcdPostgresFiveHundredRulesHundredDueSmoke(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC().Truncate(time.Microsecond)
+	oldAuditTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	// Select an annual occurrence months away, including when CI runs around
 	// New Year. Every trigger in this test then comes from loading/recovery.
 	month := (int(now.In(time.Local).Month())+5)%12 + 1
@@ -77,12 +79,13 @@ func TestEtcdPostgresFiveHundredRulesHundredDueSmoke(t *testing.T) {
 			params = fmt.Sprintf("payload for Job %d", i)
 		}
 		definitions[i] = model.JobDefinition{
+			Base: basemodel.Base{CreatedAt: oldAuditTime, UpdatedAt: oldAuditTime},
 			Name: fmt.Sprintf("scale Job %d", i), ExecutorGroupID: group.ID,
 			ProcessorName: "scale.processor", ExecutionMode: model.ExecutionModeNormal,
 			Params: params, CronExpr: expr, Status: model.StatusEnabled,
 			MisfirePolicy: model.MisfireOnce, BlockPolicy: model.BlockDiscard,
 			MaxRetries: int32(i % 4), RetryIntervalSeconds: 10, TimeoutSeconds: 900,
-			NextTriggerAt: &next, CreatedAt: now, UpdatedAt: now,
+			NextTriggerAt: &next,
 		}
 	}
 	// Fixture setup is bounded batch SQL; normal scheduling below uses only
@@ -208,8 +211,15 @@ func TestEtcdPostgresFiveHundredRulesHundredDueSmoke(t *testing.T) {
 		t.Fatalf("expected all 500 Job definitions, got %d", len(persisted))
 	}
 	for _, definition := range persisted {
-		if definition.NextTriggerAt == nil || !definition.NextTriggerAt.Equal(future) || !definition.UpdatedAt.Equal(now) {
-			t.Fatalf("Job %d advanced inconsistently or changed management time: %+v", definition.ID, definition)
+		if definition.NextTriggerAt == nil || !definition.NextTriggerAt.Equal(future) || !definition.CreatedAt.Equal(oldAuditTime) {
+			t.Fatalf("Job %d advanced inconsistently or changed creation time: %+v", definition.ID, definition)
+		}
+		if dueIDs[definition.ID] {
+			if !definition.UpdatedAt.After(oldAuditTime) {
+				t.Fatalf("due Job %d did not update audit time: %+v", definition.ID, definition)
+			}
+		} else if !definition.UpdatedAt.Equal(oldAuditTime) {
+			t.Fatalf("future Job %d changed without a write: %+v", definition.ID, definition)
 		}
 	}
 	if stats := r.Stats(); stats.QueueRejected != 0 || stats.TriggerErrors != 0 || stats.LoadErrors != 0 || stats.RecoveryErrors != 0 {

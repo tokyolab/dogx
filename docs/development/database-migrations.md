@@ -54,6 +54,8 @@ go run ./apps/system/cmd/migrate fix
 
 各域独立维护迁移目录、命令和账本：System 使用 `apps/system/internal/migration/migrations`、`apps/system/cmd/migrate` 及 `goose_db_version`；Job 使用 `apps/job/internal/migration/migrations`、`apps/job/cmd/migrate` 及 `job_goose_db_version`。Job Provider 使用实例级 `WithTableName`，不修改 Goose 全局表名。
 
+两个命令入口复用 `pkg/migratecmd` 的参数解析与执行逻辑，各自注入配置路径、迁移目录和本域 Provider。PostgreSQL 配置类型和连接工厂由 `pkg/postgres` 提供，各进程仍独立装配、持有和关闭自己的连接池；迁移命令使用独立的 SQL 连接，不借用服务进程连接池。
+
 开发默认同库同 `public` schema，分别使用 `sys_*`（保留现有 `casbin_rule`）与 `job_*` 表名；两个域仍有各自的数据库配置、连接池及数据所有权。初次生产部署可通过 Job 配置指向独立数据库，不允许跨域 SQL 或事务。同库迁移依次执行，账本独立不代表允许并发迁移；Job 管理接口的 `sys_api` 登记仍属于 System 增量迁移。
 
 ```powershell
@@ -63,6 +65,23 @@ go run ./apps/job/cmd/migrate -f 'apps/job/rpc/etc/job-rpc.yaml' status
 ```
 
 Job 同样遵守时间戳开发版本、发布前 `fix`、显式 `Up`／`Down` 和已发布迁移不可变规则。服务进程不自动迁移，不自动创建默认执行器组。
+
+## 基础模型与审计字段 {#base-model}
+
+符合以下四字段语义的实体统一嵌入 `pkg/model.Base`，不在各域复制定义。Base 仅提供持久化技术字段，不携带业务枚举、业务关联或通用 Repository。
+
+| Go 字段 / 数据库列 | 含义与维护规则 |
+| --- | --- |
+| `ID` / `id` | `int64` / `BIGINT` 技术主键，标识记录，不承载业务编号含义 |
+| `CreatedAt` / `created_at` | 创建时间；插入时由 GORM 或迁移规定的数据库默认值初始化，后续不改写 |
+| `UpdatedAt` / `updated_at` | 最后更新时间；创建时初始化，普通更新时维护，包括配置修改、状态变化及调度进度推进，不能限定成“管理配置修改时间” |
+| `DeletedAt` / `deleted_at` | `gorm.DeletedAt` / 可空 `TIMESTAMPTZ`；NULL 表示未软删除，由 GORM `Delete` 写入删除时间并提供默认查询过滤 |
+
+三个时间字段只用于审计与记录生命周期，不作为 Cron 进度、配置版本、执行开始／截止时间、租约或重试期限。需要这些业务语义时设置独立字段，例如 `next_trigger_at`。`DeletedAt` 用于过滤软删除记录及判断记录是否仍存在，不受此限制。
+
+普通 GORM 创建／更新沿用默认时间维护；Raw／Exec 不执行模型的时间回调，须显式维护相应审计字段。软删除保持现有 System 行为：使用 GORM `Delete`，仅更新 `deleted_at`，不额外补写 `updated_at`，不为此增加 Hook 或事务。业务删除前的引用校验、状态条件及已有事务仍由业务代码负责；Raw 查询仍需显式写出软删除过滤条件。
+
+只有全部字段都适用时才嵌入 Base：System 的普通软删除实体、JobDefinition 和 ExecutorGroup 复用它；JobInstance 没有软删除语义，不为复用而增加 `deleted_at`。日志、关系表等同样按自身生命周期建模。迁移 SQL 是结构权威，抽取 Base 不使用 `AutoMigrate`，不改变既有列或表归属。
 
 ## 字段类型与长度 {#column-types}
 

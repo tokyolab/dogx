@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 func TestDepartmentWriteErrorsAndConstructor(t *testing.T) {
@@ -33,8 +34,8 @@ func TestValidateDepartmentTree(t *testing.T) {
 	childID := int64(2)
 	missingID := int64(99)
 	departments := []model.Department{
-		{Base: model.Base{ID: 1}, Name: "总部"},
-		{Base: model.Base{ID: 2}, ParentID: &parentID, Name: "研发部"},
+		{Base: basemodel.Base{ID: 1}, Name: "总部"},
+		{Base: basemodel.Base{ID: 2}, ParentID: &parentID, Name: "研发部"},
 	}
 
 	tests := []struct {

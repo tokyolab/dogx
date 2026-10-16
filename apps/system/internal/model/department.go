@@ -1,7 +1,9 @@
 package model
 
+import basemodel "github.com/tokyolab/dogx/pkg/model"
+
 type Department struct {
-	Base
+	basemodel.Base
 	ParentID *int64       `gorm:"column:parent_id"`
 	Name     string       `gorm:"column:name;size:128;not null"`
 	Sort     int32        `gorm:"column:sort;not null"`

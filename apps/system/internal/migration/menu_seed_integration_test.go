@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/tokyolab/dogx/apps/system/internal/testutil"
+	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 )
 
 func assertSystemMenuSeed(t testing.TB, ctx context.Context, db *sql.DB) {

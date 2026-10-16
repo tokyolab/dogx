@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tokyolab/dogx/apps/system/internal/testutil"
+	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 )
 
 func TestReadinessChecksLoadedPolicyAndPostgreSQL(t *testing.T) {

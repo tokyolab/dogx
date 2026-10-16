@@ -17,5 +17,6 @@ ignore:
   - "apps/**/rpc/*.go"
   - "apps/**/cmd/**/main.go"
   - "apps/**/internal/testutil/**"
+  - "pkg/testutil/**"
   - "apps/**/rpc/internal/server/**"
   - "apps/**/rpc/*client/**"

@@ -1,6 +1,6 @@
 //go:build integration
 
-package testutil
+package postgres
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
-	"gorm.io/driver/postgres"
+	pgdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -90,7 +90,7 @@ func OpenPostgres(t testing.TB) (*gorm.DB, *sql.DB) {
 		t.Fatalf("connect isolated PostgreSQL integration test schema: %v", err)
 	}
 
-	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: testDB}), &gorm.Config{
+	gormDB, err := gorm.Open(pgdriver.New(pgdriver.Config{Conn: testDB}), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {

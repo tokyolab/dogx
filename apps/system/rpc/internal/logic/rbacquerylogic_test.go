@@ -11,6 +11,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -33,7 +34,7 @@ func TestListRolesReturnsPageAndStableContract(t *testing.T) {
 	createdAt := time.Date(2026, time.August, 26, 1, 2, 3, 4, time.UTC)
 	repositoryStub := &roleRepositoryStub{
 		roles: []model.Role{{
-			Base: model.Base{
+			Base: basemodel.Base{
 				ID:        7,
 				CreatedAt: createdAt,
 				UpdatedAt: createdAt.Add(time.Minute),
@@ -134,7 +135,7 @@ func TestListRolesMeasuresKeywordLimitInCharacters(t *testing.T) {
 
 func TestGetRoleReturnsRoleAndMapsMissingRole(t *testing.T) {
 	repositoryStub := &roleRepositoryStub{role: &model.Role{
-		Base:   model.Base{ID: 9},
+		Base:   basemodel.Base{ID: 9},
 		Code:   "auditor",
 		Name:   "Auditor",
 		Status: model.RecordStatusEnabled,
@@ -162,7 +163,7 @@ func TestGetRoleReturnsRoleAndMapsMissingRole(t *testing.T) {
 
 func TestListAPIsReturnsFilteredResources(t *testing.T) {
 	repositoryStub := &apiQueryRepositoryStub{resources: []model.API{{
-		Base:        model.Base{ID: 11},
+		Base:        basemodel.Base{ID: 11},
 		ServiceName: "system-api",
 		Group:       "角色管理",
 		Name:        "查询角色",
@@ -242,7 +243,7 @@ func TestListAPIsMeasuresFilterLimitsInCharacters(t *testing.T) {
 }
 
 func TestGetRoleAPIsValidatesRoleAndReturnsPolicyResourceIDs(t *testing.T) {
-	roleRepository := &roleRepositoryStub{role: &model.Role{Base: model.Base{ID: 7}}}
+	roleRepository := &roleRepositoryStub{role: &model.Role{Base: basemodel.Base{ID: 7}}}
 	policies := &rolePolicyWriterStub{listed: []int64{11, 12}}
 	response, err := NewGetRoleAPIsLogic(context.Background(), &svc.ServiceContext{
 		RoleRepo:     roleRepository,

@@ -62,6 +62,10 @@ dogx/                                后端 Git 仓库
 │       │   └── migration/          Job 域迁移与 SQL
 │       └── cmd/migrate/            独立 Job 迁移命令
 ├── pkg/                            真正公共的技术组件
+│   ├── model/                      Base 主键与审计字段，无业务模型
+│   ├── postgres/                   配置类型、DSN 与连接工厂
+│   ├── migratecmd/                 迁移 CLI 执行器，各域注入 Provider
+│   └── testutil/postgres/          测试连接、隔离 Schema 与清理
 └── docs/                           设计、规范及 ADR
 ```
 
@@ -74,6 +78,8 @@ dogx/                                后端 Git 仓库
 ### 迁移与权限目录
 
 Job 的迁移由 `apps/job/internal/migration` 与独立迁移命令管理，使用 Goose 实例级 `WithTableName("job_goose_db_version")`，不修改全局表名或借用 System 迁移账本。即使两个域使用同一个物理数据库，也不会把不同迁移流的版本混在一起。
+
+命令入口复用 `pkg/migratecmd`，数据库配置类型及连接工厂复用 `pkg/postgres`；公共技术实现不改变各域独立配置、连接池、迁移 SQL、Provider 与账本。符合软删除语义的模型嵌入 `pkg/model.Base`；审计时间不承担配置同步或调度进度语义，规则见[基础模型规范](../development/database-migrations.md#base-model)。
 
 System 的 `sys_api` 登记仍由 System 域增量迁移维护；本批 Job 管理路由须全部登记，并进入现有路由安全矩阵。Job 迁移不写 System 权限表，不因暂未开发菜单页面而绕过接口鉴权。
 

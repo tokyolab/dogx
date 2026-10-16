@@ -12,19 +12,20 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tokyolab/dogx/apps/job/internal/database"
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 	"github.com/tokyolab/dogx/apps/job/internal/service"
 	"github.com/tokyolab/dogx/apps/job/internal/testutil"
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/config"
+	"github.com/tokyolab/dogx/pkg/postgres"
+	pgtest "github.com/tokyolab/dogx/pkg/testutil/postgres"
 	"github.com/zeromicro/go-zero/core/discov"
 	"github.com/zeromicro/go-zero/zrpc"
 )
 
 func jobServiceConfig(t *testing.T, db *sql.DB) (config.Config, string) {
 	t.Helper()
-	parsed, err := pgx.ParseConfig(testutil.PostgresDSN(t))
+	parsed, err := pgx.ParseConfig(pgtest.PostgresDSN(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +33,7 @@ func jobServiceConfig(t *testing.T, db *sql.DB) (config.Config, string) {
 	if err := db.QueryRow("SELECT current_schema()").Scan(&schema); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(schema, "dogx_it_job_") {
+	if !strings.HasPrefix(schema, "dogx_it_") {
 		t.Fatalf("refuse to wire service context to unexpected schema %q", schema)
 	}
 	// Production opens its own pool. Use PostgreSQL's connection environment to
@@ -43,7 +44,7 @@ func jobServiceConfig(t *testing.T, db *sql.DB) (config.Config, string) {
 	t.Setenv("PGCONNECT_TIMEOUT", "1")
 	return config.Config{
 		RpcServerConf: zrpc.RpcServerConf{Etcd: discov.EtcdConf{Hosts: []string{"127.0.0.1:1"}, Key: "/dogx/test/job"}},
-		Postgres: database.PostgresConf{Host: parsed.Host, Port: int(parsed.Port), User: parsed.User, Password: parsed.Password, Database: parsed.Database,
+		Postgres: postgres.Config{Host: parsed.Host, Port: int(parsed.Port), User: parsed.User, Password: parsed.Password, Database: parsed.Database,
 			SSLMode: "disable", TimeZone: "Asia/Shanghai", MaxIdleConns: 1, MaxOpenConns: 2, ConnMaxLifetime: time.Minute},
 		Scheduler: config.SchedulerConf{Prefix: "/dogx/test/" + schema, QueueCapacity: 1024, CreationConcurrency: 32, CreationBudget: 3 * time.Second, LeaseTTLSeconds: 15, RecoveryLimit: 1024, QueryTimeout: 5 * time.Second},
 	}, applicationName

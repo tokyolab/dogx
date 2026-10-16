@@ -12,14 +12,15 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 func dictionaryFixture() (*svc.ServiceContext, *dictionaryRepositoryStub, *dictionaryItemRepositoryStub, *dictionaryCacheStub) {
-	d := &dictionaryRepositoryStub{item: &model.Dictionary{Base: model.Base{ID: 7}, Name: "来源", Code: "source", Status: 1}}
-	i := &dictionaryItemRepositoryStub{item: &model.DictionaryItem{Base: model.Base{ID: 8}, DictionaryID: 7, Label: "官网", Value: "web", Status: 1}}
+	d := &dictionaryRepositoryStub{item: &model.Dictionary{Base: basemodel.Base{ID: 7}, Name: "来源", Code: "source", Status: 1}}
+	i := &dictionaryItemRepositoryStub{item: &model.DictionaryItem{Base: basemodel.Base{ID: 8}, DictionaryID: 7, Label: "官网", Value: "web", Status: 1}}
 	c := &dictionaryCacheStub{}
 	return &svc.ServiceContext{DictionaryRepo: d, DictionaryItemRepo: i, DictionaryCache: c}, d, i, c
 }
@@ -183,7 +184,7 @@ func TestReadDictionariesBatchCacheAndPublicBoundary(t *testing.T) {
 				if mode == "hit" {
 					c.entries = map[string]dictcache.Entry{"source": publicEntry, "internal": internalEntry}
 				}
-				d.items = []model.Dictionary{{Base: model.Base{ID: 7}, Code: "source", Status: 0, IsPublic: true}, {Base: model.Base{ID: 8}, Code: "internal", Status: 1}}
+				d.items = []model.Dictionary{{Base: basemodel.Base{ID: 7}, Code: "source", Status: 0, IsPublic: true}, {Base: basemodel.Base{ID: 8}, Code: "internal", Status: 1}}
 				i.items = []model.DictionaryItem{{DictionaryID: 7, Label: "旧官网", Value: "web", Status: 0}}
 				if mode == "partial" {
 					d.items = d.items[1:]
@@ -225,7 +226,7 @@ func TestReadDictionariesBatchCacheAndPublicBoundary(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	d.items = []model.Dictionary{{Base: model.Base{ID: 7}, Code: "empty", Status: 1}}
+	d.items = []model.Dictionary{{Base: basemodel.Base{ID: 7}, Code: "empty", Status: 1}}
 	out, err := NewReadDictionariesLogic(ctx, sc).ReadDictionaries(&system.ReadDictionariesRequest{Codes: []string{"empty", "missing"}})
 	if err != nil || len(out.Items) != 1 || out.Items[0].Items == nil || c.puts != 1 {
 		t.Fatalf("empty/missing dictionary: %+v %v", out, err)
@@ -297,7 +298,7 @@ func TestDictionaryManagementReadsAndErrors(t *testing.T) {
 	if dictionaryError(nil) != nil {
 		t.Fatal("nil error changed")
 	}
-	v := model.Dictionary{Base: model.Base{CreatedAt: time.Date(2026, 9, 28, 8, 0, 0, 0, time.FixedZone("CST", 8*3600))}}
+	v := model.Dictionary{Base: basemodel.Base{CreatedAt: time.Date(2026, 9, 28, 8, 0, 0, 0, time.FixedZone("CST", 8*3600))}}
 	if toDictionaryInfo(v).CreatedAt != "2026-09-28T00:00:00Z" {
 		t.Fatal("timestamp not normalized")
 	}

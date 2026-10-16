@@ -1,13 +1,10 @@
 package model
 
-import "time"
+import basemodel "github.com/tokyolab/dogx/pkg/model"
 
 type ExecutorGroup struct {
-	ID        int64  `gorm:"primaryKey;autoIncrement"`
-	Name      string `gorm:"type:varchar(128);not null"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *time.Time
+	basemodel.Base
+	Name string `gorm:"type:varchar(128);not null"`
 }
 
 func (ExecutorGroup) TableName() string { return "job_executor_group" }

@@ -6,11 +6,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 func TestMenuTreeValidation(t *testing.T) {
 	one, two := int64(1), int64(2)
-	nodes := []model.Menu{{Base: model.Base{ID: 1}, Type: model.MenuTypeDirectory}, {Base: model.Base{ID: 2}, ParentID: &one, Type: model.MenuTypePage}, {Base: model.Base{ID: 3}, ParentID: &two, Type: model.MenuTypeElement}}
+	nodes := []model.Menu{{Base: basemodel.Base{ID: 1}, Type: model.MenuTypeDirectory}, {Base: basemodel.Base{ID: 2}, ParentID: &one, Type: model.MenuTypePage}, {Base: basemodel.Base{ID: 3}, ParentID: &two, Type: model.MenuTypeElement}}
 	tests := []struct {
 		name       string
 		id, parent int64

@@ -1,7 +1,9 @@
 package model
 
+import basemodel "github.com/tokyolab/dogx/pkg/model"
+
 type API struct {
-	Base
+	basemodel.Base
 	ServiceName string       `gorm:"column:service_name;size:64;not null"`
 	Group       string       `gorm:"column:api_group;size:64;not null"`
 	Name        string       `gorm:"column:name;size:128;not null"`

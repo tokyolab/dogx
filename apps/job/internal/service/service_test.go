@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"github.com/zeromicro/go-zero/core/logx/logtest"
 	"gorm.io/gorm"
 )
@@ -18,7 +19,7 @@ var testNow = time.Date(2026, 10, 16, 12, 0, 5, 0, time.Local)
 
 func validDefinition() *model.JobDefinition {
 	due := testNow.Add(-5 * time.Second)
-	return &model.JobDefinition{ID: 7, Name: "job", ExecutorGroupID: 2, ProcessorName: "processor", ExecutionMode: model.ExecutionModeNormal,
+	return &model.JobDefinition{Base: basemodel.Base{ID: 7}, Name: "job", ExecutorGroupID: 2, ProcessorName: "processor", ExecutionMode: model.ExecutionModeNormal,
 		Params: "current", CronExpr: "0 * * * * *", Status: model.StatusEnabled, MisfirePolicy: model.MisfireIgnore, BlockPolicy: model.BlockDiscard,
 		MaxRetries: 3, RetryIntervalSeconds: 10, TimeoutSeconds: 900, NextTriggerAt: &due}
 }

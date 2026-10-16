@@ -8,8 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tokyolab/dogx/apps/system/internal/database"
-	"github.com/tokyolab/dogx/apps/system/internal/migration"
+	"github.com/tokyolab/dogx/pkg/postgres"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -17,27 +16,33 @@ import (
 )
 
 const (
-	defaultConfigFile   = "apps/system/rpc/etc/system-rpc.yaml"
-	defaultMigrationDir = "apps/system/internal/migration/migrations"
-
 	exitSuccess = 0
 	exitFailure = 1
 	exitUsage   = 2
 )
 
+type Options struct {
+	CommandPath         string
+	DefaultConfigFile   string
+	DefaultMigrationDir string
+	// Database commands use the provider's embedded sources and ledger;
+	// DefaultMigrationDir is used only by create and fix.
+	NewProvider func(*sql.DB) (*goose.Provider, error)
+}
+
 type migrateConfig struct {
-	Postgres database.PostgresConf
+	Postgres postgres.Config
 }
 
 // Run executes the migration command and returns a process exit code.
-func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func Run(ctx context.Context, args []string, stdout, stderr io.Writer, options Options) int {
 	flags := flag.NewFlagSet("migrate", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 
-	configFile := flags.String("f", defaultConfigFile, "path to the RPC configuration file")
-	migrationDir := flags.String("dir", defaultMigrationDir, "path to the migration source directory")
+	configFile := flags.String("f", options.DefaultConfigFile, "path to the RPC configuration file")
+	migrationDir := flags.String("dir", options.DefaultMigrationDir, "path to the migration source directory")
 	flags.Usage = func() {
-		writeUsage(flags, stderr)
+		writeUsage(flags, stderr, options.CommandPath)
 	}
 
 	if err := flags.Parse(args); err != nil {
@@ -81,21 +86,21 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 
-	if err := executeDatabaseCommand(ctx, *configFile, command, stdout); err != nil {
+	if err := executeDatabaseCommand(ctx, *configFile, command, stdout, options.NewProvider); err != nil {
 		return reportError(stderr, err)
 	}
 	return exitSuccess
 }
 
-func writeUsage(flags *flag.FlagSet, output io.Writer) {
+func writeUsage(flags *flag.FlagSet, output io.Writer, commandPath string) {
 	_, _ = fmt.Fprintln(output, "Usage:")
-	_, _ = fmt.Fprintln(output, "  go run ./apps/system/cmd/migrate [flags] <up|down|status|version>")
-	_, _ = fmt.Fprintln(output, "  go run ./apps/system/cmd/migrate [flags] create <name>")
-	_, _ = fmt.Fprintln(output, "  go run ./apps/system/cmd/migrate [flags] fix")
+	_, _ = fmt.Fprintf(output, "  go run %s [flags] <up|down|status|version>\n", commandPath)
+	_, _ = fmt.Fprintf(output, "  go run %s [flags] create <name>\n", commandPath)
+	_, _ = fmt.Fprintf(output, "  go run %s [flags] fix\n", commandPath)
 	flags.PrintDefaults()
 }
 
-func executeDatabaseCommand(ctx context.Context, configFile, command string, output io.Writer) error {
+func executeDatabaseCommand(ctx context.Context, configFile, command string, output io.Writer, newProvider func(*sql.DB) (*goose.Provider, error)) (resultErr error) {
 	var cfg migrateConfig
 	if err := conf.Load(configFile, &cfg, conf.UseEnv()); err != nil {
 		return fmt.Errorf("load migration config: %w", err)
@@ -105,9 +110,13 @@ func executeDatabaseCommand(ctx context.Context, configFile, command string, out
 	if err != nil {
 		return fmt.Errorf("open postgres: %w", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("close postgres: %w", err))
+		}
+	}()
 
-	provider, err := migration.NewProvider(db)
+	provider, err := newProvider(db)
 	if err != nil {
 		return err
 	}

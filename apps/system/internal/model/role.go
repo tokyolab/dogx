@@ -1,9 +1,11 @@
 package model
 
+import basemodel "github.com/tokyolab/dogx/pkg/model"
+
 const SuperAdminRoleCode = "super_admin"
 
 type Role struct {
-	Base
+	basemodel.Base
 	Code        string       `gorm:"column:code;size:64;not null"`
 	Name        string       `gorm:"column:name;size:64;not null"`
 	Description string       `gorm:"column:description;size:500;not null"`

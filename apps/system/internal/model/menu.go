@@ -1,5 +1,7 @@
 package model
 
+import basemodel "github.com/tokyolab/dogx/pkg/model"
+
 type MenuAppCode string
 
 const (
@@ -16,7 +18,7 @@ const (
 )
 
 type Menu struct {
-	Base
+	basemodel.Base
 	AppCode    MenuAppCode  `gorm:"column:app_code;size:64;not null"`
 	ParentID   *int64       `gorm:"column:parent_id"`
 	Type       MenuType     `gorm:"column:menu_type;not null"`

@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"github.com/tokyolab/dogx/apps/system/internal/database"
+	"github.com/tokyolab/dogx/pkg/postgres"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
@@ -14,7 +14,7 @@ type Config struct {
 	App           AppConf
 	Auth          AuthConf
 	Authorization AuthorizationConf
-	Postgres      database.PostgresConf
+	Postgres      postgres.Config
 	RedisConf     redis.RedisConf
 	SystemRpc     zrpc.RpcClientConf
 	JobRpc        zrpc.RpcClientConf `json:",optional"`

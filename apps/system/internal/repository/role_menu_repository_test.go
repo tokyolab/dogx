@@ -6,11 +6,12 @@ import (
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 func TestNormalizeRoleMenuIDs(t *testing.T) {
 	one, two := int64(1), int64(2)
-	nodes := []model.Menu{{Base: model.Base{ID: 1}}, {Base: model.Base{ID: 2}, ParentID: &one}, {Base: model.Base{ID: 3}, ParentID: &two}, {Base: model.Base{ID: 4}, ParentID: &two}}
+	nodes := []model.Menu{{Base: basemodel.Base{ID: 1}}, {Base: basemodel.Base{ID: 2}, ParentID: &one}, {Base: basemodel.Base{ID: 3}, ParentID: &two}, {Base: basemodel.Base{ID: 4}, ParentID: &two}}
 	for _, tc := range []struct{ in, want []int64 }{{nil, []int64{}}, {[]int64{3, 3}, []int64{1, 2, 3}}, {[]int64{1}, []int64{1}}} {
 		got, err := normalizeRoleMenuIDs(nodes, tc.in)
 		if err != nil || !slices.Equal(got, tc.want) {

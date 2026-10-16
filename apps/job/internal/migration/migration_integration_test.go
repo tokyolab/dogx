@@ -12,7 +12,7 @@ import (
 
 	"github.com/pressly/goose/v3"
 	"github.com/tokyolab/dogx/apps/job/internal/migration"
-	"github.com/tokyolab/dogx/apps/job/internal/testutil"
+	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 )
 
 func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
@@ -24,11 +24,19 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	results, err := provider.Up(ctx)
-	if err != nil || len(results) != 1 {
+	if err != nil || len(results) != 2 {
 		t.Fatalf("Up results=%v error=%v", results, err)
 	}
 	if results, err := provider.Up(ctx); err != nil || len(results) != 0 {
 		t.Fatalf("second Up results=%v error=%v", results, err)
+	}
+	if version, err := provider.GetDBVersion(ctx); err != nil || version != 20261016183147 {
+		t.Fatalf("Job version=%d err=%v", version, err)
+	}
+	updatedAtComments := map[string]string{
+		"job_executor_group": "记录最后更新时间，名称修改等常规更新时维护，不作为业务配置版本；逻辑删除时间由deleted_at记录",
+		"job_definition":     "记录最后更新时间，配置修改、触发推进等常规更新时维护，不作为业务配置版本；逻辑删除时间由deleted_at记录",
+		"job_instance":       "记录最后更新时间，含运行状态和结果变更，不作为业务配置版本",
 	}
 
 	// Every declared field is checked against the deployed schema, including
@@ -59,6 +67,9 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 			}
 			if want, ok := expected[name]; !ok || want != typ || columnComment == "" {
 				t.Errorf("%s.%s type=%q comment=%q, want %q", table, name, typ, columnComment, want)
+			}
+			if name == "updated_at" && columnComment != updatedAtComments[table] {
+				t.Errorf("%s.updated_at comment=%q, want %q", table, columnComment, updatedAtComments[table])
 			}
 			count++
 		}
@@ -128,14 +139,27 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 	if _, err := provider.Down(ctx); err != nil {
 		t.Fatal(err)
 	}
+	for table, want := range map[string]string{
+		"job_executor_group": "管理修改时间，逻辑删除时一并更新",
+		"job_definition":     "管理配置最后修改时间，仅推进触发进度不更新",
+		"job_instance":       "有效运行事实最后修改时间",
+	} {
+		var got string
+		if err := sqlDB.QueryRowContext(ctx, `SELECT col_description(attrelid, attnum) FROM pg_attribute WHERE attrelid = $1::regclass AND attname = 'updated_at'`, table).Scan(&got); err != nil || got != want {
+			t.Errorf("Down restored %s.updated_at comment=%q, want %q, error=%v", table, got, want, err)
+		}
+	}
+	if _, err := provider.DownTo(ctx, 0); err != nil {
+		t.Fatal(err)
+	}
 	for table := range columns {
 		var missing bool
 		if err := sqlDB.QueryRowContext(ctx, "SELECT to_regclass($1) IS NULL", table).Scan(&missing); err != nil || !missing {
 			t.Fatalf("Down left %s: missing=%v error=%v", table, missing, err)
 		}
 	}
-	if _, err := provider.Up(ctx); err != nil {
-		t.Fatalf("Up after Down: %v", err)
+	if results, err := provider.Up(ctx); err != nil || len(results) != 2 {
+		t.Fatalf("Up after Down results=%v error=%v", results, err)
 	}
 }
 
@@ -165,10 +189,10 @@ func TestJobAndSystemMigrationsUseIndependentLedgers(t *testing.T) {
 		t.Fatal(err)
 	}
 	jobVersion, err := job.GetDBVersion(ctx)
-	if err != nil || jobVersion != 20261016090000 {
+	if err != nil || jobVersion != 20261016183147 {
 		t.Fatalf("Job version=%d err=%v", jobVersion, err)
 	}
-	if _, err := job.Down(ctx); err != nil {
+	if _, err := job.DownTo(ctx, 0); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := system.GetDBVersion(ctx); err != nil || got != systemVersion {

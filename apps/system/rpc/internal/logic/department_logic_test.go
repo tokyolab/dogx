@@ -14,6 +14,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -127,7 +128,7 @@ func TestDepartmentMutationLogicRejectsInvalidRequests(t *testing.T) {
 func TestDepartmentQueryLogicMapsDataAndErrors(t *testing.T) {
 	created := time.Date(2026, 9, 20, 1, 2, 3, 0, time.FixedZone("CST", 8*60*60))
 	parent := int64(3)
-	department := model.Department{Base: model.Base{ID: 8, CreatedAt: created, UpdatedAt: created.Add(time.Hour)}, ParentID: &parent, Name: "研发部", Sort: 2, Status: model.RecordStatusDisabled, Remark: "备注"}
+	department := model.Department{Base: basemodel.Base{ID: 8, CreatedAt: created, UpdatedAt: created.Add(time.Hour)}, ParentID: &parent, Name: "研发部", Sort: 2, Status: model.RecordStatusDisabled, Remark: "备注"}
 	stub := &departmentRepositoryStub{departments: []model.Department{department}, department: &department}
 	svcCtx := &svc.ServiceContext{DepartmentRepo: stub}
 	item, err := NewGetDepartmentLogic(context.Background(), svcCtx).GetDepartment(&system.GetDepartmentRequest{Id: 8})

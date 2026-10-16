@@ -4,13 +4,13 @@ import (
 	"errors"
 	"time"
 
-	"github.com/tokyolab/dogx/apps/job/internal/database"
+	"github.com/tokyolab/dogx/pkg/postgres"
 	"github.com/zeromicro/go-zero/zrpc"
 )
 
 type Config struct {
 	zrpc.RpcServerConf
-	Postgres  database.PostgresConf
+	Postgres  postgres.Config
 	Scheduler SchedulerConf
 }
 

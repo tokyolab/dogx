@@ -11,6 +11,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,7 +21,7 @@ func TestRoleMenuReadAndReplace(t *testing.T) {
 	ctx := context.Background()
 	grants := &roleMenuRepositoryStub{ids: []int64{1, 2}}
 	roles := &roleRepositoryStub{role: &model.Role{Code: "reader"}}
-	menus := &menuRepositoryStub{menus: []model.Menu{{Base: model.Base{ID: 1}, Name: "Root"}, {Base: model.Base{ID: 2}, Name: "Page"}}}
+	menus := &menuRepositoryStub{menus: []model.Menu{{Base: basemodel.Base{ID: 1}, Name: "Root"}, {Base: basemodel.Base{ID: 2}, Name: "Page"}}}
 	s := &svc.ServiceContext{RoleRepo: roles, MenuRepo: menus, RoleMenuRepo: grants}
 	got, err := NewGetRoleMenusLogic(ctx, s).GetRoleMenus(&system.GetRoleMenusRequest{RoleId: 9})
 	if err != nil || len(got.Items) != 2 || !slices.Equal(got.MenuIds, grants.ids) || roles.findID != 9 || !slices.Equal(grants.roles, []int64{9}) {
@@ -103,10 +104,10 @@ func TestRoleMenuInvalidRequestsDoNotWrite(t *testing.T) {
 func TestNavigationUsesExplicitRoleUnionAndElementCodes(t *testing.T) {
 	root, page := int64(1), int64(2)
 	menus := &menuRepositoryStub{menus: []model.Menu{
-		{Base: model.Base{ID: 1}, AppCode: model.MenuAppAdminWeb, Type: 1, Status: 1},
-		{Base: model.Base{ID: 2}, AppCode: model.MenuAppAdminWeb, Type: 2, Status: 1, ParentID: &root},
-		{Base: model.Base{ID: 3}, AppCode: model.MenuAppAdminWeb, Type: 3, Status: 1, ParentID: &page, Permission: "user.view"},
-		{Base: model.Base{ID: 4}, AppCode: model.MenuAppAdminWeb, Type: 3, Status: 1, ParentID: &page, Permission: "user.delete"},
+		{Base: basemodel.Base{ID: 1}, AppCode: model.MenuAppAdminWeb, Type: 1, Status: 1},
+		{Base: basemodel.Base{ID: 2}, AppCode: model.MenuAppAdminWeb, Type: 2, Status: 1, ParentID: &root},
+		{Base: basemodel.Base{ID: 3}, AppCode: model.MenuAppAdminWeb, Type: 3, Status: 1, ParentID: &page, Permission: "user.view"},
+		{Base: basemodel.Base{ID: 4}, AppCode: model.MenuAppAdminWeb, Type: 3, Status: 1, ParentID: &page, Permission: "user.delete"},
 	}}
 	grants := &roleMenuRepositoryStub{ids: []int64{1, 2, 3}}
 	s := &svc.ServiceContext{MenuRepo: menus, RoleMenuRepo: grants}

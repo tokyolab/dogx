@@ -110,7 +110,7 @@ Casbin 角色策略替换必须在真实 PostgreSQL 上验证：业务表和 `ca
 ```text
 apps/system/internal/repository/user_repository_integration_test.go
 apps/system/internal/migration/migration_integration_test.go
-apps/system/internal/testutil/postgres.go
+pkg/testutil/postgres/postgres.go
 ```
 
 测试数据库必须使用独立名称，例如 `dogx_test`。测试辅助代码在清理数据或重建结构前必须校验数据库名，拒绝对不符合测试命名规则的数据库执行破坏性操作。
@@ -180,7 +180,9 @@ apps/system/rpc/internal/logic/<resource>/*_test.go
 apps/system/rpc/internal/svc/*_integration_test.go
 apps/system/internal/repository/*_integration_test.go
 apps/system/internal/migration/*_integration_test.go
-apps/system/internal/migratecmd/*_test.go
+apps/system/cmd/migrate/*_test.go
+apps/job/cmd/migrate/*_test.go
+pkg/migratecmd/*_test.go
 apps/system/e2e/*_test.go
 pkg/<component>/*_test.go
 ```
@@ -198,10 +200,10 @@ goctl api validate --api apps/system/api/system.api
 go test -race -shuffle=on -count=1 ./...
 ```
 
-集成测试使用独立 CI Job，启动 PostgreSQL 18 和 Redis 7.4 后执行：
+集成测试使用独立 CI Job，启动 PostgreSQL 18、Redis 7.4 并准备 etcd 测试二进制后执行（含抽取后的公共组件）：
 
 ```shell
-go test -tags=integration -shuffle=on -count=1 -timeout=2m ./apps/system/internal/... ./apps/system/rpc/internal/...
+go test -tags=integration -shuffle=on -count=1 -timeout=5m ./apps/system/api/internal/... ./apps/system/internal/... ./apps/system/rpc/internal/... ./apps/job/internal/... ./apps/job/rpc/internal/... ./pkg/...
 ```
 
 同一集成测试 Job 在依赖就绪后另外执行真实进程端到端测试：
@@ -221,8 +223,8 @@ Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通�
 - Linux 单元测试和依赖集成测试分别生成覆盖率文件，并使用 `unit`、`integration` 标记上传到 Codecov，由 Codecov 在同一提交下合并展示。
 - Codecov 通过 GitHub OIDC 验证上传身份，仓库不保存 `CODECOV_TOKEN`。
 - `codecov.yml` 排除 `*.pb.go`、生成的 Routes、Types、Server 转发代码和 RPC Client 等自动生成代码。
-- API/RPC/命令行的 `main` 只保留进程启动、信号处理和依赖装配，不纳入业务覆盖率；可测试的命令逻辑必须下沉到 `internal` 包并正常统计。
-- `internal/testutil` 仅用于构造隔离测试环境，不属于产品代码，也不纳入产品覆盖率。
+- API/RPC/命令行的 `main` 只保留进程启动、信号处理和依赖装配，不纳入业务覆盖率；可测试的命令逻辑下沉到域内 `internal` 或已被多域复用的 `pkg/migratecmd`，正常统计覆盖率。
+- `pkg/testutil` 与域内 `internal/testutil` 仅用于构造隔离测试环境，不属于产品代码，也不纳入产品覆盖率。公共 PostgreSQL 连接、隔离 Schema 与清理由 `pkg/testutil/postgres` 提供，本域迁移包装和业务 fixture 留在域内。
 - 新功能必须在同一提交中包含对应测试：RPC/API Logic 至少覆盖成功、参数校验和关键依赖错误；涉及数据库约束、事务或查询的 Repository 必须增加真实 PostgreSQL 集成测试。不能先合并功能、再把测试作为后续补丁。
 - 新增业务代码不能以 0% 覆盖率进入主分支；生成的转发代码、启动入口和协议代码按 `codecov.yml` 的排除规则处理。测试重点是业务分支，不为自动生成代码机械补测试。
 - Codecov 的 patch 覆盖率门槛设为 80% 且作为非 informational 状态；新增功能的改动行未达到门槛时，提交必须先补测试。项目总覆盖率暂不设固定百分比，避免新增高价值功能因代码量变化被全局数字误判。

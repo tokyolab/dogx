@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
-	"github.com/tokyolab/dogx/apps/system/internal/testutil"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
+	"github.com/tokyolab/dogx/pkg/postgres"
+	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/zeromicro/go-zero/core/stores/redis"
@@ -135,7 +135,7 @@ func testServiceConfig(t testing.TB) config.Config {
 		Authorization: config.AuthorizationConf{
 			PolicyChannel: "dogx:test:authorization:policy",
 		},
-		Postgres: systemdb.PostgresConf{
+		Postgres: postgres.Config{
 			Host:            parsed.Host,
 			Port:            int(parsed.Port),
 			User:            parsed.User,

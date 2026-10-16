@@ -13,6 +13,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
@@ -281,7 +282,7 @@ func newLoginLogicForTest(
 
 func enabledUser() *model.User {
 	return &model.User{
-		Base:         model.Base{ID: 42},
+		Base:         basemodel.Base{ID: 42},
 		Username:     "admin",
 		PasswordHash: "encoded-hash",
 		Status:       model.RecordStatusEnabled,

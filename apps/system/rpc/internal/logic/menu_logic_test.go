@@ -13,6 +13,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -134,7 +135,7 @@ func TestMenuQueriesPreserveParentIDAndFields(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			menu := model.Menu{
-				Base: model.Base{ID: 42}, ParentID: tc.parentID, Type: model.MenuTypePage,
+				Base: basemodel.Base{ID: 42}, ParentID: tc.parentID, Type: model.MenuTypePage,
 				Name: "页面", RouteName: "Child", Path: "/child", Component: "system/child/index",
 				Icon: "lucide:user", Sort: 0, Status: model.RecordStatusDisabled,
 				Visible: false, KeepAlive: false, External: false, Remark: "remark",

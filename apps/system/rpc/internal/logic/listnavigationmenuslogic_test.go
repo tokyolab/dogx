@@ -9,13 +9,14 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 func TestListNavigationMenusFiltersSubtrees(t *testing.T) {
 	node := func(id, parent int64, kind model.MenuType, enabled bool) model.Menu {
-		m := model.Menu{Base: model.Base{ID: id}, AppCode: model.MenuAppAdminWeb, Type: kind, Name: "literal menu", RouteName: "Example", Path: "/example", Icon: "lucide:user", Sort: 10, Visible: true, KeepAlive: true}
+		m := model.Menu{Base: basemodel.Base{ID: id}, AppCode: model.MenuAppAdminWeb, Type: kind, Name: "literal menu", RouteName: "Example", Path: "/example", Icon: "lucide:user", Sort: 10, Visible: true, KeepAlive: true}
 		if parent != 0 {
 			m.ParentID = &parent
 		}

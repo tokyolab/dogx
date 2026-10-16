@@ -12,11 +12,11 @@ import (
 	"github.com/tokyolab/dogx/apps/system/api/internal/middleware"
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
-	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
 	"github.com/tokyolab/dogx/apps/system/internal/loginprotection"
 	"github.com/tokyolab/dogx/apps/system/internal/rpclog"
 	"github.com/tokyolab/dogx/apps/system/rpc/systemclient"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	"github.com/tokyolab/dogx/pkg/postgres"
 
 	"github.com/casbin/casbin/v3"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -70,7 +70,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		return nil, err
 	}
 
-	database, sqlDB, err := systemdb.OpenPostgres(c.Postgres)
+	database, sqlDB, err := postgres.Open(c.Postgres)
 	if err != nil {
 		return nil, err
 	}

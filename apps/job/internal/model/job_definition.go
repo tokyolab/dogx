@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	basemodel "github.com/tokyolab/dogx/pkg/model"
+)
 
 type Status int16
 type ExecutionMode int16
@@ -19,7 +23,7 @@ const (
 )
 
 type JobDefinition struct {
-	ID                   int64         `gorm:"primaryKey;autoIncrement"`
+	basemodel.Base
 	Name                 string        `gorm:"type:varchar(128);not null"`
 	Remark               string        `gorm:"type:varchar(500);not null"`
 	ExecutorGroupID      int64         `gorm:"not null"`
@@ -35,9 +39,6 @@ type JobDefinition struct {
 	RetryIntervalSeconds int32         `gorm:"type:integer;not null"`
 	TimeoutSeconds       int32         `gorm:"type:integer;not null"`
 	NextTriggerAt        *time.Time
-	CreatedAt            time.Time `gorm:"autoCreateTime:false"`
-	UpdatedAt            time.Time `gorm:"autoUpdateTime:false"`
-	DeletedAt            *time.Time
 }
 
 func (JobDefinition) TableName() string { return "job_definition" }

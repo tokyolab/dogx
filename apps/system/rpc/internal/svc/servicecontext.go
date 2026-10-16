@@ -7,13 +7,13 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
-	systemdb "github.com/tokyolab/dogx/apps/system/internal/database"
 	"github.com/tokyolab/dogx/apps/system/internal/dictcache"
 	"github.com/tokyolab/dogx/apps/system/internal/loginprotection"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/health"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	"github.com/tokyolab/dogx/pkg/postgres"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"gorm.io/gorm"
@@ -62,7 +62,7 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) (*ServiceContext, error) {
-	database, sqlDB, err := systemdb.OpenPostgres(c.Postgres)
+	database, sqlDB, err := postgres.Open(c.Postgres)
 	if err != nil {
 		return nil, err
 	}

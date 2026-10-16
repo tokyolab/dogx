@@ -10,13 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tokyolab/dogx/apps/job/internal/migration"
-	"github.com/tokyolab/dogx/apps/job/internal/testutil"
+	"github.com/tokyolab/dogx/pkg/testutil/postgres"
 )
 
 func TestRunCommandLifecycleInPostgreSQL(t *testing.T) {
-	_, sqlDB := testutil.OpenPostgres(t)
-	provider, err := migration.NewProvider(sqlDB)
+	_, sqlDB := postgres.OpenPostgres(t)
+	provider, err := newTestProvider(sqlDB)
 	if err != nil {
 		t.Fatalf("create migration provider: %v", err)
 	}

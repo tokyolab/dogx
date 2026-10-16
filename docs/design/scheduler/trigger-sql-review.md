@@ -26,7 +26,7 @@ COMMENT ON TABLE job_executor_group IS '执行器组；本批仅维护组身份�
 COMMENT ON COLUMN job_executor_group.id IS '组主键，不复用';
 COMMENT ON COLUMN job_executor_group.name IS '组展示名称';
 COMMENT ON COLUMN job_executor_group.created_at IS '创建时间';
-COMMENT ON COLUMN job_executor_group.updated_at IS '管理修改时间，逻辑删除时一并更新';
+COMMENT ON COLUMN job_executor_group.updated_at IS '记录最后更新时间，名称修改等常规更新时维护，不作为业务配置版本；逻辑删除时间由deleted_at记录';
 COMMENT ON COLUMN job_executor_group.deleted_at IS '逻辑删除时间，NULL表示未删除';
 
 CREATE TABLE job_definition (
@@ -68,7 +68,7 @@ COMMENT ON COLUMN job_definition.retry_interval_seconds IS '执行重试间隔�
 COMMENT ON COLUMN job_definition.timeout_seconds IS '整轮有限超时时长，单位秒，含准备和收尾，从首次有效开始计时';
 COMMENT ON COLUMN job_definition.next_trigger_at IS '下一次尚未完成触发记账的计划时间，首次启用前为NULL，停用保留';
 COMMENT ON COLUMN job_definition.created_at IS '创建时间';
-COMMENT ON COLUMN job_definition.updated_at IS '管理配置最后修改时间，仅推进触发进度不更新';
+COMMENT ON COLUMN job_definition.updated_at IS '记录最后更新时间，配置修改、触发推进等常规更新时维护，不作为业务配置版本；逻辑删除时间由deleted_at记录';
 COMMENT ON COLUMN job_definition.deleted_at IS '逻辑删除时间，NULL表示未删除，不提供Job恢复入口';
 
 CREATE TABLE job_instance (
@@ -116,7 +116,7 @@ COMMENT ON COLUMN job_instance.finished_at IS '终态时间，初始NULL，待�
 COMMENT ON COLUMN job_instance.end_reason IS '稳定结束原因码，初始NULL，不保存错误全文';
 COMMENT ON COLUMN job_instance.result_summary IS '结果或诊断摘要，初始NULL，不保存详细过程日志';
 COMMENT ON COLUMN job_instance.created_at IS '记录创建时间，不启动整轮超时倒计时';
-COMMENT ON COLUMN job_instance.updated_at IS '有效运行事实最后修改时间';
+COMMENT ON COLUMN job_instance.updated_at IS '记录最后更新时间，含运行状态和结果变更，不作为业务配置版本';
 ```
 
 首批 Down 依次 `DROP TABLE job_instance`、`DROP TABLE job_definition`、`DROP TABLE job_executor_group`，不使用 CASCADE；这是破坏性结构回滚，不是 Job／组删除业务。只在可重建环境或明确批准的数据恢复方案下执行。后续域迁移不得跨域删除这三个表。
@@ -209,13 +209,13 @@ VALUES ($1, $2, $3, $4, $5, NULL, FALSE, NULL, $6::jsonb, 1)
 ON CONFLICT (job_id, scheduled_at) WHERE scheduled_at IS NOT NULL DO NOTHING
 RETURNING id;
 
-UPDATE job_definition SET next_trigger_at = $2
+UPDATE job_definition SET next_trigger_at = $2, updated_at = CURRENT_TIMESTAMP
 WHERE id = $1 AND deleted_at IS NULL AND status = 1;
 ```
 
 `scheduled_at` 绑定锁内旧进度；`trigger_type` 是当次正常 1 或错失 2。Go 明确结构体构造 JSONB v1，包含 `schema_version=1`、`processor_name`、`execution_mode`、`post_enabled`、`params`、`max_retries`、`retry_interval_seconds`、`timeout_seconds`，不省略零、false、空串，不携带组凭据或运行地址。
 
-创建、同自动身份冲突、错失忽略、阻塞丢弃均推进 Next；INSERT 和进度 UPDATE 同事务提交，进度更新必须命中一行。指定冲突且语句成功未返回行才表示旧身份存在，保留旧记录，不重派；错误不能伪装成冲突。仅新插入且明确提交成功时发送本地 ID 提示；跳过只在确认提交后写结构化服务日志。不更新 Job 的 `updated_at`。
+创建、同自动身份冲突、错失忽略、阻塞丢弃均推进 Next；INSERT 和进度 UPDATE 同事务提交，进度更新必须命中一行。指定冲突且语句成功未返回行才表示旧身份存在，保留旧记录，不重派；错误不能伪装成冲突。仅新插入且明确提交成功时发送本地 ID 提示；跳过只在确认提交后写结构化服务日志。同步维护 Job 的审计更新时间 `updated_at`，不将该字段当作配置版本。
 
 ### 手动创建与重发
 
@@ -240,10 +240,10 @@ RETURNING id;
 
 ### 逻辑删除边界
 
-删除 Job 先锁该 Job，确认未删除且已停用，再用独立语句执行同 Job 活跃 EXISTS；有待开始或运行中 Instance 则拒绝，否则执行并提交：
+删除 Job 先锁该 Job，确认未删除且已停用，再用独立语句执行同 Job 活跃 EXISTS；有待开始或运行中 Instance 则拒绝，否则通过 GORM `Delete` 执行软删除并提交，等价 SQL 如下（`$2` 为 GORM 生成的删除时间）。沿用 System 默认行为，不额外补写 `updated_at`：
 
 ```sql
-UPDATE job_definition SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+UPDATE job_definition SET deleted_at = $2
 WHERE id = $1 AND deleted_at IS NULL AND status = 0;
 ```
 
@@ -254,7 +254,7 @@ SELECT EXISTS (SELECT 1 FROM job_definition
  WHERE executor_group_id = $1 AND deleted_at IS NULL);
 ```
 
-仍有未删除 Job 时拒绝，停用也算。无 Job 后还须继续检查旧组快照的活跃 Instance、未收敛 Task，再设置组 `deleted_at/updated_at`，并落实凭据与客户端缓存失效。本批不实现 Task，不能把“没有 Job”当成完整删除许可；完整组删除接口保持关闭，其运行依赖 SQL 和索引随执行／组模块交付。当前五字段可供真实引用验证，不表示组接入已可用。
+仍有未删除 Job 时拒绝，停用也算。无 Job 后还须继续检查旧组快照的活跃 Instance、未收敛 Task，再通过 GORM `Delete` 设置组 `deleted_at`，并落实凭据与客户端缓存失效。本批不实现 Task，不能把“没有 Job”当成完整删除许可；完整组删除接口保持关闭，其运行依赖 SQL 和索引随执行／组模块交付。当前五字段可供真实引用验证，不表示组接入已可用。
 
 ## 管理读取与触发读取
 

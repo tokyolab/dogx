@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
 )
 
@@ -48,14 +49,14 @@ func TestNewUserRepositoryRejectsNilDatabase(t *testing.T) {
 func TestInitializedSuperAdminProtectionDoesNotDependOnStatusOrID(t *testing.T) {
 	for _, state := range []model.RecordStatus{model.RecordStatusEnabled, model.RecordStatusDisabled} {
 		record := &UserRecord{
-			User:  model.User{Base: model.Base{ID: 42}, Status: state},
+			User:  model.User{Base: basemodel.Base{ID: 42}, Status: state},
 			Roles: []model.Role{{Code: model.SuperAdminRoleCode, Status: state}},
 		}
 		if err := protectSuperAdmin(record); !errors.Is(err, ErrSuperAdminProtected) {
 			t.Fatalf("initialized administrator was not protected at status %d: %v", state, err)
 		}
 	}
-	if err := protectSuperAdmin(&UserRecord{User: model.User{Base: model.Base{ID: 1}}}); err != nil {
+	if err := protectSuperAdmin(&UserRecord{User: model.User{Base: basemodel.Base{ID: 1}}}); err != nil {
 		t.Fatalf("ordinary user ID 1 incorrectly protected: %v", err)
 	}
 }

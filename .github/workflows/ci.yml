@@ -162,7 +162,7 @@ jobs:
           DOGX_TEST_ETCD_BINARY: ${{ runner.temp }}/dogx-etcd/etcd
         run: |
           mkdir -p coverage
-          go test -tags=integration -shuffle=on -count=1 -timeout=5m -covermode=atomic -coverprofile=coverage/integration.txt ./apps/system/api/internal/... ./apps/system/internal/... ./apps/system/rpc/internal/... ./apps/job/internal/... ./apps/job/rpc/internal/...
+          go test -tags=integration -shuffle=on -count=1 -timeout=5m -covermode=atomic -coverprofile=coverage/integration.txt ./apps/system/api/internal/... ./apps/system/internal/... ./apps/system/rpc/internal/... ./apps/job/internal/... ./apps/job/rpc/internal/... ./pkg/...
 
       - name: Test authentication and RBAC end to end
         env:

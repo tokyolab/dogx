@@ -10,7 +10,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
-	"github.com/tokyolab/dogx/apps/system/internal/testutil"
+	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 	"gorm.io/gorm"
 )
 

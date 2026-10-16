@@ -41,7 +41,7 @@ linters:
         text: "SA2001:"
       # Closing these process-scoped or test database pools happens only at
       # teardown, where the primary command or test result is authoritative.
-      - path: apps/system/(cmd/bootstrapadmin/main|internal/migratecmd/command|internal/migration/provider_test)\.go
+      - path: apps/system/(cmd/bootstrapadmin/main|internal/migration/provider_test)\.go
         linters:
           - errcheck
         source: "defer (sqlDB|db)\\.Close\\(\\)"

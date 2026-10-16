@@ -29,7 +29,7 @@ func (r *executorGroupRepository) LockAvailable(ctx context.Context, id int64) e
 	if result.Error != nil {
 		return result.Error
 	}
-	if result.RowsAffected == 0 || group.DeletedAt != nil {
+	if result.RowsAffected == 0 || group.DeletedAt.Valid {
 		return ErrExecutorGroupUnavailable
 	}
 	return nil

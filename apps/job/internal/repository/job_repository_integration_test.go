@@ -134,6 +134,19 @@ func TestJobRepositoryWritesZeroValuesAndPreservesProgress(t *testing.T) {
 	if err := repo.Delete(ctx, job.ID); err != nil {
 		t.Fatal(err)
 	}
+	var deleted model.JobDefinition
+	if err := db.Unscoped().First(&deleted, job.ID).Error; err != nil {
+		t.Fatalf("soft delete removed the physical row: %v", err)
+	}
+	if !deleted.DeletedAt.Valid || !deleted.CreatedAt.Equal(stored.CreatedAt) || deleted.Status != model.StatusDisabled {
+		t.Fatalf("soft delete changed business fields or lost its deletion marker: %+v", deleted)
+	}
+	if err := db.First(&model.JobDefinition{}, job.ID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("GORM default scope included deleted Job: %v", err)
+	}
+	if err := repo.Delete(ctx, job.ID); !errors.Is(err, ErrJobNotFound) {
+		t.Fatalf("repeated delete err=%v", err)
+	}
 	if _, err := repo.Get(ctx, job.ID); !errors.Is(err, ErrJobNotFound) {
 		t.Fatalf("deleted get err=%v", err)
 	}

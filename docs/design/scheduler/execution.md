@@ -152,7 +152,7 @@ Cron 回调、规则注册后的到期检查和 Leader 每分钟恢复检查，�
 
 1. 通过 Job 主键等值条件单独锁定一行，读取 `deleted_at` 与启停状态；不存在或已删除的记录不进入后续删除流程，已启用则拒绝删除。
 2. 确认未删除且停用后，另发一条 `EXISTS` 查询，检查同 Job 是否存在状态为待开始或运行中的 Instance。复用已有活跃 Instance 部分索引，不拉取历史列表、不锁住全部 Instance，也不按 Task 逐条查询。存在未结束轮次时拒绝。
-3. 满足条件时保存 `deleted_at` 删除时间并维护 `updated_at`；保留原停用状态及 `next_trigger_at`，不物理移除 Job 行，不改写 Instance／Task。
+3. 满足条件时通过 GORM `Delete` 保存 `deleted_at` 删除时间，沿用 System 行为不额外补写 `updated_at`；保留原停用状态及 `next_trigger_at`，不物理移除 Job 行，不改写 Instance／Task。
 4. 提交后才按已有机制发送 etcd 配置提示；通知失败仍由分钟核对补齐，不在事务中进行外部 I/O。
 
 删除与手动／自动创建、启用和编辑在同一 Job 行上协调。必须先取得 Job 锁，再发活跃 Instance 查询，以使用 `READ COMMITTED` 下锁后的新语句快照：并发创建先提交时，删除能看到其待开始／运行中 Instance 而拒绝；删除先提交时，后续创建、编辑或启用看到删除标记而拒绝。检查时仍活跃、随后恰好结束的轮次允许使本次删除被保守拒绝，不要求每次 Instance 结束反向锁 Job。

@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pressly/goose/v3"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
-	"github.com/tokyolab/dogx/apps/system/internal/testutil"
+	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 )
 
 func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
