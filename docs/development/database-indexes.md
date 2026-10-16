@@ -375,6 +375,7 @@ ORDER BY idx_scan, pg_relation_size(indexrelid) DESC;
 
 - Goose SQL 是数据库索引结构的唯一事实源，GORM Model 标签不是已部署索引的证据，DogX 不使用 `AutoMigrate` 管理 Schema。
 - 普通索引使用 `idx_<table>_<purpose>`，唯一索引使用 `uk_<table>_<purpose>`；名称表达业务目的，不要求机械列出所有列名。
+- 触发模块总审已指定的两个身份索引 `uq_job_instance_auto_identity`、`uq_job_instance_manual_identity` 保留批准的对象名；这是既定契约的限定例外，不扩展为其他新索引的命名规则。
 - DogX 不使用物理外键，因此不会为了外键机制机械创建索引；但应用层关联校验、反向查询、删除保护和清理必须有相应访问路径。
 - 项目初期没有真实生产负载时，只建立约束索引和能够由现有查询确定的必要索引，不提前建立推测性的覆盖索引与特殊索引。
 

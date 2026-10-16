@@ -27,8 +27,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 23 {
-		t.Fatalf("unexpected applied migration count: got %d, want 23", len(results))
+	if len(results) != 24 {
+		t.Fatalf("unexpected applied migration count: got %d, want 24", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -122,8 +122,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20260930143512 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20260930143512", version)
+	if version != 20261016093000 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20261016093000", version)
 	}
 
 	expectedTables := map[string]string{
@@ -293,6 +293,24 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	assertColumnComment(t, ctx, sqlDB, "sys_security_config", "created_at", "创建时间")
 	assertColumnComment(t, ctx, sqlDB, "sys_security_config", "updated_at", "更新时间")
 	assertColumnComment(t, ctx, sqlDB, "sys_login_log", "user_id", "登录时关联的用户主键，未识别到用户时为NULL；用户删除后保留原值")
+	for _, path := range []string{"/job/list", "/job/get", "/job/create", "/job/update", "/job/status/update", "/job/delete", "/job/cron/preview", "/job/trigger"} {
+		if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE service_name='system-api' AND path=$1 AND method='POST' AND status=1 AND is_required=FALSE AND deleted_at IS NULL", path).Scan(&seedCount); err != nil || seedCount != 1 {
+			t.Fatalf("Job API seed %s: count=%d error=%v", path, seedCount, err)
+		}
+	}
+	if _, err := sqlDB.ExecContext(ctx, "INSERT INTO casbin_rule (ptype,v0,v1,v2) VALUES ('p','r:7','/job/list','POST')"); err != nil {
+		t.Fatal(err)
+	}
+	jobDown, err := provider.Down(ctx)
+	if err != nil || jobDown.Source.Version != 20261016093000 {
+		t.Fatalf("Job management rollback: %+v %v", jobDown, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE path LIKE '/job/%'").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("Job API rollback left resources: count=%d error=%v", seedCount, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM casbin_rule WHERE ptype='p' AND v1='/job/list' AND v2='POST'").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("Job API rollback left permissions: count=%d error=%v", seedCount, err)
+	}
 	commentDown, err := provider.Down(ctx)
 	if err != nil || commentDown.Source.Version != 20260930143512 {
 		t.Fatalf("schema comment rollback: %+v %v", commentDown, err)
@@ -599,7 +617,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 21 ||
+	if len(reapplyResults) != 22 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
@@ -620,7 +638,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		reapplyResults[17].Source.Version != 20260930120000 ||
 		reapplyResults[18].Source.Version != 20260930141521 ||
 		reapplyResults[19].Source.Version != 20260930142445 ||
-		reapplyResults[20].Source.Version != 20260930143512 {
+		reapplyResults[20].Source.Version != 20260930143512 ||
+		reapplyResults[21].Source.Version != 20261016093000 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 	assertSystemMenuSeed(t, ctx, sqlDB)

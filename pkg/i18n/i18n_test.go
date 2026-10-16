@@ -34,6 +34,16 @@ func TestLookupFallsBackToChinese(t *testing.T) {
 	}
 }
 
+func TestJobErrorTranslations(t *testing.T) {
+	for _, key := range []string{"job.definition.not_found", "job.definition.state_not_allowed", "job.definition.active_instances", "job.definition.executor_group_unavailable", "job.trigger.blocked", "job.trigger.request_conflict", "job.trigger.capacity_busy"} {
+		for _, locale := range []string{ZhCN, EnUS} {
+			if text, ok := catalogs[locale][key]; !ok || text == "" {
+				t.Fatalf("missing Job translation locale=%s key=%s", locale, key)
+			}
+		}
+	}
+}
+
 func TestMiddlewareStoresResolvedLocale(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	request.Header.Set("Accept-Language", "en-US")

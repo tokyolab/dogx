@@ -50,6 +50,20 @@ go run ./apps/system/cmd/migrate fix
 
 时间戳迁移只能用于可重建的本地开发数据库，不能直接进入共享测试或生产数据库。`fix` 不会修改数据库中的 `goose_db_version`：如果本地数据库已经执行过被重命名的时间戳迁移，应在重命名前将这些未发布迁移全部回滚，或者在重命名后重建本地数据库，再使用连续版本重新执行。发布验证必须从干净数据库或正式基线开始。
 
+## 业务域独立迁移
+
+各域独立维护迁移目录、命令和账本：System 使用 `apps/system/internal/migration/migrations`、`apps/system/cmd/migrate` 及 `goose_db_version`；Job 使用 `apps/job/internal/migration/migrations`、`apps/job/cmd/migrate` 及 `job_goose_db_version`。Job Provider 使用实例级 `WithTableName`，不修改 Goose 全局表名。
+
+开发默认同库同 `public` schema，分别使用 `sys_*`（保留现有 `casbin_rule`）与 `job_*` 表名；两个域仍有各自的数据库配置、连接池及数据所有权。初次生产部署可通过 Job 配置指向独立数据库，不允许跨域 SQL 或事务。同库迁移依次执行，账本独立不代表允许并发迁移；Job 管理接口的 `sys_api` 登记仍属于 System 增量迁移。
+
+```powershell
+go run ./apps/job/cmd/migrate create init_job
+go run ./apps/job/cmd/migrate -f 'apps/job/rpc/etc/job-rpc.yaml' up
+go run ./apps/job/cmd/migrate -f 'apps/job/rpc/etc/job-rpc.yaml' status
+```
+
+Job 同样遵守时间戳开发版本、发布前 `fix`、显式 `Up`／`Down` 和已发布迁移不可变规则。服务进程不自动迁移，不自动创建默认执行器组。
+
 ## 字段类型与长度 {#column-types}
 
 字段类型表达数据的用途和边界，不只比较数据库的存储实现。短字符串优先沿用项目现有 `VARCHAR(n)` 的建模方式，不因 PostgreSQL 的 `TEXT` 与 `VARCHAR` 存储特性接近，或为省去未来改表，就把所有字符串统一设计为 `TEXT`。

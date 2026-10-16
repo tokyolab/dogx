@@ -67,6 +67,27 @@ type CreateDictionaryResp struct {
 	Id int64 `json:"id"`
 }
 
+type CreateJobReq struct {
+	Name                 string `json:"name" validate:"required"`
+	Remark               string `json:"remark,optional"`
+	ExecutorGroupId      int64  `json:"executorGroupId" validate:"gt=0"`
+	ProcessorName        string `json:"processorName" validate:"required"`
+	ExecutionMode        *int32 `json:"executionMode,optional" validate:"omitempty,oneof=1 2"`
+	PostEnabled          *bool  `json:"postEnabled,optional"`
+	Params               string `json:"params,optional"`
+	CronExpr             string `json:"cronExpr" validate:"required"`
+	Status               *int32 `json:"status,optional" validate:"omitempty,oneof=0 1"`
+	MisfirePolicy        *int32 `json:"misfirePolicy,optional" validate:"omitempty,oneof=0 1"`
+	BlockPolicy          *int32 `json:"blockPolicy,optional" validate:"omitempty,oneof=0 1"`
+	MaxRetries           *int32 `json:"maxRetries,optional" validate:"omitempty,gte=0"`
+	RetryIntervalSeconds *int32 `json:"retryIntervalSeconds,optional" validate:"omitempty,gt=0"`
+	TimeoutSeconds       int32  `json:"timeoutSeconds" validate:"gt=0"`
+}
+
+type CreateJobResp struct {
+	Id int64 `json:"id"`
+}
+
 type CreateMenuReq struct {
 	MenuFields
 	Status int32 `json:"status" validate:"oneof=0 1"`
@@ -219,6 +240,56 @@ type IDsReq struct {
 	Ids []int64 `json:"ids" validate:"min=1,dive,gt=0"`
 }
 
+type JobDetail struct {
+	Id                   int64   `json:"id"`
+	Name                 string  `json:"name"`
+	ExecutorGroupId      int64   `json:"executorGroupId"`
+	ExecutorGroupName    *string `json:"executorGroupName"`
+	ProcessorName        string  `json:"processorName"`
+	ExecutionMode        int32   `json:"executionMode"`
+	CronExpr             string  `json:"cronExpr"`
+	Status               int32   `json:"status"`
+	NextTriggerAt        *string `json:"nextTriggerAt"`
+	CreatedAt            string  `json:"createdAt"`
+	UpdatedAt            string  `json:"updatedAt"`
+	Remark               string  `json:"remark"`
+	PostEnabled          bool    `json:"postEnabled"`
+	Params               string  `json:"params"`
+	MisfirePolicy        int32   `json:"misfirePolicy"`
+	BlockPolicy          int32   `json:"blockPolicy"`
+	MaxRetries           int32   `json:"maxRetries"`
+	RetryIntervalSeconds int32   `json:"retryIntervalSeconds"`
+	TimeoutSeconds       int32   `json:"timeoutSeconds"`
+}
+
+type JobListItem struct {
+	Id                int64   `json:"id"`
+	Name              string  `json:"name"`
+	ExecutorGroupId   int64   `json:"executorGroupId"`
+	ExecutorGroupName *string `json:"executorGroupName"`
+	ProcessorName     string  `json:"processorName"`
+	ExecutionMode     int32   `json:"executionMode"`
+	CronExpr          string  `json:"cronExpr"`
+	Status            int32   `json:"status"`
+	NextTriggerAt     *string `json:"nextTriggerAt"`
+	CreatedAt         string  `json:"createdAt"`
+	UpdatedAt         string  `json:"updatedAt"`
+}
+
+type JobListReq struct {
+	Page            int64  `json:"page" validate:"gte=1"`
+	PageSize        int64  `json:"pageSize" validate:"gte=1,lte=200"`
+	Id              *int64 `json:"id,optional" validate:"omitempty,gt=0"`
+	Name            string `json:"name,optional"`
+	ExecutorGroupId *int64 `json:"executorGroupId,optional" validate:"omitempty,gt=0"`
+	Status          *int32 `json:"status,optional" validate:"omitempty,oneof=0 1"`
+}
+
+type JobListResp struct {
+	Items []JobListItem `json:"items"`
+	Total int64         `json:"total"`
+}
+
 type ListDictionariesResp struct {
 	Items []DictionaryInfo `json:"items"`
 }
@@ -331,6 +402,14 @@ type PageReq struct {
 	PageSize int64 `json:"pageSize" validate:"gte=1,lte=200"`
 }
 
+type PreviewJobCronReq struct {
+	CronExpr string `json:"cronExpr" validate:"required"`
+}
+
+type PreviewJobCronResp struct {
+	Times []string `json:"times"`
+}
+
 type ProfileResp struct {
 	Username       string   `json:"username"`
 	Nickname       string   `json:"nickname"`
@@ -384,6 +463,17 @@ type RoleListResp struct {
 	Total int64      `json:"total"`
 }
 
+type TriggerJobReq struct {
+	Id               int64   `json:"id" validate:"gt=0"`
+	RequestId        string  `json:"requestId" validate:"required,uuid"`
+	ParamsOverridden *bool   `json:"paramsOverridden,optional" validate:"required"`
+	Params           *string `json:"params,optional"`
+}
+
+type TriggerJobResp struct {
+	InstanceId int64 `json:"instanceId"`
+}
+
 type UpdateDepartmentReq struct {
 	Id       int64  `json:"id" validate:"gt=0"`
 	ParentId int64  `json:"parentId" validate:"gte=0"`
@@ -419,6 +509,28 @@ type UpdateDictionaryReq struct {
 type UpdateDictionaryStatusReq struct {
 	Id     int64 `json:"id" validate:"gt=0"`
 	Status int32 `json:"status" validate:"oneof=0 1"`
+}
+
+type UpdateJobReq struct {
+	Id                   int64  `json:"id" validate:"gt=0"`
+	Name                 string `json:"name" validate:"required"`
+	Remark               string `json:"remark,optional"`
+	ExecutorGroupId      int64  `json:"executorGroupId" validate:"gt=0"`
+	ProcessorName        string `json:"processorName" validate:"required"`
+	ExecutionMode        int32  `json:"executionMode" validate:"oneof=1 2"`
+	PostEnabled          *bool  `json:"postEnabled,optional" validate:"required"`
+	Params               string `json:"params,optional"`
+	CronExpr             string `json:"cronExpr" validate:"required"`
+	MisfirePolicy        *int32 `json:"misfirePolicy,optional" validate:"required,oneof=0 1"`
+	BlockPolicy          *int32 `json:"blockPolicy,optional" validate:"required,oneof=0 1"`
+	MaxRetries           *int32 `json:"maxRetries,optional" validate:"required,gte=0"`
+	RetryIntervalSeconds int32  `json:"retryIntervalSeconds" validate:"gt=0"`
+	TimeoutSeconds       int32  `json:"timeoutSeconds" validate:"gt=0"`
+}
+
+type UpdateJobStatusReq struct {
+	Id     int64  `json:"id" validate:"gt=0"`
+	Status *int32 `json:"status,optional" validate:"required,oneof=0 1"`
 }
 
 type UpdateMenuReq struct {

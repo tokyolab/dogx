@@ -5,7 +5,7 @@
 - `apps/system/api/system.api` 是 HTTP API 唯一生成入口，只维护对 `desc/*.api` 的导入。
 - `apps/system/api/desc/base.api` 只保存被多个业务契约复用且语义完全一致的基础类型；每个业务资源的类型、路由和 Handler 声明放在对应的 `desc/<resource>.api` 中。
 - 只对入口 `system.api` 运行 goctl，不得单独对 `desc/*.api` 生成代码。新建公共类型前先确认至少三个业务契约存在同语义重复；业务枚举、业务 DTO 和持久化模型不得放入 `base.api`。
-- `apps/system/rpc/system.proto` 是 gRPC 契约源文件。
+- gRPC 契约源文件按业务域维护：`apps/system/rpc/system.proto`、`apps/job/rpc/job.proto`。
 - 任何包含 `Code generated`、`DO NOT EDIT` 的文件都禁止直接编辑，包括 `routes.go`、`types.go`、`*.pb.go`、`*_grpc.pb.go`、RPC `internal/server` 和 `systemclient` 下的生成文件。
 - 修改 `.api` 或 `.proto` 后，必须使用 README 中固定的 goctl 命令重新生成并提交生成结果，不能用文本替换修补生成文件。
 - 标记 `Code scaffolded by goctl. Safe to edit.` 的 Handler 和 Logic 只在首次生成时创建，后续允许编辑；HTTP Handler 保持参数解析、调用 Logic、调用 `httpx.ErrorCtx/OkJsonCtx` 的默认职责，业务代码写在 Logic。
@@ -62,7 +62,7 @@
 - 普通 CRUD 不使用显式锁；仅在明确的并发读改写场景中使用 `FOR UPDATE`。
 - `FOR UPDATE` 仅允许在显式事务中，通过单表主键等值条件锁定一条记录；禁止对非主键条件、范围、`IN`、`JOIN`、子查询或多行结果加锁。
 - 每处显式锁必须注释说明它防止哪一种并发错误。
-- 不使用 PostgreSQL advisory lock；确需跨进程协调时统一使用 Redis 分布式锁，并通过公共组件集中管理实现和锁键，业务代码不得自行拼接锁键。
+- 不使用 PostgreSQL advisory lock。跨进程业务互斥默认使用 Redis 分布式锁，并通过公共组件集中管理实现和锁键，业务代码不得自行拼接锁键。[ADR-0009](docs/adr/0009-scheduler-domain-and-etcd.md) 限定允许调度域使用 etcd 官方 Session／Election 选主，并以 etcd 承担已定服务发现和配置通知；不得扩展为逐 Job／Instance／Task 分布式锁。数据库短事务、条件更新和唯一约束的并发协议不因此改变。
 - 事务必须保持短小，不得包含 Redis、RPC、MQ 等外部 I/O。
 - 数据库操作继续传递调用方 Context；特殊长任务单独调整超时或异步处理。
 

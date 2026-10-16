@@ -24,6 +24,9 @@ func TestExampleConfigLoads(t *testing.T) {
 	if len(loaded.SystemRpc.Endpoints) != 1 || loaded.SystemRpc.Endpoints[0] != "127.0.0.1:9001" {
 		t.Fatalf("unexpected system RPC endpoints: %v", loaded.SystemRpc.Endpoints)
 	}
+	if loaded.JobRpc.Etcd.Key != "/dogx/development/default/rpc/job" || !loaded.JobRpc.NonBlock {
+		t.Fatal("Job discovery must match job-rpc and use nonblocking connections")
+	}
 	if loaded.Auth.AccessSecret != "0123456789abcdef0123456789abcdef" {
 		t.Fatal("access token secret was not expanded from the environment")
 	}

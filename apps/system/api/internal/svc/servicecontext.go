@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/tokyolab/dogx/apps/job/rpc/jobclient"
 	"github.com/tokyolab/dogx/apps/system/api/internal/clientip"
 	"github.com/tokyolab/dogx/apps/system/api/internal/config"
+	"github.com/tokyolab/dogx/apps/system/api/internal/jobrpc"
 	"github.com/tokyolab/dogx/apps/system/api/internal/middleware"
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
@@ -36,6 +38,7 @@ type ServiceContext struct {
 	LoginRateLimit         rest.Middleware
 	Config                 config.Config
 	SystemRpc              systemclient.System
+	JobRpc                 jobclient.Job
 	Redis                  RedisPinger
 	Sessions               authn.SessionReader
 	SessionAuth            rest.Middleware
@@ -48,6 +51,7 @@ type ServiceContext struct {
 	policyReloader  *authorization.PolicyReloader
 	cancelPolicy    context.CancelFunc
 	sqlDB           *sql.DB
+	jobClient       *jobrpc.Client
 }
 
 func NewServiceContext(c config.Config) (*ServiceContext, error) {
@@ -137,12 +141,15 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		return nil, err
 	}
 	closeDatabase = false
+	jobClient := jobrpc.New(c.JobRpc)
 	return &ServiceContext{
 		ClientIP:               resolver,
 		LoginRateLimit:         middleware.NewLoginRateLimitMiddleware(securityRuntime, redisClient, resolver, "login").Handle,
 		securityRuntime:        securityRuntime,
 		Config:                 c,
 		SystemRpc:              systemRPC,
+		JobRpc:                 jobClient,
+		jobClient:              jobClient,
 		Redis:                  redisClient,
 		Sessions:               sessions,
 		SessionAuth:            middleware.NewSessionAuthMiddleware(sessions).Handle,
@@ -157,6 +164,11 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 }
 
 func (s *ServiceContext) Close() error {
+	if s.jobClient != nil {
+		if err := s.jobClient.Close(); err != nil {
+			logx.Errorf("close Job RPC client: %v", err)
+		}
+	}
 	if s.securityRuntime != nil {
 		s.securityRuntime.Close()
 	}

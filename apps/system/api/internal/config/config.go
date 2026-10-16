@@ -17,6 +17,7 @@ type Config struct {
 	Postgres      database.PostgresConf
 	RedisConf     redis.RedisConf
 	SystemRpc     zrpc.RpcClientConf
+	JobRpc        zrpc.RpcClientConf `json:",optional"`
 }
 
 type AppConf struct {

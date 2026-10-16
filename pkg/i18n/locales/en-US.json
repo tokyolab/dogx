@@ -14,6 +14,19 @@
     "internal_error": "Internal server error",
     "business_error": "Business operation failed"
   },
+  "job": {
+    "definition": {
+      "not_found": "The Job does not exist",
+      "state_not_allowed": "Disable the Job before editing or deleting it",
+      "active_instances": "Unfinished instances prevent deleting this Job",
+      "executor_group_unavailable": "The executor group does not exist or has been deleted"
+    },
+    "trigger": {
+      "blocked": "An unfinished instance blocks this trigger",
+      "request_conflict": "The request ID was already used with different parameters",
+      "capacity_busy": "Instance creation is busy. Retry with the same request ID"
+    }
+  },
   "system": {
     "security": {
       "sync_failed": "Settings were saved, but synchronization failed. Please retry shortly"

@@ -30,7 +30,7 @@ API 字段校验标签必须写入 `.api` 契约源文件，由 goctl 生成到 
 
 ## RPC 契约
 
-源文件：`apps/system/rpc/system.proto`
+源文件按域维护：`apps/system/rpc/system.proto`、`apps/job/rpc/job.proto`。
 
 在仓库根目录执行：
 
@@ -39,12 +39,21 @@ Set-Location 'apps/system/rpc'
 goctl rpc protoc system.proto --go_out=./types --go-grpc_out=./types --zrpc_out=. --style gozero
 ```
 
+Job RPC 在仓库根目录执行以下固定命令，沿用 goctl 1.10.2：
+
+```powershell
+Set-Location 'apps/job/rpc'
+goctl rpc protoc job.proto --go_out=./types --go-grpc_out=./types --zrpc_out=. --style gozero
+```
+
+Job HTTP 契约放在 `apps/system/api/desc/job.api`，仍由唯一入口 `system.api` 导入并生成，不新增 API 生成入口。各域生成的 RPC Client、Server 和协议文件均遵守下述不可手改规则。
+
 以下文件包含 `DO NOT EDIT` 标记，禁止直接编辑：
 
 - `types/**/*.pb.go`
 - `types/**/*_grpc.pb.go`
 - `internal/server/*.go`
-- `systemclient/*.go`
+- `systemclient/*.go`、`jobclient/*.go`
 
 RPC 业务实现写在 `internal/logic`，依赖装配写在 `internal/svc`。
 

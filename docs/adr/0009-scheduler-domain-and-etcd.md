@@ -1,6 +1,6 @@
 # ADR-0009 调度域与 etcd 协调边界
 
-- 状态：已通过，总审已收口，暂未实施；待用户明确要求开始实现后再编码及同步生效规范。
+- 状态：已通过，总审已收口；2026-10-16 已应用规范与首批实现，本地验证及后续边界见[进度页](../design/scheduler/progress.md#trigger-local-verification)。
 - 日期：2026-10-16
 - 关联：[ADR-0001](0001-dogx-v0.1-architecture.md)、[总体架构](../design/scheduler/architecture.md)、[开工总审](../design/scheduler/trigger-readiness-review.md)
 
@@ -65,7 +65,7 @@ dogx/                                后端 Git 仓库
 └── docs/                           设计、规范及 ADR
 ```
 
-上述为拟落地路径，不表示文件已经创建。Job HTTP 契约仍由 `system.api` 统一导入和生成；Logic 负责用例编排，不直接执行 SQL。跨模型短事务由显式业务服务协调，同一事务中的仓储操作共享事务连接，不各自开启独立事务。调度运行组件的资源由进程装配并关闭；继续执行一个 Model 对应一个 Repository 的规范，不建立通用 BaseRepository，也不允许跨域导入 `internal` 数据层。
+上述为已确认的实现路径。Job HTTP 契约仍由 `system.api` 统一导入和生成；Logic 负责用例编排，不直接执行 SQL。跨模型短事务由显式业务服务协调，同一事务中的仓储操作共享事务连接，不各自开启独立事务。调度运行组件的资源由进程装配并关闭；继续执行一个 Model 对应一个 Repository 的规范，不建立通用 BaseRepository，也不允许跨域导入 `internal` 数据层。
 
 `job-rpc` 既提供管理 RPC，也承担调度运行职责，不是只有 CRUD 的服务。业务处理器仍运行于所属业务进程或同域 Worker，不放进 `scheduler/`。公共执行组件在仓库内复用，具体包路径在执行模块设计时确定；不为本次接入增加独立 SDK Module、发布流程或调度端注册／心跳中心。管理入口使用生成的 `jobclient`，不因此获得访问 Job 内部数据层的权限。
 
@@ -95,7 +95,7 @@ etcd 只用于已经批准的调度控制与发现职责：
 
 ## 实施时的规范同步
 
-本节清单已随总审批准，待开始实现时应用；当前只记录设计决定，尚未修改生效规范。
+本节清单已随总审批准，并在获得编码授权后随首批实现应用到生效规范及 CI；交付与验证结果单独记录。
 
 1. 将 `AGENTS.md` 中跨进程协调统一使用 Redis 的条目细化为：
 

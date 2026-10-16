@@ -14,6 +14,19 @@
     "internal_error": "系统内部错误",
     "business_error": "业务处理失败"
   },
+  "job": {
+    "definition": {
+      "not_found": "任务不存在或已删除",
+      "state_not_allowed": "请先停用任务后再编辑或删除",
+      "active_instances": "任务存在未结束的执行实例，无法删除",
+      "executor_group_unavailable": "执行器组不存在或已删除"
+    },
+    "trigger": {
+      "blocked": "存在未结束的执行实例，本次触发被阻塞",
+      "request_conflict": "该请求号已用于不同的触发参数",
+      "capacity_busy": "实例创建繁忙，请稍后沿用相同请求号重试"
+    }
+  },
   "system": {
     "security": {
       "sync_failed": "配置已保存，但同步失败，请稍后重试"

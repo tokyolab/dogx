@@ -1,0 +1,90 @@
+syntax = "proto3";
+package job;
+option go_package = "./job";
+
+message JobInput {
+  string name = 1;
+  string remark = 2;
+  int64 executor_group_id = 3;
+  string processor_name = 4;
+  optional int32 execution_mode = 5;
+  optional bool post_enabled = 6;
+  string params = 7;
+  string cron_expr = 8;
+  optional int32 misfire_policy = 9;
+  optional int32 block_policy = 10;
+  optional int32 max_retries = 11;
+  optional int32 retry_interval_seconds = 12;
+  int32 timeout_seconds = 13;
+}
+message ListJobsRequest {
+  int64 page = 1;
+  int64 page_size = 2;
+  optional int64 id = 3;
+  string name = 4;
+  optional int64 executor_group_id = 5;
+  optional int32 status = 6;
+}
+message GetJobRequest { int64 id = 1; }
+message CreateJobRequest { JobInput config = 1; optional int32 status = 2; }
+message UpdateJobRequest { int64 id = 1; JobInput config = 2; }
+message UpdateJobStatusRequest { int64 id = 1; optional int32 status = 2; }
+message DeleteJobRequest { int64 id = 1; }
+message PreviewJobCronRequest { string cron_expr = 1; }
+message TriggerJobRequest {
+  int64 id = 1;
+  string request_id = 2;
+  optional bool params_overridden = 3;
+  optional string params = 4;
+  int64 operator_id = 5;
+}
+message JobListItem {
+  int64 id = 1;
+  string name = 2;
+  int64 executor_group_id = 3;
+  optional string executor_group_name = 4;
+  string processor_name = 5;
+  int32 execution_mode = 6;
+  string cron_expr = 7;
+  int32 status = 8;
+  optional string next_trigger_at = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+message JobInfo {
+  int64 id = 1;
+  string name = 2;
+  int64 executor_group_id = 3;
+  optional string executor_group_name = 4;
+  string processor_name = 5;
+  int32 execution_mode = 6;
+  string cron_expr = 7;
+  int32 status = 8;
+  optional string next_trigger_at = 9;
+  string created_at = 10;
+  string updated_at = 11;
+  string remark = 12;
+  bool post_enabled = 13;
+  string params = 14;
+  int32 misfire_policy = 15;
+  int32 block_policy = 16;
+  int32 max_retries = 17;
+  int32 retry_interval_seconds = 18;
+  int32 timeout_seconds = 19;
+}
+message ListJobsResponse { repeated JobListItem items = 1; int64 total = 2; }
+message GetJobResponse { JobInfo job = 1; }
+message CreateJobResponse { int64 id = 1; }
+message PreviewJobCronResponse { repeated string times = 1; }
+message TriggerJobResponse { int64 instance_id = 1; }
+message EmptyResponse {}
+service Job {
+  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
+  rpc CreateJob(CreateJobRequest) returns (CreateJobResponse);
+  rpc UpdateJob(UpdateJobRequest) returns (EmptyResponse);
+  rpc UpdateJobStatus(UpdateJobStatusRequest) returns (EmptyResponse);
+  rpc DeleteJob(DeleteJobRequest) returns (EmptyResponse);
+  rpc PreviewJobCron(PreviewJobCronRequest) returns (PreviewJobCronResponse);
+  rpc TriggerJob(TriggerJobRequest) returns (TriggerJobResponse);
+}

@@ -44,3 +44,13 @@ SystemRpc:
     - 127.0.0.1:9001
   NonBlock: true
   Timeout: 2000
+
+# Optional feature: discovery starts on the first Job request, not at API startup.
+# Use the same etcd discovery key as job-rpc. Do not include Job in System readiness.
+JobRpc:
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: /dogx/development/default/rpc/job
+  NonBlock: true
+  Timeout: 5000

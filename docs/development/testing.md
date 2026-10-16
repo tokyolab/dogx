@@ -134,6 +134,20 @@ Repository 测试优先为每个用例开启事务，并在 `t.Cleanup` 中回�
 
 迁移文件是否成功嵌入只属于基础检查，不能替代在真实 PostgreSQL 上执行迁移。
 
+## Job 与 etcd 集成测试
+
+Job 测试使用同一个 `DOGX_TEST_POSTGRES_DSN` 测试数据库，但每个测试建立独立 Schema、执行本域迁移，不导入 System 的内部数据层。迁移测试另验证同库的 `goose_db_version` 与 `job_goose_db_version` 互不混淆。不得为测试连接共享开发数据库。
+
+etcd 集成测试通过 `DOGX_TEST_ETCD_BINARY` 指定固定版本 3.5.21 的可执行文件，测试自行启动回环随机端口、临时数据目录的独立进程；用有期限的健康检查确认就绪，结束时关闭。测试不能连接生产或共享 etcd，也不依赖本机预启动服务。CI 从官方 release 下载并核对 SHA256，再运行包含 Job 路径的集成测试。
+
+```powershell
+$env:DOGX_TEST_POSTGRES_DSN = 'postgres://dogx:password@127.0.0.1:5432/dogx_test?sslmode=disable'
+$env:DOGX_TEST_ETCD_BINARY = '<absolute-path-to-etcd>'
+go test -tags=integration -shuffle=on -count=1 -timeout=5m ./apps/job/internal/... ./apps/job/rpc/internal/...
+```
+
+必须覆盖真实事务竞争、触发身份唯一性、多副本切主、通知缺失后的分钟核对、取消清理和持久化交接。分钟兜底不是测试中的即时通知；需要等待实际周期的用例单独控制总超时，普通单元测试继续使用可控依赖。
+
 ## Redis 测试
 
 - 只验证简单键值、过期时间和会话行为时，可以使用进程内 Redis Fake。

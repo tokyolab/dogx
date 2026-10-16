@@ -1,0 +1,120 @@
+import "base.api"
+
+type (
+ JobListReq {
+  Page int64 `json:"page" validate:"gte=1"`
+  PageSize int64 `json:"pageSize" validate:"gte=1,lte=200"`
+  Id *int64 `json:"id,optional" validate:"omitempty,gt=0"`
+  Name string `json:"name,optional"`
+  ExecutorGroupId *int64 `json:"executorGroupId,optional" validate:"omitempty,gt=0"`
+  Status *int32 `json:"status,optional" validate:"omitempty,oneof=0 1"`
+ }
+ CreateJobReq {
+  Name string `json:"name" validate:"required"`
+  Remark string `json:"remark,optional"`
+  ExecutorGroupId int64 `json:"executorGroupId" validate:"gt=0"`
+  ProcessorName string `json:"processorName" validate:"required"`
+  ExecutionMode *int32 `json:"executionMode,optional" validate:"omitempty,oneof=1 2"`
+  PostEnabled *bool `json:"postEnabled,optional"`
+  Params string `json:"params,optional"`
+  CronExpr string `json:"cronExpr" validate:"required"`
+  Status *int32 `json:"status,optional" validate:"omitempty,oneof=0 1"`
+  MisfirePolicy *int32 `json:"misfirePolicy,optional" validate:"omitempty,oneof=0 1"`
+  BlockPolicy *int32 `json:"blockPolicy,optional" validate:"omitempty,oneof=0 1"`
+  MaxRetries *int32 `json:"maxRetries,optional" validate:"omitempty,gte=0"`
+  RetryIntervalSeconds *int32 `json:"retryIntervalSeconds,optional" validate:"omitempty,gt=0"`
+  TimeoutSeconds int32 `json:"timeoutSeconds" validate:"gt=0"`
+ }
+ CreateJobResp { Id int64 `json:"id"` }
+ UpdateJobReq {
+  Id int64 `json:"id" validate:"gt=0"`
+  Name string `json:"name" validate:"required"`
+  Remark string `json:"remark,optional"`
+  ExecutorGroupId int64 `json:"executorGroupId" validate:"gt=0"`
+  ProcessorName string `json:"processorName" validate:"required"`
+  ExecutionMode int32 `json:"executionMode" validate:"oneof=1 2"`
+  PostEnabled *bool `json:"postEnabled,optional" validate:"required"`
+  Params string `json:"params,optional"`
+  CronExpr string `json:"cronExpr" validate:"required"`
+  MisfirePolicy *int32 `json:"misfirePolicy,optional" validate:"required,oneof=0 1"`
+  BlockPolicy *int32 `json:"blockPolicy,optional" validate:"required,oneof=0 1"`
+  MaxRetries *int32 `json:"maxRetries,optional" validate:"required,gte=0"`
+  RetryIntervalSeconds int32 `json:"retryIntervalSeconds" validate:"gt=0"`
+  TimeoutSeconds int32 `json:"timeoutSeconds" validate:"gt=0"`
+ }
+ UpdateJobStatusReq {
+  Id int64 `json:"id" validate:"gt=0"`
+  Status *int32 `json:"status,optional" validate:"required,oneof=0 1"`
+ }
+ PreviewJobCronReq { CronExpr string `json:"cronExpr" validate:"required"` }
+ PreviewJobCronResp { Times []string `json:"times"` }
+ TriggerJobReq {
+  Id int64 `json:"id" validate:"gt=0"`
+  RequestId string `json:"requestId" validate:"required,uuid"`
+  ParamsOverridden *bool `json:"paramsOverridden,optional" validate:"required"`
+  Params *string `json:"params,optional"`
+ }
+ TriggerJobResp { InstanceId int64 `json:"instanceId"` }
+ JobListItem {
+  Id int64 `json:"id"`
+  Name string `json:"name"`
+  ExecutorGroupId int64 `json:"executorGroupId"`
+  ExecutorGroupName *string `json:"executorGroupName"`
+  ProcessorName string `json:"processorName"`
+  ExecutionMode int32 `json:"executionMode"`
+  CronExpr string `json:"cronExpr"`
+  Status int32 `json:"status"`
+  NextTriggerAt *string `json:"nextTriggerAt"`
+  CreatedAt string `json:"createdAt"`
+  UpdatedAt string `json:"updatedAt"`
+ }
+ JobDetail {
+  Id int64 `json:"id"`
+  Name string `json:"name"`
+  ExecutorGroupId int64 `json:"executorGroupId"`
+  ExecutorGroupName *string `json:"executorGroupName"`
+  ProcessorName string `json:"processorName"`
+  ExecutionMode int32 `json:"executionMode"`
+  CronExpr string `json:"cronExpr"`
+  Status int32 `json:"status"`
+  NextTriggerAt *string `json:"nextTriggerAt"`
+  CreatedAt string `json:"createdAt"`
+  UpdatedAt string `json:"updatedAt"`
+  Remark string `json:"remark"`
+  PostEnabled bool `json:"postEnabled"`
+  Params string `json:"params"`
+  MisfirePolicy int32 `json:"misfirePolicy"`
+  BlockPolicy int32 `json:"blockPolicy"`
+  MaxRetries int32 `json:"maxRetries"`
+  RetryIntervalSeconds int32 `json:"retryIntervalSeconds"`
+  TimeoutSeconds int32 `json:"timeoutSeconds"`
+ }
+ JobListResp {
+  Items []JobListItem `json:"items"`
+  Total int64 `json:"total"`
+ }
+)
+
+@server (
+ group: job
+ jwt: Auth
+ middleware: SessionAuth, Authorization
+)
+service system-api {
+ @handler listJobs
+ post /job/list (JobListReq) returns (JobListResp)
+ @handler getJob
+ post /job/get (IDReq) returns (JobDetail)
+ @handler createJob
+ post /job/create (CreateJobReq) returns (CreateJobResp)
+ @handler updateJob
+ post /job/update (UpdateJobReq) returns (EmptyResp)
+ @handler updateJobStatus
+ post /job/status/update (UpdateJobStatusReq) returns (EmptyResp)
+ @handler deleteJob
+ post /job/delete (IDReq) returns (EmptyResp)
+ @handler previewJobCron
+ post /job/cron/preview (PreviewJobCronReq) returns (PreviewJobCronResp)
+ @handler triggerJob
+ post /job/trigger (TriggerJobReq) returns (TriggerJobResp)
+}

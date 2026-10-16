@@ -14,6 +14,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/api/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/rpc/systemclient"
+	"github.com/tokyolab/dogx/pkg/requestvalidator"
 	commonresponse "github.com/tokyolab/dogx/pkg/response"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -69,6 +70,14 @@ type routeSecurityCase struct {
 }
 
 var routeSecurityMatrix = []routeSecurityCase{
+	{name: "ListJobs", method: http.MethodPost, path: "/job/list", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListJobs"},
+	{name: "GetJob", method: http.MethodPost, path: "/job/get", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "GetJob"},
+	{name: "CreateJob", method: http.MethodPost, path: "/job/create", body: `{"name":"job","executorGroupId":1,"processorName":"p","cronExpr":"0 * * * * *","timeoutSeconds":900}`, level: routeAuthorized, rpcMethod: "CreateJob"},
+	{name: "UpdateJob", method: http.MethodPost, path: "/job/update", body: `{"id":7,"name":"job","executorGroupId":1,"processorName":"p","executionMode":1,"postEnabled":false,"cronExpr":"0 * * * * *","misfirePolicy":0,"blockPolicy":0,"maxRetries":0,"retryIntervalSeconds":10,"timeoutSeconds":900}`, level: routeAuthorized, rpcMethod: "UpdateJob"},
+	{name: "UpdateJobStatus", method: http.MethodPost, path: "/job/status/update", body: `{"id":7,"status":0}`, level: routeAuthorized, rpcMethod: "UpdateJobStatus"},
+	{name: "DeleteJob", method: http.MethodPost, path: "/job/delete", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "DeleteJob"},
+	{name: "PreviewJobCron", method: http.MethodPost, path: "/job/cron/preview", body: `{"cronExpr":"0 * * * * *"}`, level: routeAuthorized, rpcMethod: "PreviewJobCron"},
+	{name: "TriggerJob", method: http.MethodPost, path: "/job/trigger", body: `{"id":7,"requestId":"12051a0f-76b8-4d88-897f-15ec600de323","paramsOverridden":false}`, level: routeAuthorized, rpcMethod: "TriggerJob"},
 	{name: "GetLoginSecurity", method: http.MethodPost, path: "/security/login/get", body: `{}`, level: routeAuthorized, rpcMethod: "GetLoginSecurity"},
 	{name: "UpdateLoginSecurity", method: http.MethodPost, path: "/security/login/update", body: `{"rateLimitEnabled":false,"rateLimitWindowSeconds":60,"rateLimitMaxRequests":30,"failureLockEnabled":false,"failureWindowSeconds":900,"failureThreshold":5,"lockDurationSeconds":900}`, level: routeAuthorized, rpcMethod: "UpdateLoginSecurity"},
 	{name: "ListLoginLogs", method: http.MethodPost, path: "/login-log/list", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListLoginLogs"},
@@ -324,9 +333,11 @@ func newRouteTestServer(
 	t.Helper()
 	httpx.SetOkHandler(commonresponse.HandleSuccess)
 	httpx.SetErrorHandlerCtx(commonresponse.HandleError)
+	httpx.SetValidator(requestvalidator.New())
 	t.Cleanup(func() {
 		httpx.SetOkHandler(nil)
 		httpx.SetErrorHandlerCtx(nil)
+		httpx.SetValidator(nil)
 	})
 
 	server, err := rest.NewServer(
@@ -340,6 +351,7 @@ func newRouteTestServer(
 		LoginRateLimit: func(next http.HandlerFunc) http.HandlerFunc { return next },
 		Config:         config.Config{Auth: config.AuthConf{AccessSecret: routeTestAccessSecret}},
 		SystemRpc:      rpc,
+		JobRpc:         newRouteJobRPC(rpc),
 		Sessions:       sessions,
 		SessionAuth:    middleware.NewSessionAuthMiddleware(sessions).Handle,
 		Authorization:  middleware.NewAuthorizationMiddleware(enforcer).Handle,

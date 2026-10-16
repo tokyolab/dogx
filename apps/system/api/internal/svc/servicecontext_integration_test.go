@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/zeromicro/go-zero/core/discov"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/zrpc"
 )
@@ -71,6 +72,9 @@ func TestNewServiceContextWiresAuthorizationDependencies(t *testing.T) {
 	t.Setenv("PGOPTIONS", "-c search_path="+schema)
 
 	c := apiServiceConfig(t)
+	// The optional Job domain and its discovery service are offline. Creating
+	// System and checking its existing dependencies must not contact either.
+	c.JobRpc = zrpc.RpcClientConf{Etcd: discov.EtcdConf{Hosts: []string{"127.0.0.1:1"}, Key: "/dogx/test/job"}, NonBlock: true}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -119,6 +123,9 @@ func TestNewServiceContextWiresAuthorizationDependencies(t *testing.T) {
 
 	if serviceCtx.SystemRpc == nil || serviceCtx.Redis == nil || serviceCtx.Sessions == nil {
 		t.Fatal("API transport or session dependencies were not initialized")
+	}
+	if serviceCtx.JobRpc == nil || serviceCtx.jobClient == nil {
+		t.Fatal("optional Job client was not wired")
 	}
 	if serviceCtx.SessionAuth == nil || serviceCtx.Authorization == nil {
 		t.Fatal("API authentication or authorization middleware was not initialized")

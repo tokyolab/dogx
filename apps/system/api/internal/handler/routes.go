@@ -11,6 +11,7 @@ import (
 	department "github.com/tokyolab/dogx/apps/system/api/internal/handler/department"
 	dictionary "github.com/tokyolab/dogx/apps/system/api/internal/handler/dictionary"
 	health "github.com/tokyolab/dogx/apps/system/api/internal/handler/health"
+	job "github.com/tokyolab/dogx/apps/system/api/internal/handler/job"
 	loginlog "github.com/tokyolab/dogx/apps/system/api/internal/handler/loginlog"
 	menu "github.com/tokyolab/dogx/apps/system/api/internal/handler/menu"
 	role "github.com/tokyolab/dogx/apps/system/api/internal/handler/role"
@@ -263,6 +264,55 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: health.ReadyHandler(serverCtx),
 			},
 		},
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/create",
+					Handler: job.CreateJobHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/cron/preview",
+					Handler: job.PreviewJobCronHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/delete",
+					Handler: job.DeleteJobHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/get",
+					Handler: job.GetJobHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/list",
+					Handler: job.ListJobsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/status/update",
+					Handler: job.UpdateJobStatusHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/trigger",
+					Handler: job.TriggerJobHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/update",
+					Handler: job.UpdateJobHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
 	)
 
 	server.AddRoutes(

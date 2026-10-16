@@ -1,0 +1,30 @@
+Name: job-rpc
+ListenOn: 0.0.0.0:9002
+Mode: dev
+Timeout: 5000
+Etcd:
+  Hosts:
+    - 127.0.0.1:2379
+  Key: /dogx/development/default/rpc/job
+
+Postgres:
+  Host: 127.0.0.1
+  Port: 5432
+  User: dogx
+  Password: ${DOGX_POSTGRES_PASSWORD}
+  Database: dogx_dev
+  SSLMode: disable
+  TimeZone: Asia/Shanghai
+  MaxIdleConns: 10
+  MaxOpenConns: 50
+  ConnMaxLifetime: 1h
+
+Scheduler:
+  # Deploy every replica with the same process TZ; Cron uses that local timezone.
+  Prefix: /dogx/development/default
+  QueueCapacity: 1024
+  CreationConcurrency: 32
+  CreationBudget: 3s
+  LeaseTTLSeconds: 15
+  RecoveryLimit: 1024
+  QueryTimeout: 5s

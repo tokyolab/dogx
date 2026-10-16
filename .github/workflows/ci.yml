@@ -100,7 +100,7 @@ jobs:
         run: go test -shuffle=on -count=1 ./...
 
   postgres-integration:
-    name: PostgreSQL 18 and Redis 7.4 integration
+    name: PostgreSQL 18, Redis 7.4 and etcd integration
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -135,6 +135,7 @@ jobs:
     env:
       DOGX_TEST_POSTGRES_DSN: postgres://dogx:dogx_test_password@127.0.0.1:5432/dogx_test?sslmode=disable
       DOGX_TEST_REDIS_HOST: 127.0.0.1:6379
+      DOGX_TEST_ETCD_BINARY: ${{ runner.temp }}/dogx-etcd/etcd
 
     steps:
       - name: Check out repository
@@ -147,10 +148,20 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Test service wiring, migrations and repositories
+      - name: Install isolated etcd test binary
+        run: |
+          curl --fail --location --retry 3 -o "${{ runner.temp }}/etcd.tar.gz" https://github.com/etcd-io/etcd/releases/download/v3.5.21/etcd-v3.5.21-linux-amd64.tar.gz
+          curl --fail --location --retry 3 -o "${{ runner.temp }}/etcd-SHA256SUMS" https://github.com/etcd-io/etcd/releases/download/v3.5.21/SHA256SUMS
+          expected=$(awk '$2 == "etcd-v3.5.21-linux-amd64.tar.gz" {print $1}' "${{ runner.temp }}/etcd-SHA256SUMS")
+          test -n "$expected"
+          echo "$expected  ${{ runner.temp }}/etcd.tar.gz" | sha256sum --check
+          mkdir -p "${{ runner.temp }}/dogx-etcd"
+          tar -xzf "${{ runner.temp }}/etcd.tar.gz" -C "${{ runner.temp }}/dogx-etcd" --strip-components=1
+
+      - name: Test service wiring, migrations, repositories and distributed triggering
         run: |
           mkdir -p coverage
-          go test -tags=integration -shuffle=on -count=1 -timeout=2m -covermode=atomic -coverprofile=coverage/integration.txt ./apps/system/api/internal/... ./apps/system/internal/... ./apps/system/rpc/internal/...
+          go test -tags=integration -shuffle=on -count=1 -timeout=5m -covermode=atomic -coverprofile=coverage/integration.txt ./apps/system/api/internal/... ./apps/system/internal/... ./apps/system/rpc/internal/... ./apps/job/internal/... ./apps/job/rpc/internal/...
 
       - name: Test authentication and RBAC end to end
         env:

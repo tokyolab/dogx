@@ -14,6 +14,7 @@ DogX 是一套面向开源项目的通用 Go 后台管理骨架。后端采用 g
 - Goose（SQL 数据库迁移）
 - PostgreSQL 18（唯一支持的关系型数据库，迁移脚本尽量兼容 PostgreSQL 17）
 - Redis 7.4（按需使用，不为普通 CRUD 自动加缓存）
+- etcd 3.5 + robfig/cron/v3（Job 域选主、发现、配置通知与长期规则触发）
 - Casbin v3 + 官方 GORM Adapter + Redis Watcher（接口权限判定与多实例策略失效通知）
 
 ## 仓库结构
@@ -33,6 +34,10 @@ apps/
       model/          GORM 持久化模型及字段类型和常量
       repository/     数据访问接口与实现
       migration/      Goose 迁移及 SQL 文件
+  job/
+    rpc/              独立 Job 管理与调度进程，含 etcd 选主和 Cron 运行组件
+    cmd/migrate/      Job 独立迁移命令及迁移账本
+    internal/         Job 域模型、数据访问、事务服务与迁移
 pkg/                跨进程、跨业务域复用的稳定技术组件
 docs/               架构决策和开发文档
 ```
@@ -41,6 +46,7 @@ docs/               架构决策和开发文档
 
 ```text
 browser → system-api (HTTP JSON) → system-rpc (gRPC) → PostgreSQL / Redis
+                   └─ Job RPC (gRPC) → PostgreSQL；etcd 选主／通知／发现
                    └─ 只读认证 Session → Redis
                    └─ 只读 Casbin 策略 → PostgreSQL
 ```
@@ -107,6 +113,24 @@ go run ./apps/system/api -f 'apps/system/api/etc/system-api.yaml'
 
 API 与 RPC 必须使用完全相同的 `DOGX_ACCESS_SECRET`。受保护请求先由 API 本地验证携带 `userId`、`sessionId`、`roleIds` 和 `isSuperAdmin` 的 JWT，再通过精确 Redis `GET` 检查 Session；有效超级管理员直接放行，普通用户最后由本地 Casbin 快照判定接口权限。普通业务请求随后仍只调用一次业务 RPC。Session 的创建、轮换和撤销仍只由 RPC 负责。
 
+## Job 调度域（首批触发模块）
+
+管理入口为 `system-api → job-rpc → PostgreSQL`。`job-rpc` 是独立进程，副本通过 etcd 选主；只有 Leader 维护 Cron 规则和触发恢复，各副本均可处理管理请求。本批止于已持久化的 WAITING Instance 和执行配置快照，**尚不执行 Task，没有组管理页面或隐含默认组**。
+
+```powershell
+Copy-Item 'apps/job/rpc/etc/job-rpc.example.yaml' 'apps/job/rpc/etc/job-rpc.yaml'
+go run ./apps/job/cmd/migrate -f 'apps/job/rpc/etc/job-rpc.yaml' up
+go run ./apps/job/rpc -f 'apps/job/rpc/etc/job-rpc.yaml'
+```
+
+先配置可用的 PostgreSQL 与 etcd，所有调度副本使用相同的进程时区。`Scheduler.Prefix` 必须隔离环境和逻辑集群；Job RPC 的 `Etcd.Key` 与 API 的 `JobRpc.Etcd.Key` 必须相同。示例的 `Postgres.TimeZone` 是数据库会话时区，不替代操作系统／容器进程时区。数据库默认同库同 `public` schema；Job 有独立配置、连接池、`job_*` 表及 `job_goose_db_version` 迁移账本，初次生产部署可配置到独立数据库。
+
+System 域另有增量迁移登记八条 Job 接口权限，按原 System 迁移命令执行，不由 Job 迁移跨域写入。`/job/list`、`/job/get`、`/job/create`、`/job/update`、`/job/status/update`、`/job/delete`、`/job/cron/preview`、`/job/trigger` 均为受 Session 和 Casbin 保护的 POST 路由。
+
+API 的 Job 客户端按首次请求初始化；Job 或其 etcd 离线不增加原 System 启动及 `/ready` 依赖。初始化请求仍有超时，并只允许一个在途初始化。go-zero 首次 etcd 发现使用其共享客户端持续重试，无法由单次请求取消；关闭后晚到的连接会被释放，持续断连时最多保留该进程级初始化操作直到进程退出，不随请求数增加。
+
+完整范围和验证要求见[触发模块总审](docs/design/scheduler/trigger-readiness-review.md)。数据库迁移须明确执行，不会在服务启动时自动运行；本段命令不代表已有测试完成或已迁移开发数据库。
+
 ## 初始化管理员
 
 数据库迁移完成后，可以创建第一个管理员账号。密码至少 12 字节，不通过命令行参数传递；未设置环境变量时，交互式终端会安全提示输入密码：
@@ -162,6 +186,13 @@ goctl api go --api system.api --dir . --style gozero
 ```powershell
 Set-Location 'apps/system/rpc'
 goctl rpc protoc system.proto --go_out=./types --go-grpc_out=./types --zrpc_out=. --style gozero
+```
+
+Job RPC 使用同一版本和风格，在其独立目录生成：
+
+```powershell
+Set-Location 'apps/job/rpc'
+goctl rpc protoc job.proto --go_out=./types --go-grpc_out=./types --zrpc_out=. --style gozero
 ```
 
 生成命令会更新契约派生文件，但不会覆盖已有的 Logic。修改已有接口的输入或输出类型后，仍需手动同步 Logic 方法签名并运行测试。包含 `DO NOT EDIT` 标记的文件禁止直接修改，完整规则见 [goctl 代码生成规范](docs/development/code-generation.md)。

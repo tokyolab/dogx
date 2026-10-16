@@ -20,8 +20,11 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 23 {
-		t.Fatalf("unexpected migration count: got %d, want 23", len(sources))
+	if len(sources) != 24 {
+		t.Fatalf("unexpected migration count: got %d, want 24", len(sources))
+	}
+	if sources[23].Version != 20261016093000 {
+		t.Fatalf("unexpected Job management migration: %+v", sources[23])
 	}
 	if sources[22].Version != 20260930143512 {
 		t.Fatalf("unexpected schema comment migration: %+v", sources[22])
