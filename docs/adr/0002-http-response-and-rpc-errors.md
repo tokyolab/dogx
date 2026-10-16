@@ -86,6 +86,8 @@ API 启动时通过 go-zero v1.10.3 的 `httpx.SetValidator` 注册全局 Valida
 
 只允许使用 `go-playground/validator` 官方内置 Tag，不注册 `min_bytes`、`max_bytes`、通用正则等项目自定义 Tag。字符串 `min/max/len` 与 PostgreSQL `VARCHAR(n)` 均按 Unicode 字符数理解。角色编码等无法由官方 Tag 完整表达的业务格式由 RPC Logic 手写校验，前端提供即时提示；不能依赖前端校验保证正确性。
 
+字符串类型与容量遵守[字段类型与长度规范](../development/database-migrations.md#column-types)：有合理边界的短字符串使用 `VARCHAR(n)`，业务参数及长内容按用途使用 `TEXT`。API／RPC、Model 和数据库长度同步，字段容量不因业务数值范围由应用校验而被取消。
+
 数据库约束按数据完整性职责独立设计，不以 API 内置校验能否表达为依据。主键、唯一性、非空等数据完整性规则由数据库兜底；可调整的业务参数范围和业务流程规则由业务层校验。API 校验能力不足不是把业务规则放进数据库的理由，也不能因此要求增加 PostgreSQL `CHECK` 约束。本次修订明确后续设计边界，不代表自动移除已有约束；已有约束需逐项评估并通过迁移调整。
 
 字段校验失败统一使用 `common.invalid_request`，同时保留 Validator 原始详细诊断，便于直接调试接口：

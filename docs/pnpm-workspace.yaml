@@ -1,0 +1,5 @@
+# Mermaid 插件从项目根解析间接依赖，提升策略仅作用于独立文档工程。
+shamefullyHoist: true
+
+allowBuilds:
+  esbuild: true
