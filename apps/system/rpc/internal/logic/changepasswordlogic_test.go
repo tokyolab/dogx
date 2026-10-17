@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -109,7 +109,7 @@ func TestChangePasswordRevokesMissingAndDisabledUsers(t *testing.T) {
 	}
 
 	disabledUser := enabledUser()
-	disabledUser.Status = model.RecordStatusDisabled
+	disabledUser.Status = basemodel.RecordStatusDisabled
 	disabledSessions := &sessionStoreLogicStub{}
 	disabled := NewChangePasswordLogic(context.Background(), &svc.ServiceContext{
 		UserRepo: &userRepositoryStub{user: disabledUser},
@@ -185,7 +185,7 @@ func TestChangePasswordPropagatesAuthenticationDependencyFailures(t *testing.T) 
 			name: "revoke disabled user",
 			svcCtx: func() *svc.ServiceContext {
 				user := enabledUser()
-				user.Status = model.RecordStatusDisabled
+				user.Status = basemodel.RecordStatusDisabled
 				return &svc.ServiceContext{
 					UserRepo: &userRepositoryStub{user: user},
 					Sessions: &sessionStoreLogicStub{revokeAllErr: dependencyErr},

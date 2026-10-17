@@ -20,7 +20,7 @@ var testNow = time.Date(2026, 10, 16, 12, 0, 5, 0, time.Local)
 func validDefinition() *model.JobDefinition {
 	due := testNow.Add(-5 * time.Second)
 	return &model.JobDefinition{Base: basemodel.Base{ID: 7}, Name: "job", ExecutorGroupID: 2, ProcessorName: "processor", ExecutionMode: model.ExecutionModeNormal,
-		Params: "current", CronExpr: "0 * * * * *", Status: model.StatusEnabled, MisfirePolicy: model.MisfireIgnore, BlockPolicy: model.BlockDiscard,
+		Params: "current", CronExpr: "0 * * * * *", Status: basemodel.RecordStatusEnabled, MisfirePolicy: model.MisfireIgnore, BlockPolicy: model.BlockDiscard,
 		MaxRetries: 3, RetryIntervalSeconds: 10, TimeoutSeconds: 900, NextTriggerAt: &due}
 }
 
@@ -111,7 +111,7 @@ func TestAutomaticNoopAndInvalidSchedule(t *testing.T) {
 			case "deleted":
 				r.failures["lock"] = ErrNotFound
 			case "disabled":
-				r.job.Status = model.StatusDisabled
+				r.job.Status = basemodel.RecordStatusDisabled
 			case "not_due":
 				future := testNow.Add(time.Second)
 				r.job.NextTriggerAt = &future
@@ -175,7 +175,7 @@ func TestManualReplayAndConflicts(t *testing.T) {
 
 func TestManualSnapshotAndRejections(t *testing.T) {
 	s, r := testService(t)
-	r.job.Status = model.StatusDisabled
+	r.job.Status = basemodel.RecordStatusDisabled
 	request := ManualTrigger{JobID: 7, RequestID: uuid.Nil, OperatorID: 8, ParamsOverridden: true, Params: "   "}
 	id, err := s.TriggerManual(context.Background(), request)
 	if err != nil || id != 99 {
@@ -242,7 +242,7 @@ func TestManagementTransactionsAndNotifications(t *testing.T) {
 		return errors.New("etcd unavailable")
 	}
 	job := validDefinition()
-	job.Status = model.StatusDisabled
+	job.Status = basemodel.RecordStatusDisabled
 	job.Name = "  中文  "
 	job.MaxRetries = 0
 	id, err := s.CreateJob(context.Background(), job)
@@ -259,13 +259,13 @@ func TestManagementTransactionsAndNotifications(t *testing.T) {
 	if strings.Join(r.calls, ",") != "group_lock,update" || r.saved.MaxRetries != 0 {
 		t.Fatalf("calls=%v saved=%+v", r.calls, r.saved)
 	}
-	r.job.Status = model.StatusDisabled
-	if err := s.UpdateJobStatus(context.Background(), 7, model.StatusEnabled); err != nil || r.enabled == nil || !r.enabled.After(testNow) {
+	r.job.Status = basemodel.RecordStatusDisabled
+	if err := s.UpdateJobStatus(context.Background(), 7, basemodel.RecordStatusEnabled); err != nil || r.enabled == nil || !r.enabled.After(testNow) {
 		t.Fatalf("enable=%v err=%v", r.enabled, err)
 	}
 	r.enabled = nil
-	r.job.Status = model.StatusEnabled
-	if err := s.UpdateJobStatus(context.Background(), 7, model.StatusEnabled); err != nil || r.enabled != nil {
+	r.job.Status = basemodel.RecordStatusEnabled
+	if err := s.UpdateJobStatus(context.Background(), 7, basemodel.RecordStatusEnabled); err != nil || r.enabled != nil {
 		t.Fatalf("idempotent enable err=%v", err)
 	}
 	r.failures["update"] = errors.New("write failed")
@@ -280,7 +280,7 @@ func TestDeleteRequiresDisabledAndNoActiveInstances(t *testing.T) {
 	if err := s.DeleteJob(context.Background(), 7); !errors.Is(err, ErrStateNotAllowed) {
 		t.Fatalf("err=%v", err)
 	}
-	r.job.Status = model.StatusDisabled
+	r.job.Status = basemodel.RecordStatusDisabled
 	r.active = true
 	if err := s.DeleteJob(context.Background(), 7); !errors.Is(err, ErrActiveInstances) {
 		t.Fatalf("err=%v", err)

@@ -110,7 +110,7 @@ func TestLoginRecordsCredentialFailures(t *testing.T) {
 	}
 
 	disabledUser := enabledUser()
-	disabledUser.Status = model.RecordStatusDisabled
+	disabledUser.Status = basemodel.RecordStatusDisabled
 	disabledAudit := &loginLogRepositoryStub{}
 	disabled := NewLoginLogic(context.Background(), &svc.ServiceContext{Security: &securityRuntimeStub{}, LoginFailures: &loginFailuresStub{},
 		UserRepo:     &userRepositoryStub{user: disabledUser},
@@ -222,7 +222,7 @@ func TestLoginUsesSameErrorForUnknownUserAndWrongPassword(t *testing.T) {
 
 func TestLoginRejectsDisabledUserAfterPasswordVerification(t *testing.T) {
 	user := enabledUser()
-	user.Status = model.RecordStatusDisabled
+	user.Status = basemodel.RecordStatusDisabled
 	passwords := &passwordVerifierStub{}
 	logic := newLoginLogicForTest(&userRepositoryStub{user: user}, passwords, &credentialIssuerStub{})
 
@@ -285,6 +285,6 @@ func enabledUser() *model.User {
 		Base:         basemodel.Base{ID: 42},
 		Username:     "admin",
 		PasswordHash: "encoded-hash",
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 	}
 }

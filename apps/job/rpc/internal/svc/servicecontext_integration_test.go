@@ -17,6 +17,7 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/service"
 	"github.com/tokyolab/dogx/apps/job/internal/testutil"
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/config"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"github.com/tokyolab/dogx/pkg/postgres"
 	pgtest "github.com/tokyolab/dogx/pkg/testutil/postgres"
 	"github.com/zeromicro/go-zero/core/discov"
@@ -78,7 +79,7 @@ func TestNewServiceContextWiresJobsAndClosesOfflineElection(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	id, err := s.Jobs.CreateJob(ctx, &model.JobDefinition{Name: "wired job", ExecutorGroupID: group.ID, ProcessorName: "Handler", ExecutionMode: model.ExecutionModeNormal, Params: "payload", CronExpr: "0 * * * * *", Status: model.StatusDisabled, RetryIntervalSeconds: 10, TimeoutSeconds: 900})
+	id, err := s.Jobs.CreateJob(ctx, &model.JobDefinition{Name: "wired job", ExecutorGroupID: group.ID, ProcessorName: "Handler", ExecutionMode: model.ExecutionModeNormal, Params: "payload", CronExpr: "0 * * * * *", Status: basemodel.RecordStatusDisabled, RetryIntervalSeconds: 10, TimeoutSeconds: 900})
 	if err != nil || id <= 0 {
 		t.Fatalf("create through wired service: id=%d error=%v", id, err)
 	}

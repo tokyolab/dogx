@@ -83,6 +83,10 @@ Job 同样遵守时间戳开发版本、发布前 `fix`、显式 `Up`／`Down` �
 
 只有全部字段都适用时才嵌入 Base：System 的普通软删除实体、JobDefinition 和 ExecutorGroup 复用它；JobInstance 没有软删除语义，不为复用而增加 `deleted_at`。日志、关系表等同样按自身生命周期建模。迁移 SQL 是结构权威，抽取 Base 不使用 `AutoMigrate`，不改变既有列或表归属。
 
+通用启停字段统一使用 `pkg/model.RecordStatus`，底层类型为 `int16`，停用为 `RecordStatusDisabled = 0`，启用为 `RecordStatusEnabled = 1`；各域直接引用，不重复定义或保留别名。API／RPC 仍使用 `int32`，数据库仍使用 `SMALLINT`，RPC 必须先校验原始取值，再转换为 `RecordStatus`，避免缩窄整数后接受非法输入。
+
+`RecordStatus` 是跨域通用基础类型，不是业务专属状态机。`Status` 字段由各模型自行声明，不放进 Base；启停业务行为以及 Instance／Task 运行状态、执行模式等专属类型仍由所属域维护，不因枚举复用而共用业务逻辑。
+
 ## 字段类型与长度 {#column-types}
 
 字段类型表达数据的用途和边界，不只比较数据库的存储实现。短字符串优先沿用项目现有 `VARCHAR(n)` 的建模方式，不因 PostgreSQL 的 `TEXT` 与 `VARCHAR` 存储特性接近，或为省去未来改表，就把所有字符串统一设计为 `TEXT`。

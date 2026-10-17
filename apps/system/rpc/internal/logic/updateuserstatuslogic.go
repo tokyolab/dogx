@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -42,7 +42,7 @@ func (l *UpdateUserStatusLogic) UpdateUserStatus(in *system.UpdateUserStatusRequ
 			return nil, fmt.Errorf("revoke sessions before disabling user: %w", err)
 		}
 	}
-	if err := l.svcCtx.UserRepo.UpdateStatus(l.ctx, in.Id, model.RecordStatus(in.Status)); err != nil {
+	if err := l.svcCtx.UserRepo.UpdateStatus(l.ctx, in.Id, basemodel.RecordStatus(in.Status)); err != nil {
 		return nil, userManagementError(err)
 	}
 	return &system.EmptyResponse{}, nil

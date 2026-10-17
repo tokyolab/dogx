@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
 )
 
@@ -136,13 +137,13 @@ func TestMenuUpdateUniqueConflictsLeaveBothRecordsUnchanged(t *testing.T) {
 	}
 	source := &model.Menu{
 		ParentID: &oldParent.ID, Type: model.MenuTypePage, Name: "Original", RouteName: "Original",
-		Path: "/original", Component: "original/index", Sort: 10, Status: model.RecordStatusEnabled,
+		Path: "/original", Component: "original/index", Sort: 10, Status: basemodel.RecordStatusEnabled,
 		Visible: true, KeepAlive: true, Remark: "original remark",
 	}
 	// Disabled menus still reserve their route names and paths.
 	occupied := &model.Menu{
 		ParentID: &newParent.ID, Type: model.MenuTypePage, Name: "Occupied", RouteName: "Occupied",
-		Path: "/occupied", Component: "occupied/index", Status: model.RecordStatusDisabled,
+		Path: "/occupied", Component: "occupied/index", Status: basemodel.RecordStatusDisabled,
 	}
 	for _, menu := range []*model.Menu{source, occupied} {
 		if err := repo.Create(ctx, menu); err != nil {

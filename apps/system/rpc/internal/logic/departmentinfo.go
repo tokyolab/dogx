@@ -6,6 +6,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 func toDepartmentInfo(department model.Department) *system.DepartmentInfo {
@@ -21,7 +22,7 @@ func toDepartmentInfo(department model.Department) *system.DepartmentInfo {
 	}
 }
 
-func departmentModel(parentID int64, name, remark string, sort int32, status model.RecordStatus) *model.Department {
+func departmentModel(parentID int64, name, remark string, sort int32, status basemodel.RecordStatus) *model.Department {
 	var parent *int64
 	if parentID > 0 {
 		parent = &parentID

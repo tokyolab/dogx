@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
@@ -42,7 +42,7 @@ func (l *GetProfileLogic) GetProfile(in *system.CurrentUserRequest) (*system.Pro
 	if record == nil {
 		return nil, status.Error(codes.Internal, "user repository returned no user")
 	}
-	if record.User.Status != model.RecordStatusEnabled {
+	if record.User.Status != basemodel.RecordStatusEnabled {
 		return nil, status.Error(codes.Unauthenticated, "user is disabled")
 	}
 	result := &system.ProfileResponse{Username: record.User.Username, Nickname: record.User.Nickname,

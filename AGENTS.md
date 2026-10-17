@@ -30,7 +30,7 @@
 
 ## 业务域与数据所有权
 
-- `apps/<domain>/internal/model` 定义该业务域的 GORM 持久化模型，以及与模型字段直接绑定的类型和常量；不得作为跨业务域 DTO 使用。
+- `apps/<domain>/internal/model` 定义该业务域的 GORM 持久化模型，以及与模型字段直接绑定的业务专属类型和常量；不得作为跨业务域 DTO 使用。
 - `apps/<domain>/internal/repository` 封装该业务域的普通业务数据访问；API/BFF 不得直接导入普通业务 Model、Repository，不得访问普通业务表或初始化通用业务数据库连接。
 - 只有架构 ADR 明确批准的基础设施或安全只读投影可以例外。当前唯一例外是 `system-api` 按 [ADR-0005](docs/adr/0005-casbin-runtime-and-policy-sync.md) 通过官方 Casbin GORM Adapter 从 `casbin_rule` 加载本地鉴权快照；该连接不得访问普通业务表，API 不得调用策略写入方法，策略持久化仍由 `system-rpc` 负责。
 - RPC 保持 go-zero 的“一项接口操作对应一个 Logic”结构；Logic 负责业务用例编排和业务错误转换，不直接调用 GORM、手写 SQL 或解析数据库驱动错误。
@@ -39,13 +39,14 @@
 - 同一业务域的 RPC、MQ、Job 等后端进程可以复用该业务域 `internal` 下的数据层；其他业务域不得直接访问其模型或数据表。
 - 需要跨业务域传递的字段、枚举和消息必须定义在 Protobuf 或版本化事件契约中；其他业务域通过 RPC 客户端或事件契约使用，不复制常量，也不导入持久化模型。
 - `pkg` 只放跨进程或跨业务域复用的稳定技术组件，不放用户、角色、菜单等业务模型或业务常量；只被单个进程使用的代码放在对应 `internal` 中。
-- 公共技术实现集中在 `pkg/model`、`pkg/postgres`、`pkg/migratecmd` 等包；公共 Base 不属于业务模型。复用配置类型、连接工厂和迁移命令执行器，不共享全局连接池，也不合并各域迁移、账本或数据所有权。
+- 公共技术实现集中在 `pkg/model`、`pkg/postgres`、`pkg/migratecmd` 等包；公共 Base 和通用启停类型 `RecordStatus` 属于基础类型，不属于业务模型或业务专属常量。复用配置类型、连接工厂和迁移命令执行器，不共享全局连接池，也不合并各域迁移、账本或数据所有权。
 
 ## 跨层类型与契约
 
 - 主键 ID 在 API、RPC、Model 中统一使用 `int64`，PostgreSQL 使用 `BIGINT`。
 - 排序字段在 API、RPC、Model 中统一使用 `int32`，PostgreSQL 使用 `INTEGER`。
-- 通用启停状态在 API、RPC 中使用 `int32`，Model 使用底层为 `int16` 的状态类型，PostgreSQL 使用 `SMALLINT`；RPC 转换为 Model 前必须校验取值合法性。
+- 通用启停状态在 API、RPC 中使用 `int32`，Model 统一使用 `pkg/model.RecordStatus`（底层为 `int16`），PostgreSQL 使用 `SMALLINT`；停用为 `RecordStatusDisabled = 0`，启用为 `RecordStatusEnabled = 1`，各域直接复用，不重复定义或保留别名。RPC 必须先校验 `int32` 取值合法性，再缩窄为 Model 类型。
+- 各模型自行声明适用的 `Status` 字段，不加入公共 Base；共享启停类型不共享启停业务逻辑，Instance／Task 运行状态等业务专属状态及转换规则仍留在所属域内。
 - 避免同一字段在 API 与 RPC 之间使用不同整数宽度，减少无意义的类型转换。
 
 ## PostgreSQL 与 GORM

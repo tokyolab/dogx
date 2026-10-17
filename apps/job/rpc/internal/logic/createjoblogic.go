@@ -2,10 +2,10 @@ package logic
 
 import (
 	"context"
-	"github.com/tokyolab/dogx/apps/job/internal/model"
 
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/job/rpc/types/job"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -33,7 +33,7 @@ func (l *CreateJobLogic) CreateJob(in *job.CreateJobRequest) (*job.CreateJobResp
 		return nil, err
 	}
 	if in.Status != nil {
-		definition.Status = model.Status(*in.Status)
+		definition.Status = basemodel.RecordStatus(*in.Status)
 	}
 	id, err := l.svcCtx.Jobs.CreateJob(l.ctx, definition)
 	if err != nil {

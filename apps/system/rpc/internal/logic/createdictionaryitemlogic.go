@@ -7,6 +7,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -33,7 +34,7 @@ func (l *CreateDictionaryItemLogic) CreateDictionaryItem(in *system.CreateDictio
 	if err != nil {
 		return nil, dictionaryError(err)
 	}
-	item := &model.DictionaryItem{DictionaryID: in.DictionaryId, Label: strings.TrimSpace(in.Label), Value: strings.TrimSpace(in.Value), Sort: in.Sort, Remark: strings.TrimSpace(in.Remark), Status: model.RecordStatus(in.Status)}
+	item := &model.DictionaryItem{DictionaryID: in.DictionaryId, Label: strings.TrimSpace(in.Label), Value: strings.TrimSpace(in.Value), Sort: in.Sort, Remark: strings.TrimSpace(in.Remark), Status: basemodel.RecordStatus(in.Status)}
 	if err := l.svcCtx.DictionaryItemRepo.Create(l.ctx, item); err != nil {
 		return nil, dictionaryError(err)
 	}

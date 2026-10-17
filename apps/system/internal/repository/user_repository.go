@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -34,7 +35,7 @@ type UserRecord struct {
 
 type UserListQuery struct {
 	Keyword      string
-	Status       *model.RecordStatus
+	Status       *basemodel.RecordStatus
 	DepartmentID *int64
 	Offset       int
 	Limit        int
@@ -67,7 +68,7 @@ type UserRepository interface {
 	UpdateProfile(ctx context.Context, id int64, update UserProfileUpdate) error
 	UpdateContacts(ctx context.Context, id int64, update UserContactUpdate) error
 	ReplaceRoles(ctx context.Context, id int64, roleIDs []int64) error
-	UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error
+	UpdateStatus(ctx context.Context, id int64, status basemodel.RecordStatus) error
 	Delete(ctx context.Context, id int64) error
 }
 
@@ -296,7 +297,7 @@ func (r *userRepository) UpdateContacts(ctx context.Context, id int64, update Us
 	// Self-service must never overwrite administrator-managed fields, even if
 	// the department or roles change concurrently with this profile save.
 	result := r.db.WithContext(ctx).Model(&model.User{}).
-		Where("id = ? AND status = ?", id, model.RecordStatusEnabled).
+		Where("id = ? AND status = ?", id, basemodel.RecordStatusEnabled).
 		Updates(map[string]any{"nickname": update.Nickname, "email": update.Email, "phone": update.Phone})
 	if result.Error != nil {
 		return mapUserWriteError(result.Error)
@@ -320,7 +321,7 @@ func validateUserDepartment(db *gorm.DB, departmentID, currentID *int64) error {
 	}
 	// A disabled department cannot receive new members, but existing users can
 	// retain it while editing unrelated profile fields. No sessions are revoked.
-	if department.Status != model.RecordStatusEnabled && (currentID == nil || *currentID != *departmentID) {
+	if department.Status != basemodel.RecordStatusEnabled && (currentID == nil || *currentID != *departmentID) {
 		return ErrUserDepartmentUnavailable
 	}
 	return nil
@@ -382,7 +383,7 @@ func validateUserRoles(db *gorm.DB, ids []int64, current []model.Role) ([]int64,
 		if role.Code == model.SuperAdminRoleCode {
 			return nil, ErrSuperAdminNotAssignable
 		}
-		if role.Status != model.RecordStatusEnabled && !slices.ContainsFunc(current, func(existing model.Role) bool { return existing.ID == role.ID }) {
+		if role.Status != basemodel.RecordStatusEnabled && !slices.ContainsFunc(current, func(existing model.Role) bool { return existing.ID == role.ID }) {
 			return nil, ErrUserRoleUnavailable
 		}
 	}
@@ -414,13 +415,13 @@ func protectSuperAdmin(record *UserRecord) error {
 	return nil
 }
 
-func (r *userRepository) UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error {
+func (r *userRepository) UpdateStatus(ctx context.Context, id int64, status basemodel.RecordStatus) error {
 	db := r.db.WithContext(ctx)
 	record, err := findUserRecord(db, id)
 	if err != nil {
 		return err
 	}
-	if status == model.RecordStatusDisabled {
+	if status == basemodel.RecordStatusDisabled {
 		if err := protectSuperAdmin(record); err != nil {
 			return err
 		}

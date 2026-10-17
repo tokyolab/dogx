@@ -14,6 +14,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
@@ -97,7 +98,7 @@ func (l *LoginLogic) Login(in *system.LoginRequest) (*system.LoginResponse, erro
 	if err := l.svcCtx.Passwords.Verify(user.PasswordHash, in.Password); err != nil {
 		if errors.Is(err, authn.ErrPasswordMismatch) {
 			l.recordLogin(&user.ID, username, false, model.LoginFailureInvalidCredentials, in)
-			if user.Status == model.RecordStatusEnabled {
+			if user.Status == basemodel.RecordStatusEnabled {
 				if err := recordFailure(); err != nil {
 					return nil, err
 				}
@@ -107,7 +108,7 @@ func (l *LoginLogic) Login(in *system.LoginRequest) (*system.LoginResponse, erro
 		l.recordLogin(&user.ID, username, false, model.LoginFailureSystemError, in)
 		return nil, fmt.Errorf("verify login password: %w", err)
 	}
-	if user.Status != model.RecordStatusEnabled {
+	if user.Status != basemodel.RecordStatusEnabled {
 		l.recordLogin(&user.ID, username, false, model.LoginFailureAccountDisabled, in)
 		return nil, bizerror.New(systemsubcode.AuthUserDisabled, "账号已停用")
 	}

@@ -6,12 +6,12 @@ import (
 	"fmt"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
@@ -52,7 +52,7 @@ func (l *ChangePasswordLogic) ChangePassword(in *system.ChangePasswordRequest) (
 	if err != nil {
 		return nil, fmt.Errorf("find password owner: %w", err)
 	}
-	if user.Status != model.RecordStatusEnabled {
+	if user.Status != basemodel.RecordStatusEnabled {
 		if err := l.svcCtx.Sessions.RevokeAll(l.ctx, user.ID); err != nil {
 			return nil, fmt.Errorf("revoke disabled user sessions: %w", err)
 		}

@@ -12,6 +12,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,7 +20,7 @@ import (
 
 func TestGetProfile(t *testing.T) {
 	email, phone := "a@example.com", "123"
-	repo := &userRepositoryStub{record: &repository.UserRecord{User: model.User{Username: "alice", Nickname: "Alice", Email: &email, Phone: &phone, Status: model.RecordStatusEnabled}, DepartmentName: "Sales", Roles: []model.Role{{Name: "Reader"}, {Name: "Disabled role", Status: model.RecordStatusDisabled}}}}
+	repo := &userRepositoryStub{record: &repository.UserRecord{User: model.User{Username: "alice", Nickname: "Alice", Email: &email, Phone: &phone, Status: basemodel.RecordStatusEnabled}, DepartmentName: "Sales", Roles: []model.Role{{Name: "Reader"}, {Name: "Disabled role", Status: basemodel.RecordStatusDisabled}}}}
 	logic := NewGetProfileLogic(context.Background(), &svc.ServiceContext{UserRepo: repo})
 	got, err := logic.GetProfile(&system.CurrentUserRequest{UserId: 42})
 	if err != nil || got.Username != "alice" || got.Nickname != "Alice" || got.Email != email || got.Phone != phone || got.DepartmentName != "Sales" || len(got.Roles) != 2 {
@@ -36,7 +37,7 @@ func TestGetProfile(t *testing.T) {
 			t.Fatalf("invalid input: %v", err)
 		}
 	}
-	repo.record.User.Status = model.RecordStatusDisabled
+	repo.record.User.Status = basemodel.RecordStatusDisabled
 	if _, err := logic.GetProfile(&system.CurrentUserRequest{UserId: 42}); status.Code(err) != codes.Unauthenticated {
 		t.Fatal(err)
 	}

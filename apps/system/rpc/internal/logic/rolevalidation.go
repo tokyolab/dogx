@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 const (
@@ -44,5 +44,5 @@ func normalizeRoleInput(code, name, description string) (normalizedRoleInput, er
 
 func validRecordStatus(value int32) bool {
 	// Compare before narrowing so invalid values cannot truncate to 0 or 1.
-	return value == int32(model.RecordStatusDisabled) || value == int32(model.RecordStatusEnabled)
+	return value == int32(basemodel.RecordStatusDisabled) || value == int32(basemodel.RecordStatusEnabled)
 }

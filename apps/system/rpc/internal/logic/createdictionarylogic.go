@@ -7,6 +7,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -29,7 +30,7 @@ func (l *CreateDictionaryLogic) CreateDictionary(in *system.CreateDictionaryRequ
 	if in == nil || !validDictionaryFields(in.Name, in.Remark) || !dictionaryCodePattern.MatchString(in.Code) || !validRecordStatus(in.Status) {
 		return nil, invalidDictionaryRequest()
 	}
-	item := &model.Dictionary{Name: strings.TrimSpace(in.Name), Code: in.Code, Remark: strings.TrimSpace(in.Remark), Status: model.RecordStatus(in.Status), IsPublic: in.IsPublic}
+	item := &model.Dictionary{Name: strings.TrimSpace(in.Name), Code: in.Code, Remark: strings.TrimSpace(in.Remark), Status: basemodel.RecordStatus(in.Status), IsPublic: in.IsPublic}
 	if err := l.svcCtx.DictionaryRepo.Create(l.ctx, item); err != nil {
 		return nil, dictionaryError(err)
 	}

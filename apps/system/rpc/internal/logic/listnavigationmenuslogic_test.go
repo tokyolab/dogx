@@ -21,7 +21,7 @@ func TestListNavigationMenusFiltersSubtrees(t *testing.T) {
 			m.ParentID = &parent
 		}
 		if enabled {
-			m.Status = model.RecordStatusEnabled
+			m.Status = basemodel.RecordStatusEnabled
 		}
 		return m
 	}

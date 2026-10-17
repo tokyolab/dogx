@@ -43,7 +43,7 @@ func TestListRolesReturnsPageAndStableContract(t *testing.T) {
 			Name:        "Operator",
 			Description: "Operations role",
 			Sort:        12,
-			Status:      model.RecordStatusDisabled,
+			Status:      basemodel.RecordStatusDisabled,
 			IsSystem:    true,
 		}},
 		total: 3,
@@ -65,7 +65,7 @@ func TestListRolesReturnsPageAndStableContract(t *testing.T) {
 	}
 	if response.Total != 3 || len(response.Items) != 1 ||
 		response.Items[0].Id != 7 ||
-		response.Items[0].Status != int32(model.RecordStatusDisabled) ||
+		response.Items[0].Status != int32(basemodel.RecordStatusDisabled) ||
 		!response.Items[0].IsSystem ||
 		response.Items[0].CreatedAt != createdAt.Format(time.RFC3339Nano) {
 		t.Fatalf("unexpected role list response: %+v", response)
@@ -138,7 +138,7 @@ func TestGetRoleReturnsRoleAndMapsMissingRole(t *testing.T) {
 		Base:   basemodel.Base{ID: 9},
 		Code:   "auditor",
 		Name:   "Auditor",
-		Status: model.RecordStatusEnabled,
+		Status: basemodel.RecordStatusEnabled,
 	}}
 	response, err := NewGetRoleLogic(context.Background(), &svc.ServiceContext{
 		RoleRepo: repositoryStub,
@@ -170,7 +170,7 @@ func TestListAPIsReturnsFilteredResources(t *testing.T) {
 		Path:        "/role/get",
 		Method:      "POST",
 		IsRequired:  true,
-		Status:      model.RecordStatusEnabled,
+		Status:      basemodel.RecordStatusEnabled,
 		Remark:      "built in",
 	}}}
 	response, err := NewListAPIsLogic(context.Background(), &svc.ServiceContext{

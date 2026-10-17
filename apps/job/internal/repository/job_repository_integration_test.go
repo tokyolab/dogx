@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/testutil"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -32,7 +33,7 @@ func repositoryFixture(t *testing.T) (*gorm.DB, *model.JobDefinition) {
 	}
 	due := time.Date(2026, 10, 16, 12, 0, 0, 123456000, time.UTC)
 	job := &model.JobDefinition{Name: "job", ExecutorGroupID: group.ID, ProcessorName: "Processor", ExecutionMode: model.ExecutionModeNormal,
-		CronExpr: "0 * * * * *", Status: model.StatusDisabled, RetryIntervalSeconds: 10, TimeoutSeconds: 900, NextTriggerAt: &due}
+		CronExpr: "0 * * * * *", Status: basemodel.RecordStatusDisabled, RetryIntervalSeconds: 10, TimeoutSeconds: 900, NextTriggerAt: &due}
 	id, err := NewJobDefinitionRepository(tx).Create(context.Background(), job)
 	if err != nil {
 		t.Fatal(err)
@@ -60,7 +61,7 @@ func TestJobRepositoryListLiteralFiltersAndMissingGroup(t *testing.T) {
 	}
 	trace := &queryCounter{Interface: logger.Default.LogMode(logger.Silent)}
 	repo = NewJobDefinitionRepository(db.Session(&gorm.Session{Logger: trace}))
-	status := model.StatusDisabled
+	status := basemodel.RecordStatusDisabled
 	items, total, err := repo.List(ctx, JobFilter{Page: 1, PageSize: 20, ID: &job.ID, Name: "%_done!", ExecutorGroupID: &job.ExecutorGroupID, Status: &status})
 	if err != nil || total != 1 || len(items) != 1 {
 		t.Fatalf("items=%+v total=%d err=%v", items, total, err)
@@ -100,7 +101,7 @@ func TestJobRepositoryWritesZeroValuesAndPreservesProgress(t *testing.T) {
 		t.Fatal(err)
 	}
 	job.PostEnabled, job.MaxRetries, job.Params, job.Remark = false, 0, "", ""
-	job.Status, job.NextTriggerAt = model.StatusEnabled, nil
+	job.Status, job.NextTriggerAt = basemodel.RecordStatusEnabled, nil
 	if err := repo.Update(ctx, job.ID, job); err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +109,7 @@ func TestJobRepositoryWritesZeroValuesAndPreservesProgress(t *testing.T) {
 	if err := db.First(&stored, job.ID).Error; err != nil {
 		t.Fatal(err)
 	}
-	if stored.PostEnabled || stored.MaxRetries != 0 || stored.Params != "" || stored.Remark != "" || stored.Status != model.StatusDisabled || stored.NextTriggerAt == nil {
+	if stored.PostEnabled || stored.MaxRetries != 0 || stored.Params != "" || stored.Remark != "" || stored.Status != basemodel.RecordStatusDisabled || stored.NextTriggerAt == nil {
 		t.Fatalf("full update changed protected columns or lost zero values: %+v", stored)
 	}
 	next := stored.NextTriggerAt.Add(time.Hour)
@@ -138,7 +139,7 @@ func TestJobRepositoryWritesZeroValuesAndPreservesProgress(t *testing.T) {
 	if err := db.Unscoped().First(&deleted, job.ID).Error; err != nil {
 		t.Fatalf("soft delete removed the physical row: %v", err)
 	}
-	if !deleted.DeletedAt.Valid || !deleted.CreatedAt.Equal(stored.CreatedAt) || deleted.Status != model.StatusDisabled {
+	if !deleted.DeletedAt.Valid || !deleted.CreatedAt.Equal(stored.CreatedAt) || deleted.Status != basemodel.RecordStatusDisabled {
 		t.Fatalf("soft delete changed business fields or lost its deletion marker: %+v", deleted)
 	}
 	if err := db.First(&model.JobDefinition{}, job.ID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {

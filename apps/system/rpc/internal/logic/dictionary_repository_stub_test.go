@@ -5,6 +5,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 type dictionaryRepositoryStub struct {
@@ -42,7 +43,7 @@ func (s *dictionaryRepositoryStub) Update(_ context.Context, _ int64, v *model.D
 	s.item = v
 	return s.writeErr
 }
-func (s *dictionaryRepositoryStub) UpdateStatus(context.Context, int64, model.RecordStatus) error {
+func (s *dictionaryRepositoryStub) UpdateStatus(context.Context, int64, basemodel.RecordStatus) error {
 	s.writes++
 	return s.writeErr
 }

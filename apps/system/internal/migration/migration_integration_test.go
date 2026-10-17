@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pressly/goose/v3"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 )
 
@@ -723,14 +724,14 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 		Nickname:     "Integration User",
 		Email:        &email,
 		Phone:        &phone,
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 		Remark:       "migration integration test",
 	}
 	role := model.Role{
 		Code:        "integration_role",
 		Name:        "Integration Role",
 		Description: "migration integration test",
-		Status:      model.RecordStatusEnabled,
+		Status:      basemodel.RecordStatusEnabled,
 	}
 	menu := model.Menu{
 		AppCode:    model.MenuAppAdminWeb,
@@ -741,7 +742,7 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 		Component:  "system/integration/index",
 		Permission: "",
 		Visible:    true,
-		Status:     model.RecordStatusEnabled,
+		Status:     basemodel.RecordStatusEnabled,
 		Remark:     "migration integration test",
 	}
 	apiResource := model.API{
@@ -750,7 +751,7 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 		Name:        "Integration API",
 		Path:        "/integration/get",
 		Method:      "POST",
-		Status:      model.RecordStatusEnabled,
+		Status:      basemodel.RecordStatusEnabled,
 		Remark:      "migration integration test",
 	}
 
@@ -783,7 +784,7 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 		Type:       model.MenuTypeElement,
 		Name:       "Integration Create Button",
 		Permission: "system:integration:create",
-		Status:     model.RecordStatusEnabled,
+		Status:     basemodel.RecordStatusEnabled,
 		Remark:     "migration integration test",
 	}
 	if err := gormDB.WithContext(ctx).Create(&element).Error; err != nil {
@@ -798,7 +799,7 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 		ParentID: &menu.ID,
 		Type:     model.MenuTypeElement,
 		Name:     "Invalid Element Without Permission",
-		Status:   model.RecordStatusEnabled,
+		Status:   basemodel.RecordStatusEnabled,
 	}
 	if err := gormDB.WithContext(ctx).Create(&elementWithoutPermission).Error; err == nil {
 		t.Fatal("create page element without permission succeeded, want check-constraint violation")
@@ -810,7 +811,7 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 		Name:        "Invalid Lowercase Method API",
 		Path:        "/integration/lowercase-method",
 		Method:      "get",
-		Status:      model.RecordStatusEnabled,
+		Status:      basemodel.RecordStatusEnabled,
 	}
 	if err := gormDB.WithContext(ctx).Create(&lowercaseMethodAPI).Error; err == nil {
 		t.Fatal("create API resource with lowercase method succeeded, want check-constraint violation")
@@ -819,7 +820,7 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 	invalidRoleCode := model.Role{
 		Code:   "invalid-role-code",
 		Name:   "Invalid Role Code",
-		Status: model.RecordStatusEnabled,
+		Status: basemodel.RecordStatusEnabled,
 	}
 	if err := gormDB.WithContext(ctx).Create(&invalidRoleCode).Error; err == nil {
 		t.Fatal("create role with invalid code succeeded, want check-constraint violation")
@@ -827,7 +828,7 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 	blankRoleName := model.Role{
 		Code:   "blank_role_name",
 		Name:   "   ",
-		Status: model.RecordStatusEnabled,
+		Status: basemodel.RecordStatusEnabled,
 	}
 	if err := gormDB.WithContext(ctx).Create(&blankRoleName).Error; err == nil {
 		t.Fatal("create role with blank name succeeded, want check-constraint violation")
@@ -836,7 +837,7 @@ func TestMigratedSchemaSupportsCurrentGORMModels(t *testing.T) {
 		Code:   "negative_role_sort",
 		Name:   "Negative Role Sort",
 		Sort:   -1,
-		Status: model.RecordStatusEnabled,
+		Status: basemodel.RecordStatusEnabled,
 	}
 	if err := gormDB.WithContext(ctx).Create(&negativeRoleSort).Error; err == nil {
 		t.Fatal("create role with negative sort succeeded, want check-constraint violation")

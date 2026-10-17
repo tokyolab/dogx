@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
 )
 
@@ -138,7 +139,7 @@ func seedBatchAuthorizationResources(t testing.TB, ctx context.Context, db *gorm
 			Name:        fmt.Sprintf("Batch API %d", index),
 			Path:        fmt.Sprintf("/batch/%05d", index),
 			Method:      "POST",
-			Status:      model.RecordStatusEnabled,
+			Status:      basemodel.RecordStatusEnabled,
 		}
 	}
 	// Keep fixture creation independent of the Casbin batch configuration.

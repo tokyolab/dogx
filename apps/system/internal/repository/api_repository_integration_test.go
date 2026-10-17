@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 func TestAPIRepositoryListsFilteredResourcesInStableOrder(t *testing.T) {
@@ -19,7 +20,7 @@ func TestAPIRepositoryListsFilteredResourcesInStableOrder(t *testing.T) {
 			Name:        "Zeta",
 			Path:        "/inventory/zeta",
 			Method:      "POST",
-			Status:      model.RecordStatusEnabled,
+			Status:      basemodel.RecordStatusEnabled,
 		},
 		{
 			ServiceName: "inventory-api",
@@ -27,7 +28,7 @@ func TestAPIRepositoryListsFilteredResourcesInStableOrder(t *testing.T) {
 			Name:        "Alpha % Resource",
 			Path:        "/inventory/alpha",
 			Method:      "POST",
-			Status:      model.RecordStatusDisabled,
+			Status:      basemodel.RecordStatusDisabled,
 		},
 		{
 			ServiceName: "inventory-api",
@@ -35,7 +36,7 @@ func TestAPIRepositoryListsFilteredResourcesInStableOrder(t *testing.T) {
 			Name:        "Deleted",
 			Path:        "/inventory/deleted",
 			Method:      "POST",
-			Status:      model.RecordStatusEnabled,
+			Status:      basemodel.RecordStatusEnabled,
 		},
 	}
 	if err := db.Create(&resources).Error; err != nil {

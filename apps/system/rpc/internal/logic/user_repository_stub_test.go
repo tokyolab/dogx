@@ -6,6 +6,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 type userRepositoryStub struct {
@@ -103,7 +104,7 @@ func (s *userRepositoryStub) ReplaceRoles(_ context.Context, _ int64, ids []int6
 	return s.updateErr
 }
 
-func (s *userRepositoryStub) UpdateStatus(context.Context, int64, model.RecordStatus) error {
+func (s *userRepositoryStub) UpdateStatus(context.Context, int64, basemodel.RecordStatus) error {
 	s.writeCalls++
 	return s.updateErr
 }

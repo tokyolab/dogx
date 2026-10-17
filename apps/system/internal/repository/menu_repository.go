@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
 )
 
@@ -24,7 +25,7 @@ type MenuRepository interface {
 	FindByID(ctx context.Context, id int64) (*model.Menu, error)
 	Create(ctx context.Context, menu *model.Menu) error
 	Update(ctx context.Context, id int64, menu *model.Menu) error
-	UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error
+	UpdateStatus(ctx context.Context, id int64, status basemodel.RecordStatus) error
 	Delete(ctx context.Context, id int64) error
 }
 
@@ -153,7 +154,7 @@ func (r *menuRepository) Update(ctx context.Context, id int64, menu *model.Menu)
 	return nil
 }
 
-func (r *menuRepository) UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error {
+func (r *menuRepository) UpdateStatus(ctx context.Context, id int64, status basemodel.RecordStatus) error {
 	if ctx == nil || id <= 0 {
 		return errors.New("invalid update menu status arguments")
 	}

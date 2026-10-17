@@ -82,7 +82,7 @@ func TestEtcdPostgresFiveHundredRulesHundredDueSmoke(t *testing.T) {
 			Base: basemodel.Base{CreatedAt: oldAuditTime, UpdatedAt: oldAuditTime},
 			Name: fmt.Sprintf("scale Job %d", i), ExecutorGroupID: group.ID,
 			ProcessorName: "scale.processor", ExecutionMode: model.ExecutionModeNormal,
-			Params: params, CronExpr: expr, Status: model.StatusEnabled,
+			Params: params, CronExpr: expr, Status: basemodel.RecordStatusEnabled,
 			MisfirePolicy: model.MisfireOnce, BlockPolicy: model.BlockDiscard,
 			MaxRetries: int32(i % 4), RetryIntervalSeconds: 10, TimeoutSeconds: 900,
 			NextTriggerAt: &next,

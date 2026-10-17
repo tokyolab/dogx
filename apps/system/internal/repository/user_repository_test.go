@@ -47,7 +47,7 @@ func TestNewUserRepositoryRejectsNilDatabase(t *testing.T) {
 }
 
 func TestInitializedSuperAdminProtectionDoesNotDependOnStatusOrID(t *testing.T) {
-	for _, state := range []model.RecordStatus{model.RecordStatusEnabled, model.RecordStatusDisabled} {
+	for _, state := range []basemodel.RecordStatus{basemodel.RecordStatusEnabled, basemodel.RecordStatusDisabled} {
 		record := &UserRecord{
 			User:  model.User{Base: basemodel.Base{ID: 42}, Status: state},
 			Roles: []model.Role{{Code: model.SuperAdminRoleCode, Status: state}},

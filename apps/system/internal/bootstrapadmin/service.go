@@ -9,6 +9,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -54,7 +55,7 @@ func CreateInitialAdministrator(
 	if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var role model.Role
 		if err := tx.
-			Where("code = ? AND status = ?", InitialRoleCode, model.RecordStatusEnabled).
+			Where("code = ? AND status = ?", InitialRoleCode, basemodel.RecordStatusEnabled).
 			First(&role).Error; err != nil {
 			return fmt.Errorf("load initial administrator role: %w", err)
 		}
@@ -80,7 +81,7 @@ func CreateInitialAdministrator(
 			return err
 		}
 		var defaultDepartment model.Department
-		if err := tx.Where("parent_id IS NULL AND status = ?", model.RecordStatusEnabled).Order("id ASC").First(&defaultDepartment).Error; err != nil {
+		if err := tx.Where("parent_id IS NULL AND status = ?", basemodel.RecordStatusEnabled).Order("id ASC").First(&defaultDepartment).Error; err != nil {
 			return fmt.Errorf("load default department: %w", err)
 		}
 		created.DepartmentID = &defaultDepartment.ID
@@ -141,7 +142,7 @@ func Create(
 		Username:     username,
 		PasswordHash: passwordHash,
 		Nickname:     nickname,
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 		Remark:       "initial administrator",
 	}
 	if err := repo.Create(ctx, user); err != nil {

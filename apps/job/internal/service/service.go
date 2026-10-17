@@ -12,6 +12,7 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 	"github.com/tokyolab/dogx/apps/job/internal/schedule"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
 )
@@ -80,7 +81,7 @@ func bind(db *gorm.DB) repositories {
 func (s *Service) ListJobs(ctx context.Context, filter repository.JobFilter) ([]repository.JobListItem, int64, error) {
 	if filter.Page < 1 || filter.PageSize < 1 || filter.PageSize > 200 || filter.Page-1 > (1<<63-1)/filter.PageSize ||
 		(filter.ID != nil && *filter.ID <= 0) || (filter.ExecutorGroupID != nil && *filter.ExecutorGroupID <= 0) ||
-		(filter.Status != nil && *filter.Status != model.StatusDisabled && *filter.Status != model.StatusEnabled) {
+		(filter.Status != nil && *filter.Status != basemodel.RecordStatusDisabled && *filter.Status != basemodel.RecordStatusEnabled) {
 		return nil, 0, ErrInvalidInput
 	}
 	var err error
@@ -103,7 +104,7 @@ func (s *Service) CreateJob(ctx context.Context, input *model.JobDefinition) (in
 	if err != nil {
 		return 0, err
 	}
-	if job.Status != model.StatusDisabled && job.Status != model.StatusEnabled {
+	if job.Status != basemodel.RecordStatusDisabled && job.Status != basemodel.RecordStatusEnabled {
 		return 0, ErrInvalidInput
 	}
 	// Validate even a disabled definition before acquiring database resources.
@@ -116,7 +117,7 @@ func (s *Service) CreateJob(ctx context.Context, input *model.JobDefinition) (in
 			return err
 		}
 		job.NextTriggerAt = nil
-		if job.Status == model.StatusEnabled {
+		if job.Status == basemodel.RecordStatusEnabled {
 			next, err := schedule.Next(job.CronExpr, s.now())
 			if err != nil {
 				return fmt.Errorf("%w: %w", ErrInvalidInput, err)
@@ -157,12 +158,12 @@ func (s *Service) UpdateJob(ctx context.Context, id int64, input *model.JobDefin
 	return err
 }
 
-func (s *Service) UpdateJobStatus(ctx context.Context, id int64, status model.Status) error {
-	if id <= 0 || (status != model.StatusDisabled && status != model.StatusEnabled) {
+func (s *Service) UpdateJobStatus(ctx context.Context, id int64, status basemodel.RecordStatus) error {
+	if id <= 0 || (status != basemodel.RecordStatusDisabled && status != basemodel.RecordStatusEnabled) {
 		return ErrInvalidInput
 	}
 	var err error
-	if status == model.StatusDisabled {
+	if status == basemodel.RecordStatusDisabled {
 		err = s.repos.jobs.Disable(ctx, id)
 	} else {
 		err = s.transact(ctx, func(r repositories) error {
@@ -170,7 +171,7 @@ func (s *Service) UpdateJobStatus(ctx context.Context, id int64, status model.St
 			if err != nil {
 				return err
 			}
-			if job.Status == model.StatusEnabled {
+			if job.Status == basemodel.RecordStatusEnabled {
 				return nil
 			}
 			if err := availableGroup(ctx, r, job.ExecutorGroupID); err != nil {
@@ -201,7 +202,7 @@ func (s *Service) DeleteJob(ctx context.Context, id int64) error {
 		if err != nil {
 			return err
 		}
-		if job.Status != model.StatusDisabled {
+		if job.Status != basemodel.RecordStatusDisabled {
 			return ErrStateNotAllowed
 		}
 		active, err := r.instances.HasActive(ctx, id)
@@ -328,7 +329,7 @@ func (s *Service) TriggerAutomatic(ctx context.Context, id int64) (AutomaticResu
 			return err
 		}
 		decisionAt = s.now()
-		if job.Status != model.StatusEnabled {
+		if job.Status != basemodel.RecordStatusEnabled {
 			result.Reason = "disabled"
 			return nil
 		}

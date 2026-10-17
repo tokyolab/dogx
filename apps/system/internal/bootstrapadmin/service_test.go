@@ -8,6 +8,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 type userRepositoryStub struct {
@@ -61,7 +62,7 @@ func TestCreate(t *testing.T) {
 	if user.PasswordHash != "encoded-hash" || hasher.password != "Secure-pass123" {
 		t.Fatal("administrator password was not hashed")
 	}
-	if user.Status != model.RecordStatusEnabled {
+	if user.Status != basemodel.RecordStatusEnabled {
 		t.Fatalf("administrator is not enabled: %d", user.Status)
 	}
 }

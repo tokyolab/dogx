@@ -3,9 +3,9 @@ package logic
 import (
 	"context"
 
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,7 +25,7 @@ func (l *CreateDepartmentLogic) CreateDepartment(in *system.CreateDepartmentRequ
 	if in == nil || in.ParentId < 0 || in.Sort < 0 || !validRecordStatus(in.Status) || !validDepartmentFields(in.Name, in.Remark) {
 		return nil, status.Error(codes.InvalidArgument, "invalid create department request")
 	}
-	department := departmentModel(in.ParentId, in.Name, in.Remark, in.Sort, model.RecordStatus(in.Status))
+	department := departmentModel(in.ParentId, in.Name, in.Remark, in.Sort, basemodel.RecordStatus(in.Status))
 	if err := l.svcCtx.DepartmentRepo.Create(l.ctx, department); err != nil {
 		return nil, departmentError(err)
 	}

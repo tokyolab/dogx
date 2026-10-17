@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -32,7 +32,7 @@ func (l *UpdateMenuStatusLogic) UpdateMenuStatus(in *system.UpdateMenuStatusRequ
 	if l.svcCtx.MenuRepo == nil {
 		return nil, errors.New("menu repository is unavailable")
 	}
-	if err := l.svcCtx.MenuRepo.UpdateStatus(l.ctx, in.Id, model.RecordStatus(in.Status)); err != nil {
+	if err := l.svcCtx.MenuRepo.UpdateStatus(l.ctx, in.Id, basemodel.RecordStatus(in.Status)); err != nil {
 		return nil, menuBusinessError(err)
 	}
 	return &system.EmptyResponse{}, nil

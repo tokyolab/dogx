@@ -18,6 +18,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
@@ -60,7 +61,7 @@ func TestLoginUsesPostgreSQLPasswordHashAndRedisSession(t *testing.T) {
 		Username:     "IntegrationAdmin",
 		PasswordHash: passwordHash,
 		Nickname:     "Integration Admin",
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 	}
 	userRepo, err := repository.NewUserRepository(gormDB)
 	if err != nil {

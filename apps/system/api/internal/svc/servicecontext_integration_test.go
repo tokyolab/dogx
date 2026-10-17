@@ -17,6 +17,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"github.com/tokyolab/dogx/pkg/postgres"
 	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 	"google.golang.org/grpc"
@@ -41,7 +42,7 @@ func TestNewServiceContextWiresAuthorizationDependencies(t *testing.T) {
 	testRole := model.Role{
 		Code:   "service_context_policy_probe",
 		Name:   "Service Context Policy Probe",
-		Status: model.RecordStatusEnabled,
+		Status: basemodel.RecordStatusEnabled,
 	}
 	if err := setupDB.WithContext(ctx).Create(&testRole).Error; err != nil {
 		t.Fatalf("create authorization policy probe role: %v", err)

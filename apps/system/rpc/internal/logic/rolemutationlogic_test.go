@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authorization"
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,7 +25,7 @@ func TestCreateRoleNormalizesAndPersistsRole(t *testing.T) {
 		RoleRepo: repositoryStub,
 	}).CreateRole(&system.CreateRoleRequest{
 		Code: " Content_Editor ", Name: " 内容编辑员 ", Description: " 维护内容 ",
-		Sort: 10, Status: int32(model.RecordStatusEnabled),
+		Sort: 10, Status: int32(basemodel.RecordStatusEnabled),
 	})
 	if err != nil {
 		t.Fatalf("create role: %v", err)
@@ -33,7 +33,7 @@ func TestCreateRoleNormalizesAndPersistsRole(t *testing.T) {
 	if response.Id != 41 || repositoryStub.created == nil ||
 		repositoryStub.created.Code != "content_editor" || repositoryStub.created.Name != "内容编辑员" ||
 		repositoryStub.created.Description != "维护内容" || repositoryStub.created.Sort != 10 ||
-		repositoryStub.created.Status != model.RecordStatusEnabled || repositoryStub.created.IsSystem {
+		repositoryStub.created.Status != basemodel.RecordStatusEnabled || repositoryStub.created.IsSystem {
 		t.Fatalf("unexpected created role: response=%+v role=%+v", response, repositoryStub.created)
 	}
 }
@@ -192,7 +192,7 @@ func TestRoleStatusAndDeleteDelegateLifecycleOperations(t *testing.T) {
 		UpdateRoleStatus(&system.UpdateRoleStatusRequest{Id: 8, Status: 0}); err != nil {
 		t.Fatalf("disable role: %v", err)
 	}
-	if repositoryStub.statusID != 8 || repositoryStub.status != model.RecordStatusDisabled {
+	if repositoryStub.statusID != 8 || repositoryStub.status != basemodel.RecordStatusDisabled {
 		t.Fatalf("unexpected status delegation: roleId=%d status=%d", repositoryStub.statusID, repositoryStub.status)
 	}
 	if _, err := NewDeleteRoleLogic(context.Background(), serviceContext).

@@ -5,6 +5,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 type roleRepositoryStub struct {
@@ -21,7 +22,7 @@ type roleRepositoryStub struct {
 	update    repository.RoleUpdate
 	updateErr error
 	statusID  int64
-	status    model.RecordStatus
+	status    basemodel.RecordStatus
 	statusErr error
 }
 
@@ -67,7 +68,7 @@ func (s *roleRepositoryStub) Update(
 func (s *roleRepositoryStub) UpdateStatus(
 	_ context.Context,
 	id int64,
-	status model.RecordStatus,
+	status basemodel.RecordStatus,
 ) error {
 	s.statusID = id
 	s.status = status

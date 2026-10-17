@@ -137,7 +137,7 @@ func TestMenuQueriesPreserveParentIDAndFields(t *testing.T) {
 			menu := model.Menu{
 				Base: basemodel.Base{ID: 42}, ParentID: tc.parentID, Type: model.MenuTypePage,
 				Name: "页面", RouteName: "Child", Path: "/child", Component: "system/child/index",
-				Icon: "lucide:user", Sort: 0, Status: model.RecordStatusDisabled,
+				Icon: "lucide:user", Sort: 0, Status: basemodel.RecordStatusDisabled,
 				Visible: false, KeepAlive: false, External: false, Remark: "remark",
 			}
 			repo := &menuRepositoryStub{menu: &menu, menus: []model.Menu{menu}}

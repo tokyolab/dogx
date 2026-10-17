@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
@@ -41,7 +41,7 @@ func (l *GetCurrentUserLogic) GetCurrentUser(in *system.CurrentUserRequest) (*sy
 	if err != nil {
 		return nil, fmt.Errorf("find current user: %w", err)
 	}
-	if user.Status != model.RecordStatusEnabled {
+	if user.Status != basemodel.RecordStatusEnabled {
 		if err := l.svcCtx.Sessions.RevokeAll(l.ctx, user.ID); err != nil {
 			return nil, fmt.Errorf("revoke disabled user sessions: %w", err)
 		}

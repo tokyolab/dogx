@@ -11,6 +11,7 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 	"github.com/tokyolab/dogx/apps/job/internal/service"
 	"github.com/tokyolab/dogx/apps/job/internal/testutil"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 type observedTrigger struct {
@@ -85,7 +86,7 @@ func TestEtcdPostgresFailoverAndRealMinuteFallback(t *testing.T) {
 	}
 	definition := model.JobDefinition{Name: "fixed snapshot", ExecutorGroupID: group.ID, ProcessorName: "test.processor",
 		ExecutionMode: model.ExecutionModeNormal, Params: "original parameters", CronExpr: "0 0 0 1 JAN *",
-		Status: model.StatusDisabled, MisfirePolicy: model.MisfireOnce, BlockPolicy: model.BlockParallel,
+		Status: basemodel.RecordStatusDisabled, MisfirePolicy: model.MisfireOnce, BlockPolicy: model.BlockParallel,
 		RetryIntervalSeconds: 10, TimeoutSeconds: 900}
 	jobID, err := jobsA.CreateJob(context.Background(), &definition)
 	if err != nil {
@@ -93,7 +94,7 @@ func TestEtcdPostgresFailoverAndRealMinuteFallback(t *testing.T) {
 	}
 	scheduledAt := time.Now().UTC().Truncate(time.Microsecond).Add(-time.Second)
 	if err := db.Model(&model.JobDefinition{}).Where("id = ?", jobID).
-		Updates(map[string]any{"status": model.StatusEnabled, "next_trigger_at": scheduledAt}).Error; err != nil {
+		Updates(map[string]any{"status": basemodel.RecordStatusEnabled, "next_trigger_at": scheduledAt}).Error; err != nil {
 		t.Fatal(err)
 	}
 	// A real PostgreSQL row lock keeps an automatic operation in flight at
@@ -210,7 +211,7 @@ func TestEtcdPostgresFailoverAndRealMinuteFallback(t *testing.T) {
 	}
 	missedAt := time.Now().UTC().Truncate(time.Microsecond).Add(-10 * time.Second)
 	if err := db.Model(&model.JobDefinition{}).Where("id IN ?", []int64{jobID, secondID}).
-		Updates(map[string]any{"status": model.StatusEnabled, "next_trigger_at": missedAt}).Error; err != nil {
+		Updates(map[string]any{"status": basemodel.RecordStatusEnabled, "next_trigger_at": missedAt}).Error; err != nil {
 		t.Fatal(err)
 	}
 	// No Notify call and no injected clock/tick: this exercises both production

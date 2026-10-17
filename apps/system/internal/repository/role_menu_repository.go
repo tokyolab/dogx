@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -69,7 +70,7 @@ func (r *roleMenuRepository) Replace(ctx context.Context, roleID int64, menuIDs 
 		if role.Code == model.SuperAdminRoleCode {
 			return ErrSuperAdminMenusProtected
 		}
-		if role.Status != model.RecordStatusEnabled {
+		if role.Status != basemodel.RecordStatusEnabled {
 			return ErrRoleMenuRoleDisabled
 		}
 		menus, err := (&menuRepository{db: tx}).List(ctx)

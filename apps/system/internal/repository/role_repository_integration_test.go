@@ -9,18 +9,19 @@ import (
 	"time"
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 func TestRoleRepositoryReturnsOnlyEnabledActiveUserRoles(t *testing.T) {
 	_, db := newPostgreSQLUserRepository(t)
-	user := model.User{Username: "role-user", PasswordHash: "hash", Nickname: "Role User", Status: model.RecordStatusEnabled}
+	user := model.User{Username: "role-user", PasswordHash: "hash", Nickname: "Role User", Status: basemodel.RecordStatusEnabled}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
 	}
 	roles := []model.Role{
-		{Code: "enabled", Name: "Enabled", Status: model.RecordStatusEnabled},
-		{Code: "disabled", Name: "Disabled", Status: model.RecordStatusDisabled},
-		{Code: "deleted", Name: "Deleted", Status: model.RecordStatusEnabled},
+		{Code: "enabled", Name: "Enabled", Status: basemodel.RecordStatusEnabled},
+		{Code: "disabled", Name: "Disabled", Status: basemodel.RecordStatusDisabled},
+		{Code: "deleted", Name: "Deleted", Status: basemodel.RecordStatusEnabled},
 	}
 	if err := db.Create(&roles).Error; err != nil {
 		t.Fatalf("create roles: %v", err)
@@ -55,7 +56,7 @@ func TestRoleRepositoryDetectsOnlyEnabledSuperAdministratorAssignments(t *testin
 		Username:     "super-admin-check-user",
 		PasswordHash: "hash",
 		Nickname:     "Super Admin Check User",
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 	}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
@@ -87,7 +88,7 @@ func TestRoleRepositoryDetectsOnlyEnabledSuperAdministratorAssignments(t *testin
 		t.Fatalf("assigned super administrator state = %v, error=%v", isSuperAdmin, err)
 	}
 
-	if err := db.WithContext(ctx).Model(&role).Update("status", model.RecordStatusDisabled).Error; err != nil {
+	if err := db.WithContext(ctx).Model(&role).Update("status", basemodel.RecordStatusDisabled).Error; err != nil {
 		t.Fatalf("disable super administrator role fixture: %v", err)
 	}
 	isSuperAdmin, err = repository.IsSuperAdmin(ctx, user.ID)
@@ -99,10 +100,10 @@ func TestRoleRepositoryDetectsOnlyEnabledSuperAdministratorAssignments(t *testin
 func TestRoleRepositoryListsPagesAndEscapesKeywordWildcards(t *testing.T) {
 	_, db := newPostgreSQLUserRepository(t)
 	roles := []model.Role{
-		{Code: "paged_role_later", Name: "Paged Later", Sort: 20, Status: model.RecordStatusEnabled},
-		{Code: "paged_role_first", Name: "Paged First", Sort: 10, Status: model.RecordStatusDisabled},
-		{Code: "deleted_paged_role", Name: "Deleted Paged Role", Sort: 5, Status: model.RecordStatusEnabled},
-		{Code: "literal_percent_role", Name: "Literal % Role", Sort: 30, Status: model.RecordStatusEnabled},
+		{Code: "paged_role_later", Name: "Paged Later", Sort: 20, Status: basemodel.RecordStatusEnabled},
+		{Code: "paged_role_first", Name: "Paged First", Sort: 10, Status: basemodel.RecordStatusDisabled},
+		{Code: "deleted_paged_role", Name: "Deleted Paged Role", Sort: 5, Status: basemodel.RecordStatusEnabled},
+		{Code: "literal_percent_role", Name: "Literal % Role", Sort: 30, Status: basemodel.RecordStatusEnabled},
 	}
 	if err := db.Create(&roles).Error; err != nil {
 		t.Fatalf("create role query fixtures: %v", err)
@@ -153,7 +154,7 @@ func TestRoleRepositoryListsPagesAndEscapesKeywordWildcards(t *testing.T) {
 	}
 
 	disabled, err := repository.FindByID(ctx, roles[1].ID)
-	if err != nil || disabled.Status != model.RecordStatusDisabled {
+	if err != nil || disabled.Status != basemodel.RecordStatusDisabled {
 		t.Fatalf("find disabled active role: role=%+v error=%v", disabled, err)
 	}
 	if _, err := repository.FindByID(ctx, roles[2].ID); !errors.Is(err, ErrRoleNotFound) {
@@ -175,7 +176,7 @@ func TestRoleRepositoryCreatesUpdatesAndProtectsSystemRole(t *testing.T) {
 		Name:        "Content Editor",
 		Description: "Creates content",
 		Sort:        20,
-		Status:      model.RecordStatusEnabled,
+		Status:      basemodel.RecordStatusEnabled,
 	}
 	if err := repository.Create(ctx, role); err != nil {
 		t.Fatalf("create role: %v", err)
@@ -187,7 +188,7 @@ func TestRoleRepositoryCreatesUpdatesAndProtectsSystemRole(t *testing.T) {
 	duplicate := &model.Role{
 		Code:   "content_editor",
 		Name:   "Duplicate",
-		Status: model.RecordStatusEnabled,
+		Status: basemodel.RecordStatusEnabled,
 	}
 	if err := repository.Create(ctx, duplicate); !errors.Is(err, ErrRoleCodeExists) {
 		t.Fatalf("duplicate role code error = %v, want %v", err, ErrRoleCodeExists)
@@ -195,7 +196,7 @@ func TestRoleRepositoryCreatesUpdatesAndProtectsSystemRole(t *testing.T) {
 	reserved := &model.Role{
 		Code:   model.SuperAdminRoleCode,
 		Name:   "Reserved Super Administrator",
-		Status: model.RecordStatusEnabled,
+		Status: basemodel.RecordStatusEnabled,
 	}
 	if err := repository.Create(ctx, reserved); !errors.Is(err, ErrReservedRoleCode) {
 		t.Fatalf("reserved role code create error = %v, want %v", err, ErrReservedRoleCode)
@@ -275,25 +276,25 @@ func TestRoleRepositoryUpdatesStatusAndProtectsSystemRole(t *testing.T) {
 	role := &model.Role{
 		Code:   "status_managed_role",
 		Name:   "Status Managed Role",
-		Status: model.RecordStatusEnabled,
+		Status: basemodel.RecordStatusEnabled,
 	}
 	if err := repository.Create(ctx, role); err != nil {
 		t.Fatalf("create status-managed role: %v", err)
 	}
-	if err := repository.UpdateStatus(ctx, role.ID, model.RecordStatusDisabled); err != nil {
+	if err := repository.UpdateStatus(ctx, role.ID, basemodel.RecordStatusDisabled); err != nil {
 		t.Fatalf("disable role: %v", err)
 	}
 	disabled, err := repository.FindByID(ctx, role.ID)
 	if err != nil {
 		t.Fatalf("load disabled role: %v", err)
 	}
-	if disabled.Status != model.RecordStatusDisabled {
+	if disabled.Status != basemodel.RecordStatusDisabled {
 		t.Fatalf("role status = %d, want disabled", disabled.Status)
 	}
-	if err := repository.UpdateStatus(ctx, role.ID, model.RecordStatusDisabled); err != nil {
+	if err := repository.UpdateStatus(ctx, role.ID, basemodel.RecordStatusDisabled); err != nil {
 		t.Fatalf("repeat disabled status: %v", err)
 	}
-	if err := repository.UpdateStatus(ctx, role.ID, model.RecordStatusEnabled); err != nil {
+	if err := repository.UpdateStatus(ctx, role.ID, basemodel.RecordStatusEnabled); err != nil {
 		t.Fatalf("enable role: %v", err)
 	}
 
@@ -306,7 +307,7 @@ func TestRoleRepositoryUpdatesStatusAndProtectsSystemRole(t *testing.T) {
 	if err := repository.UpdateStatus(
 		ctx,
 		systemRole.ID,
-		model.RecordStatusDisabled,
+		basemodel.RecordStatusDisabled,
 	); !errors.Is(err, ErrSystemRoleProtected) {
 		t.Fatalf("disable system role error = %v, want %v", err, ErrSystemRoleProtected)
 	}
@@ -314,7 +315,7 @@ func TestRoleRepositoryUpdatesStatusAndProtectsSystemRole(t *testing.T) {
 	if err := repository.UpdateStatus(
 		ctx,
 		int64(1<<62),
-		model.RecordStatusDisabled,
+		basemodel.RecordStatusDisabled,
 	); !errors.Is(err, ErrRoleNotFound) {
 		t.Fatalf("missing role status error = %v, want %v", err, ErrRoleNotFound)
 	}

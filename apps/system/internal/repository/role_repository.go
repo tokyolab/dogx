@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
 )
 
@@ -33,7 +34,7 @@ type RoleRepository interface {
 	FindByID(ctx context.Context, id int64) (*model.Role, error)
 	Create(ctx context.Context, role *model.Role) error
 	Update(ctx context.Context, id int64, update RoleUpdate) error
-	UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error
+	UpdateStatus(ctx context.Context, id int64, status basemodel.RecordStatus) error
 }
 
 type RoleUpdate struct {
@@ -67,7 +68,7 @@ func (r *roleRepository) ListEnabledRoleIDs(ctx context.Context, userID int64) (
 		Model(&model.Role{}).
 		Distinct("sys_role.id").
 		Joins("JOIN sys_user_role ON sys_user_role.role_id = sys_role.id").
-		Where("sys_user_role.user_id = ? AND sys_role.status = ?", userID, model.RecordStatusEnabled).
+		Where("sys_user_role.user_id = ? AND sys_role.status = ?", userID, basemodel.RecordStatusEnabled).
 		Order("sys_role.id").
 		Pluck("sys_role.id", &roleIDs).Error; err != nil {
 		return nil, fmt.Errorf("list enabled user roles: %w", err)
@@ -91,7 +92,7 @@ func (r *roleRepository) IsSuperAdmin(ctx context.Context, userID int64) (bool, 
 			"sys_user_role.user_id = ? AND sys_role.code = ? AND sys_role.status = ?",
 			userID,
 			model.SuperAdminRoleCode,
-			model.RecordStatusEnabled,
+			basemodel.RecordStatusEnabled,
 		).
 		Limit(1).
 		Count(&count).Error; err != nil {
@@ -113,7 +114,7 @@ func (r *roleRepository) List(
 
 	database := r.db.WithContext(ctx).Model(&model.Role{})
 	if query.AssignableOnly {
-		database = database.Where("status = ? AND code <> ?", model.RecordStatusEnabled, model.SuperAdminRoleCode)
+		database = database.Where("status = ? AND code <> ?", basemodel.RecordStatusEnabled, model.SuperAdminRoleCode)
 	}
 	if keyword := strings.TrimSpace(query.Keyword); keyword != "" {
 		pattern := containsLikePattern(keyword)
@@ -213,7 +214,7 @@ func (r *roleRepository) Update(ctx context.Context, id int64, update RoleUpdate
 	return nil
 }
 
-func (r *roleRepository) UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error {
+func (r *roleRepository) UpdateStatus(ctx context.Context, id int64, status basemodel.RecordStatus) error {
 	if ctx == nil {
 		return errors.New("update role status context is nil")
 	}
@@ -228,7 +229,7 @@ func (r *roleRepository) UpdateStatus(ctx context.Context, id int64, status mode
 		}
 		return fmt.Errorf("find role for status update: %w", err)
 	}
-	if role.IsSystem && status == model.RecordStatusDisabled {
+	if role.IsSystem && status == basemodel.RecordStatusDisabled {
 		return ErrSystemRoleProtected
 	}
 	if role.Status == status {

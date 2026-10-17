@@ -17,6 +17,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 	"gorm.io/gorm"
 )
@@ -44,7 +45,7 @@ func TestTransactionBoundAdapterSharesBusinessTransaction(t *testing.T) {
 		role := model.Role{
 			Code:   "transaction_probe",
 			Name:   "Transaction Probe",
-			Status: model.RecordStatusEnabled,
+			Status: basemodel.RecordStatusEnabled,
 		}
 		if err := tx.Create(&role).Error; err != nil {
 			return err
@@ -248,7 +249,7 @@ func TestRolePolicyServiceListsAssignedAPIIDs(t *testing.T) {
 	}
 
 	disabled := resources["a"]
-	if err := db.Model(&disabled).Update("status", model.RecordStatusDisabled).Error; err != nil {
+	if err := db.Model(&disabled).Update("status", basemodel.RecordStatusDisabled).Error; err != nil {
 		t.Fatalf("disable assigned API: %v", err)
 	}
 	deleted := resources["b"]
@@ -280,13 +281,13 @@ func TestRolePolicyServiceRejectsUnavailableResourcesAndKeepsRequiredAPIs(t *tes
 	if _, err := service.ReplaceRoleAPIs(ctx, role.ID+1000000, nil); !errors.Is(err, ErrRoleUnavailable) {
 		t.Fatalf("missing role error = %v, want %v", err, ErrRoleUnavailable)
 	}
-	if err := db.Model(&role).Update("status", model.RecordStatusDisabled).Error; err != nil {
+	if err := db.Model(&role).Update("status", basemodel.RecordStatusDisabled).Error; err != nil {
 		t.Fatalf("disable role: %v", err)
 	}
 	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, nil); !errors.Is(err, ErrRoleUnavailable) {
 		t.Fatalf("disabled role error = %v, want %v", err, ErrRoleUnavailable)
 	}
-	if err := db.Model(&role).Update("status", model.RecordStatusEnabled).Error; err != nil {
+	if err := db.Model(&role).Update("status", basemodel.RecordStatusEnabled).Error; err != nil {
 		t.Fatalf("enable role: %v", err)
 	}
 
@@ -294,7 +295,7 @@ func TestRolePolicyServiceRejectsUnavailableResourcesAndKeepsRequiredAPIs(t *tes
 		t.Fatalf("missing API error = %v, want %v", err, ErrAPIUnavailable)
 	}
 	disabledAPI := resources["a"]
-	if err := db.Model(&disabledAPI).Update("status", model.RecordStatusDisabled).Error; err != nil {
+	if err := db.Model(&disabledAPI).Update("status", basemodel.RecordStatusDisabled).Error; err != nil {
 		t.Fatalf("disable API: %v", err)
 	}
 	if _, err := service.ReplaceRoleAPIs(ctx, role.ID, []int64{disabledAPI.ID}); !errors.Is(err, ErrAPIUnavailable) {
@@ -483,7 +484,7 @@ func TestRolePolicyServiceRejectsAssignedRoleAndIgnoresSoftDeletedUsers(t *testi
 		Username:     "role-delete-user",
 		PasswordHash: "hash",
 		Nickname:     "Delete User",
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 	}
 	menu := model.Menu{
 		AppCode: model.MenuAppAdminWeb,
@@ -491,7 +492,7 @@ func TestRolePolicyServiceRejectsAssignedRoleAndIgnoresSoftDeletedUsers(t *testi
 		Name:    "Delete Role Menu",
 		Path:    "/delete-role-menu",
 		Visible: true,
-		Status:  model.RecordStatusEnabled,
+		Status:  basemodel.RecordStatusEnabled,
 	}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create role user: %v", err)
@@ -617,7 +618,7 @@ func TestRolePolicyServiceRollsBackPoliciesAndAssociationsWhenRoleDeleteFails(t 
 		Username:     "role-delete-rollback-user",
 		PasswordHash: "hash",
 		Nickname:     "Rollback User",
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 	}
 	menu := model.Menu{
 		AppCode: model.MenuAppAdminWeb,
@@ -625,7 +626,7 @@ func TestRolePolicyServiceRollsBackPoliciesAndAssociationsWhenRoleDeleteFails(t 
 		Name:    "Rollback Role Menu",
 		Path:    "/rollback-role-menu",
 		Visible: true,
-		Status:  model.RecordStatusEnabled,
+		Status:  basemodel.RecordStatusEnabled,
 	}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create role user: %v", err)
@@ -777,16 +778,16 @@ func newAuthorizationDatabase(t testing.TB) *gorm.DB {
 
 func seedAuthorizationResources(t testing.TB, db *gorm.DB) (model.Role, map[string]model.API) {
 	t.Helper()
-	role := model.Role{Code: "operator", Name: "Operator", Status: model.RecordStatusEnabled}
+	role := model.Role{Code: "operator", Name: "Operator", Status: basemodel.RecordStatusEnabled}
 	if err := db.Create(&role).Error; err != nil {
 		t.Fatalf("create role: %v", err)
 	}
 	resources := map[string]model.API{
-		"a":        {ServiceName: "system-api", Group: "test", Name: "A", Path: "/a", Method: "POST", Status: model.RecordStatusEnabled},
-		"b":        {ServiceName: "system-api", Group: "test", Name: "B", Path: "/b", Method: "POST", Status: model.RecordStatusEnabled},
-		"c":        {ServiceName: "system-api", Group: "test", Name: "C", Path: "/c", Method: "POST", Status: model.RecordStatusEnabled},
-		"d":        {ServiceName: "system-api", Group: "test", Name: "D", Path: "/d", Method: "POST", Status: model.RecordStatusEnabled},
-		"required": {ServiceName: "system-api", Group: "test", Name: "Required", Path: "/required", Method: "POST", IsRequired: true, Status: model.RecordStatusEnabled},
+		"a":        {ServiceName: "system-api", Group: "test", Name: "A", Path: "/a", Method: "POST", Status: basemodel.RecordStatusEnabled},
+		"b":        {ServiceName: "system-api", Group: "test", Name: "B", Path: "/b", Method: "POST", Status: basemodel.RecordStatusEnabled},
+		"c":        {ServiceName: "system-api", Group: "test", Name: "C", Path: "/c", Method: "POST", Status: basemodel.RecordStatusEnabled},
+		"d":        {ServiceName: "system-api", Group: "test", Name: "D", Path: "/d", Method: "POST", Status: basemodel.RecordStatusEnabled},
+		"required": {ServiceName: "system-api", Group: "test", Name: "Required", Path: "/required", Method: "POST", IsRequired: true, Status: basemodel.RecordStatusEnabled},
 	}
 	for name, resource := range resources {
 		resource := resource

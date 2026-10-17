@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 func TestLoginLogRepositoryCreatesAuditRecord(t *testing.T) {
@@ -19,7 +20,7 @@ func TestLoginLogRepositoryCreatesAuditRecord(t *testing.T) {
 		Username:     "LoginAuditUser",
 		PasswordHash: "hashed-password",
 		Nickname:     "Login Audit User",
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 	}
 	if err := userRepo.Create(ctx, user); err != nil {
 		t.Fatalf("create login audit user: %v", err)

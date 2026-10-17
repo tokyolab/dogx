@@ -6,6 +6,14 @@ import (
 	"gorm.io/gorm"
 )
 
+// RecordStatus is the shared 0/1 enablement flag, not a business execution state.
+type RecordStatus int16
+
+const (
+	RecordStatusDisabled RecordStatus = 0
+	RecordStatusEnabled  RecordStatus = 1
+)
+
 // Base shares a primary key and technical audit timestamps across soft-deletable
 // entities. Business deadlines, versions, and configuration changes need their
 // own fields rather than deriving their meaning from these timestamps.

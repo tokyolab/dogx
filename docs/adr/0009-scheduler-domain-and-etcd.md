@@ -62,7 +62,7 @@ dogx/                                后端 Git 仓库
 │       │   └── migration/          Job 域迁移与 SQL
 │       └── cmd/migrate/            独立 Job 迁移命令
 ├── pkg/                            真正公共的技术组件
-│   ├── model/                      Base 主键与审计字段，无业务模型
+│   ├── model/                      Base 与 RecordStatus 等基础类型，无业务模型
 │   ├── postgres/                   配置类型、DSN 与连接工厂
 │   ├── migratecmd/                 迁移 CLI 执行器，各域注入 Provider
 │   └── testutil/postgres/          测试连接、隔离 Schema 与清理

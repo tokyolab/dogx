@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -68,13 +69,13 @@ func TestJobOperationsSuccessAndServiceFailures(t *testing.T) {
 						t.Fatalf("technical error lost: %v", err)
 					}
 				}
-				if test.name == "CreateJob" && (stub.definition.Status != model.StatusEnabled || stub.definition.Name != "job") {
+				if test.name == "CreateJob" && (stub.definition.Status != basemodel.RecordStatusEnabled || stub.definition.Name != "job") {
 					t.Fatalf("create input=%+v", stub.definition)
 				}
 				if test.name == "UpdateJob" && (stub.id != 7 || stub.definition.MaxRetries != 0) {
 					t.Fatalf("update input=%+v", stub.definition)
 				}
-				if test.name == "UpdateJobStatus" && (stub.id != 7 || stub.status != model.StatusDisabled) {
+				if test.name == "UpdateJobStatus" && (stub.id != 7 || stub.status != basemodel.RecordStatusDisabled) {
 					t.Fatalf("status input=%d %d", stub.id, stub.status)
 				}
 				if test.name == "TriggerManual" && (stub.manual.JobID != 7 || stub.manual.OperatorID != 42 || stub.manual.ParamsOverridden) {
@@ -82,6 +83,37 @@ func TestJobOperationsSuccessAndServiceFailures(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestJobStatusRejectsValuesBeforeNarrowing(t *testing.T) {
+	// Include values that would become 0 or 1 if narrowed to int16 before validation.
+	for _, value := range []int32{-1, 2, 65536, 65537, -65536, -65535, math.MinInt32, math.MaxInt32} {
+		for _, test := range []struct {
+			name string
+			call func(*svc.ServiceContext) error
+		}{
+			{"create", func(s *svc.ServiceContext) error {
+				_, err := NewCreateJobLogic(context.Background(), s).CreateJob(&job.CreateJobRequest{Config: validInput(), Status: &value})
+				return err
+			}},
+			{"update status", func(s *svc.ServiceContext) error {
+				_, err := NewUpdateJobStatusLogic(context.Background(), s).UpdateJobStatus(&job.UpdateJobStatusRequest{Id: 7, Status: &value})
+				return err
+			}},
+			{"list", func(s *svc.ServiceContext) error {
+				_, err := NewListJobsLogic(context.Background(), s).ListJobs(&job.ListJobsRequest{Page: 1, PageSize: 20, Status: &value})
+				return err
+			}},
+		} {
+			t.Run(fmt.Sprintf("%s/%d", test.name, value), func(t *testing.T) {
+				stub := &jobServiceStub{}
+				err := test.call(&svc.ServiceContext{Jobs: stub, Clock: testNow})
+				if status.Code(err) != codes.InvalidArgument || stub.called != "" {
+					t.Fatalf("called=%s error=%v", stub.called, err)
+				}
+			})
+		}
 	}
 }
 
@@ -163,7 +195,7 @@ func TestJobOperationsRejectInvalidRequestsBeforeDependencies(t *testing.T) {
 
 func TestJobProjectionAndCronPreview(t *testing.T) {
 	now := testNow()
-	stub := &jobServiceStub{items: []repository.JobListItem{{ID: 7, Status: model.StatusDisabled, NextTriggerAt: &now, CreatedAt: now, UpdatedAt: now}, {ID: 8, Status: model.StatusEnabled, NextTriggerAt: &now}}, total: 2}
+	stub := &jobServiceStub{items: []repository.JobListItem{{ID: 7, Status: basemodel.RecordStatusDisabled, NextTriggerAt: &now, CreatedAt: now, UpdatedAt: now}, {ID: 8, Status: basemodel.RecordStatusEnabled, NextTriggerAt: &now}}, total: 2}
 	s := &svc.ServiceContext{Jobs: stub, Clock: testNow}
 	list, err := NewListJobsLogic(context.Background(), s).ListJobs(&job.ListJobsRequest{Page: 1, PageSize: 20})
 	if err != nil || list.Total != 2 || len(list.Items) != 2 {
@@ -181,7 +213,7 @@ func TestJobProjectionAndCronPreview(t *testing.T) {
 	if business, ok := bizerror.From(err); !ok || business.Subcode() != service.SubcodeNotFound {
 		t.Fatalf("missing detail=%v", err)
 	}
-	stub.detail = &repository.JobDetail{JobDefinition: model.JobDefinition{Base: basemodel.Base{ID: 7}, Status: model.StatusEnabled, NextTriggerAt: &now, Remark: "note", Params: "raw", MaxRetries: 0, TimeoutSeconds: 900}, ExecutorGroupName: pointer("group")}
+	stub.detail = &repository.JobDetail{JobDefinition: model.JobDefinition{Base: basemodel.Base{ID: 7}, Status: basemodel.RecordStatusEnabled, NextTriggerAt: &now, Remark: "note", Params: "raw", MaxRetries: 0, TimeoutSeconds: 900}, ExecutorGroupName: pointer("group")}
 	detail, err := NewGetJobLogic(context.Background(), s).GetJob(&job.GetJobRequest{Id: 7})
 	if err != nil || detail.Job.Remark != "note" || detail.Job.Params != "raw" || *detail.Job.ExecutorGroupName != "group" || *detail.Job.NextTriggerAt != now.Format(time.RFC3339Nano) {
 		t.Fatalf("detail=%+v error=%v", detail, err)

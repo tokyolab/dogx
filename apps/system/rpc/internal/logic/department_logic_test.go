@@ -28,7 +28,7 @@ func TestDepartmentMutationLogicNormalizesAndDelegates(t *testing.T) {
 	})
 	if err != nil || created.GetId() != 42 || stub.created == nil || stub.created.ParentID == nil ||
 		*stub.created.ParentID != 7 || stub.created.Name != "研发部" || stub.created.Remark != "负责研发" ||
-		stub.created.Sort != 3 || stub.created.Status != model.RecordStatusEnabled {
+		stub.created.Sort != 3 || stub.created.Status != basemodel.RecordStatusEnabled {
 		t.Fatalf("create result=%+v error=%v department=%+v", created, err, stub.created)
 	}
 	if _, err := NewUpdateDepartmentLogic(ctx, svcCtx).UpdateDepartment(&system.UpdateDepartmentRequest{
@@ -36,7 +36,7 @@ func TestDepartmentMutationLogicNormalizesAndDelegates(t *testing.T) {
 	}); err != nil || stub.updateID != 42 || stub.updated.ParentID != nil || stub.updated.Name != "平台组" || stub.updated.Remark != "" {
 		t.Fatalf("update error=%v id=%d department=%+v", err, stub.updateID, stub.updated)
 	}
-	if _, err := NewUpdateDepartmentStatusLogic(ctx, svcCtx).UpdateDepartmentStatus(&system.UpdateDepartmentStatusRequest{Id: 42, Status: 0}); err != nil || stub.statusID != 42 || stub.status != model.RecordStatusDisabled {
+	if _, err := NewUpdateDepartmentStatusLogic(ctx, svcCtx).UpdateDepartmentStatus(&system.UpdateDepartmentStatusRequest{Id: 42, Status: 0}); err != nil || stub.statusID != 42 || stub.status != basemodel.RecordStatusDisabled {
 		t.Fatalf("status error=%v id=%d status=%d", err, stub.statusID, stub.status)
 	}
 	if _, err := NewDeleteDepartmentLogic(ctx, svcCtx).DeleteDepartment(&system.DeleteDepartmentRequest{Id: 42}); err != nil || stub.deleteID != 42 {
@@ -128,7 +128,7 @@ func TestDepartmentMutationLogicRejectsInvalidRequests(t *testing.T) {
 func TestDepartmentQueryLogicMapsDataAndErrors(t *testing.T) {
 	created := time.Date(2026, 9, 20, 1, 2, 3, 0, time.FixedZone("CST", 8*60*60))
 	parent := int64(3)
-	department := model.Department{Base: basemodel.Base{ID: 8, CreatedAt: created, UpdatedAt: created.Add(time.Hour)}, ParentID: &parent, Name: "研发部", Sort: 2, Status: model.RecordStatusDisabled, Remark: "备注"}
+	department := model.Department{Base: basemodel.Base{ID: 8, CreatedAt: created, UpdatedAt: created.Add(time.Hour)}, ParentID: &parent, Name: "研发部", Sort: 2, Status: basemodel.RecordStatusDisabled, Remark: "备注"}
 	stub := &departmentRepositoryStub{departments: []model.Department{department}, department: &department}
 	svcCtx := &svc.ServiceContext{DepartmentRepo: stub}
 	item, err := NewGetDepartmentLogic(context.Background(), svcCtx).GetDepartment(&system.GetDepartmentRequest{Id: 8})

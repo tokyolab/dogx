@@ -3,9 +3,9 @@ package logic
 import (
 	"context"
 
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,7 +25,7 @@ func (l *UpdateDepartmentLogic) UpdateDepartment(in *system.UpdateDepartmentRequ
 	if in == nil || in.Id <= 0 || in.ParentId < 0 || in.Sort < 0 || !validDepartmentFields(in.Name, in.Remark) {
 		return nil, status.Error(codes.InvalidArgument, "invalid update department request")
 	}
-	department := departmentModel(in.ParentId, in.Name, in.Remark, in.Sort, model.RecordStatusEnabled)
+	department := departmentModel(in.ParentId, in.Name, in.Remark, in.Sort, basemodel.RecordStatusEnabled)
 	if err := l.svcCtx.DepartmentRepo.Update(l.ctx, in.Id, department); err != nil {
 		return nil, departmentError(err)
 	}

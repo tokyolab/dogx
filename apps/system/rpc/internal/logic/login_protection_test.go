@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"testing"
@@ -42,7 +42,7 @@ func TestLoginProtectionMatrix(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			user := enabledUser()
 			if tc.disabled {
-				user.Status = model.RecordStatusDisabled
+				user.Status = basemodel.RecordStatusDisabled
 			}
 			repo := &userRepositoryStub{user: user, findErr: tc.repoErr}
 			pw := &passwordVerifierStub{err: tc.passwordErr}

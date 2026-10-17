@@ -6,12 +6,12 @@ const SuperAdminRoleCode = "super_admin"
 
 type Role struct {
 	basemodel.Base
-	Code        string       `gorm:"column:code;size:64;not null"`
-	Name        string       `gorm:"column:name;size:64;not null"`
-	Description string       `gorm:"column:description;size:500;not null"`
-	Sort        int32        `gorm:"column:sort;not null"`
-	Status      RecordStatus `gorm:"column:status;not null"`
-	IsSystem    bool         `gorm:"column:is_system;not null"`
+	Code        string                 `gorm:"column:code;size:64;not null"`
+	Name        string                 `gorm:"column:name;size:64;not null"`
+	Description string                 `gorm:"column:description;size:500;not null"`
+	Sort        int32                  `gorm:"column:sort;not null"`
+	Status      basemodel.RecordStatus `gorm:"column:status;not null"`
+	IsSystem    bool                   `gorm:"column:is_system;not null"`
 }
 
 func (Role) TableName() string {

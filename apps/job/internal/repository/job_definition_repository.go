@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tokyolab/dogx/apps/job/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
 )
 
@@ -22,7 +23,7 @@ type JobFilter struct {
 	ID              *int64
 	Name            string
 	ExecutorGroupID *int64
-	Status          *model.Status
+	Status          *basemodel.RecordStatus
 }
 
 type JobListItem struct {
@@ -33,7 +34,7 @@ type JobListItem struct {
 	ProcessorName     string
 	ExecutionMode     model.ExecutionMode
 	CronExpr          string
-	Status            model.Status
+	Status            basemodel.RecordStatus
 	NextTriggerAt     *time.Time
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
@@ -177,7 +178,7 @@ func (r *jobDefinitionRepository) Disable(ctx context.Context, id int64) error {
 
 func (r *jobDefinitionRepository) Delete(ctx context.Context, id int64) error {
 	return r.checkWrite(ctx, id, r.db.WithContext(ctx).
-		Where("id = ? AND status = ?", id, model.StatusDisabled).Delete(&model.JobDefinition{}))
+		Where("id = ? AND status = ?", id, basemodel.RecordStatusDisabled).Delete(&model.JobDefinition{}))
 }
 
 func (r *jobDefinitionRepository) Advance(ctx context.Context, id int64, next time.Time) error {

@@ -3,13 +3,13 @@ package logic
 import (
 	"time"
 
-	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 	"github.com/tokyolab/dogx/apps/job/rpc/types/job"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
-func nextTime(status model.Status, value *time.Time) *string {
-	if status != model.StatusEnabled || value == nil {
+func nextTime(status basemodel.RecordStatus, value *time.Time) *string {
+	if status != basemodel.RecordStatusEnabled || value == nil {
 		return nil
 	}
 	text := value.Format(time.RFC3339Nano)

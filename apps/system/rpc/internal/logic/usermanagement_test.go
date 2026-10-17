@@ -294,7 +294,7 @@ func TestUserProtectionRejectsWithoutSessionSideEffects(t *testing.T) {
 }
 
 func TestReplaceUserRolesRejectsSuperAdminWithoutSideEffects(t *testing.T) {
-	for _, state := range []model.RecordStatus{model.RecordStatusEnabled, model.RecordStatusDisabled} {
+	for _, state := range []basemodel.RecordStatus{basemodel.RecordStatusEnabled, basemodel.RecordStatusDisabled} {
 		for _, operator := range []int64{1, 42} {
 			for _, test := range []struct {
 				name   string

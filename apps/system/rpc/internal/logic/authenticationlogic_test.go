@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -112,7 +112,7 @@ func TestGetCurrentUserAndRevokeDisabledUser(t *testing.T) {
 		t.Fatalf("unexpected current user: %+v", response)
 	}
 
-	user.Status = model.RecordStatusDisabled
+	user.Status = basemodel.RecordStatusDisabled
 	if _, err := logic.GetCurrentUser(&system.CurrentUserRequest{UserId: 42}); status.Code(err) != codes.Unauthenticated {
 		t.Fatalf("expected disabled user to be rejected, got: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestAuthenticationLogicsRejectInvalidInputAndPropagateDependencyFailures(t 
 
 	t.Run("disabled user revocation failure", func(t *testing.T) {
 		user := enabledUser()
-		user.Status = model.RecordStatusDisabled
+		user.Status = basemodel.RecordStatusDisabled
 		logic := NewGetCurrentUserLogic(context.Background(), &svc.ServiceContext{
 			UserRepo: &userRepositoryStub{user: user},
 			Sessions: &sessionStoreLogicStub{revokeAllErr: dependencyErr},

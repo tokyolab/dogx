@@ -5,6 +5,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 type departmentRepositoryStub struct {
@@ -19,7 +20,7 @@ type departmentRepositoryStub struct {
 	updated     *model.Department
 	updateErr   error
 	statusID    int64
-	status      model.RecordStatus
+	status      basemodel.RecordStatus
 	statusErr   error
 	deleteID    int64
 	deleteErr   error
@@ -47,7 +48,7 @@ func (s *departmentRepositoryStub) Update(_ context.Context, id int64, departmen
 	return s.updateErr
 }
 
-func (s *departmentRepositoryStub) UpdateStatus(_ context.Context, id int64, status model.RecordStatus) error {
+func (s *departmentRepositoryStub) UpdateStatus(_ context.Context, id int64, status basemodel.RecordStatus) error {
 	s.statusID, s.status = id, status
 	return s.statusErr
 }

@@ -7,13 +7,14 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 	"github.com/tokyolab/dogx/apps/job/internal/service"
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/svc"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 type jobServiceStub struct {
 	called     string
 	id         int64
 	definition *model.JobDefinition
-	status     model.Status
+	status     basemodel.RecordStatus
 	filter     repository.JobFilter
 	manual     service.ManualTrigger
 	detail     *repository.JobDetail
@@ -30,7 +31,7 @@ func (s *jobServiceStub) UpdateJob(_ context.Context, id int64, in *model.JobDef
 	s.called, s.id, s.definition = "UpdateJob", id, in
 	return s.err
 }
-func (s *jobServiceStub) UpdateJobStatus(_ context.Context, id int64, value model.Status) error {
+func (s *jobServiceStub) UpdateJobStatus(_ context.Context, id int64, value basemodel.RecordStatus) error {
 	s.called, s.id, s.status = "UpdateJobStatus", id, value
 	return s.err
 }

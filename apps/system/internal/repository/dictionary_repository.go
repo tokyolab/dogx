@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
@@ -23,7 +24,7 @@ type DictionaryRepository interface {
 	FindByCodes(context.Context, []string) ([]model.Dictionary, error)
 	Create(context.Context, *model.Dictionary) error
 	Update(context.Context, int64, *model.Dictionary) error
-	UpdateStatus(context.Context, int64, model.RecordStatus) error
+	UpdateStatus(context.Context, int64, basemodel.RecordStatus) error
 	Delete(context.Context, int64) error
 }
 type dictionaryRepository struct{ db *gorm.DB }
@@ -72,7 +73,7 @@ func (r *dictionaryRepository) Update(ctx context.Context, id int64, item *model
 	result := r.db.WithContext(ctx).Model(&model.Dictionary{}).Where("id = ?", id).Updates(map[string]any{"name": item.Name, "remark": item.Remark, "is_public": item.IsPublic})
 	return dictionaryWriteResult(result)
 }
-func (r *dictionaryRepository) UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error {
+func (r *dictionaryRepository) UpdateStatus(ctx context.Context, id int64, status basemodel.RecordStatus) error {
 	return dictionaryWriteResult(r.db.WithContext(ctx).Model(&model.Dictionary{}).Where("id = ?", id).Update("status", status))
 }
 func (r *dictionaryRepository) Delete(ctx context.Context, id int64) error {

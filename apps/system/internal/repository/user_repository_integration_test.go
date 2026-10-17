@@ -13,6 +13,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 
 	"gorm.io/gorm"
@@ -33,7 +34,7 @@ func TestUserRepositoryCreatesAndFindsUserInPostgreSQL(t *testing.T) {
 		Nickname:     "DogX User",
 		Email:        &email,
 		Phone:        &phone,
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 		Remark:       "repository integration test",
 	}
 	if err := repository.Create(ctx, &user); err != nil {
@@ -82,16 +83,16 @@ func TestUserRepositoryCreatesAndFindsUserInPostgreSQL(t *testing.T) {
 func TestUserContactUpdatePreservesManagedFields(t *testing.T) {
 	repo, db := newPostgreSQLUserRepository(t)
 	ctx := context.Background()
-	department := model.Department{Name: "Profile department", Status: model.RecordStatusEnabled}
+	department := model.Department{Name: "Profile department", Status: basemodel.RecordStatusEnabled}
 	if err := db.Create(&department).Error; err != nil {
 		t.Fatal(err)
 	}
 	email, phone := "profile@example.com", "123"
-	user := model.User{Username: "profile-user", Nickname: "Before", PasswordHash: "hash", Status: model.RecordStatusEnabled, DepartmentID: &department.ID, Remark: "Admin remark", Email: &email, Phone: &phone}
+	user := model.User{Username: "profile-user", Nickname: "Before", PasswordHash: "hash", Status: basemodel.RecordStatusEnabled, DepartmentID: &department.ID, Remark: "Admin remark", Email: &email, Phone: &phone}
 	if err := repo.Create(ctx, &user); err != nil {
 		t.Fatal(err)
 	}
-	role := model.Role{Code: "profile_role", Name: "Profile role", Status: model.RecordStatusEnabled}
+	role := model.Role{Code: "profile_role", Name: "Profile role", Status: basemodel.RecordStatusEnabled}
 	if err := db.Create(&role).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -105,14 +106,14 @@ func TestUserContactUpdatePreservesManagedFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Nickname != "After" || got.Email != nil || got.Phone != nil || got.Username != user.Username || got.PasswordHash != "hash" || got.Remark != "Admin remark" || got.DepartmentID == nil || *got.DepartmentID != department.ID || got.Status != model.RecordStatusEnabled {
+	if got.Nickname != "After" || got.Email != nil || got.Phone != nil || got.Username != user.Username || got.PasswordHash != "hash" || got.Remark != "Admin remark" || got.DepartmentID == nil || *got.DepartmentID != department.ID || got.Status != basemodel.RecordStatusEnabled {
 		t.Fatalf("unexpected persisted profile: %+v", got)
 	}
 	record, err := repo.FindWithRoles(ctx, user.ID)
 	if err != nil || len(record.Roles) != 1 || record.Roles[0].ID != role.ID {
 		t.Fatalf("roles changed: %+v %v", record, err)
 	}
-	other := model.User{Username: "profile-other", Nickname: "Other", PasswordHash: "hash", Status: model.RecordStatusEnabled, Email: &email, Phone: &phone}
+	other := model.User{Username: "profile-other", Nickname: "Other", PasswordHash: "hash", Status: basemodel.RecordStatusEnabled, Email: &email, Phone: &phone}
 	if err := repo.Create(ctx, &other); err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +126,7 @@ func TestUserContactUpdatePreservesManagedFields(t *testing.T) {
 	if err := repo.UpdateContacts(ctx, 999999, UserContactUpdate{Nickname: "Missing"}); !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("missing user: %v", err)
 	}
-	if err := db.Model(&user).Update("status", model.RecordStatusDisabled).Error; err != nil {
+	if err := db.Model(&user).Update("status", basemodel.RecordStatusDisabled).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := repo.UpdateContacts(ctx, user.ID, UserContactUpdate{Nickname: "Disabled"}); !errors.Is(err, ErrUserNotFound) {
@@ -149,7 +150,7 @@ func TestUserRepositoryHonorsActiveUsernameUniquenessAndSoftDelete(t *testing.T)
 		Username:     "SoftDeleteUser",
 		PasswordHash: "hashed-password",
 		Nickname:     "Soft Delete User",
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 	}
 	if err := repository.Create(ctx, &user); err != nil {
 		t.Fatalf("create original user: %v", err)
@@ -159,7 +160,7 @@ func TestUserRepositoryHonorsActiveUsernameUniquenessAndSoftDelete(t *testing.T)
 		Username:     strings.ToLower(user.Username),
 		PasswordHash: "another-hash",
 		Nickname:     "Duplicate User",
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 	}
 	if err := repository.Create(ctx, &duplicate); err == nil {
 		t.Fatal("case-insensitive active username uniqueness was not enforced")
@@ -183,7 +184,7 @@ func TestUserRepositoryHonorsActiveUsernameUniquenessAndSoftDelete(t *testing.T)
 		Username:     strings.ToUpper(user.Username),
 		PasswordHash: "replacement-hash",
 		Nickname:     "Replacement User",
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 	}
 	if err := repository.Create(ctx, &replacement); err != nil {
 		t.Fatalf("reuse username after soft delete: %v", err)
@@ -254,7 +255,7 @@ func TestUserManagementPersistsRolesAndClearedProfileWithoutNPlusOne(t *testing.
 	if counter.queries.Load() != 3 {
 		t.Fatalf("user list issued %d queries; expected count + page + batch roles", counter.queries.Load())
 	}
-	zero := model.RecordStatusDisabled
+	zero := basemodel.RecordStatusDisabled
 	filtered, count, err := repo.List(ctx, UserListQuery{Limit: 1, Status: &zero, Keyword: "bOB"})
 	if err != nil || count != 1 || len(filtered) != 1 || filtered[0].User.ID != bob.ID {
 		t.Fatalf("filter: %+v %d %v", filtered, count, err)
@@ -459,7 +460,7 @@ func TestUserRepositoryUpdatesStatusWithoutChangingProfileOrRoles(t *testing.T) 
 	if err := repo.CreateWithRoles(ctx, &user, []int64{role.ID}); err != nil {
 		t.Fatal(err)
 	}
-	for _, state := range []model.RecordStatus{0, 0, 1} {
+	for _, state := range []basemodel.RecordStatus{0, 0, 1} {
 		if err := repo.UpdateStatus(ctx, user.ID, state); err != nil {
 			t.Fatalf("update status to %d: %v", state, err)
 		}
@@ -518,7 +519,7 @@ func TestUserRepositoryStatusUpdatePreservesReadAndWriteErrors(t *testing.T) {
 		t.Fatalf("write error lost: %v", err)
 	}
 	unchanged, err := repo.FindByID(ctx, user.ID)
-	if err != nil || unchanged.Status != model.RecordStatusEnabled {
+	if err != nil || unchanged.Status != basemodel.RecordStatusEnabled {
 		t.Fatalf("failed status update changed user: %+v %v", unchanged, err)
 	}
 }

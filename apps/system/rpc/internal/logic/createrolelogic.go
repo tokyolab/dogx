@@ -11,6 +11,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
@@ -48,7 +49,7 @@ func (l *CreateRoleLogic) CreateRole(in *system.CreateRoleRequest) (*system.Crea
 		Name:        normalized.name,
 		Description: normalized.description,
 		Sort:        in.Sort,
-		Status:      model.RecordStatus(in.Status),
+		Status:      basemodel.RecordStatus(in.Status),
 	}
 	if err := l.svcCtx.RoleRepo.Create(l.ctx, role); errors.Is(err, repository.ErrRoleCodeExists) {
 		return nil, bizerror.New(systemsubcode.RoleCodeExists, "角色编码已存在")

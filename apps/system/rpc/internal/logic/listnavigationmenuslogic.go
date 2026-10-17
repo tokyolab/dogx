@@ -7,6 +7,7 @@ import (
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -58,7 +59,7 @@ func (l *ListNavigationMenusLogic) ListNavigationMenus(in *system.ListNavigation
 	}
 	children := make(map[int64][]model.Menu)
 	for _, menu := range menus {
-		if menu.AppCode != model.MenuAppAdminWeb || menu.Status != model.RecordStatusEnabled ||
+		if menu.AppCode != model.MenuAppAdminWeb || menu.Status != basemodel.RecordStatusEnabled ||
 			(menu.Type != model.MenuTypeDirectory && menu.Type != model.MenuTypePage && menu.Type != model.MenuTypeElement) || (!in.IsSuperAdmin && !granted[menu.ID]) {
 			continue
 		}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/authn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -46,7 +47,7 @@ func (l *CreateUserLogic) CreateUser(in *system.CreateUserRequest) (*system.Crea
 		return nil, fmt.Errorf("hash initial user password: %w", err)
 	}
 	departmentID := in.DepartmentId
-	user := &model.User{Username: username, PasswordHash: hash, Nickname: profile.Nickname, Email: profile.Email, Phone: profile.Phone, Remark: profile.Remark, DepartmentID: &departmentID, Status: model.RecordStatus(in.Status)}
+	user := &model.User{Username: username, PasswordHash: hash, Nickname: profile.Nickname, Email: profile.Email, Phone: profile.Phone, Remark: profile.Remark, DepartmentID: &departmentID, Status: basemodel.RecordStatus(in.Status)}
 	if err := l.svcCtx.UserRepo.CreateWithRoles(l.ctx, user, in.RoleIds); err != nil {
 		return nil, userManagementError(err)
 	}

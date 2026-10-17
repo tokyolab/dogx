@@ -10,6 +10,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 	"gorm.io/gorm"
 )
@@ -40,10 +41,10 @@ func TestCreateInitialAdministratorAssignsSeededSuperAdminRoleAtomically(t *test
 
 	for _, state := range []string{"enabled", "disabled", "soft-deleted"} {
 		t.Run(state, func(t *testing.T) {
-			userStatus := model.RecordStatusEnabled
+			userStatus := basemodel.RecordStatusEnabled
 			var deletedAt *time.Time
 			if state == "disabled" {
-				userStatus = model.RecordStatusDisabled
+				userStatus = basemodel.RecordStatusDisabled
 			}
 			if state == "soft-deleted" {
 				deleted := time.Date(2026, 9, 7, 0, 0, 0, 0, time.UTC)

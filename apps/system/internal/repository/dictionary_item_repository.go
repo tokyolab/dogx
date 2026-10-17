@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
@@ -21,7 +22,7 @@ type DictionaryItemRepository interface {
 	FindByID(context.Context, int64) (*model.DictionaryItem, error)
 	Create(context.Context, *model.DictionaryItem) error
 	Update(context.Context, int64, *model.DictionaryItem) error
-	UpdateStatus(context.Context, int64, model.RecordStatus) error
+	UpdateStatus(context.Context, int64, basemodel.RecordStatus) error
 	Delete(context.Context, int64) error
 }
 type dictionaryItemRepository struct{ db *gorm.DB }
@@ -64,7 +65,7 @@ func (r *dictionaryItemRepository) Update(ctx context.Context, id int64, item *m
 	// Value and dictionary ownership are immutable even if an internal caller supplies them.
 	return dictionaryItemWriteResult(r.db.WithContext(ctx).Model(&model.DictionaryItem{}).Where("id = ?", id).Updates(map[string]any{"label": item.Label, "sort": item.Sort, "remark": item.Remark}))
 }
-func (r *dictionaryItemRepository) UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error {
+func (r *dictionaryItemRepository) UpdateStatus(ctx context.Context, id int64, status basemodel.RecordStatus) error {
 	return dictionaryItemWriteResult(r.db.WithContext(ctx).Model(&model.DictionaryItem{}).Where("id = ?", id).Update("status", status))
 }
 func (r *dictionaryItemRepository) Delete(ctx context.Context, id int64) error {

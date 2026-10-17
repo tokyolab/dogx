@@ -5,13 +5,14 @@ import (
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 type menuRepositoryStub struct {
 	menus  []model.Menu
 	menu   *model.Menu
 	id     int64
-	status model.RecordStatus
+	status basemodel.RecordStatus
 	writes int
 	reads  int
 	err    error
@@ -37,7 +38,7 @@ func (s *menuRepositoryStub) Update(_ context.Context, id int64, m *model.Menu) 
 	s.menu = m
 	return s.err
 }
-func (s *menuRepositoryStub) UpdateStatus(_ context.Context, id int64, status model.RecordStatus) error {
+func (s *menuRepositoryStub) UpdateStatus(_ context.Context, id int64, status basemodel.RecordStatus) error {
 	s.writes++
 	s.id = id
 	s.status = status

@@ -3,9 +3,9 @@ package logic
 import (
 	"context"
 
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -32,7 +32,7 @@ func (l *UpdateDictionaryStatusLogic) UpdateDictionaryStatus(in *system.UpdateDi
 	if err != nil {
 		return nil, dictionaryError(err)
 	}
-	if err := l.svcCtx.DictionaryRepo.UpdateStatus(l.ctx, in.Id, model.RecordStatus(in.Status)); err != nil {
+	if err := l.svcCtx.DictionaryRepo.UpdateStatus(l.ctx, in.Id, basemodel.RecordStatus(in.Status)); err != nil {
 		return nil, dictionaryError(err)
 	}
 	if err := invalidateDictionary(l.ctx, l.svcCtx, current.Code); err != nil {

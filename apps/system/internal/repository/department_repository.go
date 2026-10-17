@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
 )
 
@@ -25,7 +26,7 @@ type DepartmentRepository interface {
 	FindByID(ctx context.Context, id int64) (*model.Department, error)
 	Create(ctx context.Context, department *model.Department) error
 	Update(ctx context.Context, id int64, department *model.Department) error
-	UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error
+	UpdateStatus(ctx context.Context, id int64, status basemodel.RecordStatus) error
 	Delete(ctx context.Context, id int64) error
 }
 
@@ -146,7 +147,7 @@ func (r *departmentRepository) Update(ctx context.Context, id int64, department 
 	return nil
 }
 
-func (r *departmentRepository) UpdateStatus(ctx context.Context, id int64, status model.RecordStatus) error {
+func (r *departmentRepository) UpdateStatus(ctx context.Context, id int64, status basemodel.RecordStatus) error {
 	if ctx == nil || id <= 0 {
 		return errors.New("invalid update department status arguments")
 	}

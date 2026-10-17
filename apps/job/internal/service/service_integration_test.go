@@ -16,6 +16,7 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 	"github.com/tokyolab/dogx/apps/job/internal/schedule"
 	"github.com/tokyolab/dogx/apps/job/internal/testutil"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
 )
 
@@ -81,7 +82,7 @@ func TestAutomaticCommitFreezesSnapshotAndUpdatesAuditTime(t *testing.T) {
 	if after.NextTriggerAt == nil || !after.NextTriggerAt.Equal(wantNext) || !after.UpdatedAt.After(before.UpdatedAt) || !after.CreatedAt.Equal(before.CreatedAt) {
 		t.Fatalf("progress=%+v before.updated=%v", after, before.UpdatedAt)
 	}
-	if err := s.UpdateJobStatus(ctx, job.ID, model.StatusDisabled); err != nil {
+	if err := s.UpdateJobStatus(ctx, job.ID, basemodel.RecordStatusDisabled); err != nil {
 		t.Fatal(err)
 	}
 	job.Name, job.Params, job.ProcessorName = "changed", "new params", "new processor"
@@ -253,7 +254,7 @@ func TestCreateAndEditWaitForGroupDeletionMark(t *testing.T) {
 	for _, operation := range []string{"create", "edit"} {
 		t.Run(operation, func(t *testing.T) {
 			db, sqlDB, s, job := persistenceFixture(t)
-			if err := s.UpdateJobStatus(context.Background(), job.ID, model.StatusDisabled); err != nil {
+			if err := s.UpdateJobStatus(context.Background(), job.ID, basemodel.RecordStatusDisabled); err != nil {
 				t.Fatal(err)
 			}
 			target := model.ExecutorGroup{Name: "target"}
@@ -299,7 +300,7 @@ func TestEnableAndEditSerializeOnCurrentConfiguration(t *testing.T) {
 		t.Run(first, func(t *testing.T) {
 			db, sqlDB, s, job := persistenceFixture(t)
 			ctx := context.Background()
-			if err := s.UpdateJobStatus(ctx, job.ID, model.StatusDisabled); err != nil {
+			if err := s.UpdateJobStatus(ctx, job.ID, basemodel.RecordStatusDisabled); err != nil {
 				t.Fatal(err)
 			}
 			writer := beginPersistenceTransaction(t, db)
@@ -329,7 +330,7 @@ func TestEnableAndEditSerializeOnCurrentConfiguration(t *testing.T) {
 			done := make(chan error, 1)
 			go func() {
 				if first == "edit" {
-					done <- s.UpdateJobStatus(ctx, job.ID, model.StatusEnabled)
+					done <- s.UpdateJobStatus(ctx, job.ID, basemodel.RecordStatusEnabled)
 				} else {
 					done <- s.UpdateJob(ctx, job.ID, &updated)
 				}
@@ -358,7 +359,7 @@ func TestEnableAndEditSerializeOnCurrentConfiguration(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if stored.CronExpr != wantCron || stored.Status != model.StatusEnabled || stored.NextTriggerAt == nil || !stored.NextTriggerAt.Equal(wantNext) {
+			if stored.CronExpr != wantCron || stored.Status != basemodel.RecordStatusEnabled || stored.NextTriggerAt == nil || !stored.NextTriggerAt.Equal(wantNext) {
 				t.Fatalf("mixed configuration/progress: %+v", stored)
 			}
 		})
@@ -368,7 +369,7 @@ func TestEnableAndEditSerializeOnCurrentConfiguration(t *testing.T) {
 func TestDeleteSeesActiveInstanceCommittedByPriorLockHolder(t *testing.T) {
 	db, sqlDB, s, job := persistenceFixture(t)
 	ctx := context.Background()
-	if err := s.UpdateJobStatus(ctx, job.ID, model.StatusDisabled); err != nil {
+	if err := s.UpdateJobStatus(ctx, job.ID, basemodel.RecordStatusDisabled); err != nil {
 		t.Fatal(err)
 	}
 	writer, pid := lockedJob(t, db, job.ID)

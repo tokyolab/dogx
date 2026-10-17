@@ -3,8 +3,8 @@ package logic
 import (
 	"context"
 
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -39,7 +39,7 @@ func (l *ListUsersLogic) ListUsers(in *system.ListUsersRequest) (*system.ListUse
 	}
 	query := repository.UserListQuery{Keyword: in.Keyword, Offset: offset, Limit: int(in.PageSize)}
 	if in.Status != nil {
-		value := model.RecordStatus(*in.Status)
+		value := basemodel.RecordStatus(*in.Status)
 		query.Status = &value
 	}
 	if in.DepartmentId != nil {

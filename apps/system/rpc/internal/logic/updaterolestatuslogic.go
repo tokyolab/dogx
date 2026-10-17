@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
 	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
@@ -42,7 +42,7 @@ func (l *UpdateRoleStatusLogic) UpdateRoleStatus(in *system.UpdateRoleStatusRequ
 	err := l.svcCtx.RoleRepo.UpdateStatus(
 		l.ctx,
 		in.Id,
-		model.RecordStatus(in.Status),
+		basemodel.RecordStatus(in.Status),
 	)
 	switch {
 	case errors.Is(err, repository.ErrRoleNotFound):

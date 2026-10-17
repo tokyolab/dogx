@@ -9,6 +9,7 @@ import (
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/tokyolab/dogx/apps/system/internal/model"
 	"github.com/tokyolab/dogx/apps/system/internal/repository"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -111,7 +112,7 @@ func (s *RolePolicyService) ReplaceRoleAPIs(
 			}
 			return fmt.Errorf("lock role for policy update: %w", err)
 		}
-		if role.Status != model.RecordStatusEnabled {
+		if role.Status != basemodel.RecordStatusEnabled {
 			return ErrRoleUnavailable
 		}
 		if role.Code == model.SuperAdminRoleCode {
@@ -258,7 +259,7 @@ func loadTargetResources(
 		var count int64
 		if err := db.WithContext(ctx).
 			Model(&model.API{}).
-			Where("id IN ? AND status = ?", targetIDs, model.RecordStatusEnabled).
+			Where("id IN ? AND status = ?", targetIDs, basemodel.RecordStatusEnabled).
 			Count(&count).Error; err != nil {
 			return nil, fmt.Errorf("validate role API resources: %w", err)
 		}
@@ -268,7 +269,7 @@ func loadTargetResources(
 	}
 
 	query := db.WithContext(ctx).
-		Where("status = ?", model.RecordStatusEnabled)
+		Where("status = ?", basemodel.RecordStatusEnabled)
 	if len(targetIDs) == 0 {
 		query = query.Where("is_required = TRUE")
 	} else {

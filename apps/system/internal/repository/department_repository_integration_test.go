@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/tokyolab/dogx/apps/system/internal/model"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 func TestDepartmentRepositoryLifecycleAndDeletionGuards(t *testing.T) {
@@ -17,18 +18,18 @@ func TestDepartmentRepositoryLifecycleAndDeletionGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	root := &model.Department{Name: "  总部 ", Sort: 1, Status: model.RecordStatusEnabled, Remark: " 总部备注 "}
+	root := &model.Department{Name: "  总部 ", Sort: 1, Status: basemodel.RecordStatusEnabled, Remark: " 总部备注 "}
 	if err := repo.Create(ctx, root); err != nil {
 		t.Fatalf("create root: %v", err)
 	}
 	if root.ID <= 0 || root.Name != "总部" || root.CreatedAt.IsZero() {
 		t.Fatalf("unexpected root: %+v", root)
 	}
-	child := &model.Department{ParentID: &root.ID, Name: "研发部", Sort: 2, Status: model.RecordStatusEnabled}
+	child := &model.Department{ParentID: &root.ID, Name: "研发部", Sort: 2, Status: basemodel.RecordStatusEnabled}
 	if err := repo.Create(ctx, child); err != nil {
 		t.Fatalf("create child: %v", err)
 	}
-	duplicate := &model.Department{ParentID: &root.ID, Name: "  研发部 ", Status: model.RecordStatusEnabled}
+	duplicate := &model.Department{ParentID: &root.ID, Name: "  研发部 ", Status: basemodel.RecordStatusEnabled}
 	if err := repo.Create(ctx, duplicate); !errors.Is(err, ErrDepartmentNameExists) {
 		t.Fatalf("duplicate department error=%v, want %v", err, ErrDepartmentNameExists)
 	}
@@ -46,10 +47,10 @@ func TestDepartmentRepositoryLifecycleAndDeletionGuards(t *testing.T) {
 	if err != nil || updated.Name != "平台组" || updated.ParentID != nil || updated.Sort != 0 || updated.Remark != "清空备注" {
 		t.Fatalf("updated child=%+v error=%v", updated, err)
 	}
-	if err := repo.UpdateStatus(ctx, child.ID, model.RecordStatusDisabled); err != nil {
+	if err := repo.UpdateStatus(ctx, child.ID, basemodel.RecordStatusDisabled); err != nil {
 		t.Fatalf("disable child: %v", err)
 	}
-	if got, err := repo.FindByID(ctx, child.ID); err != nil || got.Status != model.RecordStatusDisabled {
+	if got, err := repo.FindByID(ctx, child.ID); err != nil || got.Status != basemodel.RecordStatusDisabled {
 		t.Fatalf("status=%+v error=%v", got, err)
 	}
 	if err := repo.Delete(ctx, root.ID); err != nil {
@@ -67,11 +68,11 @@ func TestDepartmentRepositoryRejectsChildrenAndUserReferencesBeforeDelete(t *tes
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	parent := &model.Department{Name: "用户部门", Status: model.RecordStatusEnabled}
+	parent := &model.Department{Name: "用户部门", Status: basemodel.RecordStatusEnabled}
 	if err := repo.Create(ctx, parent); err != nil {
 		t.Fatal(err)
 	}
-	child := &model.Department{ParentID: &parent.ID, Name: "子部门", Status: model.RecordStatusEnabled}
+	child := &model.Department{ParentID: &parent.ID, Name: "子部门", Status: basemodel.RecordStatusEnabled}
 	if err := repo.Create(ctx, child); err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +80,7 @@ func TestDepartmentRepositoryRejectsChildrenAndUserReferencesBeforeDelete(t *tes
 		t.Fatalf("parent deletion error=%v", err)
 	}
 	var userDepartmentID = child.ID
-	user := &model.User{Username: "department-reference-user", PasswordHash: "hash", Nickname: "部门用户", DepartmentID: &userDepartmentID, Status: model.RecordStatusEnabled}
+	user := &model.User{Username: "department-reference-user", PasswordHash: "hash", Nickname: "部门用户", DepartmentID: &userDepartmentID, Status: basemodel.RecordStatusEnabled}
 	if err := db.WithContext(ctx).Create(user).Error; err != nil {
 		t.Fatalf("create referencing user: %v", err)
 	}

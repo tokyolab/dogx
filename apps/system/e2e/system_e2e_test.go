@@ -27,6 +27,7 @@ import (
 	systemsubcode "github.com/tokyolab/dogx/apps/system/internal/subcode"
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	commonsubcode "github.com/tokyolab/dogx/pkg/subcode"
 	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 	"github.com/zeromicro/go-zero/core/stores/redis"
@@ -366,7 +367,7 @@ func seedUserWithRole(t testing.TB, db *gorm.DB, roleID int64, username string) 
 	}
 	user := model.User{
 		Username: username, PasswordHash: passwordHash, Nickname: "DogX E2E Role User",
-		Status: model.RecordStatusEnabled,
+		Status: basemodel.RecordStatusEnabled,
 	}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create role user: %v", err)
@@ -439,7 +440,7 @@ func seedAdministrator(t testing.TB, db *gorm.DB) (model.User, model.Role) {
 		Username:     "dogx-e2e-admin",
 		PasswordHash: passwordHash,
 		Nickname:     "DogX E2E Admin",
-		Status:       model.RecordStatusEnabled,
+		Status:       basemodel.RecordStatusEnabled,
 		Remark:       "end-to-end test administrator",
 	}
 	if err := db.WithContext(ctx).Create(&user).Error; err != nil {

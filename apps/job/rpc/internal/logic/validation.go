@@ -12,6 +12,7 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/schedule"
 	"github.com/tokyolab/dogx/apps/job/internal/service"
 	"github.com/tokyolab/dogx/apps/job/rpc/types/job"
+	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -54,7 +55,9 @@ func normalizeInput(in *job.JobInput, create bool, now time.Time) (*model.JobDef
 	if in.RetryIntervalSeconds != nil {
 		interval = *in.RetryIntervalSeconds
 	}
-	if (execution != 1 && execution != 2) || (execution == 1 && post) || !validStatus(misfire) || !validStatus(block) || retries < 0 || interval <= 0 {
+	if (execution != 1 && execution != 2) || (execution == 1 && post) ||
+		(misfire != int32(model.MisfireIgnore) && misfire != int32(model.MisfireOnce)) ||
+		(block != int32(model.BlockDiscard) && block != int32(model.BlockParallel)) || retries < 0 || interval <= 0 {
 		return nil, invalidInput()
 	}
 	// Keep duration conversions explicit even though current int32 seconds fit int64 nanoseconds.
@@ -83,7 +86,9 @@ func normalizeInput(in *job.JobInput, create bool, now time.Time) (*model.JobDef
 	}
 	return result, nil
 }
-func validStatus(value int32) bool { return value == 0 || value == 1 }
+func validStatus(value int32) bool {
+	return value == int32(basemodel.RecordStatusDisabled) || value == int32(basemodel.RecordStatusEnabled)
+}
 func normalizeFilter(in *job.ListJobsRequest) (repository.JobFilter, error) {
 	if in == nil || in.Page < 1 || in.PageSize < 1 || in.PageSize > 200 || in.Page-1 > math.MaxInt64/in.PageSize || (in.Id != nil && *in.Id <= 0) || (in.ExecutorGroupId != nil && *in.ExecutorGroupId <= 0) || (in.Status != nil && !validStatus(*in.Status)) {
 		return repository.JobFilter{}, invalidInput()
@@ -94,7 +99,7 @@ func normalizeFilter(in *job.ListJobsRequest) (repository.JobFilter, error) {
 	}
 	result := repository.JobFilter{Page: in.Page, PageSize: in.PageSize, ID: in.Id, Name: name, ExecutorGroupID: in.ExecutorGroupId}
 	if in.Status != nil {
-		value := model.Status(*in.Status)
+		value := basemodel.RecordStatus(*in.Status)
 		result.Status = &value
 	}
 	return result, nil
