@@ -58,7 +58,8 @@ dogx/                                后端 Git 仓库
 │       ├── internal/
 │       │   ├── model/              组、Job、Instance，后续增加 Task
 │       │   ├── repository/         调度数据访问
-│       │   ├── service/            跨模型事务等业务编排
+│       │   ├── trigger/            自动／手动创建 Instance 的共享运行组件
+│       │   ├── subcode/            Job 域稳定业务错误标识
 │       │   └── migration/          Job 域迁移与 SQL
 │       └── cmd/migrate/            独立 Job 迁移命令
 ├── pkg/                            真正公共的技术组件
@@ -69,7 +70,7 @@ dogx/                                后端 Git 仓库
 └── docs/                           设计、规范及 ADR
 ```
 
-上述为已确认的实现路径。Job HTTP 契约仍由 `system.api` 统一导入和生成；Logic 负责用例编排，不直接执行 SQL。跨模型短事务由显式业务服务协调，同一事务中的仓储操作共享事务连接，不各自开启独立事务。调度运行组件的资源由进程装配并关闭；继续执行一个 Model 对应一个 Repository 的规范，不建立通用 BaseRepository，也不允许跨域导入 `internal` 数据层。
+上述为已确认的实现路径。Job HTTP 契约仍由 `system.api` 统一导入和生成；管理 Logic 负责各自用例编排，不直接执行 SQL。自动／手动创建 Instance 提取为 `trigger.Creator`，不把普通 CRUD 一并塞入大 Service。域内 `repository.TransactionRunner` 仅提供同一事务连接上的仓储，不包含业务规则；Logic 与 Creator 保留各自的判断顺序和事务边界，不各自开启独立事务。调度运行组件的资源由进程装配并关闭；继续执行一个 Model 对应一个 Repository 的规范，不建立通用 BaseRepository，也不允许跨域导入 `internal` 数据层。
 
 `job-rpc` 既提供管理 RPC，也承担调度运行职责，不是只有 CRUD 的服务。业务处理器仍运行于所属业务进程或同域 Worker，不放进 `scheduler/`。公共执行组件在仓库内复用，具体包路径在执行模块设计时确定；不为本次接入增加独立 SDK Module、发布流程或调度端注册／心跳中心。管理入口使用生成的 `jobclient`，不因此获得访问 Job 内部数据层的权限。
 

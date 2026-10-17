@@ -3,6 +3,8 @@ package logic
 import (
 	"context"
 
+	"github.com/tokyolab/dogx/apps/job/internal/repository"
+	"github.com/tokyolab/dogx/apps/job/internal/schedule"
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/job/rpc/types/job"
 	basemodel "github.com/tokyolab/dogx/pkg/model"
@@ -35,9 +37,28 @@ func (l *CreateJobLogic) CreateJob(in *job.CreateJobRequest) (*job.CreateJobResp
 	if in.Status != nil {
 		definition.Status = basemodel.RecordStatus(*in.Status)
 	}
-	id, err := l.svcCtx.Jobs.CreateJob(l.ctx, definition)
+	var id int64
+	err = l.svcCtx.Transactions(l.ctx, func(r repository.Repositories) error {
+		// Lock the group before creation so deletion cannot race this reference.
+		if err := r.Groups.LockAvailable(l.ctx, definition.ExecutorGroupID); err != nil {
+			return err
+		}
+		if definition.Status == basemodel.RecordStatusEnabled {
+			// Derive the initial progress after acquiring the lock, not from the
+			// earlier validation time, which may now be in the past.
+			next, err := schedule.Next(definition.CronExpr, l.svcCtx.Now())
+			if err != nil {
+				return invalidInput()
+			}
+			definition.NextTriggerAt = &next
+		}
+		var err error
+		id, err = r.Jobs.Create(l.ctx, definition)
+		return err
+	})
 	if err != nil {
-		return nil, serviceError(err)
+		return nil, jobManagementError("create job", err)
 	}
+	notifyJobChanged(l.ctx, l.svcCtx.NotifyJobChanged)
 	return &job.CreateJobResponse{Id: id}, nil
 }

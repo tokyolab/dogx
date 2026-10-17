@@ -29,13 +29,16 @@ func TestConfigDefaultsAndNamespaceIsolation(t *testing.T) {
 	if k.election != "/dogx/test/scheduler/election" || k.changed != "/dogx/test/scheduler/job-config-changed" {
 		t.Fatalf("unexpected namespace: %+v", k)
 	}
-	if _, err := New(nil, triggerServiceStub{}, config); err == nil {
+	if _, err := New(nil, triggerServiceStub{}, triggerServiceStub{}, config); err == nil {
 		t.Fatal("accepted nil etcd client")
 	}
-	if _, err := New(&clientv3.Client{}, nil, config); err == nil {
-		t.Fatal("accepted nil service")
+	if _, err := New(&clientv3.Client{}, triggerServiceStub{}, nil, config); err == nil {
+		t.Fatal("accepted nil creator")
 	}
-	if _, err := New(&clientv3.Client{}, triggerServiceStub{}, Config{}); err == nil {
+	if _, err := New(&clientv3.Client{}, nil, triggerServiceStub{}, config); err == nil {
+		t.Fatal("accepted nil rule source")
+	}
+	if _, err := New(&clientv3.Client{}, triggerServiceStub{}, triggerServiceStub{}, Config{}); err == nil {
 		t.Fatal("accepted invalid runtime namespace")
 	}
 }

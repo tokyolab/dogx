@@ -28,9 +28,9 @@ func (l *ListJobsLogic) ListJobs(in *job.ListJobsRequest) (*job.ListJobsResponse
 	if err != nil {
 		return nil, err
 	}
-	items, total, err := l.svcCtx.Jobs.ListJobs(l.ctx, filter)
+	items, total, err := l.svcCtx.JobRepo.List(l.ctx, filter)
 	if err != nil {
-		return nil, serviceError(err)
+		return nil, rpcOperationError("list jobs", err)
 	}
 	result := make([]*job.JobListItem, 0, len(items))
 	for _, item := range items {

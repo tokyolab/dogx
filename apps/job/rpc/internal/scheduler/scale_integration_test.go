@@ -11,8 +11,8 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 	"github.com/tokyolab/dogx/apps/job/internal/schedule"
-	"github.com/tokyolab/dogx/apps/job/internal/service"
 	"github.com/tokyolab/dogx/apps/job/internal/testutil"
+	"github.com/tokyolab/dogx/apps/job/internal/trigger"
 	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
@@ -25,12 +25,13 @@ type scaleCompletion struct {
 // trigger results. Completion lets the assertion include all 400 future Jobs.
 type scaleTriggerObserver struct {
 	TriggerService
+	RuleSource
 	loaded    chan []repository.Rule
 	completed chan scaleCompletion
 }
 
 func (o scaleTriggerObserver) LoadRules(ctx context.Context) ([]repository.Rule, error) {
-	rules, err := o.TriggerService.LoadRules(ctx)
+	rules, err := o.RuleSource.LoadRules(ctx)
 	if err == nil {
 		select {
 		case o.loaded <- rules:
@@ -40,7 +41,7 @@ func (o scaleTriggerObserver) LoadRules(ctx context.Context) ([]repository.Rule,
 	return rules, err
 }
 
-func (o scaleTriggerObserver) TriggerAutomatic(ctx context.Context, id int64) (service.AutomaticResult, error) {
+func (o scaleTriggerObserver) TriggerAutomatic(ctx context.Context, id int64) (trigger.AutomaticResult, error) {
 	result, err := o.TriggerService.TriggerAutomatic(ctx, id)
 	select {
 	case o.completed <- scaleCompletion{id: id, err: err}:
@@ -101,13 +102,21 @@ func TestEtcdPostgresFiveHundredRulesHundredDueSmoke(t *testing.T) {
 			dueIDs[definition.ID] = true
 		}
 	}
-	jobs, err := service.New(db)
+	jobs, err := repository.NewJobDefinitionRepository(db)
 	if err != nil {
 		t.Fatal(err)
 	}
-	observer := scaleTriggerObserver{TriggerService: jobs,
+	transact, err := repository.NewTransactionRunner(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	creator, err := trigger.New(transact)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observer := scaleTriggerObserver{TriggerService: creator, RuleSource: jobs,
 		loaded: make(chan []repository.Rule, 4), completed: make(chan scaleCompletion, ruleCount*2)}
-	r, err := New(f.replicaClient(t), observer, Config{Prefix: "/test/scale-smoke"})
+	r, err := New(f.replicaClient(t), observer, observer, Config{Prefix: "/test/scale-smoke"})
 	if err != nil {
 		t.Fatal(err)
 	}

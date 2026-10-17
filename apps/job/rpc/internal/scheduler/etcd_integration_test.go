@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
-	"github.com/tokyolab/dogx/apps/job/internal/service"
+	"github.com/tokyolab/dogx/apps/job/internal/trigger"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -37,7 +37,7 @@ func TestEtcdLossWaitsForOldTermBeforeLocalReelection(t *testing.T) {
 					}
 					return []repository.Rule{{ID: 42, CronExpr: "0 0 0 1 JAN *"}}, nil
 				},
-				trigger: func(ctx context.Context, _ int64) (service.AutomaticResult, error) {
+				trigger: func(ctx context.Context, _ int64) (trigger.AutomaticResult, error) {
 					triggers.Add(1)
 					if blockedWork == "automatic-operation" {
 						close(entered)
@@ -45,11 +45,11 @@ func TestEtcdLossWaitsForOldTermBeforeLocalReelection(t *testing.T) {
 						close(canceled)
 						<-release
 					}
-					return service.AutomaticResult{}, nil
+					return trigger.AutomaticResult{}, nil
 				},
 			}
 			prefix := "/test/cleanup/" + blockedWork
-			a, err := New(f.replicaClient(t), first, Config{Prefix: prefix})
+			a, err := New(f.replicaClient(t), first, first, Config{Prefix: prefix})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -60,7 +60,7 @@ func TestEtcdLossWaitsForOldTermBeforeLocalReelection(t *testing.T) {
 			t.Cleanup(releaseWork)
 			awaitSignal(t, entered)
 			candidateCtx := <-candidates
-			b, err := New(f.replicaClient(t), triggerServiceStub{}, Config{Prefix: prefix})
+			b, err := New(f.replicaClient(t), triggerServiceStub{}, triggerServiceStub{}, Config{Prefix: prefix})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -137,7 +137,7 @@ func (c *watchGapCoordination) watch(ctx context.Context, key string, revision i
 
 func TestEtcdWatchCompactionRebuildsAndPersistentNotificationsRemainHints(t *testing.T) {
 	f := newEtcdFixture(t)
-	r, err := New(f.replicaClient(t), triggerServiceStub{}, Config{Prefix: "/test/watch-compaction"})
+	r, err := New(f.replicaClient(t), triggerServiceStub{}, triggerServiceStub{}, Config{Prefix: "/test/watch-compaction"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestEtcdWatchCompactionRebuildsAndPersistentNotificationsRemainHints(t *tes
 func TestEtcdWatchRecoversAfterActualServerRestart(t *testing.T) {
 	f := newEtcdFixture(t)
 	replica := f.replicaClient(t)
-	r, err := New(replica, triggerServiceStub{}, Config{Prefix: "/test/watch-restart"})
+	r, err := New(replica, triggerServiceStub{}, triggerServiceStub{}, Config{Prefix: "/test/watch-restart"})
 	if err != nil {
 		t.Fatal(err)
 	}

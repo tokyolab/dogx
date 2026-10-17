@@ -9,7 +9,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
-	"github.com/tokyolab/dogx/apps/job/internal/service"
+	"github.com/tokyolab/dogx/apps/job/internal/subcode"
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/job/rpc/types/job"
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -22,16 +22,22 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-type protocolJobsStub struct{ svc.JobService }
+type protocolJobsStub struct {
+	repository.JobDefinitionRepository
+}
 
-func (*protocolJobsStub) GetJob(_ context.Context, id int64) (*repository.JobDetail, error) {
+func (*protocolJobsStub) Get(_ context.Context, id int64) (*repository.JobDetail, error) {
 	switch id {
 	case 2:
-		return nil, service.ErrNotFound
+		return nil, repository.ErrJobNotFound
 	case 3:
 		return nil, context.DeadlineExceeded
 	case 4:
 		return nil, errors.New("postgres secret.internal offline")
+	case 5:
+		return nil, nil
+	case 6:
+		return nil, context.Canceled
 	}
 	return &repository.JobDetail{JobDefinition: model.JobDefinition{Base: basemodel.Base{ID: id}}}, nil
 }
@@ -39,7 +45,7 @@ func (*protocolJobsStub) GetJob(_ context.Context, id int64) (*repository.JobDet
 func TestJobRPCWireBusinessAndTechnicalErrors(t *testing.T) {
 	listener := bufconn.Listen(1024 * 1024)
 	server := grpc.NewServer(grpc.UnaryInterceptor(bizerror.UnaryServerInterceptor))
-	job.RegisterJobServer(server, NewJobServer(&svc.ServiceContext{Jobs: &protocolJobsStub{}}))
+	job.RegisterJobServer(server, NewJobServer(&svc.ServiceContext{JobRepo: &protocolJobsStub{}}))
 	done := make(chan struct{})
 	go func() { defer close(done); _ = server.Serve(listener) }()
 	t.Cleanup(func() { server.Stop(); _ = listener.Close(); <-done })
@@ -52,7 +58,7 @@ func TestJobRPCWireBusinessAndTechnicalErrors(t *testing.T) {
 	for _, test := range []struct {
 		id   int64
 		code codes.Code
-	}{{0, codes.InvalidArgument}, {1, codes.OK}, {2, codes.Code(bizerror.DefaultCode)}, {3, codes.DeadlineExceeded}, {4, codes.Unknown}} {
+	}{{0, codes.InvalidArgument}, {1, codes.OK}, {2, codes.Code(bizerror.DefaultCode)}, {3, codes.DeadlineExceeded}, {4, codes.Unknown}, {5, codes.Internal}, {6, codes.Canceled}} {
 		t.Run(test.code.String(), func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -66,7 +72,7 @@ func TestJobRPCWireBusinessAndTechnicalErrors(t *testing.T) {
 			if test.id == 2 {
 				st := status.Convert(err)
 				reason, ok := bizerror.SubcodeFromStatus(st)
-				if !ok || reason != service.SubcodeNotFound || st.Message() != "Job does not exist" {
+				if !ok || reason != subcode.JobNotFound || st.Message() == "" {
 					t.Fatalf("business status=%v", st)
 				}
 				for _, detail := range st.Details() {

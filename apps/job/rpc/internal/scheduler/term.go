@@ -92,7 +92,7 @@ func (t *leaderTerm) worker() {
 		if t.ctx.Err() != nil {
 			return
 		}
-		// The process service owns the shared automatic/manual permit and the
+		// The process-scoped creator owns the shared automatic/manual permit and the
 		// complete 3-second operation budget; neither is recreated each term.
 		if _, err := t.runtime.trigger.TriggerAutomatic(t.ctx, id); err != nil && t.ctx.Err() == nil {
 			t.runtime.counters.triggerErrors.Add(1)
@@ -136,7 +136,7 @@ func (t *leaderTerm) configLoop() {
 			return
 		}
 		ctx, cancel := context.WithTimeout(t.ctx, t.runtime.timing.query)
-		rules, err := t.runtime.trigger.LoadRules(ctx)
+		rules, err := t.runtime.rules.LoadRules(ctx)
 		if err == nil {
 			// A dependency can finish unwinding after its deadline. Treat that
 			// result as failed even if it neglected to return the context error.
@@ -236,7 +236,7 @@ func (t *leaderTerm) recoverDue() {
 		return
 	}
 	ctx, cancel := context.WithTimeout(t.ctx, t.runtime.timing.query)
-	rows, err := t.runtime.trigger.ListDue(ctx, t.runtime.now(), t.runtime.config.RecoveryLimit)
+	rows, err := t.runtime.rules.ListDue(ctx, t.runtime.now(), t.runtime.config.RecoveryLimit)
 	if err == nil {
 		err = ctx.Err()
 	}

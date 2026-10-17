@@ -14,8 +14,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
-	"github.com/tokyolab/dogx/apps/job/internal/service"
 	"github.com/tokyolab/dogx/apps/job/internal/testutil"
+	"github.com/tokyolab/dogx/apps/job/internal/trigger"
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/config"
 	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"github.com/tokyolab/dogx/pkg/postgres"
@@ -63,7 +63,7 @@ func TestNewServiceContextWiresJobsAndClosesOfflineElection(t *testing.T) {
 			t.Errorf("close Job service: %v", err)
 		}
 	})
-	if s.Jobs == nil || s.etcd == nil || s.sqlDB == nil || s.done == nil || s.cancel == nil {
+	if s.JobRepo == nil || s.Transactions == nil || s.Trigger == nil || s.NotifyJobChanged == nil || s.etcd == nil || s.sqlDB == nil || s.done == nil || s.cancel == nil {
 		t.Fatal("service dependencies are incomplete")
 	}
 	if s.sqlDB.Stats().MaxOpenConnections != c.Postgres.MaxOpenConns {
@@ -79,19 +79,24 @@ func TestNewServiceContextWiresJobsAndClosesOfflineElection(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	id, err := s.Jobs.CreateJob(ctx, &model.JobDefinition{Name: "wired job", ExecutorGroupID: group.ID, ProcessorName: "Handler", ExecutionMode: model.ExecutionModeNormal, Params: "payload", CronExpr: "0 * * * * *", Status: basemodel.RecordStatusDisabled, RetryIntervalSeconds: 10, TimeoutSeconds: 900})
+	var id int64
+	err = s.Transactions(ctx, func(r repository.Repositories) error {
+		var createErr error
+		id, createErr = r.Jobs.Create(ctx, &model.JobDefinition{Name: "wired job", ExecutorGroupID: group.ID, ProcessorName: "Handler", ExecutionMode: model.ExecutionModeNormal, Params: "payload", CronExpr: "0 * * * * *", Status: basemodel.RecordStatusDisabled, RetryIntervalSeconds: 10, TimeoutSeconds: 900})
+		return createErr
+	})
 	if err != nil || id <= 0 {
 		t.Fatalf("create through wired service: id=%d error=%v", id, err)
 	}
-	detail, err := s.Jobs.GetJob(ctx, id)
+	detail, err := s.JobRepo.Get(ctx, id)
 	if err != nil || detail.Name != "wired job" || detail.ExecutorGroupName == nil || *detail.ExecutorGroupName != group.Name {
 		t.Fatalf("get through wired service: detail=%+v error=%v", detail, err)
 	}
-	items, total, err := s.Jobs.ListJobs(ctx, repository.JobFilter{Page: 1, PageSize: 20})
+	items, total, err := s.JobRepo.List(ctx, repository.JobFilter{Page: 1, PageSize: 20})
 	if err != nil || total != 1 || len(items) != 1 || items[0].ID != id {
 		t.Fatalf("list through wired service: total=%d items=%+v error=%v", total, items, err)
 	}
-	instanceID, err := s.Jobs.TriggerManual(ctx, service.ManualTrigger{JobID: id, RequestID: uuid.MustParse("12051a0f-76b8-4d88-897f-15ec600de323"), OperatorID: 42})
+	instanceID, err := s.Trigger.TriggerManual(ctx, trigger.ManualTrigger{JobID: id, RequestID: uuid.MustParse("12051a0f-76b8-4d88-897f-15ec600de323"), OperatorID: 42})
 	if err != nil || instanceID <= 0 {
 		t.Fatalf("manual trigger through wired service: id=%d error=%v", instanceID, err)
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -70,45 +71,45 @@ type JobDefinitionRepository interface {
 
 type jobDefinitionRepository struct{ db *gorm.DB }
 
-func NewJobDefinitionRepository(db *gorm.DB) JobDefinitionRepository {
-	return &jobDefinitionRepository{db: db}
+func NewJobDefinitionRepository(db *gorm.DB) (JobDefinitionRepository, error) {
+	if db == nil {
+		return nil, errors.New("job definition repository database is nil")
+	}
+	return &jobDefinitionRepository{db: db}, nil
 }
 
 const listColumns = `j.id, j.name, j.executor_group_id, g.name AS executor_group_name,
  j.processor_name, j.execution_mode, j.cron_expr, j.status,
  CASE WHEN j.status = 1 THEN j.next_trigger_at END AS next_trigger_at, j.created_at, j.updated_at`
-const groupJoin = ` LEFT JOIN job_executor_group g ON g.id = j.executor_group_id AND g.deleted_at IS NULL `
+const groupJoin = `LEFT JOIN job_executor_group g ON g.id = j.executor_group_id AND g.deleted_at IS NULL`
 
 func (r *jobDefinitionRepository) List(ctx context.Context, f JobFilter) ([]JobListItem, int64, error) {
 	if f.Page < 1 || f.PageSize < 1 || f.PageSize > 200 || f.Page-1 > (1<<63-1)/f.PageSize {
 		return nil, 0, errors.New("invalid job pagination")
 	}
-	where := "j.deleted_at IS NULL"
-	args := make([]any, 0, 6)
+	db := r.db.WithContext(ctx).Model(&model.JobDefinition{}).Table("job_definition AS j")
 	if f.ID != nil {
-		where += " AND j.id = ?"
-		args = append(args, *f.ID)
+		db = db.Where("j.id = ?", *f.ID)
 	}
 	if f.Name != "" {
-		where += " AND j.name ILIKE ? ESCAPE '!'"
-		args = append(args, literalContains(f.Name))
+		db = db.Where("j.name ILIKE ? ESCAPE '!'", literalContains(f.Name))
 	}
 	if f.ExecutorGroupID != nil {
-		where += " AND j.executor_group_id = ?"
-		args = append(args, *f.ExecutorGroupID)
+		db = db.Where("j.executor_group_id = ?", *f.ExecutorGroupID)
 	}
 	if f.Status != nil {
-		where += " AND j.status = ?"
-		args = append(args, *f.Status)
+		db = db.Where("j.status = ?", *f.Status)
 	}
 	var total int64
-	if err := r.db.WithContext(ctx).Raw("SELECT COUNT(*) FROM job_definition j WHERE "+where, args...).Scan(&total).Error; err != nil {
-		return nil, 0, err
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("count jobs: %w", err)
 	}
 	items := make([]JobListItem, 0)
-	args = append(args, f.PageSize, (f.Page-1)*f.PageSize)
-	err := r.db.WithContext(ctx).Raw("SELECT "+listColumns+" FROM job_definition j"+groupJoin+"WHERE "+where+" ORDER BY j.id DESC LIMIT ? OFFSET ?", args...).Scan(&items).Error
-	return items, total, err
+	if err := db.Select(listColumns).Joins(groupJoin).Order("j.id DESC").
+		Limit(int(f.PageSize)).Offset(int((f.Page - 1) * f.PageSize)).Find(&items).Error; err != nil {
+		return nil, 0, fmt.Errorf("list jobs: %w", err)
+	}
+	return items, total, nil
 }
 
 func literalContains(value string) string {
@@ -117,14 +118,15 @@ func literalContains(value string) string {
 
 func (r *jobDefinitionRepository) Get(ctx context.Context, id int64) (*JobDetail, error) {
 	var item JobDetail
-	result := r.db.WithContext(ctx).Raw("SELECT "+listColumns+`, j.remark, j.post_enabled, j.params,
- j.misfire_policy, j.block_policy, j.max_retries, j.retry_interval_seconds, j.timeout_seconds
- FROM job_definition j`+groupJoin+"WHERE j.id = ? AND j.deleted_at IS NULL", id).Scan(&item)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	if result.RowsAffected == 0 {
+	err := r.db.WithContext(ctx).Model(&model.JobDefinition{}).Table("job_definition AS j").
+		Select(listColumns+`, j.remark, j.post_enabled, j.params,
+ j.misfire_policy, j.block_policy, j.max_retries, j.retry_interval_seconds, j.timeout_seconds`).
+		Joins(groupJoin).Where("j.id = ?", id).Take(&item).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrJobNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get job: %w", err)
 	}
 	return &item, nil
 }
@@ -134,46 +136,70 @@ func (r *jobDefinitionRepository) Lock(ctx context.Context, id int64) (*model.Jo
 	// trigger accounting, enable and delete; instance queries MUST follow separately
 	// so READ COMMITTED observes the preceding holder's committed instance.
 	var job model.JobDefinition
-	result := r.db.WithContext(ctx).Raw(`SELECT id, name, executor_group_id, processor_name,
- execution_mode, post_enabled, params, cron_expr, status, misfire_policy, block_policy,
- max_retries, retry_interval_seconds, timeout_seconds, next_trigger_at, deleted_at
- FROM job_definition WHERE id = ? FOR UPDATE`, id).Scan(&job)
-	if result.Error != nil {
-		return nil, result.Error
+	// Unscoped is limited to this coordinating read: lock the physical row first,
+	// then reject a deletion committed by the preceding holder of the same lock.
+	err := r.db.WithContext(ctx).Unscoped().Clauses(clause.Locking{Strength: "UPDATE"}).
+		Select("id", "name", "executor_group_id", "processor_name", "execution_mode", "post_enabled",
+			"params", "cron_expr", "status", "misfire_policy", "block_policy", "max_retries",
+			"retry_interval_seconds", "timeout_seconds", "next_trigger_at", "deleted_at").
+		Where("id = ?", id).Take(&job).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrJobNotFound
 	}
-	if result.RowsAffected == 0 || job.DeletedAt.Valid {
+	if err != nil {
+		return nil, fmt.Errorf("lock job: %w", err)
+	}
+	if job.DeletedAt.Valid {
 		return nil, ErrJobNotFound
 	}
 	return &job, nil
 }
 
 func (r *jobDefinitionRepository) Create(ctx context.Context, j *model.JobDefinition) (int64, error) {
-	var id int64
-	err := r.db.WithContext(ctx).Raw(`INSERT INTO job_definition
- (name, remark, executor_group_id, processor_name, execution_mode, post_enabled, params,
- cron_expr, status, misfire_policy, block_policy, max_retries, retry_interval_seconds, timeout_seconds, next_trigger_at)
- VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-		j.Name, j.Remark, j.ExecutorGroupID, j.ProcessorName, j.ExecutionMode, j.PostEnabled, j.Params,
-		j.CronExpr, j.Status, j.MisfirePolicy, j.BlockPolicy, j.MaxRetries, j.RetryIntervalSeconds, j.TimeoutSeconds, j.NextTriggerAt).Scan(&id).Error
-	return id, err
+	if j == nil {
+		return 0, errors.New("job definition is nil")
+	}
+	// Creation accepts configuration only; a reused model must not carry another
+	// row's identity, audit timestamps or deletion marker into the new record.
+	record := *j
+	record.Base = basemodel.Base{}
+	if err := r.db.WithContext(ctx).Create(&record).Error; err != nil {
+		return 0, fmt.Errorf("create job: %w", err)
+	}
+	j.Base = record.Base
+	return record.ID, nil
 }
 
 func (r *jobDefinitionRepository) Update(ctx context.Context, id int64, j *model.JobDefinition) error {
-	result := r.db.WithContext(ctx).Exec(`UPDATE job_definition SET name = ?, remark = ?, executor_group_id = ?,
- processor_name = ?, execution_mode = ?, post_enabled = ?, params = ?, cron_expr = ?,
- misfire_policy = ?, block_policy = ?, max_retries = ?, retry_interval_seconds = ?, timeout_seconds = ?, updated_at = CURRENT_TIMESTAMP
- WHERE id = ? AND deleted_at IS NULL AND status = 0`, j.Name, j.Remark, j.ExecutorGroupID, j.ProcessorName,
-		j.ExecutionMode, j.PostEnabled, j.Params, j.CronExpr, j.MisfirePolicy, j.BlockPolicy,
-		j.MaxRetries, j.RetryIntervalSeconds, j.TimeoutSeconds, id)
+	if j == nil {
+		return errors.New("job definition is nil")
+	}
+	// Preserve false, zero and empty values while excluding status, progress and
+	// audit fields supplied by the caller. The state predicate coordinates enable.
+	result := r.db.WithContext(ctx).Model(&model.JobDefinition{}).
+		Where("id = ? AND status = ?", id, basemodel.RecordStatusDisabled).
+		Updates(map[string]any{
+			"name": j.Name, "remark": j.Remark, "executor_group_id": j.ExecutorGroupID,
+			"processor_name": j.ProcessorName, "execution_mode": j.ExecutionMode,
+			"post_enabled": j.PostEnabled, "params": j.Params, "cron_expr": j.CronExpr,
+			"misfire_policy": j.MisfirePolicy, "block_policy": j.BlockPolicy,
+			"max_retries": j.MaxRetries, "retry_interval_seconds": j.RetryIntervalSeconds,
+			"timeout_seconds": j.TimeoutSeconds,
+		})
 	return r.checkWrite(ctx, id, result)
 }
 
 func (r *jobDefinitionRepository) Enable(ctx context.Context, id int64, next time.Time) error {
-	return r.checkWrite(ctx, id, r.db.WithContext(ctx).Exec("UPDATE job_definition SET status = 1, next_trigger_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL AND status = 0", next, id))
+	result := r.db.WithContext(ctx).Model(&model.JobDefinition{}).
+		Where("id = ? AND status = ?", id, basemodel.RecordStatusDisabled).
+		Updates(map[string]any{"status": basemodel.RecordStatusEnabled, "next_trigger_at": next})
+	return r.checkWrite(ctx, id, result)
 }
 
 func (r *jobDefinitionRepository) Disable(ctx context.Context, id int64) error {
-	return r.checkWrite(ctx, id, r.db.WithContext(ctx).Exec("UPDATE job_definition SET status = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL", id))
+	result := r.db.WithContext(ctx).Model(&model.JobDefinition{}).
+		Where("id = ?", id).Update("status", basemodel.RecordStatusDisabled)
+	return r.checkWrite(ctx, id, result)
 }
 
 func (r *jobDefinitionRepository) Delete(ctx context.Context, id int64) error {
@@ -182,12 +208,14 @@ func (r *jobDefinitionRepository) Delete(ctx context.Context, id int64) error {
 }
 
 func (r *jobDefinitionRepository) Advance(ctx context.Context, id int64, next time.Time) error {
-	return r.checkWrite(ctx, id, r.db.WithContext(ctx).Exec("UPDATE job_definition SET next_trigger_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL AND status = 1", next, id))
+	result := r.db.WithContext(ctx).Model(&model.JobDefinition{}).
+		Where("id = ? AND status = ?", id, basemodel.RecordStatusEnabled).Update("next_trigger_at", next)
+	return r.checkWrite(ctx, id, result)
 }
 
 func (r *jobDefinitionRepository) checkWrite(ctx context.Context, id int64, result *gorm.DB) error {
 	if result.Error != nil {
-		return result.Error
+		return fmt.Errorf("write job: %w", result.Error)
 	}
 	if result.RowsAffected == 1 {
 		return nil
@@ -195,20 +223,25 @@ func (r *jobDefinitionRepository) checkWrite(ctx context.Context, id int64, resu
 	if result.RowsAffected != 0 {
 		return fmt.Errorf("job write affected %d rows", result.RowsAffected)
 	}
-	var exists bool
-	if err := r.db.WithContext(ctx).Raw("SELECT EXISTS (SELECT 1 FROM job_definition WHERE id = ? AND deleted_at IS NULL)", id).Scan(&exists).Error; err != nil {
-		return err
-	}
-	if !exists {
+	var job model.JobDefinition
+	err := r.db.WithContext(ctx).Select("id").Where("id = ?", id).Take(&job).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return ErrJobNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("check job after write: %w", err)
 	}
 	return ErrJobStateNotAllowed
 }
 
 func (r *jobDefinitionRepository) LoadRules(ctx context.Context) ([]Rule, error) {
 	rules := make([]Rule, 0)
-	err := r.db.WithContext(ctx).Raw("SELECT id, cron_expr FROM job_definition WHERE deleted_at IS NULL AND status = 1").Scan(&rules).Error
-	return rules, err
+	err := r.db.WithContext(ctx).Model(&model.JobDefinition{}).
+		Select("id", "cron_expr").Where("status = ?", basemodel.RecordStatusEnabled).Find(&rules).Error
+	if err != nil {
+		return nil, fmt.Errorf("load job rules: %w", err)
+	}
+	return rules, nil
 }
 
 func (r *jobDefinitionRepository) ListDue(ctx context.Context, at time.Time, limit int) ([]DueJob, error) {
@@ -217,8 +250,11 @@ func (r *jobDefinitionRepository) ListDue(ctx context.Context, at time.Time, lim
 	}
 	items := make([]DueJob, 0)
 	// Literal status and null predicates allow the generic plan to use the partial index.
-	err := r.db.WithContext(ctx).Raw(`SELECT id, next_trigger_at FROM job_definition
- WHERE deleted_at IS NULL AND status = 1 AND next_trigger_at IS NOT NULL AND next_trigger_at <= ?
- ORDER BY next_trigger_at, id LIMIT ?`, at, limit).Scan(&items).Error
-	return items, err
+	err := r.db.WithContext(ctx).Model(&model.JobDefinition{}).Select("id", "next_trigger_at").
+		Where("status = 1 AND next_trigger_at IS NOT NULL AND next_trigger_at <= ?", at).
+		Order("next_trigger_at, id").Limit(limit).Find(&items).Error
+	if err != nil {
+		return nil, fmt.Errorf("list due jobs: %w", err)
+	}
+	return items, nil
 }

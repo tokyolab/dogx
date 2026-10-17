@@ -8,7 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tokyolab/dogx/apps/job/internal/service"
+	"github.com/tokyolab/dogx/apps/job/internal/repository"
+	"github.com/tokyolab/dogx/apps/job/internal/trigger"
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/config"
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/scheduler"
 	"github.com/tokyolab/dogx/pkg/postgres"
@@ -18,15 +19,18 @@ import (
 )
 
 type ServiceContext struct {
-	Config    config.Config
-	Jobs      JobService
-	Clock     func() time.Time
-	cancel    context.CancelFunc
-	done      chan struct{}
-	etcd      *clientv3.Client
-	sqlDB     *sql.DB
-	closeOnce sync.Once
-	closeErr  error
+	Config           config.Config
+	JobRepo          repository.JobDefinitionRepository
+	Transactions     repository.TransactionRunner
+	Trigger          ManualTrigger
+	NotifyJobChanged func(context.Context) error
+	Clock            func() time.Time
+	cancel           context.CancelFunc
+	done             chan struct{}
+	etcd             *clientv3.Client
+	sqlDB            *sql.DB
+	closeOnce        sync.Once
+	closeErr         error
 }
 
 func NewServiceContext(c config.Config) (*ServiceContext, error) {
@@ -53,21 +57,34 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		_ = etcd.Close()
 		return nil, err
 	}
-	var runtime *scheduler.Runtime
-	jobs, err := service.New(db, service.WithCreationLimits(c.Scheduler.CreationConcurrency, c.Scheduler.CreationBudget), service.WithNotifier(func(ctx context.Context) error { return runtime.Notify(ctx) }))
+	jobs, err := repository.NewJobDefinitionRepository(db)
 	if err != nil {
 		_ = sqlDB.Close()
 		_ = etcd.Close()
 		return nil, err
 	}
-	runtime, err = scheduler.New(etcd, jobs, scheduler.Config{Prefix: c.Scheduler.Prefix, QueueCapacity: c.Scheduler.QueueCapacity, CreationConcurrency: c.Scheduler.CreationConcurrency, LeaseTTLSeconds: c.Scheduler.LeaseTTLSeconds, RecoveryLimit: c.Scheduler.RecoveryLimit, QueryTimeout: c.Scheduler.QueryTimeout})
+	transactions, err := repository.NewTransactionRunner(db)
+	if err != nil {
+		_ = sqlDB.Close()
+		_ = etcd.Close()
+		return nil, err
+	}
+	// One process-scoped creator shares its limits between manual requests and
+	// every elected term; leadership changes must not reset creation permits.
+	creator, err := trigger.New(transactions, trigger.WithCreationLimits(c.Scheduler.CreationConcurrency, c.Scheduler.CreationBudget))
+	if err != nil {
+		_ = sqlDB.Close()
+		_ = etcd.Close()
+		return nil, err
+	}
+	runtime, err := scheduler.New(etcd, jobs, creator, scheduler.Config{Prefix: c.Scheduler.Prefix, QueueCapacity: c.Scheduler.QueueCapacity, CreationConcurrency: c.Scheduler.CreationConcurrency, LeaseTTLSeconds: c.Scheduler.LeaseTTLSeconds, RecoveryLimit: c.Scheduler.RecoveryLimit, QueryTimeout: c.Scheduler.QueryTimeout})
 	if err != nil {
 		_ = sqlDB.Close()
 		_ = etcd.Close()
 		return nil, err
 	}
 	runCtx, cancel := context.WithCancel(context.Background())
-	result := &ServiceContext{Config: c, Jobs: jobs, cancel: cancel, done: make(chan struct{}), etcd: etcd, sqlDB: sqlDB}
+	result := &ServiceContext{Config: c, JobRepo: jobs, Transactions: transactions, Trigger: creator, NotifyJobChanged: runtime.Notify, cancel: cancel, done: make(chan struct{}), etcd: etcd, sqlDB: sqlDB}
 	go func() {
 		defer close(result.done)
 		if err := runtime.Run(runCtx); err != nil && !errors.Is(err, context.Canceled) {

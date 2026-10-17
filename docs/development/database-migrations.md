@@ -87,6 +87,16 @@ Job 同样遵守时间戳开发版本、发布前 `fix`、显式 `Up`／`Down` �
 
 `RecordStatus` 是跨域通用基础类型，不是业务专属状态机。`Status` 字段由各模型自行声明，不放进 Base；启停业务行为以及 Instance／Task 运行状态、执行模式等专属类型仍由所属域维护，不因枚举复用而共用业务逻辑。
 
+## 数据访问实现约定 {#data-access-style}
+
+新增业务域或 Repository 前，先查看 System 中同类查询和写入。普通 CRUD 默认沿用 GORM 的 `Model/Where/Find/Create/Updates/Delete`；调度业务有并发要求，不代表普通增删改查需要全部改成 Raw／Exec。一个 Model 对应一个 Repository，不为统一调用形式新增基类、通用 Repository 或跨域业务数据层。
+
+- 多字段更新用 `Updates(map[string]any)` 明确列出可写列，保存合法的 `0`、`false`、空字符串和 NULL。不要用 `Save` 或全量结构体更新，意外覆盖状态、进度、主键和创建时间等不属于本次操作的字段。
+- 普通创建／更新和软删除沿用 System 的 GORM 默认审计时间行为：创建／更新由模型回调维护；`Delete` 只维护 `deleted_at`，不额外补写 `updated_at`，不增加补写 Hook 或事务。仍使用 Raw／Exec 的例外按前述规则显式维护审计时间。
+- GORM 链可以包含 SQL 表达式、JOIN、子查询和 `clause.Locking`；它们不是要求整条查询改成 Raw 的理由。对关联表的软删除过滤须显式核对，不能假设 GORM 自动处理手写 JOIN 中的每张表。
+- 复杂语句确需 Raw／Exec 时，在对应实现说明具体理由并提供测试；涉及 PostgreSQL 冲突处理、JSONB、部分索引或并发的行为，须用真实 PostgreSQL 集成测试验证，不能只靠 SQL 字符串测试。不是禁止 SQL，也不为减少 Raw 数量牺牲查询可读性或原有协议。
+- 调整写法不改变事务边界、单主键行锁、锁后独立查询、原子更新条件及影响行数判断。必须保留部分索引依赖的固定谓词，不能将条件更新退化为先查询再无条件更新，也不能将需要新语句快照的查询合并进取锁语句。
+
 ## 字段类型与长度 {#column-types}
 
 字段类型表达数据的用途和边界，不只比较数据库的存储实现。短字符串优先沿用项目现有 `VARCHAR(n)` 的建模方式，不因 PostgreSQL 的 `TEXT` 与 `VARCHAR` 存储特性接近，或为省去未来改表，就把所有字符串统一设计为 `TEXT`。

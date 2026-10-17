@@ -1,5 +1,5 @@
 // Package scheduler runs the Job trigger leader in the management RPC process.
-// Its hints only identify Jobs; the service rereads database facts before creating
+// Its hints only identify Jobs; the creator rereads database facts before creating
 // a WAITING Instance. No Task execution or Instance ownership lives here.
 package scheduler
 
@@ -13,15 +13,18 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
-	"github.com/tokyolab/dogx/apps/job/internal/service"
+	"github.com/tokyolab/dogx/apps/job/internal/trigger"
 	"github.com/zeromicro/go-zero/core/logx"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-type TriggerService interface {
+type RuleSource interface {
 	LoadRules(context.Context) ([]repository.Rule, error)
 	ListDue(context.Context, time.Time, int) ([]repository.DueJob, error)
-	TriggerAutomatic(context.Context, int64) (service.AutomaticResult, error)
+}
+
+type TriggerService interface {
+	TriggerAutomatic(context.Context, int64) (trigger.AutomaticResult, error)
 }
 
 type cronEngine interface {
@@ -36,6 +39,7 @@ type Runtime struct {
 	config       Config
 	keys         keys
 	trigger      TriggerService
+	rules        RuleSource
 	coordination coordination
 	timing       timings
 	now          func() time.Time
@@ -60,9 +64,9 @@ func (r *Runtime) Stats() Stats {
 		r.counters.loadErrors.Load(), r.counters.recoveryErrors.Load(), r.counters.watchRestarts.Load(), r.counters.notificationErrors.Load()}
 }
 
-func New(client *clientv3.Client, trigger TriggerService, config Config) (*Runtime, error) {
-	if client == nil || trigger == nil {
-		return nil, errors.New("scheduler requires etcd and trigger service")
+func New(client *clientv3.Client, rules RuleSource, trigger TriggerService, config Config) (*Runtime, error) {
+	if client == nil || rules == nil || trigger == nil {
+		return nil, errors.New("scheduler requires etcd, rule source and trigger creator")
 	}
 	cfg, err := config.defaults()
 	if err != nil {
@@ -70,7 +74,7 @@ func New(client *clientv3.Client, trigger TriggerService, config Config) (*Runti
 	}
 	timing := defaultTimings()
 	timing.query = cfg.QueryTimeout
-	return &Runtime{config: cfg, keys: makeKeys(cfg.Prefix), trigger: trigger,
+	return &Runtime{config: cfg, keys: makeKeys(cfg.Prefix), rules: rules, trigger: trigger,
 		coordination: etcdCoordination{client: client, request: timing.request}, timing: timing, now: time.Now,
 		newCron: func() cronEngine { return cron.New(cron.WithLocation(time.Local)) }}, nil
 }

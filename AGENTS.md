@@ -34,8 +34,12 @@
 - `apps/<domain>/internal/repository` 封装该业务域的普通业务数据访问；API/BFF 不得直接导入普通业务 Model、Repository，不得访问普通业务表或初始化通用业务数据库连接。
 - 只有架构 ADR 明确批准的基础设施或安全只读投影可以例外。当前唯一例外是 `system-api` 按 [ADR-0005](docs/adr/0005-casbin-runtime-and-policy-sync.md) 通过官方 Casbin GORM Adapter 从 `casbin_rule` 加载本地鉴权快照；该连接不得访问普通业务表，API 不得调用策略写入方法，策略持久化仍由 `system-rpc` 负责。
 - RPC 保持 go-zero 的“一项接口操作对应一个 Logic”结构；Logic 负责业务用例编排和业务错误转换，不直接调用 GORM、手写 SQL 或解析数据库驱动错误。
+- 同场景优先与已有 System 实现保持一致；认为现有方式不适用时先说明差异并评审，不得以新增业务域为由另建一套 CRUD、分层或错误体系。
 - 一个 Model 对应一个 Repository；接口、构造函数、读写实现及其专用类型统一放在 `<model>_repository.go`，不得按功能或读写拆成多个 Repository 或实现文件，也不得建立机械转发 ORM 的通用 BaseRepository。
-- Repository 负责查询、持久化事务、锁及数据库约束错误转换；跨多个聚合、Casbin、Session 或事件发布的业务事务由显式业务服务编排，不塞入通用 Repository。
+- Repository 负责查询、持久化事务、锁及数据库约束错误转换。单一 RPC 管理用例在对应 Logic 编排，可通过域内事务适配取得绑定同一事务的 Repository；适配只管理事务句柄和提交／回滚，不承载业务规则，不因使用事务强制增加 Service 层。
+- 跨入口复用、独立生命周期或复杂协作（如自动／手动触发、Casbin 策略）的业务职责按需提取具名组件，不建立接收本域全部业务的大 Service。运行组件不依赖 RPC DTO、gRPC Code 或对外 subcode，普通查询不通过组件机械转发。
+- 内部错误按产生它的 Repository 或运行组件归属，不建立本域总 errors 包或重新导出仓储错误；稳定业务 subcode 放在本域 `internal/subcode`。Logic 自身判断的业务失败可直接构造 `bizerror`，跨层错误用 `errors.Is/As` 判断并在接口边界转换，技术错误保留 `%w` 原因链。
+- 调度的正常决策（未到期、已停用、阻塞丢弃等）与技术失败分开表达；事务回调成功不等于提交成功，未确认提交时不得发布成功结果或提交后通知。Context 取消不是业务取消，RPC 超时不是整轮超时；不能把结果不确定伪装成成功或确定回滚。声明成功必须返回实体的仓储若返回 `(nil, nil)`，按内部错误处理，不伪装成不存在；允许未命中的查询按各自契约处理。
 - 同一业务域的 RPC、MQ、Job 等后端进程可以复用该业务域 `internal` 下的数据层；其他业务域不得直接访问其模型或数据表。
 - 需要跨业务域传递的字段、枚举和消息必须定义在 Protobuf 或版本化事件契约中；其他业务域通过 RPC 客户端或事件契约使用，不复制常量，也不导入持久化模型。
 - `pkg` 只放跨进程或跨业务域复用的稳定技术组件，不放用户、角色、菜单等业务模型或业务常量；只被单个进程使用的代码放在对应 `internal` 中。
@@ -51,6 +55,9 @@
 
 ## PostgreSQL 与 GORM
 
+- 新增业务域或 Repository 前先查阅 System 中同类实现；普通 CRUD 默认沿用 GORM 的 `Model/Where/Find/Create/Updates/Delete` 风格，不因调度场景就整批改为 Raw／Exec，也不为统一写法新增基类或通用 Repository。详见[数据访问实现约定](docs/development/database-migrations.md#data-access-style)。
+- 多字段更新使用 `Updates(map[string]any)` 显式列出可写字段，保留合法的 `0`、`false`、空字符串和 NULL；不得用 `Save` 或全量结构体更新覆盖状态、调度进度等非本次操作字段。
+- GORM 链中允许明确的 SQL 表达式、JOIN 和子查询；复杂语句确需 Raw／Exec 时逐项说明理由并提供对应测试，不机械禁用 SQL。写法调整必须保留原子条件、影响行数判断、软删除过滤、部分索引谓词及事务／行锁语义，不能把有条件更新改成先查后无条件写入。
 - 具有技术主键、创建时间、更新时间和软删除时间的实体嵌入 `pkg/model.Base`，不得在各域重复定义。`ID` 是技术主键；`CreatedAt` 记录创建时间；`UpdatedAt` 记录最后更新时间；`DeletedAt` 记录软删除时间并提供 GORM 默认软删除过滤。这三个时间字段仅用于审计和记录生命周期，不承担调度进度、配置版本、执行期限等业务语义；业务判断需要独立字段。详见[基础模型与审计字段](docs/development/database-migrations.md#base-model)。
 - 普通更新（包括 Job 触发进度推进）应维护 `updated_at`，Raw／Exec 不经过 GORM 自动时间回调时须显式写入。软删除沿用 GORM `Delete` 的默认行为，仅维护 `deleted_at`，不为补写 `updated_at` 增加事务或 Hook。没有软删除语义的 Instance、日志、关系表等不强行嵌入 Base。
 - 有合理长度边界的短字符串（名称、编码、标识、表达式、备注等）使用 `VARCHAR(n)`，长度依据字段语义和已有同类字段确定；业务参数、长内容等按实际用途使用 `TEXT`，结构化数据按契约选择 `JSONB`。不得因 PostgreSQL 的存储特性或省去未来改表而将字符串一律设计为 `TEXT`。

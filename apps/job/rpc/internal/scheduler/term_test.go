@@ -9,12 +9,12 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
-	"github.com/tokyolab/dogx/apps/job/internal/service"
+	"github.com/tokyolab/dogx/apps/job/internal/trigger"
 )
 
-func unitRuntime(trigger TriggerService) *Runtime {
+func unitRuntime(trigger triggerServiceStub) *Runtime {
 	return &Runtime{config: Config{Prefix: "/test/unit", QueueCapacity: 1024, CreationConcurrency: 32, LeaseTTLSeconds: 15, RecoveryLimit: 1024, QueryTimeout: 5 * time.Second},
-		keys: makeKeys("/test/unit"), trigger: trigger, timing: defaultTimings(), now: time.Now,
+		keys: makeKeys("/test/unit"), trigger: trigger, rules: trigger, timing: defaultTimings(), now: time.Now,
 		coordination: coordinationStub{}, newCron: func() cronEngine { return cron.New(cron.WithLocation(time.Local)) }}
 }
 
@@ -176,13 +176,13 @@ func TestRecoveryUsesOneBoundedBatchAndWorkersKeepTermContext(t *testing.T) {
 			}
 			return []repository.DueJob{{ID: 1}, {ID: 2}, {ID: 3}}, nil
 		},
-		trigger: func(ctx context.Context, id int64) (service.AutomaticResult, error) {
+		trigger: func(ctx context.Context, id int64) (trigger.AutomaticResult, error) {
 			if ctx.Err() != nil || id != 1 {
 				t.Errorf("query context leaked into worker: job=%d error=%v", id, ctx.Err())
 			}
 			triggered <- struct{}{}
 			cancel()
-			return service.AutomaticResult{}, nil
+			return trigger.AutomaticResult{}, nil
 		},
 	})
 	r.config.QueueCapacity = 1
@@ -207,12 +207,12 @@ func TestInitialLoadFailureDoesNotStopIndependentRecovery(t *testing.T) {
 		due: func(context.Context, time.Time, int) ([]repository.DueJob, error) {
 			return []repository.DueJob{{ID: 42}}, nil
 		},
-		trigger: func(ctx context.Context, id int64) (service.AutomaticResult, error) {
+		trigger: func(ctx context.Context, id int64) (trigger.AutomaticResult, error) {
 			if id != 42 || ctx.Err() != nil {
 				t.Errorf("unexpected recovered job/context: %d %v", id, ctx.Err())
 			}
 			close(recovered)
-			return service.AutomaticResult{}, nil
+			return trigger.AutomaticResult{}, nil
 		},
 	})
 	c := &cronStub{}
@@ -289,10 +289,10 @@ func TestWorkerFailureDoesNotGenerateItsOwnHint(t *testing.T) {
 	defer cancel()
 	finished := make(chan struct{}, 2)
 	var calls atomic.Int32
-	r := unitRuntime(triggerServiceStub{trigger: func(context.Context, int64) (service.AutomaticResult, error) {
+	r := unitRuntime(triggerServiceStub{trigger: func(context.Context, int64) (trigger.AutomaticResult, error) {
 		calls.Add(1)
 		finished <- struct{}{}
-		return service.AutomaticResult{}, errors.New("database unavailable")
+		return trigger.AutomaticResult{}, errors.New("database unavailable")
 	}})
 	term := unitTerm(ctx, r, &cronStub{})
 	done := make(chan struct{})

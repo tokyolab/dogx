@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"github.com/tokyolab/dogx/apps/job/internal/service"
 
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/job/rpc/types/job"
@@ -28,12 +27,12 @@ func (l *GetJobLogic) GetJob(in *job.GetJobRequest) (*job.GetJobResponse, error)
 	if in == nil || in.Id <= 0 {
 		return nil, invalidInput()
 	}
-	item, err := l.svcCtx.Jobs.GetJob(l.ctx, in.Id)
+	item, err := l.svcCtx.JobRepo.Get(l.ctx, in.Id)
 	if err != nil {
-		return nil, serviceError(err)
+		return nil, jobManagementError("get job", err)
 	}
 	if item == nil {
-		return nil, serviceError(service.ErrNotFound)
+		return nil, missingJobRecord()
 	}
 	return &job.GetJobResponse{Job: jobInfo(item)}, nil
 }

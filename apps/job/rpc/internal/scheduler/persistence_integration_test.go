@@ -9,13 +9,14 @@ import (
 
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
-	"github.com/tokyolab/dogx/apps/job/internal/service"
 	"github.com/tokyolab/dogx/apps/job/internal/testutil"
+	"github.com/tokyolab/dogx/apps/job/internal/trigger"
 	basemodel "github.com/tokyolab/dogx/pkg/model"
 )
 
 type observedTrigger struct {
 	TriggerService
+	RuleSource
 	loads    chan ruleObservation
 	due      chan dueObservation
 	triggers chan int64
@@ -34,7 +35,7 @@ type dueObservation struct {
 }
 
 func (o observedTrigger) LoadRules(ctx context.Context) ([]repository.Rule, error) {
-	rules, err := o.TriggerService.LoadRules(ctx)
+	rules, err := o.RuleSource.LoadRules(ctx)
 	if err == nil {
 		select {
 		case o.loads <- ruleObservation{at: time.Now(), rules: rules}:
@@ -45,7 +46,7 @@ func (o observedTrigger) LoadRules(ctx context.Context) ([]repository.Rule, erro
 }
 
 func (o observedTrigger) ListDue(ctx context.Context, at time.Time, limit int) ([]repository.DueJob, error) {
-	rows, err := o.TriggerService.ListDue(ctx, at, limit)
+	rows, err := o.RuleSource.ListDue(ctx, at, limit)
 	if err == nil {
 		select {
 		case o.due <- dueObservation{at: time.Now(), rows: rows}:
@@ -55,7 +56,7 @@ func (o observedTrigger) ListDue(ctx context.Context, at time.Time, limit int) (
 	return rows, err
 }
 
-func (o observedTrigger) TriggerAutomatic(ctx context.Context, id int64) (service.AutomaticResult, error) {
+func (o observedTrigger) TriggerAutomatic(ctx context.Context, id int64) (trigger.AutomaticResult, error) {
 	select {
 	case o.triggers <- id:
 	default:
@@ -75,12 +76,20 @@ func TestEtcdPostgresFailoverAndRealMinuteFallback(t *testing.T) {
 	if err := db.Create(&group).Error; err != nil {
 		t.Fatal(err)
 	}
-	// Each replica has its own real service and process concurrency permits.
-	jobsA, err := service.New(db)
+	jobs, err := repository.NewJobDefinitionRepository(db)
 	if err != nil {
 		t.Fatal(err)
 	}
-	jobsB, err := service.New(db)
+	transact, err := repository.NewTransactionRunner(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Each replica has its own creator and process concurrency permits.
+	jobsA, err := trigger.New(transact)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobsB, err := trigger.New(transact)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +97,7 @@ func TestEtcdPostgresFailoverAndRealMinuteFallback(t *testing.T) {
 		ExecutionMode: model.ExecutionModeNormal, Params: "original parameters", CronExpr: "0 0 0 1 JAN *",
 		Status: basemodel.RecordStatusDisabled, MisfirePolicy: model.MisfireOnce, BlockPolicy: model.BlockParallel,
 		RetryIntervalSeconds: 10, TimeoutSeconds: 900}
-	jobID, err := jobsA.CreateJob(context.Background(), &definition)
+	jobID, err := jobs.Create(context.Background(), &definition)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +119,8 @@ func TestEtcdPostgresFailoverAndRealMinuteFallback(t *testing.T) {
 	loads, due, triggers := make(chan ruleObservation, 32), make(chan dueObservation, 32), make(chan int64, 32)
 	finished := make(chan string, 32)
 	prefix := "/test/persisted-failover"
-	a, err := New(f.replicaClient(t), observedTrigger{TriggerService: jobsA, loads: loads, due: due, triggers: triggers, finished: finished, source: "a"}, Config{Prefix: prefix})
+	observerA := observedTrigger{TriggerService: jobsA, RuleSource: jobs, loads: loads, due: due, triggers: triggers, finished: finished, source: "a"}
+	a, err := New(f.replicaClient(t), observerA, observerA, Config{Prefix: prefix})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +133,8 @@ func TestEtcdPostgresFailoverAndRealMinuteFallback(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("first replica did not start the locked automatic operation")
 	}
-	b, err := New(f.replicaClient(t), observedTrigger{TriggerService: jobsB, loads: loads, due: due, triggers: triggers, finished: finished, source: "b"}, Config{Prefix: prefix})
+	observerB := observedTrigger{TriggerService: jobsB, RuleSource: jobs, loads: loads, due: due, triggers: triggers, finished: finished, source: "b"}
+	b, err := New(f.replicaClient(t), observerB, observerB, Config{Prefix: prefix})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +216,7 @@ func TestEtcdPostgresFailoverAndRealMinuteFallback(t *testing.T) {
 	}
 	fallbackStarted := time.Now()
 	definition.Name = "committed without notification"
-	secondID, err := jobsB.CreateJob(context.Background(), &definition)
+	secondID, err := jobs.Create(context.Background(), &definition)
 	if err != nil {
 		t.Fatal(err)
 	}

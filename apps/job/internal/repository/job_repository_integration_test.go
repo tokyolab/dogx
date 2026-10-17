@@ -34,7 +34,11 @@ func repositoryFixture(t *testing.T) (*gorm.DB, *model.JobDefinition) {
 	due := time.Date(2026, 10, 16, 12, 0, 0, 123456000, time.UTC)
 	job := &model.JobDefinition{Name: "job", ExecutorGroupID: group.ID, ProcessorName: "Processor", ExecutionMode: model.ExecutionModeNormal,
 		CronExpr: "0 * * * * *", Status: basemodel.RecordStatusDisabled, RetryIntervalSeconds: 10, TimeoutSeconds: 900, NextTriggerAt: &due}
-	id, err := NewJobDefinitionRepository(tx).Create(context.Background(), job)
+	repo, err := NewJobDefinitionRepository(tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := repo.Create(context.Background(), job)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +49,10 @@ func repositoryFixture(t *testing.T) (*gorm.DB, *model.JobDefinition) {
 func TestJobRepositoryListLiteralFiltersAndMissingGroup(t *testing.T) {
 	db, job := repositoryFixture(t)
 	ctx := context.Background()
-	repo := NewJobDefinitionRepository(db)
+	repo, err := NewJobDefinitionRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
 	job.Name = "50%_Done! 中文"
 	if err := repo.Update(ctx, job.ID, job); err != nil {
 		t.Fatal(err)
@@ -60,7 +67,10 @@ func TestJobRepositoryListLiteralFiltersAndMissingGroup(t *testing.T) {
 		t.Fatal(err)
 	}
 	trace := &queryCounter{Interface: logger.Default.LogMode(logger.Silent)}
-	repo = NewJobDefinitionRepository(db.Session(&gorm.Session{Logger: trace}))
+	repo, err = NewJobDefinitionRepository(db.Session(&gorm.Session{Logger: trace}))
+	if err != nil {
+		t.Fatal(err)
+	}
 	status := basemodel.RecordStatusDisabled
 	items, total, err := repo.List(ctx, JobFilter{Page: 1, PageSize: 20, ID: &job.ID, Name: "%_done!", ExecutorGroupID: &job.ExecutorGroupID, Status: &status})
 	if err != nil || total != 1 || len(items) != 1 {
@@ -94,7 +104,10 @@ func TestJobRepositoryListLiteralFiltersAndMissingGroup(t *testing.T) {
 func TestJobRepositoryWritesZeroValuesAndPreservesProgress(t *testing.T) {
 	db, job := repositoryFixture(t)
 	ctx := context.Background()
-	repo := NewJobDefinitionRepository(db)
+	repo, err := NewJobDefinitionRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
 	job.ExecutionMode, job.PostEnabled, job.MaxRetries = model.ExecutionModeSharded, true, 5
 	job.Params, job.Remark = "payload", "remark"
 	if err := repo.Update(ctx, job.ID, job); err != nil {
@@ -162,6 +175,111 @@ func TestJobRepositoryWritesZeroValuesAndPreservesProgress(t *testing.T) {
 	}
 }
 
+func TestJobRepositoryCreateDoesNotReuseIdentityOrAuditFields(t *testing.T) {
+	db, job := repositoryFixture(t)
+	ctx := context.Background()
+	repo, err := NewJobDefinitionRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalID := job.ID
+	oldAuditTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	job.CreatedAt, job.UpdatedAt = oldAuditTime, oldAuditTime
+	job.DeletedAt = gorm.DeletedAt{Time: oldAuditTime, Valid: true}
+	previousID := originalID
+	for range 2 {
+		id, err := repo.Create(ctx, job)
+		if err != nil || id <= 0 || id == originalID || id == previousID {
+			t.Fatalf("reused model create id=%d previous=%d original=%d err=%v", id, previousID, originalID, err)
+		}
+		var stored model.JobDefinition
+		if err := db.First(&stored, id).Error; err != nil {
+			t.Fatalf("new Job is not visible in the default scope: %v", err)
+		}
+		if stored.DeletedAt.Valid || !stored.CreatedAt.After(oldAuditTime) || !stored.UpdatedAt.After(oldAuditTime) {
+			t.Fatalf("new Job reused audit fields: %+v", stored.Base)
+		}
+		if stored.Name != job.Name || stored.ExecutorGroupID != job.ExecutorGroupID || stored.NextTriggerAt == nil || !stored.NextTriggerAt.Equal(*job.NextTriggerAt) {
+			t.Fatalf("new Job lost supplied configuration: %+v", stored)
+		}
+		previousID = id
+	}
+	var count int64
+	if err := db.Model(&model.JobDefinition{}).Count(&count).Error; err != nil || count != 3 {
+		t.Fatalf("repeat create overwrote an existing Job: count=%d err=%v", count, err)
+	}
+}
+
+func TestJobRepositoryReadsExcludeDeletedEnabledJobs(t *testing.T) {
+	db, job := repositoryFixture(t)
+	ctx := context.Background()
+	repo, err := NewJobDefinitionRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Enable(ctx, job.ID, *job.NextTriggerAt); err != nil {
+		t.Fatal(err)
+	}
+	deleted := *job
+	deleted.Status = basemodel.RecordStatusEnabled
+	deletedID, err := repo.Create(ctx, &deleted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Keep the deleted row enabled and due so status or time filters cannot mask
+	// a missing soft-delete scope in the scheduler's configuration queries.
+	if err := db.Delete(&model.JobDefinition{}, deletedID).Error; err != nil {
+		t.Fatal(err)
+	}
+	items, total, err := repo.List(ctx, JobFilter{Page: 1, PageSize: 20})
+	if err != nil || total != 1 || len(items) != 1 || items[0].ID != job.ID {
+		t.Fatalf("list includes a deleted Job: items=%+v total=%d err=%v", items, total, err)
+	}
+	if _, err := repo.Get(ctx, deletedID); !errors.Is(err, ErrJobNotFound) {
+		t.Fatalf("deleted detail err=%v", err)
+	}
+	rules, err := repo.LoadRules(ctx)
+	if err != nil || len(rules) != 1 || rules[0].ID != job.ID {
+		t.Fatalf("rules include a deleted Job: %+v err=%v", rules, err)
+	}
+	due, err := repo.ListDue(ctx, job.NextTriggerAt.Add(time.Second), 20)
+	if err != nil || len(due) != 1 || due[0].ID != job.ID {
+		t.Fatalf("due candidates include a deleted Job: %+v err=%v", due, err)
+	}
+}
+
+func TestJobRepositoryPropagatesCanceledContext(t *testing.T) {
+	db, job := repositoryFixture(t)
+	repo, err := NewJobDefinitionRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	for _, tc := range []struct {
+		name string
+		call func() error
+	}{
+		{"list", func() error { _, _, err := repo.List(ctx, JobFilter{Page: 1, PageSize: 20}); return err }},
+		{"get", func() error { _, err := repo.Get(ctx, job.ID); return err }},
+		{"lock", func() error { _, err := repo.Lock(ctx, job.ID); return err }},
+		{"create", func() error { _, err := repo.Create(ctx, job); return err }},
+		{"update", func() error { return repo.Update(ctx, job.ID, job) }},
+		{"enable", func() error { return repo.Enable(ctx, job.ID, *job.NextTriggerAt) }},
+		{"disable", func() error { return repo.Disable(ctx, job.ID) }},
+		{"delete", func() error { return repo.Delete(ctx, job.ID) }},
+		{"advance", func() error { return repo.Advance(ctx, job.ID, *job.NextTriggerAt) }},
+		{"rules", func() error { _, err := repo.LoadRules(ctx); return err }},
+		{"due", func() error { _, err := repo.ListDue(ctx, time.Now(), 20); return err }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := tc.call(); !errors.Is(err, context.Canceled) {
+				t.Fatalf("canceled operation err=%v", err)
+			}
+		})
+	}
+}
+
 func TestJobRepositoryRulesAreCompleteAndDueCandidatesBounded(t *testing.T) {
 	db, job := repositoryFixture(t)
 	ctx := context.Background()
@@ -169,7 +287,10 @@ func TestJobRepositoryRulesAreCompleteAndDueCandidatesBounded(t *testing.T) {
 	SELECT 'rule-' || n, '', ?, 'p', 1, FALSE, repeat('large payload', 100), '0 * * * * *', 1, 0, 0, 0, 10, 900, ?::timestamptz + n * INTERVAL '1 microsecond' FROM generate_series(1, 1030) n`, job.ExecutorGroupID, job.NextTriggerAt).Error; err != nil {
 		t.Fatal(err)
 	}
-	repo := NewJobDefinitionRepository(db)
+	repo, err := NewJobDefinitionRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
 	rules, err := repo.LoadRules(ctx)
 	if err != nil || len(rules) != 1030 {
 		t.Fatalf("rules=%d err=%v", len(rules), err)
@@ -194,7 +315,10 @@ func TestJobRepositoryRulesAreCompleteAndDueCandidatesBounded(t *testing.T) {
 func TestInstanceRepositoryIdentityAndSnapshot(t *testing.T) {
 	db, job := repositoryFixture(t)
 	ctx := context.Background()
-	repo := NewJobInstanceRepository(db)
+	repo, err := NewJobInstanceRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
 	instance := repositoryInstance(job)
 	id, created, err := repo.Insert(ctx, instance)
 	if err != nil || !created || id <= 0 {
@@ -257,7 +381,11 @@ func TestInstanceRepositoryDoesNotSwallowOtherConstraints(t *testing.T) {
 			db, job := repositoryFixture(t)
 			i := repositoryInstance(job)
 			tc.mutate(i)
-			_, created, err := NewJobInstanceRepository(db).Insert(context.Background(), i)
+			repo, err := NewJobInstanceRepository(db)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, created, err := repo.Insert(context.Background(), i)
 			var pgErr *pgconn.PgError
 			if created || !errors.As(err, &pgErr) || pgErr.Code != tc.code {
 				t.Fatalf("created=%v err=%v want SQLSTATE %s", created, err, tc.code)
@@ -265,30 +393,58 @@ func TestInstanceRepositoryDoesNotSwallowOtherConstraints(t *testing.T) {
 		})
 	}
 	t.Run("unrelated unique constraint", func(t *testing.T) {
-		db, job := repositoryFixture(t)
-		// This fixture-only constraint tests that INSERT ignores only its named
-		// identity target, rather than suppressing every uniqueness violation.
-		if err := db.Exec("CREATE UNIQUE INDEX test_instance_name_unique ON job_instance (job_name)").Error; err != nil {
-			t.Fatal(err)
-		}
-		repo := NewJobInstanceRepository(db)
-		i := repositoryInstance(job)
-		if _, _, err := repo.Insert(context.Background(), i); err != nil {
-			t.Fatal(err)
-		}
-		next := i.ScheduledAt.Add(time.Minute)
-		i.ScheduledAt = &next
-		_, created, err := repo.Insert(context.Background(), i)
-		var pgErr *pgconn.PgError
-		if created || !errors.As(err, &pgErr) || pgErr.Code != "23505" || pgErr.ConstraintName != "test_instance_name_unique" {
-			t.Fatalf("created=%v err=%v", created, err)
+		for _, tc := range []struct {
+			name    string
+			trigger model.TriggerType
+		}{
+			{"scheduled", model.TriggerScheduled},
+			{"misfire", model.TriggerMisfire},
+			{"manual", model.TriggerManual},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				db, job := repositoryFixture(t)
+				// This fixture-only constraint tests that INSERT ignores only its
+				// identity target, rather than suppressing every uniqueness violation.
+				if err := db.Exec("CREATE UNIQUE INDEX test_instance_name_unique ON job_instance (job_name)").Error; err != nil {
+					t.Fatal(err)
+				}
+				repo, err := NewJobInstanceRepository(db)
+				if err != nil {
+					t.Fatal(err)
+				}
+				i := repositoryInstance(job)
+				i.TriggerType = tc.trigger
+				if tc.trigger == model.TriggerManual {
+					request := uuid.MustParse("11111111-1111-4111-8111-111111111111")
+					operator := int64(42)
+					i.ScheduledAt, i.RequestID, i.TriggeredBy = nil, &request, &operator
+				}
+				if _, _, err := repo.Insert(context.Background(), i); err != nil {
+					t.Fatal(err)
+				}
+				if tc.trigger == model.TriggerManual {
+					request := uuid.MustParse("22222222-2222-4222-8222-222222222222")
+					i.RequestID = &request
+				} else {
+					next := i.ScheduledAt.Add(time.Minute)
+					i.ScheduledAt = &next
+				}
+				_, created, err := repo.Insert(context.Background(), i)
+				var pgErr *pgconn.PgError
+				if created || !errors.As(err, &pgErr) || pgErr.Code != "23505" || pgErr.ConstraintName != "test_instance_name_unique" {
+					t.Fatalf("created=%v err=%v", created, err)
+				}
+			})
 		}
 	})
 }
 
 func TestExecutorGroupRepositoryRejectsDeletedAndMissingGroups(t *testing.T) {
 	db, job := repositoryFixture(t)
-	repo := NewExecutorGroupRepository(db)
+	repo, err := NewExecutorGroupRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx := context.Background()
 	if err := repo.LockAvailable(ctx, job.ExecutorGroupID); err != nil {
 		t.Fatal(err)

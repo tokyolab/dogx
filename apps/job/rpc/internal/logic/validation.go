@@ -10,7 +10,7 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 	"github.com/tokyolab/dogx/apps/job/internal/schedule"
-	"github.com/tokyolab/dogx/apps/job/internal/service"
+	"github.com/tokyolab/dogx/apps/job/internal/trigger"
 	"github.com/tokyolab/dogx/apps/job/rpc/types/job"
 	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"google.golang.org/grpc/codes"
@@ -104,24 +104,54 @@ func normalizeFilter(in *job.ListJobsRequest) (repository.JobFilter, error) {
 	}
 	return result, nil
 }
-func normalizeTrigger(in *job.TriggerJobRequest) (service.ManualTrigger, error) {
+func normalizeTrigger(in *job.TriggerJobRequest) (trigger.ManualTrigger, error) {
 	if in == nil || in.Id <= 0 || in.OperatorId <= 0 || in.ParamsOverridden == nil {
-		return service.ManualTrigger{}, invalidInput()
+		return trigger.ManualTrigger{}, invalidInput()
 	}
 	// Presence is checked before normalization: even an empty string is a supplied override.
 	if (*in.ParamsOverridden && in.Params == nil) || (!*in.ParamsOverridden && in.Params != nil) {
-		return service.ManualTrigger{}, invalidInput()
+		return trigger.ManualTrigger{}, invalidInput()
 	}
 	requestID, err := uuid.Parse(in.RequestId)
 	if err != nil || len(in.RequestId) != 36 {
-		return service.ManualTrigger{}, invalidInput()
+		return trigger.ManualTrigger{}, invalidInput()
 	}
-	result := service.ManualTrigger{JobID: in.Id, RequestID: requestID, ParamsOverridden: *in.ParamsOverridden, OperatorID: in.OperatorId}
+	result := trigger.ManualTrigger{JobID: in.Id, RequestID: requestID, ParamsOverridden: *in.ParamsOverridden, OperatorID: in.OperatorId}
 	if in.Params != nil {
 		result.Params, err = normalizeText(*in.Params, false, 0)
 		if err != nil {
-			return service.ManualTrigger{}, err
+			return trigger.ManualTrigger{}, err
 		}
 	}
 	return result, nil
+}
+
+// Enabling rechecks persisted configuration without converting it back into an
+// RPC request. It does not rewrite stored text or reset execution defaults.
+func validateStoredDefinition(definition *model.JobDefinition) error {
+	if definition == nil {
+		return missingJobRecord()
+	}
+	for _, field := range []struct {
+		text     string
+		required bool
+		capacity int
+	}{
+		{definition.Name, true, 128}, {definition.Remark, false, 500},
+		{definition.ProcessorName, true, 128}, {definition.Params, false, 0},
+		{definition.CronExpr, true, 128},
+	} {
+		if _, err := normalizeText(field.text, field.required, field.capacity); err != nil {
+			return err
+		}
+	}
+	if definition.ExecutorGroupID <= 0 ||
+		(definition.ExecutionMode != model.ExecutionModeNormal && definition.ExecutionMode != model.ExecutionModeSharded) ||
+		(definition.ExecutionMode == model.ExecutionModeNormal && definition.PostEnabled) ||
+		(definition.MisfirePolicy != model.MisfireIgnore && definition.MisfirePolicy != model.MisfireOnce) ||
+		(definition.BlockPolicy != model.BlockDiscard && definition.BlockPolicy != model.BlockParallel) ||
+		definition.MaxRetries < 0 || definition.RetryIntervalSeconds <= 0 || definition.TimeoutSeconds <= 0 {
+		return invalidInput()
+	}
+	return nil
 }

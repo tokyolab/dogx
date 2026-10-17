@@ -1,8 +1,9 @@
-package service
+package trigger
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +13,6 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 	basemodel "github.com/tokyolab/dogx/pkg/model"
 	"github.com/zeromicro/go-zero/core/logx/logtest"
-	"gorm.io/gorm"
 )
 
 var testNow = time.Date(2026, 10, 16, 12, 0, 5, 0, time.Local)
@@ -24,15 +24,15 @@ func validDefinition() *model.JobDefinition {
 		MaxRetries: 3, RetryIntervalSeconds: 10, TimeoutSeconds: 900, NextTriggerAt: &due}
 }
 
-func testService(t *testing.T) (*Service, *repositoryStub) {
+func testCreator(t *testing.T) (*Creator, *repositoryStub) {
 	t.Helper()
-	s, err := New(&gorm.DB{}, WithClock(func() time.Time { return testNow }))
+	r := &repositoryStub{job: validDefinition(), available: true, created: true, failures: map[string]error{}}
+	s, err := New(func(ctx context.Context, fn func(repository.Repositories) error) error {
+		return fn(repository.Repositories{Jobs: r, Groups: r, Instances: r})
+	}, WithClock(func() time.Time { return testNow }))
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := &repositoryStub{job: validDefinition(), available: true, created: true, failures: map[string]error{}}
-	s.repos = repositories{r, r, r}
-	s.transact = func(ctx context.Context, fn func(repositories) error) error { return fn(s.repos) }
 	return s, r
 }
 
@@ -54,7 +54,7 @@ func TestAutomaticDecisionAndAtomicResult(t *testing.T) {
 		{"duplicate", time.Second, model.MisfireOnce, false, true, "duplicate", model.TriggerScheduled, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			s, r := testService(t)
+			s, r := testCreator(t)
 			due := testNow.Add(-tc.lag)
 			r.job.NextTriggerAt, r.job.MisfirePolicy, r.active, r.created = &due, tc.misfire, tc.active, !tc.duplicate
 			hints := 0
@@ -82,11 +82,11 @@ func TestAutomaticDecisionAndAtomicResult(t *testing.T) {
 func TestAutomaticFailureDoesNotPublish(t *testing.T) {
 	for _, step := range []string{"lock", "active", "insert", "advance", "commit"} {
 		t.Run(step, func(t *testing.T) {
-			s, r := testService(t)
+			s, r := testCreator(t)
 			failure := errors.New("database transport failure")
 			if step == "commit" {
-				s.transact = func(ctx context.Context, fn func(repositories) error) error {
-					if err := fn(s.repos); err != nil {
+				s.transact = func(ctx context.Context, fn func(repository.Repositories) error) error {
+					if err := fn(repository.Repositories{Jobs: r, Groups: r, Instances: r}); err != nil {
 						return err
 					}
 					return failure
@@ -106,10 +106,10 @@ func TestAutomaticFailureDoesNotPublish(t *testing.T) {
 func TestAutomaticNoopAndInvalidSchedule(t *testing.T) {
 	for _, kind := range []string{"deleted", "disabled", "not_due", "no_progress", "invalid_cron"} {
 		t.Run(kind, func(t *testing.T) {
-			s, r := testService(t)
+			s, r := testCreator(t)
 			switch kind {
 			case "deleted":
-				r.failures["lock"] = ErrNotFound
+				r.failures["lock"] = repository.ErrJobNotFound
 			case "disabled":
 				r.job.Status = basemodel.RecordStatusDisabled
 			case "not_due":
@@ -147,7 +147,7 @@ func TestManualReplayAndConflicts(t *testing.T) {
 		{"insert conflict fresh read", &repository.ManualIdentity{ID: 44}, false, "", false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			s, r := testService(t)
+			s, r := testCreator(t)
 			r.identities = []*repository.ManualIdentity{tc.prior}
 			if tc.fallback {
 				r.identities = []*repository.ManualIdentity{nil, tc.prior}
@@ -174,7 +174,7 @@ func TestManualReplayAndConflicts(t *testing.T) {
 }
 
 func TestManualSnapshotAndRejections(t *testing.T) {
-	s, r := testService(t)
+	s, r := testCreator(t)
 	r.job.Status = basemodel.RecordStatusDisabled
 	request := ManualTrigger{JobID: 7, RequestID: uuid.Nil, OperatorID: 8, ParamsOverridden: true, Params: "   "}
 	id, err := s.TriggerManual(context.Background(), request)
@@ -192,13 +192,13 @@ func TestManualSnapshotAndRejections(t *testing.T) {
 		mutate func(*repositoryStub)
 		want   error
 	}{
-		{"deleted", func(r *repositoryStub) { r.failures["lock"] = ErrNotFound }, ErrNotFound},
-		{"unavailable group", func(r *repositoryStub) { r.available = false }, ErrExecutorGroupUnavailable},
+		{"deleted", func(r *repositoryStub) { r.failures["lock"] = repository.ErrJobNotFound }, repository.ErrJobNotFound},
+		{"unavailable group", func(r *repositoryStub) { r.available = false }, repository.ErrExecutorGroupUnavailable},
 		{"blocked", func(r *repositoryStub) { r.active = true }, ErrBlocked},
 		{"unresolved conflict", func(r *repositoryStub) { r.created = false }, ErrIndeterminate},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			s, r := testService(t)
+			s, r := testCreator(t)
 			tc.mutate(r)
 			if _, err := s.TriggerManual(context.Background(), request); !errors.Is(err, tc.want) {
 				t.Fatalf("err=%v", err)
@@ -210,11 +210,11 @@ func TestManualSnapshotAndRejections(t *testing.T) {
 func TestManualFailuresNeverPublishUnconfirmedInstance(t *testing.T) {
 	for _, step := range []string{"lock", "find", "available", "active", "insert", "commit"} {
 		t.Run(step, func(t *testing.T) {
-			s, r := testService(t)
+			s, r := testCreator(t)
 			failure := errors.New("manual transaction failed")
 			if step == "commit" {
-				s.transact = func(ctx context.Context, fn func(repositories) error) error {
-					if err := fn(s.repos); err != nil {
+				s.transact = func(ctx context.Context, fn func(repository.Repositories) error) error {
+					if err := fn(repository.Repositories{Jobs: r, Groups: r, Instances: r}); err != nil {
 						return err
 					}
 					return failure
@@ -231,75 +231,12 @@ func TestManualFailuresNeverPublishUnconfirmedInstance(t *testing.T) {
 	}
 }
 
-func TestManagementTransactionsAndNotifications(t *testing.T) {
-	s, r := testService(t)
-	notifications := 0
-	s.notify = func(ctx context.Context) error {
-		notifications++
-		if _, ok := ctx.Deadline(); !ok {
-			t.Error("notification lacks budget")
-		}
-		return errors.New("etcd unavailable")
-	}
-	job := validDefinition()
-	job.Status = basemodel.RecordStatusDisabled
-	job.Name = "  中文  "
-	job.MaxRetries = 0
-	id, err := s.CreateJob(context.Background(), job)
-	if err != nil || id != 99 || r.saved.Name != "中文" || r.saved.NextTriggerAt != nil || notifications != 1 {
-		t.Fatalf("id=%d err=%v saved=%+v notify=%d", id, err, r.saved, notifications)
-	}
-	if strings.Join(r.calls, ",") != "group_lock,create" {
-		t.Fatalf("lock order=%v", r.calls)
-	}
-	r.calls = nil
-	if err := s.UpdateJob(context.Background(), 7, job); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Join(r.calls, ",") != "group_lock,update" || r.saved.MaxRetries != 0 {
-		t.Fatalf("calls=%v saved=%+v", r.calls, r.saved)
-	}
-	r.job.Status = basemodel.RecordStatusDisabled
-	if err := s.UpdateJobStatus(context.Background(), 7, basemodel.RecordStatusEnabled); err != nil || r.enabled == nil || !r.enabled.After(testNow) {
-		t.Fatalf("enable=%v err=%v", r.enabled, err)
-	}
-	r.enabled = nil
-	r.job.Status = basemodel.RecordStatusEnabled
-	if err := s.UpdateJobStatus(context.Background(), 7, basemodel.RecordStatusEnabled); err != nil || r.enabled != nil {
-		t.Fatalf("idempotent enable err=%v", err)
-	}
-	r.failures["update"] = errors.New("write failed")
-	before := notifications
-	if err := s.UpdateJob(context.Background(), 7, job); err == nil || notifications != before {
-		t.Fatal("failed write notified")
-	}
-}
-
-func TestDeleteRequiresDisabledAndNoActiveInstances(t *testing.T) {
-	s, r := testService(t)
-	if err := s.DeleteJob(context.Background(), 7); !errors.Is(err, ErrStateNotAllowed) {
-		t.Fatalf("err=%v", err)
-	}
-	r.job.Status = basemodel.RecordStatusDisabled
-	r.active = true
-	if err := s.DeleteJob(context.Background(), 7); !errors.Is(err, ErrActiveInstances) {
-		t.Fatalf("err=%v", err)
-	}
-	r.active = false
-	if err := s.DeleteJob(context.Background(), 7); err != nil {
-		t.Fatal(err)
-	}
-	if r.calls[len(r.calls)-1] != "delete" {
-		t.Fatal("delete not persisted")
-	}
-}
-
 func TestCreationCapacitySharedAndHeldUntilUnwind(t *testing.T) {
-	s, _ := testService(t)
+	s, _ := testCreator(t)
 	s.slots = make(chan struct{}, 1)
 	entered, allowReturn, done := make(chan struct{}), make(chan struct{}), make(chan error, 1)
 	ctx, cancel := context.WithCancel(context.Background())
-	s.transact = func(ctx context.Context, fn func(repositories) error) error {
+	s.transact = func(ctx context.Context, fn func(repository.Repositories) error) error {
 		close(entered)
 		<-allowReturn
 		return ctx.Err()
@@ -320,43 +257,8 @@ func TestCreationCapacitySharedAndHeldUntilUnwind(t *testing.T) {
 	}
 }
 
-func TestDefinitionValidationAndLimits(t *testing.T) {
-	for _, value := range []string{"\x00", string([]byte{0xff}), strings.Repeat("界", 129)} {
-		j := validDefinition()
-		j.Name = value
-		if _, err := normalizedDefinition(j); !errors.Is(err, ErrInvalidInput) {
-			t.Fatalf("accepted invalid name %q", value)
-		}
-	}
-	j := validDefinition()
-	j.Name = " \t" + strings.Repeat("界", 128) + " \n"
-	if _, err := normalizedDefinition(j); err != nil {
-		t.Fatal(err)
-	}
-	for _, mutate := range []func(*model.JobDefinition){func(j *model.JobDefinition) { j.PostEnabled = true }, func(j *model.JobDefinition) { j.MaxRetries = -1 }, func(j *model.JobDefinition) { j.TimeoutSeconds = 0 }, func(j *model.JobDefinition) { j.ExecutionMode = 3 }, func(j *model.JobDefinition) { j.BlockPolicy = 3 }, func(j *model.JobDefinition) { j.MisfirePolicy = 3 }} {
-		j := validDefinition()
-		mutate(j)
-		if _, err := normalizedDefinition(j); !errors.Is(err, ErrInvalidInput) {
-			t.Fatalf("accepted %+v", j)
-		}
-	}
-	if _, err := New(nil); err == nil {
-		t.Fatal("accepted nil database")
-	}
-	if _, err := New(&gorm.DB{}, WithCreationLimits(0, time.Second)); err == nil {
-		t.Fatal("accepted zero capacity")
-	}
-	if _, err := New(&gorm.DB{}, WithCreationLimits(1, 0)); err == nil {
-		t.Fatal("accepted zero budget")
-	}
-	s, _ := testService(t)
-	if _, _, err := s.ListJobs(context.Background(), repository.JobFilter{Page: 1<<63 - 1, PageSize: 200}); !errors.Is(err, ErrInvalidInput) {
-		t.Fatalf("accepted overflowing page: %v", err)
-	}
-}
-
 func TestAutomaticCapacityWaitHonorsProcessingBudget(t *testing.T) {
-	s, r := testService(t)
+	s, r := testCreator(t)
 	s.slots = make(chan struct{}, 1)
 	s.slots <- struct{}{}
 	s.budget = 20 * time.Millisecond
@@ -374,7 +276,7 @@ func TestAutomaticCapacityWaitHonorsProcessingBudget(t *testing.T) {
 }
 
 func TestCreationCancellationDoesNotEnterTransaction(t *testing.T) {
-	s, r := testService(t)
+	s, r := testCreator(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, err := s.TriggerAutomatic(ctx, 7); !errors.Is(err, context.Canceled) {
@@ -388,39 +290,15 @@ func TestCreationCancellationDoesNotEnterTransaction(t *testing.T) {
 	}
 }
 
-func TestNotificationRespectsUpstreamDeadlineAndCancellation(t *testing.T) {
-	s, _ := testService(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
-	wantDeadline, _ := ctx.Deadline()
-	calls := 0
-	s.notify = func(ctx context.Context) error {
-		calls++
-		deadline, ok := ctx.Deadline()
-		if !ok || !deadline.Equal(wantDeadline) {
-			t.Errorf("notification deadline=%v want=%v", deadline, wantDeadline)
-		}
-		return errors.New("notification failed after known commit")
-	}
-	if _, err := s.CreateJob(ctx, validDefinition()); err != nil {
-		t.Fatalf("notification changed save result: %v", err)
-	}
-	cancel()
-	s.changed(ctx)
-	if calls != 1 {
-		t.Fatalf("canceled request still notified: calls=%d", calls)
-	}
-}
-
 func TestAutomaticSkipLogsOnlyConfirmedCommitWithDecisionFacts(t *testing.T) {
 	for _, commitFails := range []bool{false, true} {
 		t.Run(map[bool]string{false: "committed", true: "unknown commit"}[commitFails], func(t *testing.T) {
 			collector := logtest.NewCollector(t)
-			s, r := testService(t)
+			s, r := testCreator(t)
 			r.active = true
 			if commitFails {
-				s.transact = func(ctx context.Context, fn func(repositories) error) error {
-					if err := fn(s.repos); err != nil {
+				s.transact = func(ctx context.Context, fn func(repository.Repositories) error) error {
+					if err := fn(repository.Repositories{Jobs: r, Groups: r, Instances: r}); err != nil {
 						return err
 					}
 					return errors.New("commit response lost")
@@ -446,87 +324,109 @@ func TestAutomaticSkipLogsOnlyConfirmedCommitWithDecisionFacts(t *testing.T) {
 	}
 }
 
+func TestConstructorRejectsInvalidDependenciesAndLimits(t *testing.T) {
+	runner := func(context.Context, func(repository.Repositories) error) error { return nil }
+	for _, tc := range []struct {
+		name    string
+		runner  repository.TransactionRunner
+		options []Option
+	}{
+		{"nil runner", nil, nil},
+		{"nil clock", runner, []Option{WithClock(nil)}},
+		{"zero capacity", runner, []Option{WithCreationLimits(0, time.Second)}},
+		{"zero budget", runner, []Option{WithCreationLimits(1, 0)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := New(tc.runner, tc.options...); err == nil {
+				t.Fatal("accepted invalid trigger dependencies")
+			}
+		})
+	}
+	hints := 0
+	s, err := New(runner, WithCreationLimits(2, time.Second), WithInstanceHint(func(int64) { hints++ }))
+	if err != nil || cap(s.slots) != 2 || s.budget != time.Second {
+		t.Fatalf("creator=%+v err=%v", s, err)
+	}
+	s.hint(1)
+	if hints != 1 {
+		t.Fatal("configured hint was not retained")
+	}
+}
+
+func TestInvalidTriggerInputDoesNotEnterTransaction(t *testing.T) {
+	for _, request := range []ManualTrigger{
+		{JobID: 0, OperatorID: 8},
+		{JobID: 7, OperatorID: 0},
+		{JobID: 7, OperatorID: 8, Params: "not overridden"},
+		{JobID: 7, OperatorID: 8, ParamsOverridden: true, Params: "\x00"},
+		{JobID: 7, OperatorID: 8, ParamsOverridden: true, Params: string([]byte{0xff})},
+	} {
+		s, r := testCreator(t)
+		if _, err := s.TriggerManual(context.Background(), request); !errors.Is(err, ErrInvalidInput) {
+			t.Fatalf("manual input=%+v err=%v", request, err)
+		}
+		if len(r.calls) != 0 {
+			t.Fatalf("invalid input reached persistence: %v", r.calls)
+		}
+	}
+	s, r := testCreator(t)
+	if _, err := s.TriggerAutomatic(context.Background(), 0); !errors.Is(err, ErrInvalidInput) || len(r.calls) != 0 {
+		t.Fatalf("automatic invalid ID err=%v calls=%v", err, r.calls)
+	}
+}
+
+func TestNilLockedDefinitionIsTechnicalFailure(t *testing.T) {
+	for _, manual := range []bool{false, true} {
+		t.Run(fmt.Sprint("manual=", manual), func(t *testing.T) {
+			s, r := testCreator(t)
+			r.job = nil
+			s.hint = func(int64) { t.Error("invalid repository result published hint") }
+			var err error
+			if manual {
+				var id int64
+				id, err = s.TriggerManual(context.Background(), ManualTrigger{JobID: 7, OperatorID: 8})
+				if id != 0 {
+					t.Fatalf("invalid result returned id=%d", id)
+				}
+			} else {
+				var result AutomaticResult
+				result, err = s.TriggerAutomatic(context.Background(), 7)
+				if result != (AutomaticResult{}) {
+					t.Fatalf("invalid result=%+v", result)
+				}
+			}
+			if err == nil || errors.Is(err, repository.ErrJobNotFound) || errors.Is(err, ErrInvalidInput) {
+				t.Fatalf("nil definition lost technical-failure semantics: %v", err)
+			}
+			if strings.Join(r.calls, ",") != "lock" {
+				t.Fatalf("continued after invalid lock result: %v", r.calls)
+			}
+		})
+	}
+}
+
+func TestTriggerPreservesTypedPersistenceError(t *testing.T) {
+	cause := &testPersistenceError{}
+	for _, manual := range []bool{false, true} {
+		t.Run(fmt.Sprint("manual=", manual), func(t *testing.T) {
+			s, r := testCreator(t)
+			r.failures["lock"] = fmt.Errorf("repository lock: %w", cause)
+			var err error
+			if manual {
+				_, err = s.TriggerManual(context.Background(), ManualTrigger{JobID: 7, OperatorID: 8})
+			} else {
+				_, err = s.TriggerAutomatic(context.Background(), 7)
+			}
+			var target *testPersistenceError
+			if !errors.Is(err, cause) || !errors.As(err, &target) || target != cause {
+				t.Fatalf("persistence error chain lost: %v", err)
+			}
+		})
+	}
+}
+
+type testPersistenceError struct{}
+
+func (*testPersistenceError) Error() string { return "driver failed" }
+
 func stringPtr(s string) *string { return &s }
-
-type repositoryStub struct {
-	job                        *model.JobDefinition
-	available, active, created bool
-	identities                 []*repository.ManualIdentity
-	finds                      int
-	inserted                   *model.JobInstance
-	saved                      *model.JobDefinition
-	advanced, enabled          *time.Time
-	calls                      []string
-	failures                   map[string]error
-}
-
-func (r *repositoryStub) call(name string) error {
-	r.calls = append(r.calls, name)
-	return r.failures[name]
-}
-func (r *repositoryStub) List(context.Context, repository.JobFilter) ([]repository.JobListItem, int64, error) {
-	return []repository.JobListItem{}, 0, r.call("list")
-}
-func (r *repositoryStub) Get(context.Context, int64) (*repository.JobDetail, error) {
-	return &repository.JobDetail{JobDefinition: *r.job}, r.call("get")
-}
-func (r *repositoryStub) Lock(context.Context, int64) (*model.JobDefinition, error) {
-	return r.job, r.call("lock")
-}
-func (r *repositoryStub) Create(_ context.Context, j *model.JobDefinition) (int64, error) {
-	r.saved = j
-	return 99, r.call("create")
-}
-func (r *repositoryStub) Update(_ context.Context, _ int64, j *model.JobDefinition) error {
-	r.saved = j
-	return r.call("update")
-}
-func (r *repositoryStub) Enable(_ context.Context, _ int64, next time.Time) error {
-	r.enabled = &next
-	return r.call("enable")
-}
-func (r *repositoryStub) Disable(context.Context, int64) error { return r.call("disable") }
-func (r *repositoryStub) Delete(context.Context, int64) error  { return r.call("delete") }
-func (r *repositoryStub) Advance(_ context.Context, _ int64, next time.Time) error {
-	r.advanced = &next
-	return r.call("advance")
-}
-func (r *repositoryStub) LoadRules(context.Context) ([]repository.Rule, error) {
-	return []repository.Rule{{ID: r.job.ID, CronExpr: r.job.CronExpr}}, r.call("rules")
-}
-func (r *repositoryStub) ListDue(context.Context, time.Time, int) ([]repository.DueJob, error) {
-	return []repository.DueJob{}, r.call("due")
-}
-func (r *repositoryStub) LockAvailable(context.Context, int64) error {
-	if err := r.call("group_lock"); err != nil {
-		return err
-	}
-	if !r.available {
-		return ErrExecutorGroupUnavailable
-	}
-	return nil
-}
-func (r *repositoryStub) Available(context.Context, int64) (bool, error) {
-	return r.available, r.call("available")
-}
-func (r *repositoryStub) HasActive(context.Context, int64) (bool, error) {
-	return r.active, r.call("active")
-}
-func (r *repositoryStub) FindManual(context.Context, int64, uuid.UUID) (*repository.ManualIdentity, error) {
-	var identity *repository.ManualIdentity
-	if r.finds < len(r.identities) {
-		identity = r.identities[r.finds]
-	}
-	r.finds++
-	return identity, r.call("find")
-}
-func (r *repositoryStub) Insert(_ context.Context, i *model.JobInstance) (int64, bool, error) {
-	r.inserted = i
-	return 99, r.created, r.call("insert")
-}
-func (r *repositoryStub) ListWaitingIDs(context.Context, int64, int) ([]int64, error) {
-	return nil, r.call("waiting")
-}
-func (r *repositoryStub) LoadWaiting(context.Context, []int64) ([]repository.WaitingInstance, error) {
-	return nil, r.call("load_waiting")
-}

@@ -10,7 +10,7 @@
 
 沿用[迁移规范](../../development/database-migrations.md)：开发时间戳、发布前 fix、已发布迁移不可变、默认事务执行。生产由一个迁移任务顺序运行所需域的迁移，不由各 RPC 副本启动时自动执行；不要因账本独立就并发迁移共享数据库。首批没有生产默认组种子；集成测试使用正式组表准备受控数据。
 
-以下为 Goose Up 的主体。业务初值由创建逻辑明确赋值；数据库只初始化创建和首次修改时间，不替代必填校验。后续 `updated_at` 必须显式更新。首批仅保留触发身份结构 CHECK，不增加业务数值范围、状态枚举或流程 CHECK，也不建物理外键。
+以下为 Goose Up 的主体。业务初值由创建逻辑明确赋值；创建和首次修改时间由 GORM 或数据库默认值初始化，不替代必填校验。普通更新由 GORM 维护 `updated_at`；使用 Raw／Exec 时必须显式维护。首批仅保留触发身份结构 CHECK，不增加业务数值范围、状态枚举或流程 CHECK，也不建物理外键。
 
 ## 三个表及注释
 
@@ -143,7 +143,13 @@ CREATE INDEX idx_job_definition_group_active
 
 ## SQL 的共用执行规则
 
-SQL 由本域 Repository 执行并传递 Context；Logic 不直接调用 GORM。跨组、Job、Instance 的原子操作由本域显式业务服务编排，同一事务句柄绑定所需 Repository，不创建跨域通用 Repository。所有事务使用默认 READ COMMITTED，不包含 etcd、Redis 或执行器 RPC。
+SQL 由本域 Repository 执行并传递 Context；Logic 不直接调用 GORM。管理操作由各自 RPC Logic 编排，自动／手动创建 Instance 由独立的 `trigger.Creator` 复用；两者通过本域 `repository.TransactionRunner` 将所需 Repository 绑定到同一事务。事务适配不承载业务规则，不创建跨域通用 Repository 或全域大 Service。所有事务使用默认 READ COMMITTED，不包含 etcd、Redis 或执行器 RPC。
+
+`scheduler.Runtime` 直接从 Job Repository 加载规则及到期记录，只将触发交给 Creator；进程内共用一个 Creator，手动请求和各次 Leader 任期共用创建额度。管理写入的配置通知与新 Instance 提示都只能在事务调用明确成功后发出，通知失败不改变已提交的管理结果。
+
+仓储错误保留在 Repository，触发阻塞／请求冲突／容量不足等错误属于 Creator；RPC Logic 在边界转换成既有业务 subcode 或标准技术错误。未到期、停用和自动触发阻塞是正常决策；提交失败及身份结果不确定仍是技术失败，不伪装成重复成功，也不新增无条件重试。
+
+下文 SQL 表达持久化语义、语句顺序和并发条件，不要求逐字通过 Raw／Exec 执行。普通 CRUD 沿用 System 的 GORM 查询链、Create、Updates(map) 和 Delete；行锁及指定冲突处理优先使用 GORM clause。示例中的审计时间维护可由 GORM 时间回调等价完成；不能因此改动业务时间、身份唯一性、部分索引谓词或事务边界。
 
 下面每条独立语句的 `$1` 从头编号，参数均绑定，不拼接用户值。条件更新必须检查影响行数；未命中时最多追加一次必要读取区分“不存在”和“状态不允许”，不能当作保存成功，也不循环重试。提交不明不等于回滚；配置提交确认后才发 etcd 提示，通知失败不改报保存失败。
 
@@ -260,7 +266,7 @@ SELECT EXISTS (SELECT 1 FROM job_definition
 
 ### 列表和详情
 
-Repository 只为实际提供的筛选拼接固定条件片段，所有值仍绑定参数；不拼接字段名或任意排序。以下展示四项筛选都存在时的两条查询，省略项移除对应条件并重新编号。名称先 trim，再以 `!` 为转义符按顺序将 `!/%/_` 转为 `!!/!%/!_`，最后两侧加 `%`，绑定为 `$2`；不把用户输入当通配表达式。
+Repository 只为实际提供的筛选组合查询条件，所有值仍绑定参数；不拼接字段名或任意排序。以下展示四项筛选都存在时的两条查询，省略项移除对应条件并重新编号。名称先 trim，再以 `!` 为转义符按顺序将 `!/%/_` 转为 `!!/!%/!_`，最后两侧加 `%`，绑定为 `$2`；不把用户输入当通配表达式。
 
 ```sql
 SELECT COUNT(*) FROM job_definition j

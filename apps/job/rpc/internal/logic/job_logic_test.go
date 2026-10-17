@@ -10,7 +10,8 @@ import (
 
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
-	"github.com/tokyolab/dogx/apps/job/internal/service"
+	"github.com/tokyolab/dogx/apps/job/internal/subcode"
+	"github.com/tokyolab/dogx/apps/job/internal/trigger"
 	"github.com/tokyolab/dogx/apps/job/rpc/internal/svc"
 	"github.com/tokyolab/dogx/apps/job/rpc/types/job"
 	"github.com/tokyolab/dogx/pkg/bizerror"
@@ -19,75 +20,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestJobOperationsSuccessAndServiceFailures(t *testing.T) {
-	for _, test := range []struct {
-		name string
-		call func(*svc.ServiceContext) (any, error)
-	}{
-		{"CreateJob", func(s *svc.ServiceContext) (any, error) {
-			return NewCreateJobLogic(context.Background(), s).CreateJob(&job.CreateJobRequest{Config: validInput(), Status: pointer(int32(1))})
-		}},
-		{"UpdateJob", func(s *svc.ServiceContext) (any, error) {
-			return NewUpdateJobLogic(context.Background(), s).UpdateJob(&job.UpdateJobRequest{Id: 7, Config: completeInput()})
-		}},
-		{"UpdateJobStatus", func(s *svc.ServiceContext) (any, error) {
-			return NewUpdateJobStatusLogic(context.Background(), s).UpdateJobStatus(&job.UpdateJobStatusRequest{Id: 7, Status: pointer(int32(0))})
-		}},
-		{"DeleteJob", func(s *svc.ServiceContext) (any, error) {
-			return NewDeleteJobLogic(context.Background(), s).DeleteJob(&job.DeleteJobRequest{Id: 7})
-		}},
-		{"GetJob", func(s *svc.ServiceContext) (any, error) {
-			return NewGetJobLogic(context.Background(), s).GetJob(&job.GetJobRequest{Id: 7})
-		}},
-		{"ListJobs", func(s *svc.ServiceContext) (any, error) {
-			return NewListJobsLogic(context.Background(), s).ListJobs(&job.ListJobsRequest{Page: 1, PageSize: 20})
-		}},
-		{"TriggerManual", func(s *svc.ServiceContext) (any, error) {
-			return NewTriggerJobLogic(context.Background(), s).TriggerJob(&job.TriggerJobRequest{Id: 7, RequestId: "12051a0f-76b8-4d88-897f-15ec600de323", OperatorId: 42, ParamsOverridden: pointer(false)})
-		}},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			technical := errors.New("database host secret.internal failed")
-			for _, failure := range []error{nil, service.ErrNotFound, technical} {
-				stub := &jobServiceStub{detail: &repository.JobDetail{JobDefinition: model.JobDefinition{Base: basemodel.Base{ID: 7}}}, err: failure}
-				result, err := test.call(&svc.ServiceContext{Jobs: stub, Clock: testNow})
-				if stub.called != test.name {
-					t.Fatalf("called=%s", stub.called)
-				}
-				switch {
-				case failure == nil:
-					if err != nil || result == nil {
-						t.Fatalf("result=%+v error=%v", result, err)
-					}
-				case errors.Is(failure, service.ErrNotFound):
-					business, ok := bizerror.From(err)
-					if !ok || business.Subcode() != service.SubcodeNotFound {
-						t.Fatalf("business error=%v", err)
-					}
-				default:
-					if !errors.Is(err, technical) {
-						t.Fatalf("technical error lost: %v", err)
-					}
-				}
-				if test.name == "CreateJob" && (stub.definition.Status != basemodel.RecordStatusEnabled || stub.definition.Name != "job") {
-					t.Fatalf("create input=%+v", stub.definition)
-				}
-				if test.name == "UpdateJob" && (stub.id != 7 || stub.definition.MaxRetries != 0) {
-					t.Fatalf("update input=%+v", stub.definition)
-				}
-				if test.name == "UpdateJobStatus" && (stub.id != 7 || stub.status != basemodel.RecordStatusDisabled) {
-					t.Fatalf("status input=%d %d", stub.id, stub.status)
-				}
-				if test.name == "TriggerManual" && (stub.manual.JobID != 7 || stub.manual.OperatorID != 42 || stub.manual.ParamsOverridden) {
-					t.Fatalf("trigger input=%+v", stub.manual)
-				}
-			}
-		})
+func requireSubcode(t *testing.T, err error, want string) {
+	t.Helper()
+	business, ok := bizerror.From(err)
+	if !ok || business.Code() != bizerror.DefaultCode || business.Subcode() != want {
+		t.Fatalf("business error=%v want=%s", err, want)
 	}
 }
 
 func TestJobStatusRejectsValuesBeforeNarrowing(t *testing.T) {
-	// Include values that would become 0 or 1 if narrowed to int16 before validation.
 	for _, value := range []int32{-1, 2, 65536, 65537, -65536, -65535, math.MinInt32, math.MaxInt32} {
 		for _, test := range []struct {
 			name string
@@ -107,10 +48,10 @@ func TestJobStatusRejectsValuesBeforeNarrowing(t *testing.T) {
 			}},
 		} {
 			t.Run(fmt.Sprintf("%s/%d", test.name, value), func(t *testing.T) {
-				stub := &jobServiceStub{}
-				err := test.call(&svc.ServiceContext{Jobs: stub, Clock: testNow})
-				if status.Code(err) != codes.InvalidArgument || stub.called != "" {
-					t.Fatalf("called=%s error=%v", stub.called, err)
+				r := &jobRepositoryStub{}
+				err := test.call(managementContext(r))
+				if status.Code(err) != codes.InvalidArgument || len(r.calls) != 0 {
+					t.Fatalf("calls=%v error=%v", r.calls, err)
 				}
 			})
 		}
@@ -124,10 +65,6 @@ func TestJobOperationsRejectInvalidRequestsBeforeDependencies(t *testing.T) {
 	}{
 		{"create nil", func(s *svc.ServiceContext) error {
 			_, err := NewCreateJobLogic(context.Background(), s).CreateJob(nil)
-			return err
-		}},
-		{"create status", func(s *svc.ServiceContext) error {
-			_, err := NewCreateJobLogic(context.Background(), s).CreateJob(&job.CreateJobRequest{Config: validInput(), Status: pointer(int32(2))})
 			return err
 		}},
 		{"create config", func(s *svc.ServiceContext) error {
@@ -152,10 +89,6 @@ func TestJobOperationsRejectInvalidRequestsBeforeDependencies(t *testing.T) {
 		}},
 		{"status missing", func(s *svc.ServiceContext) error {
 			_, err := NewUpdateJobStatusLogic(context.Background(), s).UpdateJobStatus(&job.UpdateJobStatusRequest{Id: 7})
-			return err
-		}},
-		{"status invalid", func(s *svc.ServiceContext) error {
-			_, err := NewUpdateJobStatusLogic(context.Background(), s).UpdateJobStatus(&job.UpdateJobStatusRequest{Id: 7, Status: pointer(int32(2))})
 			return err
 		}},
 		{"delete nil", func(s *svc.ServiceContext) error {
@@ -184,10 +117,9 @@ func TestJobOperationsRejectInvalidRequestsBeforeDependencies(t *testing.T) {
 		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			stub := &jobServiceStub{}
-			err := test.call(&svc.ServiceContext{Jobs: stub, Clock: testNow})
-			if status.Code(err) != codes.InvalidArgument || stub.called != "" {
-				t.Fatalf("called=%s error=%v", stub.called, err)
+			// Nil dependencies make an unexpected dependency call fail immediately.
+			if err := test.call(&svc.ServiceContext{Clock: testNow}); status.Code(err) != codes.InvalidArgument {
+				t.Fatalf("error=%v", err)
 			}
 		})
 	}
@@ -195,8 +127,8 @@ func TestJobOperationsRejectInvalidRequestsBeforeDependencies(t *testing.T) {
 
 func TestJobProjectionAndCronPreview(t *testing.T) {
 	now := testNow()
-	stub := &jobServiceStub{items: []repository.JobListItem{{ID: 7, Status: basemodel.RecordStatusDisabled, NextTriggerAt: &now, CreatedAt: now, UpdatedAt: now}, {ID: 8, Status: basemodel.RecordStatusEnabled, NextTriggerAt: &now}}, total: 2}
-	s := &svc.ServiceContext{Jobs: stub, Clock: testNow}
+	r := &jobRepositoryStub{items: []repository.JobListItem{{ID: 7, Status: basemodel.RecordStatusDisabled, NextTriggerAt: &now, CreatedAt: now, UpdatedAt: now}, {ID: 8, Status: basemodel.RecordStatusEnabled, NextTriggerAt: &now}}, total: 2}
+	s := managementContext(r)
 	list, err := NewListJobsLogic(context.Background(), s).ListJobs(&job.ListJobsRequest{Page: 1, PageSize: 20})
 	if err != nil || list.Total != 2 || len(list.Items) != 2 {
 		t.Fatalf("list=%+v error=%v", list, err)
@@ -204,16 +136,20 @@ func TestJobProjectionAndCronPreview(t *testing.T) {
 	if list.Items[0].NextTriggerAt != nil || list.Items[0].ExecutorGroupName != nil || list.Items[0].CreatedAt != "2026-10-16T12:00:00.123456+08:00" || *list.Items[1].NextTriggerAt != now.Format(time.RFC3339Nano) {
 		t.Fatalf("projection=%+v", list.Items)
 	}
-	stub.items = nil
+	r.items = nil
 	list, err = NewListJobsLogic(context.Background(), s).ListJobs(&job.ListJobsRequest{Page: 1, PageSize: 20})
 	if err != nil || list.Items == nil {
 		t.Fatalf("empty list=%+v error=%v", list, err)
 	}
 	_, err = NewGetJobLogic(context.Background(), s).GetJob(&job.GetJobRequest{Id: 7})
-	if business, ok := bizerror.From(err); !ok || business.Subcode() != service.SubcodeNotFound {
-		t.Fatalf("missing detail=%v", err)
+	if status.Code(err) != codes.Internal {
+		t.Fatalf("nil detail contract error=%v", err)
 	}
-	stub.detail = &repository.JobDetail{JobDefinition: model.JobDefinition{Base: basemodel.Base{ID: 7}, Status: basemodel.RecordStatusEnabled, NextTriggerAt: &now, Remark: "note", Params: "raw", MaxRetries: 0, TimeoutSeconds: 900}, ExecutorGroupName: pointer("group")}
+	r.err = repository.ErrJobNotFound
+	_, err = NewGetJobLogic(context.Background(), s).GetJob(&job.GetJobRequest{Id: 7})
+	requireSubcode(t, err, subcode.JobNotFound)
+	r.err = nil
+	r.detail = &repository.JobDetail{JobDefinition: model.JobDefinition{Base: basemodel.Base{ID: 7}, Status: basemodel.RecordStatusEnabled, NextTriggerAt: &now, Remark: "note", Params: "raw", MaxRetries: 0, TimeoutSeconds: 900}, ExecutorGroupName: pointer("group")}
 	detail, err := NewGetJobLogic(context.Background(), s).GetJob(&job.GetJobRequest{Id: 7})
 	if err != nil || detail.Job.Remark != "note" || detail.Job.Params != "raw" || *detail.Job.ExecutorGroupName != "group" || *detail.Job.NextTriggerAt != now.Format(time.RFC3339Nano) {
 		t.Fatalf("detail=%+v error=%v", detail, err)
@@ -233,27 +169,79 @@ func TestJobProjectionAndCronPreview(t *testing.T) {
 	}
 }
 
-func TestServiceErrorClassification(t *testing.T) {
+func TestManualTriggerBoundary(t *testing.T) {
 	for _, test := range []struct {
 		err     error
 		subcode string
 	}{
-		{service.ErrNotFound, service.SubcodeNotFound}, {service.ErrStateNotAllowed, service.SubcodeStateNotAllowed}, {service.ErrActiveInstances, service.SubcodeActiveInstances}, {service.ErrExecutorGroupUnavailable, service.SubcodeExecutorGroupUnavailable}, {service.ErrBlocked, service.SubcodeBlocked}, {service.ErrRequestConflict, service.SubcodeRequestConflict}, {service.ErrCapacityBusy, service.SubcodeCapacityBusy},
+		{nil, ""}, {repository.ErrJobNotFound, subcode.JobNotFound},
+		{repository.ErrExecutorGroupUnavailable, subcode.JobExecutorGroupUnavailable},
+		{trigger.ErrBlocked, subcode.JobTriggerBlocked}, {trigger.ErrRequestConflict, subcode.JobTriggerRequestConflict}, {trigger.ErrCapacityBusy, subcode.JobTriggerCapacityBusy},
 	} {
 		t.Run(test.subcode, func(t *testing.T) {
-			err := serviceError(fmt.Errorf("operation failed: %w", test.err))
-			business, ok := bizerror.From(err)
-			if !ok || business.Code() != bizerror.DefaultCode || business.Subcode() != test.subcode {
-				t.Fatalf("error=%v", err)
+			stub := &manualTriggerStub{err: test.err}
+			if test.err != nil {
+				stub.err = fmt.Errorf("trigger transaction: %w", test.err)
+			}
+			result, err := NewTriggerJobLogic(context.Background(), &svc.ServiceContext{Trigger: stub}).TriggerJob(&job.TriggerJobRequest{Id: 7, RequestId: "12051a0f-76b8-4d88-897f-15ec600de323", OperatorId: 42, ParamsOverridden: pointer(false)})
+			if !stub.called || stub.input.JobID != 7 || stub.input.OperatorID != 42 || stub.input.ParamsOverridden {
+				t.Fatalf("trigger input=%+v", stub.input)
+			}
+			if test.err == nil {
+				if err != nil || result.InstanceId != 9 {
+					t.Fatalf("result=%+v error=%v", result, err)
+				}
+			} else {
+				requireSubcode(t, err, test.subcode)
 			}
 		})
 	}
-	for _, test := range []struct {
-		err  error
-		code codes.Code
-	}{{nil, codes.OK}, {service.ErrInvalidInput, codes.InvalidArgument}, {context.DeadlineExceeded, codes.DeadlineExceeded}, {context.Canceled, codes.Canceled}} {
-		if err := serviceError(test.err); status.Code(err) != test.code {
-			t.Fatalf("error=%v want=%v", err, test.code)
-		}
+	if err := manualTriggerError(trigger.ErrInvalidInput); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("invalid request error=%v", err)
+	}
+	err := manualTriggerError(fmt.Errorf("request identity: %w", trigger.ErrIndeterminate))
+	if !errors.Is(err, trigger.ErrIndeterminate) {
+		t.Fatalf("technical cause lost: %v", err)
+	}
+	if business, ok := bizerror.From(err); ok {
+		t.Fatalf("indeterminate converted to business rejection: %v", business)
 	}
 }
+
+func TestRPCErrorClassificationPreservesTechnicalCauses(t *testing.T) {
+	for _, convert := range []func(error) error{
+		func(err error) error { return jobManagementError("update job", err) }, manualTriggerError,
+		func(err error) error { return rpcOperationError("list jobs", err) },
+	} {
+		for _, test := range []struct {
+			err  error
+			code codes.Code
+		}{{context.DeadlineExceeded, codes.DeadlineExceeded}, {context.Canceled, codes.Canceled}} {
+			err := convert(fmt.Errorf("storage request: %w", test.err))
+			if status.Code(err) != test.code || !errors.Is(err, test.err) {
+				t.Fatalf("context error=%v code=%v", err, status.Code(err))
+			}
+		}
+		technical := &testTechnicalError{}
+		err := convert(fmt.Errorf("database unavailable: %w", technical))
+		var found *testTechnicalError
+		if !errors.Is(err, technical) || !errors.As(err, &found) {
+			t.Fatalf("technical error chain lost: %v", err)
+		}
+		if err := convert(nil); err != nil {
+			t.Fatalf("nil error=%v", err)
+		}
+	}
+	for _, test := range []struct {
+		err     error
+		subcode string
+	}{
+		{repository.ErrJobNotFound, subcode.JobNotFound}, {repository.ErrJobStateNotAllowed, subcode.JobStateNotAllowed}, {repository.ErrExecutorGroupUnavailable, subcode.JobExecutorGroupUnavailable},
+	} {
+		requireSubcode(t, jobManagementError("manage job", fmt.Errorf("repository: %w", test.err)), test.subcode)
+	}
+}
+
+type testTechnicalError struct{}
+
+func (*testTechnicalError) Error() string { return "technical failure" }
