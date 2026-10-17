@@ -11,12 +11,18 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// ManualIdentity contains the request identity and parameter override needed to
+// deduplicate manual triggers. ParamsOverridden distinguishes inherited Job
+// parameters from an explicit empty override; OverrideParams is nil without an override.
 type ManualIdentity struct {
 	ID               int64
 	ParamsOverridden bool
 	OverrideParams   *string
 }
 
+// WaitingInstance projects persisted configuration for a waiting Instance;
+// reading it does not grant execution ownership. Execution uses ExecutionConfig
+// rather than rereading the Job's current configuration.
 type WaitingInstance struct {
 	ID              int64
 	JobID           int64
@@ -25,16 +31,55 @@ type WaitingInstance struct {
 	ExecutionConfig model.ExecutionConfig `gorm:"type:jsonb"`
 }
 
+// JobInstanceRepository stores trigger snapshots, checks active Instances, and
+// reads waiting candidates. Queries do not claim Instances. The context governs
+// database requests; canceling it does not mark an Instance as canceled.
+// A successful transaction-scoped call does not confirm commit; use the result
+// from TransactionRunner.
 type JobInstanceRepository interface {
+	// HasActive reports whether the Job has Waiting or Running Instances,
+	// returning false, nil if none exist. It takes no lock. Before using it for a
+	// blocking-policy decision or Job deletion, Lock the Job in the same transaction
+	// and issue this query separately to observe the previous holder's commit.
 	HasActive(context.Context, int64) (bool, error)
+
+	// FindManual finds a manual trigger by Job ID and request UUID, returning
+	// nil, nil if absent. A match does not imply identical request parameters;
+	// callers compare override information before accepting a replay or rejecting it.
 	FindManual(context.Context, int64, uuid.UUID) (*ManualIdentity, error)
+
+	// Insert stores a trigger snapshot with initial status Waiting, ignoring input
+	// ID, audit, and execution-result fields. It returns the new ID, whether it
+	// inserted, and an error; a new insertion writes ID and Status back to the input.
+	// Manual triggers deduplicate by (job_id, request_id); scheduled and misfire
+	// triggers use (job_id, scheduled_at). Only that identity conflict returns
+	// 0, false, nil. It neither returns the existing ID, compares parameters, nor
+	// confirms business completion. To replay a manual request, issue FindManual
+	// separately for a fresh READ COMMITTED statement snapshot. The input must be
+	// non-nil and must not be accessed concurrently. Other constraint or database
+	// errors are not treated as duplicates. An outer rollback does not undo changes
+	// written to the input object.
 	Insert(context.Context, *model.JobInstance) (int64, bool, error)
+
+	// ListWaitingIDs returns Waiting Instance IDs greater than cursor in ascending
+	// order. The cursor must be nonnegative and limit must be from 1 through 1024.
+	// An empty result is a non-nil empty slice. The cursor is only for the current
+	// scan; subsequent recovery scans must start at zero because ID allocation
+	// order is not commit order. A permanent cursor would miss lower IDs committed
+	// later. Reading candidates neither preserves their state nor claims them.
 	ListWaitingIDs(context.Context, int64, int) ([]int64, error)
+
+	// LoadWaiting reads up to 1024 supplied IDs that are still Waiting.
+	// Empty input returns a non-nil empty slice. Missing or no-longer-waiting
+	// Instances are omitted, and input ordering is not guaranteed.
 	LoadWaiting(context.Context, []int64) ([]WaitingInstance, error)
 }
 
 type jobInstanceRepository struct{ db *gorm.DB }
 
+// NewJobInstanceRepository binds a non-nil database or transaction handle.
+// It does not check connectivity, close the connection, or commit transactions.
+// Use TransactionRunner's repository for cross-table trigger accounting.
 func NewJobInstanceRepository(db *gorm.DB) (JobInstanceRepository, error) {
 	if db == nil {
 		return nil, errors.New("job instance repository database is nil")

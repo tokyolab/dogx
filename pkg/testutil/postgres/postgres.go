@@ -27,6 +27,12 @@ const (
 var schemaSequence atomic.Uint64
 
 // OpenPostgres creates an isolated schema in a dedicated test database.
+// DOGX_TEST_POSTGRES_DSN must be set explicitly, and the database name must end
+// in _test. Each call creates a separate schema; both returned handles share its
+// isolated pool. The caller runs domain migrations and must stop background
+// users before t.Cleanup closes the connections and drops the schema.
+// Initialization failure terminates the test with t.Fatalf rather than returning
+// partially usable resources.
 func OpenPostgres(t testing.TB) (*gorm.DB, *sql.DB) {
 	t.Helper()
 

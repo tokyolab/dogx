@@ -7,7 +7,12 @@ import (
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 )
 
+// ConfigProvider supplies validated security configuration to login checks.
+// Load failures must not be hidden by defaulting protection to disabled.
 type ConfigProvider interface {
+	// Current returns a non-nil configuration snapshot on success, or an error
+	// if unavailable, loading fails, or the request is canceled. Runtime returns
+	// an independent copy, so caller mutations do not affect other requests.
 	Current(context.Context) (*system.LoginSecurityConfig, error)
 }
 

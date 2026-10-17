@@ -9,9 +9,19 @@ import (
 	"github.com/tokyolab/dogx/apps/system/rpc/types/system"
 )
 
+// FailureStore maintains login failure counts and temporary account locks without
+// affecting existing sessions. Implementations must support concurrent requests.
+// Storage failures must return errors, not be interpreted as an unlocked account.
 type FailureStore interface {
+	// Locked reports whether the account is temporarily locked. Its bool result
+	// is valid only when the error is nil.
 	Locked(context.Context, string) (bool, error)
+	// Fail atomically records a failure and locks the account at the threshold.
+	// Configuration must be non-nil and pass Validate; window and lock durations
+	// are in seconds. Further failures on a locked account do not extend its lock.
 	Fail(context.Context, string, *system.LoginSecurityConfig) error
+	// Clear removes only failure counts that have not become a lock. It does not
+	// remove a lock installed by concurrent failures.
 	Clear(context.Context, string) error
 }
 

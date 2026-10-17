@@ -13,6 +13,9 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// Config describes a domain's own PostgreSQL connection pool.
+// Defaults in field tags are applied by the configuration loader, not by
+// constructing a Config value directly.
 type Config struct {
 	Host            string
 	Port            int `json:",default=5432"`
@@ -26,6 +29,8 @@ type Config struct {
 	ConnMaxLifetime time.Duration `json:",default=1h"`
 }
 
+// DSN returns a connection string containing the password. It is intended only
+// for the database driver and must not be logged.
 func (c Config) DSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
@@ -39,6 +44,11 @@ func (c Config) DSN() string {
 	)
 }
 
+// Open creates and connects an independent pool, returning GORM and database/sql
+// handles that share it. On success, the caller must close sql.DB after all users
+// have stopped; this package does not maintain a global pool. On failure, both
+// handles are nil and the error wraps its cause; no partially usable handle is
+// returned.
 func Open(c Config) (*gorm.DB, *sql.DB, error) {
 	return open(c, gorm.Open)
 }

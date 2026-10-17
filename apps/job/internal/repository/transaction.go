@@ -8,18 +8,34 @@ import (
 	"gorm.io/gorm"
 )
 
-// Repositories is scoped to a single transaction. Callers must not retain these
-// handles or start asynchronous work with them after the callback returns.
+// Repositories shares one transaction, so each repository can read writes made
+// by the others before commit. The handles are valid only during the
+// TransactionRunner callback. Callers must not retain them or start asynchronous
+// database operations that can outlive the callback.
 type Repositories struct {
 	Jobs      JobDefinitionRepository
 	Groups    ExecutorGroupRepository
 	Instances JobInstanceRepository
 }
 
-// TransactionRunner returns nil only after commit succeeds. A successful
-// callback alone does not authorize publishing results or notifications.
+// TransactionRunner runs a callback in one transaction. It attempts rollback if
+// the callback returns an error, or commit if the callback returns nil. It does
+// not retry the callback. Only a nil result from the runner confirms commit;
+// a successful callback or repository call does not authorize publishing results
+// or sending post-commit notifications.
+//
+// The callback must be non-nil and short-lived, without RPC, Redis, or other
+// external I/O. A panic triggers an attempted rollback and propagates unchanged.
+// The context governs database operations; canceling it does not cancel business
+// execution. A commit error, such as a lost connection, does not always establish
+// that the transaction rolled back. Changes to Go objects are not undone by
+// rollback and must not be treated as evidence of success after an error.
 type TransactionRunner func(context.Context, func(Repositories) error) error
 
+// NewTransactionRunner creates a runner without taking ownership of or closing db.
+// The handle must be non-nil and must not already be in a transaction: GORM nested
+// transactions cannot provide TransactionRunner's commit-confirmation contract.
+// Construction does not check database connectivity.
 func NewTransactionRunner(db *gorm.DB) (TransactionRunner, error) {
 	if db == nil {
 		return nil, errors.New("job transaction database is nil")

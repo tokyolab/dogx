@@ -22,6 +22,9 @@ var (
 	ErrRefreshTokenMismatch = errors.New("refresh token mismatch")
 )
 
+// Session is a server-side authentication record. Refresh tokens are stored only
+// as hashes, and replay results only as ciphertext. RefreshReplayUntil is a Unix
+// millisecond timestamp from Redis's clock, not a new session expiry.
 type Session struct {
 	ID                       string    `json:"id"`
 	UserID                   int64     `json:"userId"`
@@ -33,13 +36,36 @@ type Session struct {
 	EncryptedRefreshResult   string    `json:"encryptedRefreshResult,omitempty"`
 }
 
+// SessionReader is the minimum dependency for reading server-side sessions at
+// authentication boundaries; it grants no mutation or revocation capability.
+// Implementations must support concurrent authentication requests.
 type SessionReader interface {
+	// Get returns a session snapshot, or ErrSessionNotFound if the session is
+	// missing or its storage TTL has expired. A miss must not return (nil, nil).
+	// Storage and decoding failures must remain technical errors.
 	Get(ctx context.Context, sessionID string) (*Session, error)
 }
 
+// SessionStore maintains sessions and refresh-token rotation; possession of a
+// client token alone does not establish that a session exists. Implementations
+// must support concurrent calls, but separate method calls are not a transaction.
+// An error does not prove that no storage operation took effect: callers must not
+// infer that a session necessarily remains valid or was never created.
 type SessionStore interface {
 	SessionReader
+
+	// Create stores the session and indexes it for per-user revocation. The
+	// caller must supply a newly generated session ID and a positive ttl.
+	// ttl controls storage expiry; Session.ExpiresAt does not replace it.
 	Create(ctx context.Context, session Session, ttl time.Duration) error
+
+	// RotateRefreshToken atomically chooses rotation or short-window replay and
+	// returns the winning stored session, not necessarily this call's candidate.
+	// Callers must use the returned EncryptedRefreshResult. The Redis implementation
+	// uses Redis time for a 5-second replay window, during which the current or
+	// previous token can retrieve the same result. A mismatching token deletes the
+	// session and returns ErrRefreshTokenMismatch; a missing session returns
+	// ErrSessionNotFound. ttl must be positive and encryptedResult must be ciphertext.
 	RotateRefreshToken(
 		ctx context.Context,
 		sessionID string,
@@ -49,14 +75,30 @@ type SessionStore interface {
 		ttl time.Duration,
 		encryptedResult string,
 	) (*Session, error)
+
+	// Revoke deletes the user's session and its index entry. An already missing
+	// session can still succeed. If an existing session belongs to another user,
+	// it returns ErrSessionUserMismatch without deleting that session.
 	Revoke(ctx context.Context, userID int64, sessionID string) error
+
+	// RevokeAll revokes sessions in batches using the user's index. It may
+	// complete partially; an error does not restore deleted sessions. It is not
+	// an atomic barrier against concurrent session creation and must not be used
+	// as an account ban that prevents subsequent logins.
 	RevokeAll(ctx context.Context, userID int64) error
 }
 
+// redisSessionReadClient preserves go-zero Redis read semantics: a missing key
+// returns an empty string and nil. SessionReader translates that result into
+// ErrSessionNotFound rather than treating a miss as a connection failure.
 type redisSessionReadClient interface {
 	GetCtx(ctx context.Context, key string) (string, error)
 }
 
+// redisSessionClient is the subset of Redis commands needed by session storage,
+// following go-zero's command contracts. Clients must support concurrent calls.
+// Multiple commands do not form a transaction; only the script within EvalCtx
+// executes atomically as a unit.
 type redisSessionClient interface {
 	redisSessionReadClient
 	SetexCtx(ctx context.Context, key, value string, seconds int) error
@@ -68,11 +110,17 @@ type redisSessionClient interface {
 	EvalCtx(ctx context.Context, script string, keys []string, args ...any) (any, error)
 }
 
+// RedisSessionReader reads Redis data into independent session snapshots and
+// supports concurrent requests after construction. It does not own the supplied
+// client; the caller must wait for all reads to finish before closing it.
 type RedisSessionReader struct {
 	client        redisSessionReadClient
 	sessionPrefix string
 }
 
+// RedisSessionStore treats session values as authoritative and per-user sets as
+// indexes for bulk revocation. It supports concurrent use after construction.
+// The caller owns the client's lifetime; the store does not close it.
 type RedisSessionStore struct {
 	*RedisSessionReader
 	client             redisSessionClient

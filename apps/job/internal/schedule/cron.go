@@ -1,5 +1,6 @@
-// Package schedule owns the Cron grammar and process-timezone interpretation
-// shared by validation, previews, persistence, and the leader's timer.
+// Package schedule defines the Cron grammar shared by validation, previews,
+// persisted progress, and leader timers. Expressions use the scheduler process's
+// time.Local; all scheduler replicas must use the same deployment timezone.
 package schedule
 
 import (
@@ -13,8 +14,17 @@ import (
 
 var parser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 
-// Parse deliberately excludes descriptors and embedded timezones, even though
-// robfig accepts timezone prefixes independently of its parser options.
+// Parse parses six-field Cron expressions (second, minute, hour, day of month,
+// month, day of week) after trimming surrounding whitespace, up to 128 characters.
+// Descriptors such as @daily, years, and embedded timezones are unsupported;
+// month and weekday syntax follows robfig. The returned schedule always uses
+// time.Local rather than the input timestamp's Location.
+//
+// Parsing validates syntax, not the existence of a future occurrence. Callers
+// of the returned schedule's Next must handle the zero time returned when no
+// occurrence lies within its search range, or use this package's Next instead.
+// robfig recognizes timezone prefixes independently of its parser field options,
+// so those options alone cannot enforce this grammar.
 func Parse(expr string) (cron.Schedule, error) {
 	expr = strings.TrimSpace(expr)
 	if !utf8.ValidString(expr) || strings.ContainsRune(expr, 0) || utf8.RuneCountInString(expr) > 128 || len(strings.Fields(expr)) != 6 {
@@ -38,6 +48,9 @@ func (s localSchedule) Next(after time.Time) time.Time {
 	return s.Schedule.Next(after.In(time.Local))
 }
 
+// Next returns the first scheduled occurrence strictly later than after, interpreting
+// the expression in the scheduler process's timezone. Invalid expressions or
+// no occurrence within robfig's search range return zero time and an error.
 func Next(expr string, after time.Time) (time.Time, error) {
 	s, err := Parse(expr)
 	if err != nil {
@@ -50,6 +63,10 @@ func Next(expr string, after time.Time) (time.Time, error) {
 	return next, nil
 }
 
+// Preview returns up to five scheduled occurrences strictly later than after, in
+// increasing order. Invalid syntax or no first occurrence returns nil and an
+// error. If a later search reaches its limit, already found occurrences are
+// returned with a nil error; missing occurrences are not synthesized.
 func Preview(expr string, after time.Time) ([]time.Time, error) {
 	s, err := Parse(expr)
 	if err != nil {

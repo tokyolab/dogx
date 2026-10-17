@@ -16,6 +16,9 @@ type registeredRule struct {
 	entry cron.EntryID
 }
 
+// leaderTerm owns disposable state for one lease term and cannot be reused after
+// leadership is lost. Only configLoop mutates rules; cronMu coordinates rule
+// application with Cron shutdown. Other goroutines only offer hints.
 type leaderTerm struct {
 	runtime *Runtime
 	ctx     context.Context
@@ -28,6 +31,9 @@ type leaderTerm struct {
 	rules   map[int64]registeredRule
 }
 
+// runTerm blocks until the term is canceled and all local work exits. It does not
+// own Instance execution. Queue closure discards only in-memory hints; a later
+// valid term reconciles persistent progress and missed triggers.
 func (r *Runtime) runTerm(ctx context.Context) {
 	t := &leaderTerm{runtime: r, ctx: ctx, queue: newJobQueue(r.config.QueueCapacity), reload: make(chan struct{}, 1),
 		cron: r.newCron(), rules: make(map[int64]registeredRule)}
@@ -102,6 +108,9 @@ func (t *leaderTerm) worker() {
 	}
 }
 
+// signalReload coalesces hints without waiting for a load. A hint received during
+// a load remains pending so a stale query cannot hide a newer commit. Hints carry
+// no configuration and provide no consumption acknowledgement.
 func (t *leaderTerm) signalReload() {
 	if t.ctx.Err() != nil {
 		return
@@ -157,6 +166,11 @@ func (t *leaderTerm) configLoop() {
 	}
 }
 
+// apply installs a successfully loaded full snapshot and removes rules absent
+// from it. Invalid rules are removed and logged. Application is not a database
+// transaction; term cleanup handles a partial batch after cancellation. Added or
+// changed rules receive an extra hint after Cron initialization is acknowledged,
+// covering trigger times crossed while loading.
 func (t *leaderTerm) apply(rules []repository.Rule) {
 	t.cronMu.Lock()
 	defer t.cronMu.Unlock()
@@ -216,6 +230,9 @@ func (t *leaderTerm) apply(rules []repository.Rule) {
 	}
 }
 
+// recoveryLoop queries immediately at term start, then waits the recovery
+// interval after each batch. It is independent of rule synchronization; recovery
+// queries within one term never overlap or replay accumulated timer events.
 func (t *leaderTerm) recoveryLoop() {
 	for {
 		t.recoverDue()
@@ -231,6 +248,11 @@ func (t *leaderTerm) recoveryLoop() {
 	}
 }
 
+// recoverDue reads one batch of the earliest due Jobs and offers IDs to the same
+// trigger queue. It stops when the queue rejects a hint, keeps no cross-pass
+// cursor, and never advances database progress merely because a hint was queued.
+// Each pass queries again; it need not drain the backlog. TriggerService remains
+// responsible for misfire and duplicate decisions.
 func (t *leaderTerm) recoverDue() {
 	if t.ctx.Err() != nil {
 		return
@@ -257,6 +279,11 @@ func (t *leaderTerm) recoverDue() {
 	}
 }
 
+// watchLoop reads an etcd revision, watches from the next revision, and requests a
+// full reload to cover subscription races. It rebuilds ended or failed watches
+// with backoff. Hints may coalesce, so minute-level reconciliation is still needed.
+// The watch neither dispatches Tasks nor confirms that a management change has
+// been applied by the leader.
 func (t *leaderTerm) watchLoop() {
 	attempt := 0
 	for t.ctx.Err() == nil {

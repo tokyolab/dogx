@@ -14,10 +14,18 @@ import (
 )
 
 var (
-	ErrJobNotFound        = errors.New("job definition not found")
+	// ErrJobNotFound means the Job is missing or soft-deleted. Use errors.Is to test it.
+	ErrJobNotFound = errors.New("job definition not found")
+	// ErrJobStateNotAllowed means a conditional write matched no row, but a follow-up
+	// query still found an undeleted Job. Without an explicit transaction row lock,
+	// this classification reflects the follow-up query, not the write's snapshot.
 	ErrJobStateNotAllowed = errors.New("job definition state does not allow this operation")
 )
 
+// JobFilter uses one-based page numbers and a PageSize from 1 through 200.
+// Nil pointer fields and an empty Name omit their respective filters. A nonempty
+// Name performs a case-insensitive literal substring match; percent signs and
+// underscores are not SQL wildcards.
 type JobFilter struct {
 	Page            int64
 	PageSize        int64
@@ -27,6 +35,9 @@ type JobFilter struct {
 	Status          *basemodel.RecordStatus
 }
 
+// JobListItem is a management-list projection that omits large fields such as
+// parameters. ExecutorGroupName is nil if the group is missing or deleted.
+// NextTriggerAt is nil for disabled Jobs; the stored progress is not cleared.
 type JobListItem struct {
 	ID                int64
 	Name              string
@@ -41,36 +52,99 @@ type JobListItem struct {
 	UpdatedAt         time.Time
 }
 
+// JobDetail is a management-detail projection. Its group name and NextTriggerAt
+// have the same display semantics as JobListItem. Trigger decisions must use
+// Lock's record, which exposes the stored progress, rather than this projection.
 type JobDetail struct {
 	model.JobDefinition `gorm:"embedded"`
 	ExecutorGroupName   *string
 }
 
+// Rule contains the minimal Cron registration fields, not persisted trigger progress.
 type Rule struct {
 	ID       int64
 	CronExpr string
 }
+
+// DueJob is a recovery candidate, not a claim or a guarantee of current eligibility.
 type DueJob struct {
 	ID            int64
 	NextTriggerAt time.Time
 }
 
+// JobDefinitionRepository accesses configuration and progress for undeleted Jobs.
+// Callers validate business inputs, protect group references, and coordinate
+// cross-table operations. Success from a transaction-scoped method confirms only
+// that operation; TransactionRunner's result determines whether commit succeeded.
+// Database errors preserve their causes. Conditional writes distinguish missing
+// Jobs from disallowed states using ErrJobNotFound and ErrJobStateNotAllowed.
 type JobDefinitionRepository interface {
+	// List returns a page ordered by descending ID and the total matching count.
+	// An empty page is a non-nil empty slice. Count and page use separate queries;
+	// READ COMMITTED does not guarantee that they share one database snapshot.
 	List(context.Context, JobFilter) ([]JobListItem, int64, error)
+
+	// Get returns management details, or nil, ErrJobNotFound if absent.
+	// It never returns nil, nil.
 	Get(context.Context, int64) (*JobDetail, error)
+
+	// Lock locks the Job by primary key in the caller's explicit transaction.
+	// The lock lasts until the transaction ends. The result contains configuration,
+	// status, and stored progress needed for triggering and status changes, not
+	// all management fields such as Remark. Missing or deleted Jobs return
+	// nil, ErrJobNotFound, never nil, nil. Dependent Instance queries must use a
+	// separate statement after locking to observe the previous holder's commit.
 	Lock(context.Context, int64) (*model.JobDefinition, error)
+
+	// Create inserts a new Job, ignoring the input Base and replacing it with the
+	// generated Base. Status and NextTriggerAt are stored as supplied; callers
+	// initialize and validate them. The input must be non-nil and must not be
+	// accessed concurrently. Rolling back an outer transaction does not undo the
+	// Base written to the input object.
 	Create(context.Context, *model.JobDefinition) (int64, error)
+
+	// Update changes management configuration only for a disabled Job, preserving
+	// supplied zero values and empty strings. Identity, status, progress, and audit
+	// fields from the input do not overwrite their columns. The input must be non-nil.
 	Update(context.Context, int64, *model.JobDefinition) error
+
+	// Enable enables a disabled Job and stores the supplied next trigger time;
+	// it does not parse Cron or calculate that time. An already enabled Job returns
+	// ErrJobStateNotAllowed; callers implement idempotent enabling after Lock.
 	Enable(context.Context, int64, time.Time) error
+
+	// Disable succeeds even if the Job is already disabled. It preserves trigger
+	// progress and does not cancel existing Instances.
 	Disable(context.Context, int64) error
+
+	// Delete soft-deletes a disabled Job without removing historical Instances or
+	// checking for active ones. Callers must Lock and check active Instances in the
+	// same transaction first. Repeated deletion returns ErrJobNotFound.
 	Delete(context.Context, int64) error
+
+	// Advance stores the supplied next trigger time for an enabled Job without
+	// checking whether it is later than the previous value. Callers must Lock and
+	// persist the current trigger decision in the same transaction to avoid
+	// overwriting another trigger's progress.
 	Advance(context.Context, int64, time.Time) error
+
+	// LoadRules returns IDs and Cron expressions for all enabled Jobs.
+	// It does not paginate or guarantee ordering.
 	LoadRules(context.Context) ([]Rule, error)
+
+	// ListDue returns enabled Jobs whose NextTriggerAt is at or before the supplied
+	// time, ordered by trigger time then ID. The limit must be positive; callers
+	// control the scan budget and maximum batch size. It neither locks nor advances
+	// progress. Triggering must Lock and recheck state and progress; a candidate
+	// alone does not authorize execution.
 	ListDue(context.Context, time.Time, int) ([]DueJob, error)
 }
 
 type jobDefinitionRepository struct{ db *gorm.DB }
 
+// NewJobDefinitionRepository binds a non-nil database or transaction handle.
+// It does not check connectivity, close the connection, or commit transactions.
+// Use a repository supplied by TransactionRunner when calling Lock.
 func NewJobDefinitionRepository(db *gorm.DB) (JobDefinitionRepository, error) {
 	if db == nil {
 		return nil, errors.New("job definition repository database is nil")

@@ -21,12 +21,16 @@ const (
 	exitUsage   = 2
 )
 
+// Options binds a domain's command entry point, migration sources, and ledger.
+// It does not combine migrations from different domains.
 type Options struct {
 	CommandPath         string
 	DefaultConfigFile   string
 	DefaultMigrationDir string
 	// Database commands use the provider's embedded sources and ledger;
 	// DefaultMigrationDir is used only by create and fix.
+	// A factory is required for database commands. Run owns and closes the
+	// supplied connection; the factory must not close it or retain it after Run.
 	NewProvider func(*sql.DB) (*goose.Provider, error)
 }
 
@@ -35,6 +39,13 @@ type migrateConfig struct {
 }
 
 // Run executes the migration command and returns a process exit code.
+// It returns 0 for success or help, 1 for execution failure, and 2 for invalid
+// arguments; it does not call os.Exit. args excludes the executable name, and
+// caller-provided stdout and stderr are not closed.
+// Database commands use ctx and close their connection before returning.
+// create and fix only modify local migration files; they neither use ctx nor
+// connect to the database. create changes Goose's global naming configuration
+// and must not run concurrently.
 func Run(ctx context.Context, args []string, stdout, stderr io.Writer, options Options) int {
 	flags := flag.NewFlagSet("migrate", flag.ContinueOnError)
 	flags.SetOutput(stderr)

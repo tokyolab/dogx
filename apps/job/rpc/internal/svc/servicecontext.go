@@ -18,21 +18,38 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
+// ServiceContext assembles data access, trigger, and scheduler lifecycle
+// dependencies for Job RPC. Instances created by NewServiceContext own their
+// database connection, etcd client, and scheduler background work. Callers must
+// stop RPC requests before calling Close and must not mutate public dependencies
+// while the service is running.
 type ServiceContext struct {
-	Config           config.Config
-	JobRepo          repository.JobDefinitionRepository
-	Transactions     repository.TransactionRunner
-	Trigger          ManualTrigger
+	Config       config.Config
+	JobRepo      repository.JobDefinitionRepository
+	Transactions repository.TransactionRunner
+	Trigger      ManualTrigger
+	// NotifyJobChanged sends a configuration-reload hint only after a management
+	// transaction's commit is confirmed. Nil means no notifier is installed.
+	// Success does not confirm leader reload; failure does not roll back the
+	// committed change. Periodic reconciliation provides recovery.
 	NotifyJobChanged func(context.Context) error
-	Clock            func() time.Time
-	cancel           context.CancelFunc
-	done             chan struct{}
-	etcd             *clientv3.Client
-	sqlDB            *sql.DB
-	closeOnce        sync.Once
-	closeErr         error
+	// Clock is an optional, concurrency-safe time source for management use
+	// cases. It does not replace the scheduler Runtime's clock.
+	Clock     func() time.Time
+	cancel    context.CancelFunc
+	done      chan struct{}
+	etcd      *clientv3.Client
+	sqlDB     *sql.DB
+	closeOnce sync.Once
+	closeErr  error
 }
 
+// NewServiceContext validates configuration, opens independent connections, and
+// starts the election loop without waiting for leadership. Success does not
+// imply completed election, configuration loading, or external dependency
+// readiness; background scheduler failures are logged. Initialization failures
+// release acquired resources; on success, the returned instance's Close owns
+// their cleanup.
 func NewServiceContext(c config.Config) (*ServiceContext, error) {
 	if err := c.Etcd.Validate(); err != nil {
 		return nil, fmt.Errorf("job discovery: %w", err)
@@ -94,6 +111,12 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 	return result, nil
 }
 
+// Close cancels and waits for the scheduler loop before closing the shared etcd
+// client and database connection. It does not stop the RPC server; callers must
+// first stop accepting requests and finish requests using these dependencies.
+// Concurrent or repeated calls wait for the same cleanup and return the same
+// combined close error. There is no separate wait deadline: unfinished scheduler
+// cancellation keeps Close waiting rather than releasing connections too early.
 func (s *ServiceContext) Close() error {
 	s.closeOnce.Do(func() {
 		if s.cancel != nil {

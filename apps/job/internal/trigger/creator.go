@@ -1,3 +1,6 @@
+// Package trigger turns manual requests and automatic due hints into persisted
+// waiting Instances. It records trigger decisions and configuration snapshots;
+// it does not dispatch Tasks, execute business code, or aggregate results.
 package trigger
 
 import (
@@ -17,13 +20,27 @@ import (
 )
 
 const (
+	// DefaultCreationCapacity bounds concurrent manual and automatic creation
+	// calls sharing one Creator.
 	DefaultCreationCapacity = 32
-	DefaultCreationBudget   = 3 * time.Second
-	MisfireTolerance        = 5 * time.Second
+	// DefaultCreationBudget is the per-call context budget, including the time
+	// automatic triggers spend waiting for a creation permit.
+	DefaultCreationBudget = 3 * time.Second
+	// MisfireTolerance is the allowed automatic-trigger delay. The misfire
+	// policy applies only when the delay exceeds it, not when it equals it.
+	// This is neither an Instance execution timeout nor a database query timeout.
+	MisfireTolerance = 5 * time.Second
 )
 
-// Creator coordinates the automatic/manual instance-creation transaction.
-// Sharing one Creator keeps both entry points within the same bounded capacity.
+// Creator coordinates automatic and manual triggers in short transactions and
+// shares process-local creation permits between both entry points. Construct it
+// with New and do not apply Options afterward. Its methods may be called
+// concurrently; the transaction runner, clock, and hint callback must also
+// support concurrent use.
+//
+// Creation succeeds only after commit is confirmed. Post-commit hints accelerate
+// subsequent processing but are not the durable handoff. A technical error may
+// leave the commit outcome unknown; it does not prove that no Instance exists.
 type Creator struct {
 	transact repository.TransactionRunner
 	now      func() time.Time
@@ -33,17 +50,33 @@ type Creator struct {
 	slots    chan struct{}
 }
 
+// Option configures a Creator during New, not while it is in use.
 type Option func(*Creator)
 
+// WithClock sets the process clock read after locking a Job for an automatic
+// trigger decision. New rejects a nil clock.
 func WithClock(now func() time.Time) Option { return func(s *Creator) { s.now = now } }
 
-// The hint consumer must be nonblocking; persistence, not this hint, is the handoff.
+// WithInstanceHint sets a local hint callback for newly committed Instances.
+// A nil callback disables hints. The callback runs synchronously in the trigger
+// caller's goroutine while the creation permit is still held; it must be
+// nonblocking and safe for concurrent use. Replayed manual requests and duplicate
+// automatic identities do not emit hints. Consumers must not rely on hints for
+// durable handoff: the process may exit between commit and callback invocation.
 func WithInstanceHint(hint func(int64)) Option { return func(s *Creator) { s.hint = hint } }
 
+// WithCreationLimits sets the shared capacity and per-call context budget;
+// both must be positive. The budget signals cancellation to dependencies, not
+// a hard return deadline. A permit is held until the transaction call returns.
 func WithCreationLimits(capacity int, budget time.Duration) Option {
 	return func(s *Creator) { s.capacity, s.budget = capacity, budget }
 }
 
+// New constructs a Creator without starting background goroutines or taking
+// ownership of the transaction runner's connections. transact must be non-nil
+// and obey TransactionRunner's commit-confirmation contract. The defaults use
+// process time and the default creation limits. Invalid clocks or limits return
+// an error.
 func New(transact repository.TransactionRunner, options ...Option) (*Creator, error) {
 	if transact == nil {
 		return nil, errors.New("job trigger transaction runner is nil")
@@ -64,6 +97,12 @@ func New(transact repository.TransactionRunner, options ...Option) (*Creator, er
 	return s, nil
 }
 
+// ManualTrigger describes one manual trigger request. Retries for the same Job
+// must reuse RequestID rather than generate an identity per RPC attempt.
+// The entry point supplies the authenticated OperatorID. When ParamsOverridden
+// is false, Params must be empty and creation inherits the Job's parameters.
+// Otherwise, Params is trimmed and used for this round; an empty string
+// explicitly clears its parameters.
 type ManualTrigger struct {
 	JobID            int64
 	RequestID        uuid.UUID
@@ -72,6 +111,18 @@ type ManualTrigger struct {
 	OperatorID       int64
 }
 
+// TriggerManual creates or replays a manual Instance and returns its ID only
+// after commit is confirmed. Disabled Jobs may be triggered, but deleted Jobs
+// cannot be triggered or replayed. Manual triggers do not advance automatic
+// trigger progress. Reusing a Job and RequestID with the same override flag and
+// normalized parameters returns the original ID without rechecking the current
+// group or blocking state. A different override flag or overridden parameters
+// returns ErrRequestConflict.
+//
+// Full capacity causes ErrCapacityBusy without waiting. New requests return
+// the corresponding input, group, or blocking rejection. Context, repository,
+// and commit errors retain their cause chains; any error returns a zero ID.
+// A technical error may leave commit uncertain, so retries must reuse RequestID.
 func (s *Creator) TriggerManual(ctx context.Context, input ManualTrigger) (int64, error) {
 	if input.JobID <= 0 || input.OperatorID <= 0 || (!input.ParamsOverridden && input.Params != "") {
 		return 0, ErrInvalidInput
@@ -128,8 +179,8 @@ func (s *Creator) TriggerManual(ctx context.Context, input ManualTrigger) (int64
 		if err != nil || created {
 			return err
 		}
-		// A conflict's tuple can become visible only to a new READ COMMITTED
-		// statement. Never combine INSERT and fallback SELECT into one CTE.
+		// A conflicting row may become visible only to a new READ COMMITTED
+		// statement. Never combine INSERT and the fallback SELECT in one CTE.
 		prior, err = r.Instances.FindManual(ctx, input.JobID, input.RequestID)
 		if err != nil {
 			return err
@@ -149,12 +200,27 @@ func (s *Creator) TriggerManual(ctx context.Context, input ManualTrigger) (int64
 	return id, nil
 }
 
+// AutomaticResult describes a committed automatic-trigger decision, not a
+// business execution result. InstanceID is valid only when Created is true;
+// duplicate identities do not look up or return the existing Instance ID.
+// Reason distinguishes creation from normal skips, which are not technical errors.
 type AutomaticResult struct {
 	InstanceID int64
 	Created    bool
 	Reason     string
 }
 
+// TriggerAutomatic locks and rereads the Job, then decides using process time
+// read under that lock; the caller's due hint is not authoritative. It does not
+// check leadership: the scheduler must supply the current term's context.
+// Creation and NextTriggerAt advancement share one transaction. Misfires,
+// blocked triggers, and duplicate identities also advance progress; missing,
+// disabled, or not-yet-due Jobs do not. Misfire recovery creates at most one
+// round rather than replaying every missed occurrence.
+//
+// Capacity waits and the transaction share the creation budget. Transaction
+// failure returns a zero result and an error retaining its cause, without a
+// hint. A nil error may mean a normal skip; inspect Reason and Created.
 func (s *Creator) TriggerAutomatic(ctx context.Context, id int64) (AutomaticResult, error) {
 	result := AutomaticResult{}
 	if id <= 0 {

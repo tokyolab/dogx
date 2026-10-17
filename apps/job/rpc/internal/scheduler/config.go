@@ -7,14 +7,23 @@ import (
 	"time"
 )
 
+// Config defines process-local trigger resources, not Job execution timeouts or
+// retries. New defaults zero numeric values and rejects negative values. Prefix
+// must be supplied explicitly.
 type Config struct {
 	// Prefix must distinguish both the environment and the logical cluster.
-	Prefix              string
-	QueueCapacity       int
+	Prefix string
+	// QueueCapacity bounds queued and in-flight distinct Job IDs, not Tasks per Job.
+	QueueCapacity int
+	// CreationConcurrency counts automatic workers; automatic and manual creation
+	// still share the Creator's permits.
 	CreationConcurrency int
-	LeaseTTLSeconds     int
-	RecoveryLimit       int
-	QueryTimeout        time.Duration
+	// LeaseTTLSeconds is the election lease TTL in seconds, not an execution deadline.
+	LeaseTTLSeconds int
+	// RecoveryLimit bounds candidates per recovery pass, not total backlog recovery.
+	RecoveryLimit int
+	// QueryTimeout bounds rule and recovery queries, not Instance creation transactions.
+	QueryTimeout time.Duration
 }
 
 func (c Config) defaults() (Config, error) {

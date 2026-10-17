@@ -172,7 +172,8 @@ func (s *ServiceContext) Close() error {
 	if s.securityRuntime != nil {
 		s.securityRuntime.Close()
 	}
-	// Stop every policy reload source before waiting for in-flight reloads.
+	// Cancel the periodic loop and request watcher shutdown first.
+	// redis-watcher's Close does not wait for callbacks to exit.
 	if s.cancelPolicy != nil {
 		s.cancelPolicy()
 	}
@@ -182,7 +183,9 @@ func (s *ServiceContext) Close() error {
 	if s.policyReloader != nil {
 		s.policyReloader.Wait()
 	}
-	// Keep the database available until all policy reloads have stopped.
+	// Wait covers the periodic loop and current reload, not watcher callbacks
+	// that have yet to enter Reload. This ordering therefore does not prove that
+	// every policy callback has exited.
 	if s.sqlDB == nil {
 		return nil
 	}

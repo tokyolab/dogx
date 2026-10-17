@@ -10,15 +10,33 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// ErrExecutorGroupUnavailable means the group is missing or soft-deleted.
+// It does not mean that the group has no online executors.
 var ErrExecutorGroupUnavailable = errors.New("executor group is unavailable")
 
+// ExecutorGroupRepository checks whether groups referenced by Jobs still exist.
+// It does not perform service discovery or check executor liveness.
 type ExecutorGroupRepository interface {
+	// LockAvailable locks the group by primary key and succeeds only if the group
+	// exists and is not deleted. Call it in an explicit transaction before writing
+	// a Job reference; the lock lasts until that transaction ends. Lock the group
+	// before the Job to preserve the order used by group-deletion reference checks.
+	// Missing or deleted groups return ErrExecutorGroupUnavailable; other database
+	// errors preserve their underlying causes.
 	LockAvailable(context.Context, int64) error
+
+	// Available reports whether the group exists and is not deleted in the query
+	// snapshot, returning false, nil otherwise. It takes no lock and does not
+	// guarantee later availability, so it cannot replace LockAvailable when
+	// creating or changing a Job reference.
 	Available(context.Context, int64) (bool, error)
 }
 
 type executorGroupRepository struct{ db *gorm.DB }
 
+// NewExecutorGroupRepository binds a non-nil database or transaction handle.
+// It does not check connectivity, close the connection, or commit transactions.
+// Use TransactionRunner to obtain a transaction-scoped repository.
 func NewExecutorGroupRepository(db *gorm.DB) (ExecutorGroupRepository, error) {
 	if db == nil {
 		return nil, errors.New("executor group repository database is nil")

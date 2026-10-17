@@ -14,6 +14,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// jobManagementError maps known repository errors to stable business errors at
+// the management RPC boundary. Unknown errors retain their cause for the shared
+// interceptor; database failures must not be disguised as business rejections.
 func jobManagementError(operation string, err error) error {
 	switch {
 	case errors.Is(err, repository.ErrJobNotFound):
@@ -27,6 +30,9 @@ func jobManagementError(operation string, err error) error {
 	}
 }
 
+// rpcOperationError preserves technical causes and operation context, attaching
+// a standard gRPC status to context errors. Cancellation is not business
+// cancellation, and a timeout does not prove that a write was rolled back.
 func rpcOperationError(operation string, err error) error {
 	if err == nil {
 		return nil
@@ -43,12 +49,14 @@ func missingJobRecord() error {
 	return status.Error(codes.Internal, "job repository returned a nil record without an error")
 }
 
+// notifyJobChanged sends one synchronous, time-budgeted hint after confirmed
+// commit, unless the notifier is nil or the context is already canceled. Failure
+// is logged without changing the committed result; periodic reconciliation
+// recovers missed configuration hints.
 func notifyJobChanged(ctx context.Context, notify func(context.Context) error) {
 	if notify == nil || ctx.Err() != nil {
 		return
 	}
-	// The write has committed. Notification failure must not turn a confirmed
-	// save into failure; minute reconciliation repairs missed notifications.
 	notifyCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	if err := notify(notifyCtx); err != nil {

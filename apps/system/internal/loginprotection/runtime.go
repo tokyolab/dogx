@@ -20,6 +20,11 @@ const ConfigChannel = "dogx:security:config:changed"
 const ReloadInterval = 30 * time.Second
 const loadRetryDelay = time.Second
 
+// Runtime maintains a process-local login security configuration snapshot,
+// refreshed by Redis hints and periodic loads. It owns the Redis client and
+// subscription it creates, but not load's external dependencies. Users must call
+// Close. Current and Reload support concurrent calls; returned configurations are
+// copies and do not share mutable data with the internal snapshot.
 type Runtime struct {
 	load         func(context.Context) (*system.LoginSecurityConfig, error)
 	value        atomic.Pointer[system.LoginSecurityConfig]
@@ -37,12 +42,17 @@ type Runtime struct {
 }
 
 // NewRuntime eagerly loads the RPC process's database-backed configuration.
+// Both subscription and the initial load must succeed; the caller must Close the
+// returned runtime. load must honor Context cancellation or loading and shutdown
+// may block. This component's timeout alone does not prove an external call exited.
 func NewRuntime(conf zeroredis.RedisConf, load func(context.Context) (*system.LoginSecurityConfig, error)) (*Runtime, error) {
 	return newRuntime(conf, load, false)
 }
 
 // NewLazyRuntime lets API startup proceed without a successful configuration RPC.
 // Subscription still precedes all loads; notifications contain no configuration data.
+// The Redis subscription must still succeed. After construction, Current loads
+// on demand and background refreshes also load configuration. The caller must Close.
 func NewLazyRuntime(conf zeroredis.RedisConf, load func(context.Context) (*system.LoginSecurityConfig, error)) (*Runtime, error) {
 	return newRuntime(conf, load, true)
 }
@@ -87,6 +97,9 @@ func newRuntime(conf zeroredis.RedisConf, load func(context.Context) (*system.Lo
 	return r, nil
 }
 
+// Current returns a configuration copy or an error if unavailable; it does not
+// fall back to disabling protection. Lazy mode coalesces concurrent initial reads.
+// Canceling one request stops its wait, not the load shared with other requests.
 func (r *Runtime) Current(ctx context.Context) (*system.LoginSecurityConfig, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -138,6 +151,9 @@ func (r *Runtime) loadOnDemand(ctx context.Context) (*system.LoginSecurityConfig
 	}
 }
 
+// Reload serializes loading and validation of new configuration. Failure clears
+// the current snapshot instead of continuing to serve stale configuration.
+// ctx is passed to the load call but cannot interrupt waiting for another load's mutex.
 func (r *Runtime) Reload(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -165,6 +181,9 @@ func (r *Runtime) reloadLocked(ctx context.Context) error {
 	return nil
 }
 
+// Notify publishes a refresh hint without configuration data. A nil error means
+// only the publish call succeeded, not that subscribers refreshed. Source changes
+// must commit first; periodic loads recover missed hints.
 func (r *Runtime) Notify(ctx context.Context) error {
 	return r.client.Publish(ctx, ConfigChannel, "reload").Err()
 }
@@ -192,6 +211,10 @@ func (r *Runtime) run(ctx context.Context) {
 	}
 }
 
+// Close cancels the internal Context, waits for the subscription/periodic loop
+// to exit, and releases owned Redis resources. Nil receivers and repeated calls
+// are safe. Callers must first stop external Current, Reload, and Notify calls;
+// Close does not join all external calls or close load's database or RPC clients.
 func (r *Runtime) Close() {
 	if r == nil {
 		return

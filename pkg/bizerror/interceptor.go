@@ -10,6 +10,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// UnaryServerInterceptor encodes business errors found in the error chain using
+// DogX's internal RPC protocol, preserving the diagnostic message and adding
+// ErrorInfo.Reason. Other errors pass through unchanged; invalid business codes
+// or subcodes become Internal errors. This protocol is for internal RPC services,
+// not public gRPC APIs.
 func UnaryServerInterceptor(
 	ctx context.Context,
 	req any,

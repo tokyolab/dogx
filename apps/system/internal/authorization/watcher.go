@@ -12,12 +12,22 @@ import (
 	zeroredis "github.com/zeromicro/go-zero/core/stores/redis"
 )
 
+// PolicyNotifier publishes hints that policy may have changed; persisted policy
+// remains the authoritative source.
 type PolicyNotifier interface {
+	// Update must be called after policy changes commit. A nil error does not
+	// mean other nodes have loaded the policy. Notifications may be missed and
+	// do not replace periodic reconciliation or the database commit result.
 	Update() error
 }
 
+// PolicyWatcher adds explicit shutdown to Casbin's notification interface.
+// The caller owns its lifecycle.
 type PolicyWatcher interface {
 	persist.Watcher
+	// Close initiates shutdown of the underlying watcher. Watchers constructed
+	// by this package allow repeated calls, but returning does not guarantee
+	// callbacks have exited or underlying clients have closed; it is not a join.
 	Close()
 }
 
@@ -28,9 +38,15 @@ type managedPolicyWatcher struct {
 }
 
 func (w *managedPolicyWatcher) Close() {
+	// redis-watcher's Close closes an internal channel and panics if repeated.
+	// once prevents repeated calls; it does not turn asynchronous shutdown into
+	// a synchronous completion guarantee.
 	w.once.Do(w.close)
 }
 
+// NewRedisPolicyWatcher creates a watcher for external policy changes and ignores
+// its own published messages. callback receives refresh hints, not policy data.
+// On success, the caller must close the watcher.
 func NewRedisPolicyWatcher(
 	conf zeroredis.RedisConf,
 	channel string,
@@ -58,6 +74,9 @@ func NewRedisPolicyWatcher(
 	return concreteWatcher(watcher)
 }
 
+// NewRedisPolicyPublisher creates a watcher used only to publish notifications;
+// its receive callback does not process policy. On success, the caller must call
+// Close; see PolicyWatcher for shutdown semantics.
 func NewRedisPolicyPublisher(conf zeroredis.RedisConf, channel string) (PolicyWatcher, error) {
 	options, err := watcherOptions(conf, channel)
 	if err != nil {
