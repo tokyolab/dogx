@@ -1,4 +1,4 @@
-# goctl 代码生成规范
+# 契约代码生成规范
 
 DogX 将 `.api` 和 `.proto` 作为契约源文件，生成文件提交到 Git，但禁止直接编辑。
 
@@ -30,7 +30,7 @@ API 字段校验标签必须写入 `.api` 契约源文件，由 goctl 生成到 
 
 ## RPC 契约
 
-源文件按域维护：`apps/system/rpc/system.proto`、`apps/job/rpc/job.proto`。
+应用源文件按域维护：`apps/system/rpc/system.proto`、`apps/job/rpc/job.proto`，继续使用 goctl 生成应用代码。
 
 在仓库根目录执行：
 
@@ -55,14 +55,28 @@ Job HTTP 契约放在 `apps/system/api/desc/job.api`，仍由唯一入口 `syste
 - `internal/server/*.go`
 - `systemclient/*.go`、`jobclient/*.go`
 
-RPC 业务实现写在 `internal/logic`，依赖装配写在 `internal/svc`。
+应用 RPC 业务实现写在 `internal/logic`，依赖装配写在 `internal/svc`。
+
+## 公共执行协议 {#execution-protocol-generation}
+
+[执行通信协议](../design/scheduler/data-contracts.md#execution-rpc-contract)已批准、尚未实现：共享契约源文件为 `pkg/jobexecutor/protocol/execution.proto`，同一文件定义 `Executor`（`DispatchTask`、`CancelInstance`）和 `ResultReceiver`（`ReportTaskResult`）两个服务。`go_package` 固定为 `github.com/tokyolab/dogx/pkg/jobexecutor/protocol`。
+
+该子包只保存协议源文件与标准生成代码，不导入父级执行组件或业务域内部包。Job 调度端可单独导入协议子包，无须依赖执行器运行组件。具体 Server、业务适配与依赖由各自宿主装配，运行时仍统一使用 zrpc＋etcd。
+
+这是公共协议的窄例外：goctl 1.10.2 的 RPC 生成要求 `--zrpc_out`，会生成应用骨架，不能用于这里的纯协议生成。以后创建或修改该 `.proto` 时，在**仓库根目录**执行 README 中同一固定命令：
+
+```powershell
+protoc --proto_path=. --go_out=. --go_opt=module=github.com/tokyolab/dogx --go-grpc_out=. --go-grpc_opt=module=github.com/tokyolab/dogx pkg/jobexecutor/protocol/execution.proto
+```
+
+命令使用官方 `protoc`、`protoc-gen-go` 和 `protoc-gen-go-grpc`，只生成同目录的 `execution.pb.go`、`execution_grpc.pb.go`，不生成或删减 goctl 应用骨架。这些生成文件同样禁止手改，契约变化必须重新生成并提交结果。不得据此替换现有 System／Job 应用 RPC 的 goctl 生成流程；设计记录阶段不创建 `.proto`、生成文件或运行生成命令。
 
 ## 变更检查
 
 1. 修改契约源文件。
-2. 使用项目约定的 goctl 版本运行生成命令。
+2. 应用契约使用项目约定的 goctl 版本与固定命令；公共执行协议使用上文限定的 protoc 命令，不混用两种生成流程。
 3. 检查 Git diff，确认 `DO NOT EDIT` 文件的变化全部能由契约变化解释。
-4. 同步已有 Logic 的方法签名并补充测试。
+4. 同步受影响的 Logic 或执行通信适配的方法签名，并补充对应测试。
 5. 运行 `goctl api validate`、`go test ./...` 和 `go vet ./...`。
 
 模块路径迁移也必须重新运行生成命令，不能对生成文件执行全局文本替换。

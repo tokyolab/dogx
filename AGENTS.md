@@ -1,13 +1,20 @@
 # DogX 仓库协作规则
 
+## 产品版本与兼容
+
+- 产品版本号未变化时，不允许为开发中间态的旧实现、旧接口、旧配置或旧数据结构新增或保留兼容逻辑，直接按当前版本的目标契约实现。
+- 只有同时满足以下条件，才允许编写必要兼容逻辑：已经存在已发布的历史 Release，已确定升级到后续产品版本，且该升级确实产生不兼容。兼容范围必须对应具体来源版本、目标版本及实际差异，不为假设中的历史版本预留分支。
+- Git 提交、Tag、数据库迁移编号及单纯提高产品版本号，都不能代替历史 Release 这一前提。数据库结构迁移与旧版本兼容不是同一概念，新增迁移文件不自动授权加入历史回填、双读双写或过渡字段；详见[版本兼容与数据库迁移](docs/development/database-migrations.md#release-compatibility)。
+
 ## 生成代码
 
 - `apps/system/api/system.api` 是 HTTP API 唯一生成入口，只维护对 `desc/*.api` 的导入。
 - `apps/system/api/desc/base.api` 只保存被多个业务契约复用且语义完全一致的基础类型；每个业务资源的类型、路由和 Handler 声明放在对应的 `desc/<resource>.api` 中。
 - 只对入口 `system.api` 运行 goctl，不得单独对 `desc/*.api` 生成代码。新建公共类型前先确认至少三个业务契约存在同语义重复；业务枚举、业务 DTO 和持久化模型不得放入 `base.api`。
-- gRPC 契约源文件按业务域维护：`apps/system/rpc/system.proto`、`apps/job/rpc/job.proto`。
+- 应用 gRPC 契约源文件按业务域维护：`apps/system/rpc/system.proto`、`apps/job/rpc/job.proto`，继续使用 goctl。
+- 已批准的公共执行协议是唯一生成例外：实施时新增 `pkg/jobexecutor/protocol/execution.proto`，由官方 `protoc` 与 Go 插件仅生成同包的 `*.pb.go`、`*_grpc.pb.go`，不生成应用骨架；`go_package` 固定为 `github.com/tokyolab/dogx/pkg/jobexecutor/protocol`。该子包只保存协议，不依赖父级执行组件或 `apps/*/internal`；运行通信仍使用 zrpc＋etcd，详见[执行通信协议](docs/design/scheduler/data-contracts.md#execution-rpc-contract)。
 - 任何包含 `Code generated`、`DO NOT EDIT` 的文件都禁止直接编辑，包括 `routes.go`、`types.go`、`*.pb.go`、`*_grpc.pb.go`、RPC `internal/server` 和 `systemclient` 下的生成文件。
-- 修改 `.api` 或 `.proto` 后，必须使用 README 中固定的 goctl 命令重新生成并提交生成结果，不能用文本替换修补生成文件。
+- 修改 `.api` 或应用 `.proto` 后，必须使用 README 中固定的 goctl 命令重新生成并提交生成结果；修改已创建的公共执行 `.proto` 后使用 README 中仓库根目录的固定 protoc 命令。不得将该例外推广到其他应用契约，也不能用文本替换修补生成文件。设计记录阶段不提前创建或生成协议文件。
 - 标记 `Code scaffolded by goctl. Safe to edit.` 的 Handler 和 Logic 只在首次生成时创建，后续允许编辑；HTTP Handler 保持参数解析、调用 Logic、调用 `httpx.ErrorCtx/OkJsonCtx` 的默认职责，业务代码写在 Logic。
 - 对外 API 必须声明响应类型，确保成功响应经过 `httpx.OkJsonCtx` 和全局成功处理器。
 
@@ -39,6 +46,7 @@
 - Repository 负责查询、持久化事务、锁及数据库约束错误转换。单一 RPC 管理用例在对应 Logic 编排，可通过域内事务适配取得绑定同一事务的 Repository；适配只管理事务句柄和提交／回滚，不承载业务规则，不因使用事务强制增加 Service 层。
 - 跨入口复用、独立生命周期或复杂协作（如自动／手动触发、Casbin 策略）的业务职责按需提取具名组件，不建立接收本域全部业务的大 Service。运行组件不依赖 RPC DTO、gRPC Code 或对外 subcode，普通查询不通过组件机械转发。
 - 内部错误按产生它的 Repository 或运行组件归属，不建立本域总 errors 包或重新导出仓储错误；稳定业务 subcode 放在本域 `internal/subcode`。Logic 自身判断的业务失败可直接构造 `bizerror`，跨层错误用 `errors.Is/As` 判断并在接口边界转换，技术错误保留 `%w` 原因链。
+- 已批准的共享执行协议拒绝标识 `job.executor.dispatch_rejected` 在 `pkg/jobexecutor/protocol` 统一声明，由调度端与执行端复用；沿用默认业务码 `100001` 和标准 `ErrorInfo.Reason`，不另建 errors 包、不复制定义、不将 Job 管理业务 subcode 移出域内包。`common.invalid_request` 继续引用现有公共定义；内部运行错误仍按组件归属，由接口边界转换。具体判定见[派发与取消错误映射](docs/design/scheduler/data-contracts.md#dispatch-cancel-errors)，设计阶段不提前创建或修改协议代码。
 - 调度的正常决策（未到期、已停用、阻塞丢弃等）与技术失败分开表达；事务回调成功不等于提交成功，未确认提交时不得发布成功结果或提交后通知。Context 取消不是业务取消，RPC 超时不是整轮超时；不能把结果不确定伪装成成功或确定回滚。声明成功必须返回实体的仓储若返回 `(nil, nil)`，按内部错误处理，不伪装成不存在；允许未命中的查询按各自契约处理。
 - 同一业务域的 RPC、MQ、Job 等后端进程可以复用该业务域 `internal` 下的数据层；其他业务域不得直接访问其模型或数据表。
 - 需要跨业务域传递的字段、枚举和消息必须定义在 Protobuf 或版本化事件契约中；其他业务域通过 RPC 客户端或事件契约使用，不复制常量，也不导入持久化模型。
@@ -114,3 +122,6 @@
 
 - 未经用户明确同意，不执行 `git commit` 或 `git push`。
 - 保留工作区中与当前任务无关的已有修改；发现来源不明的差异时先说明再处理。
+- 每次 `git commit` 前，必须检查完整暂存区变更、新增文件及拟用提交信息中的敏感内容，包括真实密码、Token、API Key、私钥和带凭据的连接串；不能因为文件是文档、示例或测试就跳过检查。
+- 每次 `git push` 前，必须按目标远端核对本次待推送的全部提交及提交信息，再次检查敏感内容；检查范围包含中间提交，不能只检查最终文件或最后一次提交，也不能用提交前的检查代替推送前的检查。
+- 发现疑似敏感内容时先确认并移除或改为明确占位值；未排除真实敏感信息前不得提交或推送。扫描和复核输出不得回显秘密值，只记录文件位置、类型及处理结论。

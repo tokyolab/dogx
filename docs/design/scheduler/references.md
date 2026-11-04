@@ -34,6 +34,50 @@
 - go-zero v1.10.3：[注册与续租](https://github.com/zeromicro/go-zero/blob/v1.10.3/core/discov/publisher.go)、[地址加载与监听](https://github.com/zeromicro/go-zero/blob/v1.10.3/core/discov/internal/registry.go)、[先注册后启动 RPC](https://github.com/zeromicro/go-zero/blob/v1.10.3/zrpc/internal/rpcpubserver.go)。运行中订阅失败不立即清空已有地址，不代表冷启动可以不依赖 etcd；不能把库的默认行为当作已满足 DogX 的能力就绪目标。
 - etcd：[Lease／Watch API](https://etcd.io/docs/v3.6/learning/api/)、[故障边界](https://etcd.io/docs/v3.6/op-guide/failures/)。租约与目录一致性不能证明 Task 正常执行；高可用取决于部署及多数节点可用，不能推导任务恰好执行一次。
 
+### 组 Token 格式与存储 {#group-token-evidence}
+
+SnailJob 固定版本 `cacc2b6` 的组保存逻辑直接将请求中的 Token 写入普通字符串字段，经 Mapper 保存；读取后由 `CacheToken` 取原值使用，这条存取链路没有应用层加解密。新增组页面的生成按钮生成 `SJ_` 加 32 个大小写字母或数字，总长 35，使用 `Math.random()`，不是 UUID；页面还允许手动输入，后端仅要求非空，不强制 UUID 或固定 32 字符。
+
+直接证据：[前端生成逻辑](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-interface/snail-job-server-ui/src/main/resources/admin/assets/index-CKiLJ2kN.js#L1)、[Token 输入校验](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-interface/snail-job-server-web/src/main/java/com/aizuda/snailjob/server/web/model/request/GroupConfigRequestVO.java#L26-L30)、[保存原值](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-interface/snail-job-server-web/src/main/java/com/aizuda/snailjob/server/web/service/impl/GroupConfigServiceImpl.java#L183-L197)、[Mapper 插入](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-datasource/snail-job-datasource-template/src/main/java/com/aizuda/snailjob/template/datasource/access/config/GroupConfigAccess.java#L48-L51)、[读取原值](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-common/src/main/java/com/aizuda/snailjob/server/common/cache/CacheToken.java#L39-L47)。
+
+DogX 采用[组表明文保存](operations.md#group-credentials)，但格式独立确定为后端安全随机生成 UUIDv4 后去掉连字符的 32 个小写十六进制字符；不照搬前端生成方式或公开默认值，不增加应用层加密或部署加密密钥。第一版不提供已有组 Token 修改或重置；普通列表不返回，详情按既有 API／RBAC 权限返回完整 Token，页面默认遮挡并支持显示、复制，不另建查看密钥 API，也不采用仅创建时展示一次。查看方案是 DogX 独立确认的选择，缓存按下节已定协议执行。
+
+SnailJob 此版本的[普通组编辑](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-interface/snail-job-server-web/src/main/java/com/aizuda/snailjob/server/web/service/impl/GroupConfigServiceImpl.java#L110-L118)明确将待更新 Token 和组名设为 `null`，保留原值；[组管理入口](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-interface/snail-job-server-web/src/main/java/com/aizuda/snailjob/server/web/controller/GroupConfigController.java)未提供独立 Token 重置接口，[导入](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-interface/snail-job-server-web/src/main/java/com/aizuda/snailjob/server/web/service/impl/GroupConfigServiceImpl.java#L309-L326)拒绝覆盖已存在的组。这证明该版本正常管理链路不支持更换，不能据此断言所有版本都相同或作者禁止修改的具体动机；手工修改数据库不属于该管理功能。DogX 已独立确认[组名和 etcd Key 创建后固定](operations.md#group-identity)，不将 SnailJob 的组名规则扩写成其存在相同的 etcd Key 字段。
+
+### Token 日志保护依据 {#token-log-evidence}
+
+go-zero v1.10.3 的 [RPC 服务端统计日志](https://github.com/zeromicro/go-zero/blob/v1.10.3/zrpc/internal/serverinterceptors/statinterceptor.go)记录请求正文，[客户端失败及慢调用日志](https://github.com/zeromicro/go-zero/blob/v1.10.3/zrpc/internal/clientinterceptors/durationinterceptor.go)可能包含请求或响应；两侧分别提供原生方法级正文控制。[HTTP 日志处理](https://github.com/zeromicro/go-zero/blob/v1.10.3/rest/handler/loghandler.go)和[认证失败处理](https://github.com/zeromicro/go-zero/blob/v1.10.3/rest/handler/authhandler.go)也存在报文转储路径，须按实际配置检查是否带出凭据。
+
+DogX 已确认[不主动记录凭据、框架正文分别控制](operations.md#token-log-protection)，不新增公共日志包或通用文本脱敏框架。这是待实现和测试的方案，不代表已有接口与全部日志路径已经满足不泄露要求；正常组详情返回 Token 的契约不变。
+
+### 组配置与 Token 缓存 {#group-cache-evidence}
+
+SnailJob 固定版本 `cacc2b6` 的 [`CacheToken.get`](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-common/src/main/java/com/aizuda/snailjob/server/common/cache/CacheToken.java#L33-L49) 命中即返回，未命中查库后放入缓存；[缓存构造](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-common/src/main/java/com/aizuda/snailjob/server/common/cache/CacheToken.java#L58-L66)使用 `expireAfterWrite(60, TimeUnit.SECONDS)`。这是按需加载与写入后过期，不是后台每 60 秒主动读取全部 Token；执行器注册地址的周期同步也不能当作 Token 刷新。
+
+SnailJob 的[新增组](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-interface/snail-job-server-web/src/main/java/com/aizuda/snailjob/server/web/service/impl/GroupConfigServiceImpl.java#L74-L88)在事务内检查重名并调用[保存方法](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-interface/snail-job-server-web/src/main/java/com/aizuda/snailjob/server/web/service/impl/GroupConfigServiceImpl.java#L183-L197)，没有等待缓存周期或发送组新增广播。[执行请求认证](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-common/src/main/java/com/aizuda/snailjob/server/common/rpc/server/grpc/GrpcRequestHandlerActor.java#L90-L98)调用 `CacheToken.get`，因此新组提交后，首次认证可通过未命中查库取得 Token，不必等 60 秒；这不等于执行器注册、调度扫描和任务执行全链路无等待。
+
+DogX 已确认[每节点启动加载、未命中回源与每 60 秒完整快照替换](operations.md#group-cache)：命中读取内存，未命中合并同组查询，查到未删除组后缓存并继续本次处理；周期完整查询成功后原子替换，失败保留旧快照。不另做增删差异同步或组变更通知，不因刷新重建全部客户端。新增组正常不等下一次周期刷新，但仍需一次数据库查询；查无组或查询失败不免认证，删除允许滞后。两者都有按需回源，但 DogX 的 60 秒是完整刷新周期，SnailJob 是条目有效期，不宣称实现相同或具有全节点强一致。
+
+### 组删除与客户端清理依据 {#group-client-cleanup-evidence}
+
+SnailJob 固定版本 `cacc2b6` 的[删除组方法](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-interface/snail-job-server-web/src/main/java/com/aizuda/snailjob/server/web/service/impl/GroupConfigServiceImpl.java#L358-L395)检查任务、工作流、场景、权限及节点记录，随后按组已停用条件删除；该方法不移除实例缓存或关闭通道。[实例过期清理](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-common/src/main/java/com/aizuda/snailjob/server/common/handler/InstanceManager.java#L308-L313)是另一条定时路径，移除实例记录后调用 `channel.shutdown()`，没有等待终止完成。其依赖的 gRPC Java 1.76.0 [`ManagedChannel.shutdown()`](https://github.com/grpc/grpc-java/blob/v1.76.0/api/src/main/java/io/grpc/ManagedChannel.java#L28-L34)允许已有调用继续、新调用取消，不能据此宣称已经等待排空或完成资源释放。
+
+DogX 当前 go-zero v1.10.3 通过 [`Conn()`](https://github.com/zeromicro/go-zero/blob/v1.10.3/zrpc/client.go#L111-L114)取得底层连接；gRPC Go v1.82.1 [`ClientConn.Close()`](https://github.com/grpc/grpc-go/blob/v1.82.1/clientconn.go#L1190-L1238)关闭 ClientConn 及其底层连接，不能等同 Java 的有序关闭，也不能把调用受中断解释为远端未受理。
+
+DogX 已确认[随成功完整刷新清理已删组客户端](operations.md#group-client-cleanup)：仍有效则复用，已删则先移出本地缓存再关闭，刷新失败不清理。不另加查询、清理线程、引用计数或排空等待；回源和创建的迟到结果不能重新挂回已移除客户端。接受同步延迟和在途通信受影响，沿用通信结果不明规则；正常派发客户端复用、定向取消不跨通知缓存的边界不变。
+
+## 启动与停机依据 {#process-lifecycle-evidence}
+
+本节固定对照 SnailJob `cacc2b698c1880552d4b0c3582b44713dc350566`、XXL-JOB 2.4.1（`92577cc33e3974a2f46d9223ed9a405a03c8ee1d`）及 DogX 当前依赖的 go-zero v1.10.3。生命周期入口、调用取消与业务完成是不同事实，不能由关闭方法返回推导全部任务或回报已经排空。
+
+- SnailJob 调度端[启动](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-starter/src/main/java/com/aizuda/snailjob/server/starter/listener/StartListener.java#L30-L40)与[关闭](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-starter/src/main/java/com/aizuda/snailjob/server/starter/listener/EndListener.java#L26-L29)均正向遍历注入的 Lifecycle 列表；客户端[关闭监听器](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-common/src/main/java/com/aizuda/snailjob/client/common/init/SnailJobCloseListener.java#L30-L35)发布 Closing、调用各 close、再发布 Closed，没有集中等待在途业务及回报的截止协议。[调度端 gRPC 服务](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-common/src/main/java/com/aizuda/snailjob/server/common/rpc/server/grpc/GrpcServer.java#L97-L100)和[客户端出站通道](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-common/src/main/java/com/aizuda/snailjob/client/common/rpc/client/grpc/SnailJobGrpcClient.java#L107-L110)使用 shutdownNow，未等待终止，不能视为可靠排空。[任务完成回报](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-job-core/src/main/java/com/aizuda/snailjob/client/job/core/executor/JobExecutorFutureCallback.java#L94-L124)在取消异常时直接不回报；[默认异步请求的 60 秒](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-common/src/main/java/com/aizuda/snailjob/client/common/rpc/client/RequestBuilder.java#L25-L31)是 RPC 超时，[初始调度延迟 30 秒](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-common/snail-job-common-core/src/main/java/com/aizuda/snailjob/common/core/constant/SystemConstants.java#L235)是启动等待，均不是停机宽限。
+- XXL-JOB 的[执行器启动与销毁](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-core/src/main/java/com/xxl/job/core/executor/XxlJobExecutor.java#L68-L114)先准备回报线程再启动服务；销毁时先停服务，再停止并中断 JobThread、逐个无参数 join，最后关闭回报线程。[任务线程](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-core/src/main/java/com/xxl/job/core/thread/JobThread.java#L205-L245)退出时为被停止及尚未执行的任务产生失败回报；[回报线程](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-core/src/main/java/com/xxl/job/core/thread/TriggerCallbackThread.java#L86-L181)最后读取队列，失败写本地文件，停止也使用无参数 join。该顺序体现任务先收尾、回报后关闭，但没有整体等待上限；业务不响应中断时可能一直等待，也不保证骤停前内存结果已持久化。DogX 不采用本地回报文件补偿。
+- go-zero 的 [ServiceGroup](https://github.com/zeromicro/go-zero/blob/v1.10.3/core/service/servicegroup.go#L66-L87)并行启动、停止成员，不能依靠 Add 顺序安排依赖；[`RpcServer.Stop()`](https://github.com/zeromicro/go-zero/blob/v1.10.3/zrpc/server.go#L95-L98)仅关闭日志，不是 gRPC 停服屏障，真正的 GracefulStop 位于[原生停机钩子](https://github.com/zeromicro/go-zero/blob/v1.10.3/zrpc/internal/rpcserver.go#L68-L78)。[Unix 信号路径](https://github.com/zeromicro/go-zero/blob/v1.10.3/core/proc/shutdown.go#L81-L96)使用进程级 waitTime，wrap-up 时间计入总预算，钩子未完成时仍可到期结束进程；[Windows polyfill](https://github.com/zeromicro/go-zero/blob/v1.10.3/core/proc/shutdown%2Bpolyfill.go)返回回调供调用方自行执行，停机配置和强制退出设置为空操作。不能把 Unix 全局预算当作各平台相同的现成保证，也不能让两套 RPC Server 分别覆盖进程级设置。
+
+DogX 当前[任期清理](../../../apps/job/rpc/internal/scheduler/term.go)在取消后等待生产者、Cron 回调及在途操作，诊断超时后仍等待 cleaned；随后才进行 [Session 清理](../../../apps/job/rpc/internal/scheduler/runtime.go)。这是现有行为，没有独立的整体清理截止；不能据此声称已实现新停机规则。普通失主仍须清完旧任期后才允许本机重新参选，不能借进程宽限跳过任期隔离。
+
+DogX 已独立确认[按能力就绪再开放新工作](operations.md#startup-readiness)，以及[整个进程默认共用 30 秒、可配置的停机宽限](operations.md#process-shutdown)：先关闭新工作入口，在同一截止时间内尽力完成已接纳工作与结果处理，再释放依赖；到期结束组件等待，由宿主负责最终退出。它不保证业务完成或结果保存，不给正常运行的结果增加 30 秒 TTL，也不赋予公共执行组件强杀 goroutine 或自行退出进程的职责。2026-10-30 已通过[统一 zrpc 装配](operations.md#zrpc-process-assembly)，包括进程配置同源、真实完成信号、退出回调不等待 Start 返回及全局日志最后关闭；具体装配和跨平台期限仍须实现并通过[生命周期检查](verification.md#process-lifecycle-checks)与[执行 RPC 检查](verification.md#execution-rpc-checks)。
+
 ## 状态与生命周期依据 {#lifecycle-evidence}
 
 本次对照固定为 XXL-JOB 2.4.1（提交 `92577cc33e3974a2f46d9223ed9a405a03c8ee1d`）和 SnailJob `cacc2b6`。两者模型不同，不把执行记录结果码、批次状态和业务线程是否退出视为同一事实。
@@ -41,9 +85,9 @@
 | 设计点 | XXL-JOB | SnailJob | DogX 已确认选择 |
 | --- | --- | --- | --- |
 | Job 启停 | 计划触发开关，不直接终止既有执行 | Job 启停与批次停止分开 | Job 启停不代替 Instance 停止 |
-| 整轮与子任务 | 广播分片各建执行记录，以调度与执行结果码表达结果，没有对应的独立整轮聚合对象 | 批次状态为等待、运行、成功、失败、停止、取消；子任务另有状态 | Instance 五态、Task 六态；状态、Task 类型、结束原因分开 |
+| 整轮与子任务 | 广播分片各建执行记录，以调度与执行结果码表达结果，没有对应的独立整轮聚合对象 | 批次状态为等待、运行、成功、失败、停止、取消；子任务另有状态 | Instance 保留原五态编码并新增非终态 STOPPING（6），Task 六态；状态、Task 类型、结束原因分开 |
 | 自动重试等待 | 重试另建记录，旧记录保留原失败结果 | 自动回调重试分支保留原运行状态，等待后再次执行 | 原 Task 进入等待重试，失败仅表示最终失败，Instance 仍运行中 |
-| 手动停止与超时 | 手动终止记录失败码 500；执行超时码 502 | 两者进入停止处理流程，以手动停止或执行超时原因区分 | 手动停止为 Instance 取消；整轮超时为失败加原因，不增加超时状态 |
+| 手动停止与超时 | 手动终止记录失败码 500；执行超时码 502 | 两者进入停止处理流程，以手动停止或执行超时原因区分 | 停止先保存 STOPPING 与原因，子状态全部结束后人工停止转取消、整轮超时转失败；不增加独立超时状态 |
 | 空分片参数 | 没有对应的准备数组模型 | SDK 的 `doMap` 拒绝空列表 | 合法空数组为零分片生成完成，有 Post 则执行，无 Post 则成功结束；受终止及期限约束 |
 
 SnailJob 的空列表校验不能外推为所有“无业务数据”任务都必定失败；处理器是否调用 `doMap` 是另一层业务行为。两家的线程中断或平台停止状态均不能证明业务副作用已经停止。DogX 的父子终态收敛、整轮截止优先顺序和统一 Task，是本项目独立确认的语义，不能反推为竞品具有相同协议。
@@ -70,14 +114,22 @@ DogX 借鉴本地直接推进，但发送前的尝试登记是对等节点恢复
 - XXL-JOB：[调度扫描与提交本地工作](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-admin/src/main/java/com/xxl/job/admin/core/thread/JobScheduleHelper.java#L69-L162)、[本地线程池](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-admin/src/main/java/com/xxl/job/admin/core/thread/JobTriggerPoolHelper.java#L72-L119)、[记录与派发顺序](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-admin/src/main/java/com/xxl/job/admin/core/trigger/XxlJobTrigger.java#L118-L196)、[失败处理条件更新](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-admin/src/main/java/com/xxl/job/admin/core/thread/JobFailMonitorHelper.java#L41-L70)。调度锁不由 RPC 工作线程继承，不能据此称其派发一定发生在扫描事务提交后。
 - SnailJob：[生成事务与提交后派发](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/dispatch/JobExecutorActor.java#L153-L190)、[请求执行器](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/executor/job/RequestClientActor.java#L74-L114)、[重试计数条件更新](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/callback/AbstractClientCallbackHandler.java#L107-L127)。重试计数上限不等于当前尝试唯一授权；上述结论不否认其工作流或收尾等特定环节使用锁。
 
+### 派发并发与执行次数
+
+SnailJob 固定版本的[派发线程池配置](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-starter/src/main/resources/snailjob.conf#L92-L100)将核心线程数的下界、CPU 系数和上界分别设为 64、2.0、128；这不是 DogX goroutine 的相同运行模型，也不能直接换算吞吐。DogX 独立确认[每调度进程默认 64 个固定派发工作协程](execution.md#bounded-dispatch)，覆盖数据库处理和等待接单，采用有界队列，仍须按实际数据库与执行器容量压测校准。
+
+SnailJob 的 [`sj_job_task.retry_count`](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/doc/sql/snail_job_postgre.sql#L546-L556)默认 0，表示重试次数。普通 Task [创建时直接保存 RUNNING](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/generator/task/ClusterTaskGenerator.java#L61-L71)，提交后派发；正常业务失败重试先在服务端条件递增，再安排重试。首次执行对应 0，第一次自动重试对应 1，不能据此认为它另建了一条首次尝试记录。
+
+该字段不等于业务实际执行次数或严格的 RPC 调用次数：[通信重试监听器](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/executor/job/RequestClientActor.java#L178-L188)在特定故障转移返回结果后也会更新它，而 [Model 更新表达式](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-datasource/snail-job-datasource-template/src/main/java/com/aizuda/snailjob/template/datasource/persistence/po/JobTask.java#L67-L71)实际执行 `retry_count + 1`。DogX 将[普通首次启动、Task 创建及首次执行信息合并提交](execution.md#ordinary-flow)，但继续区分执行尝试身份与执行预算，不以 SnailJob 的单个重试字段替代已定授权、迟到结果校验或 BUSY 条件返还规则。
+
 ## 停止与新派发协调依据 {#authorization-terminal-evidence}
 
 本项对照 XXL-JOB `b34acec`（该提交为 3.5.0-SNAPSHOT，与其他小节引用的 2.4.1 分开）及 SnailJob `cacc2b6`。只比较指定停止与派发路径，不据此断言整个项目没有并发保护。
 
 | 设计点 | XXL-JOB | SnailJob | DogX 已确认选择 |
 | --- | --- | --- | --- |
-| 停止路径 | 根据日志的执行器地址发出 jobId 级 kill，成功后将执行记录按失败完成 | 停止 RPC 与 STOP 结果通过 Actor 推进，不等待全部业务实际退出 | 父 Instance 终态先提交，子取消和 RPC 在父事务外尽力进行 |
-| 与新派发协调 | 该路径没有与新触发共用的 Instance 终态授权关口 | 该停止路径与派发前检查不共用 DogX 式父批次授权关口 | 新登记与父终态共用单 Instance 主键行锁；结果回报不统一锁父 |
+| 停止路径 | 根据日志的执行器地址发出 jobId 级 kill，成功后将执行记录按失败完成 | 停止 RPC 与 STOP 结果通过 Actor 推进，不等待全部业务实际退出 | 先提交父 STOPPING 决定，每批另开父主键 NOWAIT 短事务取消子记录，全部子终态后再结束父；RPC 独立尽力发送 |
+| 与新派发协调 | 该路径没有与新触发共用的 Instance 终态授权关口 | 该停止路径与派发前检查不共用 DogX 式父批次授权关口 | 新登记与停止决定共用单 Instance 主键行锁；正常完成使用条件 UPDATE，结果回报不统一锁父 |
 
 DogX 的登记关口是适配无整轮固定归属及并发恢复的独立选择，不是这两家的共同实现；仍接受已授权工作与停止交错、业务需要幂等，以及额外父行检查成本。规则见[授权与终止协调](execution.md#authorization-terminal)。
 
@@ -105,7 +157,15 @@ DogX 第一版保留原生发现与负载均衡，接单后条件保存执行器
 - go-zero v1.10.3 [发布实例地址](https://github.com/zeromicro/go-zero/blob/v1.10.3/zrpc/internal/rpcpubserver.go#L19-L33)，标准 [resolver](https://github.com/zeromicro/go-zero/blob/v1.10.3/zrpc/resolver/internal/discovbuilder.go#L24-L34)将注册值转换为地址，不提供 DogX 所需的启动实例身份。[P2C](https://github.com/zeromicro/go-zero/blob/v1.10.3/zrpc/internal/balancer/p2c/p2c.go)选择的是可用 RPC 连接，不能据此推断长任务剩余计算量。
 - gRPC Go v1.82.1 的 [Peer](https://github.com/grpc/grpc-go/blob/v1.82.1/rpc_util.go#L310-L331)在 RPC 完成后填充对端信息；地址不等于进程身份，也不是派发前的持久化目标。经代理时不能直接把对端地址当成可定向访问的执行器。
 
-DogX 已确认的绑定边界见[执行器身份绑定](execution.md#executor-binding)，故障规则见[绑定缺失处理](execution.md#missing-binding)与[已绑定结果等待](execution.md#bound-result-wait)，验收归属见[绑定验收](verification.md#executor-binding-checks)。观察期秒数及完整事务实现仍按[评审计划](progress.md)推进，不从参考实现推导恢复承诺。
+DogX 已确认的绑定边界见[执行器身份绑定](execution.md#executor-binding)，故障规则见[绑定缺失处理](execution.md#missing-binding)与[已绑定结果等待](execution.md#bound-result-wait)。[接单 ACK 绑定 SQL](data-contracts.md#executor-binding-sql)已通过：只补原尝试的空绑定，零行停止且不推断原因，不统一锁父；保存失败在固定工作协程内有限重试元数据，不重发业务。[专项验收要求](verification.md#executor-binding-sql-checks)已记录，尚未运行。普通结果保存及未知结算另见[结果协议](data-contracts.md#task-result-persistence)与[普通未知结算 SQL](data-contracts.md#ordinary-unknown-settlement)；观察期与绑定保存重试初值见[派发时间预算](execution.md#dispatch-time-budgets)，各节点串行扫描、临时分页和逐条提交见[观察到期扫描与结算安排](execution.md#unbound-recovery-defaults)，均已通过；具体实现和验证仍按[评审计划](progress.md)推进，不从参考实现推导恢复承诺。
+
+### 派发通信异常与未知结果收口
+
+SnailJob `vsj2.0.2 / cacc2b6` 普通任务先保存目标，其[派发客户端配置](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/executor/job/RequestClientActor.java#L196-L210)固定设置 `failover(true)` 允许故障转移，并仅按 `maxRetryTimes > 0 && !retryStatus` 开启通信失败重试；后续业务重试不再开启这层通信重试。[调用等待](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-common/src/main/java/com/aizuda/snailjob/server/common/rpc/client/grpc/GrpcClientInvokeHandlerV2.java#L137-L155)超时无法区分“未接单”和“实际接单但 ACK 丢失”。
+
+通信异常最终抛出后，[异常分支](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/executor/job/RequestClientActor.java#L116-L146)调用 [taskExecuteFailure](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/executor/job/RequestClientActor.java#L213-L219)，直接把 FAIL 交给结果 Actor，不再额外进入 callback 的业务重试判断。明确收到[非成功接单响应](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/executor/job/RequestClientActor.java#L104-L114)则走 callback，是另一条处理路径。此结论仅针对该版本的普通派发直接路径，不包含已绑定执行器宕机、整轮超时或其他恢复机制，也不承诺数据库故障时失败状态必然落库。
+
+DogX 在接单后才保存实际执行器绑定，不能照搬上述前置目标路径。[普通未知结算](data-contracts.md#ordinary-unknown-settlement)使用持久化原尝试、旧状态、双绑定为空及观察期条件关闭本次尝试，再按原预算等待重试或失败；不额外叠加通信重派额度，不证明旧业务停止。[专项验收要求](verification.md#ordinary-unknown-settlement-checks)已记录，尚未运行。
 
 ## 异步回报与确认边界依据 {#result-report-evidence}
 
@@ -113,8 +173,9 @@ DogX 已确认的绑定边界见[执行器身份绑定](execution.md#executor-bi
 
 | 设计点 | XXL-JOB | SnailJob | DogX 已确认选择 |
 | --- | --- | --- | --- |
-| 执行器回报 | 独立内存 callback 队列，后台取出并批量发送、等待应答；队列未指定容量 | 完成回调直接发送单条异步 gRPC，不等待 ACK；没有独立的 Job 结果汇聚队列 | 独立有界结果队列，固定工作协程小批量发送并等待接收 ACK |
-| 调度端 ACK | 通常提交本地线程池后返回；线程池队满时请求线程直接执行，不能说始终先 ACK 后处理 | 普通结果交给 Actor，ACK 不等待最终结果写库；ACK 前仍查询 Job／Task，失败重试还更新计数 | 基础鉴权及报文校验后成功入队即 ACK，后台校验并幂等小批量落库 |
+| 执行器回报 | 独立内存 callback 队列，取一条后顺手取出队列已有结果批量发送、等待应答，不主动等窗口凑批；队列未指定容量 | 完成回调直接发送单条异步 gRPC，不等待 ACK；没有独立的 Job 结果汇聚队列 | 独立有界回报组件，有限并发每次 RPC 发送一个结果并等待接收 ACK，调用结束释放发送能力，退避保留原位置；不进行网络合批 |
+| 确认粒度 | callback 接收 List，整批返回一个 ReturnT；逐条内部处理结果仅记日志 | 单条 DispatchJobResultRequest 对应一个应答，客户端异步处理响应 | 一次响应确认本条结果，区分已接收、稍后重传或永久拒绝；不另发确认 RPC，不维护批内部分接收 |
+| 调度端 ACK | 通常提交本地线程池后返回；线程池队满时请求线程直接执行，不能说始终先 ACK 后处理 | 普通结果交给 Actor，ACK 不等待最终结果写库；ACK 前仍查询 Job／Task，失败重试还更新计数 | 基础鉴权及报文校验后成功入队即 ACK，后台每条关联读取及条件 UPDATE、独立提交 |
 | 同步／异步选择 | 该完成结果路径无切换参数 | 通用 RPC 构建器可选同步，但内置 Job 回报固定异步，未开放配置开关 | 第一版固定双端异步，容量及并发属于部署参数，不进入 Job 页面 |
 | 本地文件补偿 | 所有 Admin 回报失败后写执行器 callbacklog 文件，后续补发结果；不是所有结果先落盘的可靠日志 | 该 Job 完成结果路径无对应的本地持久化补报机制 | 不依赖本地文件、持久卷、持久化消息队列或跨重启结果缓存 |
 | ACK 后接收进程退出 | 已确认但未持久化的结果仍可能丢失，失败文件不覆盖这个窗口 | 已确认但未持久化的结果仍可能丢失，不能由此推导一定自动重派 | 明确接受结果丢失；已有持久化绑定时保持当前尝试执行中，等待有效结果、人工停止或整轮截止，不据此提前重跑 |
@@ -123,13 +184,34 @@ SnailJob [服务端上报参数文档](https://snailjob.opensnail.com/docs/guide
 
 XXL-JOB 的文件仅在回报失败后保存，重传时还存在先删旧文件再发送的窗口；不等于可靠消息日志。它解决部分暂时断连补报，但引入对执行器本地目录的恢复依赖。DogX 选择节点可替换及纯内存有界缓冲，保留平台状态校验，不承诺原业务执行结果跨进程故障无损保存。
 
+XXL-JOB 的整批成功不是逐条状态更新成功：内部每条 callback 的返回值只用于日志，不汇总给执行器。SnailJob 的 ACK 也不能概括为完全不碰数据库，回调处理在最终结果交给 Actor 前仍同步读取 Task／Job、判断重试，必要时更新重试计数。DogX 的单条接收语义和入口不查 Task 表是本项目的独立选择，不宣称两家采用相同契约。
+
+DogX [结果上报契约](data-contracts.md#result-report-contract)采用单条异步发送，各条结果独立确认与有限重传；退避保留原结果位置，不重置调用次数，不占发送并发，具体规则见[回报机制](execution.md#executor-result-queue)。永久报文错误或单条自身超出 RPC 传输能力时，记录错误及指标后释放；不伪造成功、不无限重传或直接重跑业务。第一版不增加网络合批窗口、批内部分确认或重组逻辑；以后仅在压测证明上报 RPC 成为瓶颈时另评估有界顺手合批。后台每条关联读取 Task／Instance 归属、认证组和本轮冻结重试配置，逐条条件 UPDATE、独立提交；不设整批总超时或超时拆批，失败或提交不明仅保留对应原条目。按 Instance 合并完成检查继续保留，不由发送或保存粒度决定。
+
+SnailJob 的分片最终回调每次创建一个结果 Actor，更新 Task 后尝试完成批次，处理后停止该 Actor；不是同一批次共用一个 Actor 来合并回报。批次未结束时，结果处理器读取该批次 Task 的 `taskStatus`、`mrStage` 列表，在内存判断是否还有未完成项；需重试、非叶子 Map／MapReduce 或批次已终态等路径可以跳过。该路径没有按批次去重并等待短窗口的完成检查合并。DogX 的[本地完成检查合并](execution.md#completion-check)只减少同节点、同 Instance 的重复检查，不减少应保存的 Task 结果，也不保证全局只查一次。
+
 直接证据：
 
 - XXL-JOB：[回报队列与批量取出](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-core/src/main/java/com/xxl/job/core/thread/TriggerCallbackThread.java#L34-L76)、[失败落盘及重传](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-core/src/main/java/com/xxl/job/core/thread/TriggerCallbackThread.java#L163-L255)、[Admin 线程池及队满处理](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-admin/src/main/java/com/xxl/job/admin/core/thread/JobCompleteHelper.java#L37-L56)、[提交线程池后返回](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-admin/src/main/java/com/xxl/job/admin/core/thread/JobCompleteHelper.java#L138-L151)。
 - SnailJob：[执行器完成回调](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-job-core/src/main/java/com/aizuda/snailjob/client/job/core/executor/JobExecutorFutureCallback.java#L57-L100)、[异步 RPC 与同步等待分支](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-common/src/main/java/com/aizuda/snailjob/client/common/rpc/client/grpc/GrpcClientInvokeHandler.java#L72-L118)、[回报入口](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/request/ReportDispatchResultPostHttpRequestHandler.java#L41-L55)、[异步结果更新](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/dispatch/JobExecutorResultActor.java#L37-L72)。
 - SnailJob Retry：[待重试请求内容](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-retry-core/src/main/java/com/aizuda/snailjob/client/core/report/AbstractReport.java#L61-L86)、[滑动窗口上报](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-retry-core/src/main/java/com/aizuda/snailjob/client/core/report/AsyncReport.java#L43-L57)、[同步上传](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-retry-core/src/main/java/com/aizuda/snailjob/client/core/report/SyncReport.java#L72-L86)。
+- 确认粒度补充：XXL-JOB [整批 ACK 与内部逐条结果](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-admin/src/main/java/com/xxl/job/admin/core/thread/JobCompleteHelper.java#L138-L179)；SnailJob [单条结果 RPC](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-job-core/src/main/java/com/aizuda/snailjob/client/job/core/client/JobNettyClient.java#L19-L20)、[ACK 前的回调与重试判断](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/callback/AbstractClientCallbackHandler.java#L45-L80)、[同步读取 Task 与 Job](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/callback/AbstractClientCallbackHandler.java#L131-L158)。
 
-DogX 权威协议见[结果回报与确认边界](execution.md#result-report)，待验证的故障场景见[异步回报验收](verification.md#result-report-checks)。不直接继承竞品的结果丢失恢复承诺。
+- SnailJob 完成检查：[每条分片最终回调创建 Actor](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/callback/ShardingClientCallbackHandler.java#L35-L45)、[新建结果 Actor](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-common/src/main/java/com/aizuda/snailjob/server/common/pekko/ActorGenerator.java#L292-L295)、[更新 Task 后检查及停止 Actor](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/dispatch/JobExecutorResultActor.java#L46-L79)、[批次终态提前返回](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/handler/JobTaskBatchHandler.java#L57-L83)、[状态列表查询与内存判断](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/result/job/AbstractJobExecutorResultHandler.java#L48-L65)。
+
+DogX 权威协议见[结果回报与确认边界](execution.md#result-report)及[普通结果保存与状态转换](data-contracts.md#task-result-persistence)，待实现验证的故障场景见[异步回报验收](verification.md#result-report-checks)与[结果保存验收](verification.md#task-result-persistence-checks)。不直接继承竞品的结果丢失恢复承诺。
+
+### 普通 Task 结果条件更新
+
+SnailJob 2.0.2 `cacc2b6` 的[最终结果 Actor](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/dispatch/JobExecutorResultActor.java#L46-L58)按 Task ID 更新状态及结果，没有在这条 UPDATE 中同时校验旧状态、`clientInfo` 或 `retryCount`。后续批次完成判断不能等同于 Task 结果写入具备 DogX 的执行编号隔离条件；此结论限定在所核对版本和结果写入路径，不外推所有竞品版本。
+
+DogX 的[普通结果保存协议](data-contracts.md#task-result-persistence)已通过：每条一次 JOIN 取得 Task／Instance 所属关系、认证组及本轮冻结的重试上限、间隔；最终由尝试编号、执行中状态和空或匹配的绑定身份条件 UPDATE 决定是否写入。结果、目标状态和该条数据库处理时间一起保存，每条独立提交。失败有额度直接进入等待重试，保存结果不消耗新机会、不补绑定；零行正常结束，不追加核对、不宣称此前已保存成功。数据库故障或提交不明仅保留该原条目，不重放其他已明确成功条目，不设整批总超时或超时拆批；提交后只提示按当前数据库事实推进。[调度端结果保存安排与初值](execution.md#scheduler-result-defaults)已定组件保留 512、保存并发 8、单条处理超时 2 秒及不占处理能力的退避安排；[专项验收要求](verification.md#task-result-persistence-checks)已记录，尚未运行。
+
+### 普通 Task 的重试登记
+
+SnailJob 2.0.2 `cacc2b6` 的[失败回报重试分支](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/callback/AbstractClientCallbackHandler.java#L45-L80)先判断是否需要重试，更新重试计数，自动重试再按 `retryInterval` 注册到 `JobTimerWheel`；[更新条件](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/callback/AbstractClientCallbackHandler.java#L107-L127)针对 Task ID 和重试次数上限，不是 DogX 的原执行编号加等待重试状态条件。此比较限定该自动回调路径，不据时间轮的存在推断其全部故障恢复能力。
+
+DogX 沿用持久化等待重试状态及 `next_dispatch_at`，到期候选进入已有有界派发流程。[普通重试登记 SQL](data-contracts.md#ordinary-retry-registration)在单父行保护下校验状态、截止和本轮配置，再按原候选编号、到期与剩余次数更新原 Task；本次返回新登记记录且明确提交成功才发送。重试清空旧绑定，保留最近结果说明但不把摘要当作当前结果，不重置首次开始和整轮截止。[专项验收要求](verification.md#ordinary-retry-registration-checks)已记录，尚未运行。
 
 ### ACK 后的异步写库故障
 
@@ -436,7 +518,7 @@ DogX 在创建 Instance 前按集群未结束轮次判断阻塞，已选择跳�
 | 边界 | XXL-JOB | SnailJob 仓库默认配置 | DogX 已定方案 |
 | --- | --- | --- | --- |
 | 必须先停用 | 不要求 | 要求关闭 | 要求停用 |
-| 必须没有未结束轮次 | 不检查执行状态 | 不检查等待／运行批次 | 无待开始或运行中 Instance 才允许 |
+| 必须没有未结束轮次 | 不检查执行状态 | 不检查等待／运行批次 | 无待开始、运行中或 STOPPING Instance 才允许 |
 | 删除数据 | 物理删除 Job、该 Job 的全部调度日志及 GLUE 历史 | 物理删除 Job 及 JobSummary；不连带删除批次、子任务、日志 | Job 逻辑删除，保留删除时定义和 Instance／Task |
 | 主动停止执行器业务 | 删除路径不调用停止 | 删除路径不调用停止 | 不将删除与停止合并；停止是独立操作 |
 | 删除后历史可见性 | 被本次删除的调度日志不再可查，执行器日志文件不在删除范围内 | 批次列表内连接 Job，删除后不显示；已知 ID 的子任务、日志查询仍可读取保留数据 | 历史依赖自身快照，必要时只读关联已删除 Job，不受普通软删除过滤误伤 |
@@ -579,30 +661,42 @@ DogX 按[字符串字段规范](../../development/database-migrations.md#column-
 | 触发部署初值 | Job 总容量 1024、创建并发 32、单次处理 3 秒；自动工作协程数派生，手动不预留额度。预算从处理开始计算，覆盖额度、连接、锁和提交，服从更短上游期限；后续实测校准，与恢复查询的数量和超时分开 | [参数与边界](execution.md#trigger-runtime-defaults)、[验收场景](verification.md#trigger-capacity-checks) |
 | 任期生命周期与首次装载 | 本地清理完成后才重新参选，进程资源复用；首次未运行 Cron 批量注册，启动及热更新均整批确认后再检查到期。失主丢弃旧提示、等待本地在途退出，不强杀、不阻塞他机接任；首次失败不停止配置核对及独立恢复 | [生命周期](execution.md#leader-runtime-lifecycle)、[库行为依据](#leader-runtime-evidence)、[验收场景](verification.md#leader-runtime-checks) |
 | etcd 接入 | 官方 Session＋Election，正值租约初值 15 秒；控制键与持久 reload 标记分离。通知最多 1 秒、失败不改报已提交保存失败；短请求及配置读取各 5 秒，长操作随生命周期，Watch 原生恢复及 1 至 30 秒抖动退避重建，不承诺固定接任时限 | [接入规则](execution.md#etcd-integration)、[官方依据](#etcd-integration-evidence)、[验收场景](verification.md#etcd-integration-checks) |
-| 低频触发恢复 | Cron 负责正常触发；Leader 接任立即检查、任期内每 1 分钟按索引小批量查 Job 进度。配置同步与触发恢复是同一进程内两个独立循环，共用任期启停、不串行依赖；不另加本地 Job 退避补试。超过 5 秒仍应用错失策略，已有 Instance／Task 由对等节点恢复 | [恢复规则](behavior.md#trigger-recovery)、[验收场景](verification.md#trigger-recovery-checks) |
+| 低频触发恢复 | Cron 负责正常触发；Leader 接任立即检查、任期内每 1 分钟按索引小批量查 Job 进度。配置同步与触发恢复是同一进程内两个独立循环，共用任期启停、不串行依赖；不另加本地 Job 退避补试。超过 5 秒仍应用错失策略。该周期不适用于 Instance／Task；正常执行仍由对等节点推进，RUNNING 统一复核发现另按已定 Leader 职责执行 | [恢复规则](behavior.md#trigger-recovery)、[验收场景](verification.md#trigger-recovery-checks)、[RUNNING 统一复核](execution.md#instance-recheck-direction) |
 | 切主与旧配置 | 每任期独立 `leaderCtx`，发现失主后取消该任期工作，不取消对等推进；旧回调仅提示 Job ID，经同 Job 短事务按最新配置与进度记账，管理变更共用同一行协调。接受新 Leader 当选后旧在途事务合法提交，不设数据库全局任期锁或零旧提交保证 | [切主边界](execution.md#leader-config-boundary)、[验收场景](verification.md#leader-config-checks) |
 | 集群推进 | 单 Leader 触发，持久化任务驱动多节点推进，不绑定整轮负责人 | [总体架构](architecture.md) |
 | 执行单元 | 准备、分片和收尾共用 Task 模型与表，不建立 Attempt 历史表 | [任务模型](task-model.md) |
-| 状态与执行路径 | Instance 五态、Task 六态；不另维护 Instance 阶段权威字段；普通单 Task，分片必需 Pre、可选 Post，合法空数组按零分片推进 | [状态与生命周期](task-model.md#lifecycle) |
-| 终态竞争 | 已有终态不覆盖；父行保护决策点用当前数据库时间判断，到期按超时失败，未到期有效终态竞争；不承诺物理 COMMIT 的精确截止或父子同事务终止 | [终态顺序](behavior.md#terminal-order)、[子任务收敛](behavior.md#task-convergence) |
+| 状态与执行路径 | Instance 六态（含停止中）、Task 六态；不另维护 Instance 阶段权威字段；普通单 Task，分片必需 Pre、可选 Post，合法空数组按零分片推进 | [状态与生命周期](task-model.md#lifecycle) |
+| STOPPING 恢复查询与子记录定位 | 父 `status=6` 使用 ID 部分索引，每趟固定最大 ID、临时游标翻页，接纳／合并才推进，队满暂停，新趟及切主从头；每批父主键 NOWAIT 成功并复核后才读当前子批，空批在当前父事务内检查 NOT EXISTS 并结束父。不用 Task 游标或 OFFSET。竞争失败或技术错误结束本次、不立即重排；成功未完成者按份额到队尾。页256、扫描5秒、无额外1024上限、本地容量256、并发2、子批256、每次最多4批或到2秒不再开新批、SQL1秒已定，非硬完成时限，尚未实现 | [父候选查询](data-contracts.md#stopping-recovery-query)、[子取消查询](data-contracts.md#task-cancel-query)、[取消竞争与容量](execution.md#stopping-processing)、[专项验收](verification.md#stopping-recovery-checks) |
+| 终态竞争 | 已有终态不覆盖；完整最终结果可在父仍 RUNNING 时迟到收尾。自动超时先尝试仅按结果结束，否则到期保存 STOPPING 与超时原因；人工停止保存 STOPPING 与人工原因。分批取消未结束子 Task、全部子终态后，父按冻结原因转失败或取消，不承诺全局完成优先。新工作仍受原截止约束，不承诺硬停业务或父子同事务终止 | [终态规则](behavior.md#terminal-order)、[子任务收敛](behavior.md#task-convergence)、[停止超时契约](data-contracts.md#instance-termination-sql)、[专项验收](verification.md#instance-termination-sql-checks) |
 | 重试与终止 | Job 共用配置、各 Task 独立预算；默认额外重试 3 次、间隔 10 秒，原始执行加重试共 4 次执行机会；整轮超时与尽力取消 | [调度与执行规则](behavior.md) |
 | 整轮超时默认值 | 新增表单预填 900 秒，允许按 Job 修改；API 必填、无 SQL 默认，不修改既有配置。有限正数、整轮范围与计时起点不变，不增加失联提前重派 | [默认值契约](data-contracts.md#timeout-default-proposal)、[比较依据](#timeout-default-evidence)、[验收](verification.md#timeout-default-checks) |
-| 本地派发与尝试登记 | 生成节点按本地容量批量条件登记，提交后直接派发；恢复复用条件，不改为全节点扫描后的正常派发，不增加整轮归属 | [尝试登记](execution.md#attempt-registration) |
-| 新授权与父终态协调 | 每个有界登记批次锁单条父 Instance，停止、超时和正常结束共用父行协调；等待重试仅是候选，结果回报不统一锁父；父已终态但子未终态由共同恢复取消收敛。接受逐轮逐批协调成本，同轮短登记事务串行，不同轮并行 | [授权与终止协调](execution.md#authorization-terminal)、[验收场景](verification.md#authorization-terminal-checks) |
+| 本地派发与尝试登记 | 每调度进程默认 64 个固定工作协程、部署可调，搭配有界队列；普通首次启动、Task 创建与首次执行信息合并事务，分片按 Instance 有界批量登记，明确提交后直接派发；恢复复用条件，不增加整轮归属 | [普通主路径](execution.md#ordinary-flow)、[有界派发](execution.md#bounded-dispatch)、[尝试登记](execution.md#attempt-registration) |
+| Task 公共字段与单例防重 | 统一 `job_task`；`attempt_no` 递增识别执行，`used_attempts` 独立判断预算，BUSY 只返还后者。执行器进程身份为每次启动生成的 UUIDv4，地址 VARCHAR(255)；业务数据 JSONB、摘要 TEXT，审计和运行时间分开。部分唯一索引仅覆盖普通／准备／收尾，不限制多个分片；无软删除、物理外键、Attempt 历史表或整轮负责人 | [字段与索引](data-contracts.md#task-field-contract)、[验收](verification.md#task-field-checks) |
+| 普通 Task 首次创建与重复推进 SQL | 派发工作协程在单 Instance 主键短锁内复核普通 WAITING 与空运行时间，锁后取一次数据库当前时间；先条件更新父行恰好一条，再插入唯一普通执行中 Task。单例冲突整笔回滚；重复推进退出，只有本次实际新建且明确提交成功才发送。提交不明不补发，保留 Job 触发使用 `time.Now()` 的独立口径 | [SQL 契约](data-contracts.md#ordinary-start-sql)、[验收](verification.md#ordinary-start-sql-checks) |
+| 新授权与父终态协调 | 新尝试／Post 等多步授权保留单父行短事务和锁后截止校验；正常完成父锁外读稳定事实，再条件 UPDATE，更新自身仍有行锁，与授权和其他终态协调。等待重试仅是候选，结果回报不统一锁父；STOPPING 决定先禁止新工作，子取消后才最终结束父；独立 Leader STOPPING 分支恢复遗漏 | [授权与终止协调](execution.md#authorization-terminal)、[正常完成](execution.md#instance-finalization)、[停止超时契约](data-contracts.md#instance-termination-sql)、[验收场景](verification.md#authorization-terminal-checks) |
 | 提交结果不明 | 登记不明撤掉发送，事后见已登记也不补发；BUSY 有界有限重做原条件记账，执行结果沿用有界保留退避重做；旧状态与尝试限制重复修改。普通查询未见不证明回滚，正常路径不加写后查询 | [恢复规则](execution.md#commit-unknown)、[验收场景](verification.md#commit-unknown-checks) |
 | 机会记账与代价 | 登记提交即占机会；仅已确认的明确 BUSY 可条件返还，提交后未发送或通信结果不确定不能免费重发，零重试仍可能未运行就失败；批量仅减少往返，不消除逐行写入成本 | [记账边界](execution.md#dispatch-accounting)、[BUSY 背压](execution.md#busy-backpressure) |
-| BUSY 背压 | 仅执行器明确容量满且未接单、未入队、未执行时，对当前有效尝试原子关闭、一次返还登记占用的机会并延期，不消耗执行预算，零重试仍可延期；复用最早可派发时间和既有检查，不延长整轮截止，不保证换节点。通信错误或 BUSY 答复丢失不免费返还，旧身份不复用、终止优先 | [BUSY 背压](execution.md#busy-backpressure) |
-| 派发路由与执行器绑定 | 保留原生发现与负载均衡，接单后结合启动实例标识与实际地址条件绑定；取消定向进行 | [执行器身份绑定](execution.md#executor-binding) |
-| 绑定缺失窗口 | 从登记的数据库时间有限观察且不重置，到期仅获条件结算资格；绑定／有效结果／未知结算持久化竞争，沿用预算、旧尝试不复活、终止优先；接受重复业务与结果不确定失败 | [观察与条件结算](execution.md#missing-binding) |
+| BUSY 背压 | 仅执行器明确容量满且未接单、未入队、未执行时，对当前有效尝试原子关闭、一次返还登记占用的机会并延期，不消耗执行预算，零重试仍可延期；复用最早可派发时间和既有检查，不延长整轮截止，不保证换节点。通信错误或 BUSY 答复丢失不免费返还，旧身份不复用、终止优先 | [BUSY 背压](execution.md#busy-backpressure)、[普通返还 SQL](data-contracts.md#ordinary-busy-settlement)、[专项验收](verification.md#ordinary-busy-settlement-checks) |
+| 派发路由与执行器绑定 | 保留原生发现与负载均衡；ACK 后按原请求编号、执行中状态及两项绑定均空的条件同时补存身份与地址。零行停止不补查、不自动取消；不额外锁父，失败仅有限重试元数据，不重发业务 | [执行器身份绑定](execution.md#executor-binding)、[绑定 SQL](data-contracts.md#executor-binding-sql)、[验收](verification.md#executor-binding-sql-checks) |
+| 取消处理与响应 | 按 Instance 向已知目标定向通知，不校验预期进程 ID；本机标记取消或发出信号后回复，无匹配活动也成功，不等待业务退出。永久错误不重试，通信故障有限重试同一目标，耗尽释放；不消耗 Task 执行预算，不改变父终态或替代子状态收敛 | [通知路由](execution.md#cancel-routing)、[响应契约](data-contracts.md#cancel-response-contract)、[验收](verification.md#cancel-response-checks) |
+| 远端取消地址查询与容量 | 按 Instance 向去重地址通知，不逐 Task。新停止决定提交后独立交接，不按子批／周期恢复／重复旧决定重启；父终态后已接纳通知仍按原预算继续。地址索引及单 SQL 索引跳跃，每页32；Instance／目标总容量各256、读取1／发送16协程、SQL与RPC各1秒、最多3总尝试间隔1秒、目标5秒、Instance接纳起60秒。非可靠送达或硬退出保证，尚未实现 | [地址查询](data-contracts.md#cancel-target-query)、[来源与容量](execution.md#cancel-notification-capacity)、[专项验收](verification.md#cancel-notification-checks) |
+| 绑定缺失窗口与普通未知结算 | 从登记时间有限观察且不重置，按原编号、执行中、双绑定空及观察到期条件结算；当前已用次数决定等待重试或结果不确定失败，不重复扣次。前置父校验不锁父，接受终止交错但不能恢复父或授权重派；逐条独立提交；写库失败或提交不明结束本次运行，由后续新一趟重新覆盖仍符合条件的候选 | [观察规则](execution.md#missing-binding)、[普通未知结算 SQL](data-contracts.md#ordinary-unknown-settlement)、[验收](verification.md#ordinary-unknown-settlement-checks) |
+| 无绑定观察到期扫描与结算 | 各节点独立串行、不重叠，实际结束后等 10 秒 ±20%；每页 128、复核短批 16、单次数据库操作 1 秒、每次运行 5 秒。逐 Task 独立提交，临时键集游标保留本趟边界跨运行接续；单项写失败或提交不明可越过已尝试项但立即结束，未处理项不可越过，下一新趟重新覆盖仍符合条件的失败项；不新增 NOWAIT 或长期队列 | [运行规则](execution.md#unbound-recovery-defaults)、[查询与分页](data-contracts.md#unbound-recovery-query)、[部署参数](operations.md#unbound-recovery-configuration)、[验收](verification.md#unbound-recovery-query-checks) |
 | 已绑定结果等待 | 已有持久化绑定但无有效结果时保留当前尝试执行中，等待有效结果、人工停止或整轮截止；不新增 Task 活动查询、心跳或独立失联提前重派。明确失败仍按原预算重试，整轮到期按超时及既有取消规则收敛；接受宕机后等待余时和单片丢结果拖至整轮超时且无正常 Post | [已绑定但无有效结果](execution.md#bound-result-wait) |
-| 异步回报与确认 | 双端固定异步、有界内存队列，调度端入队即 ACK、后台小批量落库；无本地文件及同步／异步开关，允许进程故障丢失未落库结果 | [结果回报](execution.md#result-report) |
-| 执行器回报重试与清理 | 回报同一尝试的已有结果，不占执行预算；次数、间隔及单次 RPC 超时采用独立内部常量，具体值待定；ACK 后释放，耗尽也释放并记录错误及丢弃指标，不无限等 ACK | [回报重试与清理](execution.md#report-retry) |
-| 调度端结果保留 | 已 ACK 结果遇到可恢复写库故障时有界保留、退避重试，队满拒收新结果；不按固定次数或保留 TTL 主动清掉，不套用执行器耗尽释放。按排队、处理中、待重试合计条数、固定消费并发及 RPC 报文上限控制，不做队列总字节／MB 精确配额，不另加业务结果长度限制或 Job 页面参数；永久无效数据不无限重试堵整批，进程退出仍可能丢失 | [调度端结果保留](execution.md#scheduler-result-retention) |
-| 结果与收尾推进 | 有效结果提交后才本地合并检查，收尾短事务与唯一约束防重；入队 ACK 不改变 Task 终态 | [完成检查](execution.md#completion-check)、[收尾创建](execution.md#post-creation) |
-| 业务接入 | 统一 RPC 入口和具名处理器，执行器回报、调度服务写库 | [总体架构](architecture.md)、[数据与接口契约](data-contracts.md) |
+| 异步回报与确认 | 双端固定异步、有界内存队列，执行器单条上报，调度端入队即 ACK、后台逐条条件 UPDATE 并独立提交；无本地文件、网络合批及同步／异步开关，允许进程故障丢失未落库结果 | [结果回报](execution.md#result-report) |
+| 普通 Task 结果保存 | 每条一次 JOIN 取得 Task／Instance 归属、认证组和本轮冻结重试上限、间隔；逐条条件 UPDATE、独立提交，使用该条数据库处理时间，最终按原尝试、执行中状态及空或匹配绑定身份决定写入。成功、失败待重试、失败耗尽分别原子保存，不补绑定、不扣次数；零行正常结束，不补查、不证明此前成功。数据库故障或提交不明只保留对应原条目，不重放其他已明确成功条目；正常结束并确认提交后才提示已核实的 Instance 检查，不统一锁父或直接重派 | [结果保存规则](data-contracts.md#task-result-persistence)、[验收](verification.md#task-result-persistence-checks) |
+| 普通 Task 重试登记 | 候选携带原执行编号，单父行锁后校验数据库时间、父状态与截止及本轮配置；原 Task 按等待重试、原编号、到期与剩余次数条件递增两计数，清旧绑定、保留最近说明、不重置首次及父计时。返回新登记记录且明确提交才派发，零行退出，提交不明不补发；预算不用执行编号判断 | [重试登记 SQL](data-contracts.md#ordinary-retry-registration)、[验收](verification.md#ordinary-retry-registration-checks) |
+| 执行器回报重试与清理 | 回报同一尝试的已有结果，不占执行预算；组件默认保留 256 条待首发／待重试／在途结果，发送并发默认 16，调用结束即释放发送能力、退避保留原位置。按已到期最早可发送时间及稳定同时间顺序处理，不切首发／重试固定份额；单次 2 秒、最多 7 次应用层调用含首次，退避 1／2／4／8／16／16 秒且各上下浮动 20%，基准合计 47 秒不是 TTL。256／16 可配置，其余内部常量；ACK、永久错误或耗尽才释放，后两者记录错误和丢弃指标 | [回报重试与清理](execution.md#report-retry)、[回报初值](execution.md#reporting-defaults) |
+| 调度端结果保留 | 每节点组件默认保留 512 条待首次处理、待重试和在途结果，保存并发 8，单条一次处理超时 2 秒，三项可部署调整；2 秒含连接等待、读取、更新提交，不含排队退避。一次处理结束释放处理能力，退避保留原条目原位置；新条目接纳时可处理，重试以上次结束加正退避计算，按已到期最早时间及稳定同时间顺序选择，不切首次／重试固定份额。内部退避基准 1／2／4／8／16／30 秒、以后封顶 30 秒，各次上下浮动 20%；可恢复或性质不明的技术故障及提交不明不按次数或 TTL 丢弃，满载仍拒新，即使全部在退避。不合并提交或设置整批总超时，不重放其他成功条目；不另建无界缓冲、总字节配额或业务结果长度限制。回报错误分类按下项已定契约执行，SQL／驱动适配及实现验证待完成，共享 30 秒停机宽限和内存易失边界不变 | [调度端结果保存安排与初值](execution.md#scheduler-result-defaults)、[结果保留](execution.md#scheduler-result-retention) |
+| 回报错误分类与无效结果处理 | 回报队满使用 ResourceExhausted，暂时不可用及认证依赖失败使用 Unavailable，均有限重传；明确认证失败沿用 Unauthenticated／PermissionDenied，非法报文复用 bizerror 与 common.invalid_request。未知码及异常响应保守有限重传，不解析文案或凭通用资源不足认定超大。后台先排除已明确失效的结果，再解析仍需使用的快照；永久不可保存必须定位并独立核实结果内容，不能仅凭 SQLSTATE。技术故障、提交不明、坏快照或未知版本保留告警，父 STOPPING／到期不直接使有效子结果失效；不新增队列或 TTL | [错误契约](data-contracts.md#result-error-classification)、[专项验收](verification.md#result-error-classification-checks) |
+| 结果与收尾推进 | 有效结果提交后才本地合并检查；普通与分片共用机制，依赖生成完整、Task 最终态不可逆及所需阶段结果。正常结束不因截止后纯平台收尾改判超时，创建 Post 等新工作仍受原截止、短事务及单例约束保护；独立有界恢复不依赖下一次 Cron 或 Job 启停 | [完成检查](execution.md#completion-check)、[收尾创建](execution.md#post-creation)、[恢复边界](execution.md#recovery) |
+| Instance 检查提示安排与初值 | 每节点保留 512 个唯一 ID，包含合并等待、排队及处理中；并发 8、单次处理 2 秒，三项部署可调。100ms 内部窗口从首次提示计算且不延长；处理中首新提示确定下一轮最早时间，本次结束后复用原条目转队尾，技术错误也保留新提示，明确父终态才可直接清理合并提示。无新提示时结束本次处理，错误不自行无限重查；满时已有 ID 仍合并，新正常提示非阻塞放弃，由既定复核补漏。Leader 扫描与恢复补充按另行已定规则执行 | [检查安排与初值](execution.md#instance-check-defaults)、[验收](verification.md#instance-check-defaults-checks) |
+| RUNNING 扫描预算与恢复补充 | 查询 1 秒、每周期扫描／交接 5 秒，两项部署可调，连接／取时／分页／交接／等待计入相应预算；续周期新预算沿用原 scan_now 和游标。恢复新增 ID 仅在集合占用低于总量一半时接纳（默认 256），已有 ID 可合并；达到门槛或满时预算内等空间，不查后续页、不持连接或事务。只接纳才前移，不越过首未接纳项，门槛不是周期总量，到尾不在同周期重扫；查询失败退出本周期。已接纳检查独立处理，不切来源并发或计数；持续或整窗口拥塞仍可阻止恢复准入，不承诺固定份额或 SLA。STOPPING 原规则独立保持 | [扫描与交接](execution.md#instance-recheck-defaults)、[候选查询](data-contracts.md#instance-recheck-query)、[验收](verification.md#instance-recheck-query-checks) |
+| Instance 完成条件写入与摘要 | 按本轮快照核验阶段事实；父锁外读稳定结果，正常 UPDATE 只匹配主键及运行中，不加截止谓词，确认提交才成功，零行或技术失败不改走超时。单例复制最终摘要，分片生成统计与 Post 结果；全分片失败仍在条件允许时执行已配置 Post。明确结果未齐才进入超时父短事务，锁内不重扫 Task，接受终态竞争 | [完成条件与 SQL](data-contracts.md#instance-completion-contract)、[完成验收](verification.md#instance-completion-checks) |
+| 业务接入 | 全 zrpc＋etcd，公共协议子包以 protoc 生成；DispatchTask、CancelInstance、ReportTaskResult 分别承担派发、取消和回报，调度服务写库 | [执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)、[验收要求](verification.md#execution-rpc-checks) |
 | 执行器组 | 第一版页面动态管理，数据库保存组与发现标识；实例由 etcd 自动发现，原生 go-zero 负载均衡；不采用部署配置静态组映射 | [总体架构](architecture.md)、[管理与运维](operations.md) |
 | 部署接入 | 调度服务独立多副本；执行组件可嵌入业务 RPC 或随同域 Worker 独立部署，使用同一协议；同组可选副本兼容被调度处理器与参数契约 | [总体架构](architecture.md)、[管理与运维](operations.md) |
-| 内部信任与凭据 | 单执行器进程单组，同组共享 Token 且可提供多个处理器；后端随机生成、不使用公开默认或空值放行，回报绑定 Task 组与有效尝试 | [内部信任边界](architecture.md#internal-trust)、[组凭据管理](operations.md#group-credentials) |
+| 内部信任与凭据 | 单执行器进程单组，请求体 GroupAuth 由全部执行业务入口共用认证逻辑校验；凭据随机生成、不以默认或空值放行，后台核验 Task 归属及尝试；标准 Health 不代表业务就绪 | [内部信任边界](architecture.md#internal-trust)、[组凭据管理](operations.md#group-credentials)、[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract) |
 | 注册发现授权 | 继续使用 etcd＋go-zero，不自建调度端注册中心；etcd 访问权限独立保护注册发现，组 Token 只保护任务调用 | [总体架构](architecture.md#internal-trust) |
 | 依赖故障与就绪 | 按能力处理数据库、选主、发现与 RPC 故障；回报有容量可入队确认，可恢复写库故障保留并退避、队满背压，不按次数或 TTL 主动清掉，已 ACK 未落库结果也不保证跨进程保存；冷启动与运行中故障分别验证 | [调度端结果保留](execution.md#scheduler-result-retention)、[管理与运维](operations.md#dependency-boundaries)、[验证与交付](verification.md#trust-dependency-checks) |
 | 执行日志 | 调度表保存简短记录，详细过程和旧尝试详情使用日志系统 | [管理与运维](operations.md) |
@@ -610,6 +704,46 @@ DogX 按[字符串字段规范](../../development/database-migrations.md#column-
 | 基准规模与质量方向 | 分别验证 500 条规则、100 条同秒触发、单轮 1,000 分片、100 轮各 10 分片；不是产品硬上限或实测成绩；具体性能门槛在部署资源明确后、正式压测前确认 | [目标与范围](scope.md)、[验证与交付](verification.md) |
 
 上述是已经确认的设计决定，不是实现验收结果。[ADR-0009](../../adr/0009-scheduler-domain-and-etcd.md)已随触发模块总审通过，明确调度域归属及 etcd 与现行 Redis 协调规范的边界。当前按用户要求暂不编码，生效规范的同步留待实现时完成；后续模块出现新的架构选择时另补对应 ADR。
+
+## 处理器与结果传递参考 {#processor-interface-evidence}
+
+本节固定对照 XXL-JOB 2.4.1 和 SnailJob `cacc2b698c1880552d4b0c3582b44713dc350566`，区分业务方法、框架内部调用模板和结果传输方式，不将竞品机制视为 DogX 已批准协议。
+
+| 设计点 | XXL-JOB 2.4.1 | SnailJob cacc2b6 |
+| --- | --- | --- |
+| 普通业务入口 | `IJobHandler.execute()` 无普通返回值，业务通过 Helper 获取参数及设置处理结果 | 注解方法或继承方式；普通业务方法接收 JobArgs，返回 ExecuteResult |
+| 分片与动态拆分 | 分片广播提供编号和总数，业务自行解释分工 | 静态 SHARDING 沿用普通执行入口，扩展 ShardingJobArgs；动态 MAP 扩展 Map 方法，业务通过 MapHandler.doMap 提交下级工作项，不等于固定 PreProcess 返回数组 |
+| 结果结构 | 上下文保存执行结果码和消息 | 各阶段共用 ExecuteResult，分别包含 status、业务 result 和 message；结果不只是摘要 |
+| 汇总结果传递 | 没有分片全部结束后统一调用的固定 Post 接口 | 服务端一次查询本批次 MAP 叶子 Task 的结果，在内存按 shardNum 分组，分别保存到 Reduce Task 的 argsStr 后派发；多个 Reduce 后的 MergeReduce 再带 REDUCE 叶子结果集合。不是客户端分页读取，也不是每个 Reduce 都接收所有 Map 结果 |
+
+SnailJob 的分组按结果条数，不按序列化字节；查询未使用分页或 LIMIT，`shardNum` 与执行器线程池并发 `parallelNum` 不是同一个参数。其 Reduce 阶段创建在成功处理分支，不能等同于 DogX“部分分片最终失败仍运行已配置 Post”的业务收尾规则。
+
+直接证据：
+
+- XXL-JOB：[普通执行接口](https://github.com/xuxueli/xxl-job/blob/2.4.1/xxl-job-core/src/main/java/com/xxl/job/core/handler/IJobHandler.java#L16)、[参数与结果 Helper](https://github.com/xuxueli/xxl-job/blob/2.4.1/xxl-job-core/src/main/java/com/xxl/job/core/context/XxlJobHelper.java)。
+- SnailJob：[公共执行模板](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-job-core/src/main/java/com/aizuda/snailjob/client/job/core/executor/AbstractJobExecutor.java)、[Map 扩展](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-job-core/src/main/java/com/aizuda/snailjob/client/job/core/executor/AbstractMapExecutor.java)、[业务拆分提交](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-job-core/src/main/java/com/aizuda/snailjob/client/job/core/executor/MapInvokeHandler.java#L46)、[通用结果](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-common/snail-job-common-model/src/main/java/com/aizuda/snailjob/model/dto/ExecuteResult.java)。
+- SnailJob：[Reduce 与 MergeReduce 输入生成](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/generator/task/MapReduceTaskGenerator.java#L80)、[下一阶段创建条件](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/result/job/MapReduceJobExecutorHandler.java#L44)。
+
+DogX 的三接口分工、公共输入与 JSON 结果语义已通过，见[处理器契约](data-contracts.md#processor-contract)。DogX 不采用 SnailJob 的结果集合输入方式：[Post 输入](data-contracts.md#post-input)只包含公共身份、本轮参数和业务分片总数、成功数、失败数；不提供分片结果明细、访问器或查询 RPC。Post 需要业务明细或文件引用时，由业务代码读取所属业务存储，框架不直接访问业务表。普通任务不支持 Post。
+
+## 派发请求与接单依据 {#dispatch-acceptance-evidence}
+
+本节对照 XXL-JOB 2.4.1（`92577cc33e3974a2f46d9223ed9a405a03c8ee1d`）与 SnailJob 2.0.2（`cacc2b698c1880552d4b0c3582b44713dc350566`）的调度端到执行器链路，不把结果回报或 Map 工作项上报当成派发。
+
+| 设计点 | XXL-JOB | SnailJob | DogX 已确认选择 |
+| --- | --- | --- | --- |
+| 单次接单 | run 接收一个 TriggerParam，分片广播循环调用单条派发 | dispatch 接收一个 DispatchJobRequest，分片、广播及 MapReduce 逐 Task 发送 Actor 消息并调用 RPC | 一次 RPC 派发一个 Task 当前尝试，有界并发，不增加批量接单及部分接收协议 |
+| 接单成功时点 | 校验处理器及阻塞策略后，返回加入 JobThread 内存队列的结果 | 选择处理器、提交异步执行并登记 Future 后返回 true | 校验后成功纳入有界执行管理才 ACK，不等业务完成，不证明调度端绑定已落库 |
+| 接收有限防重 | 本机按 logId 防重复排队，出队后即移除标识 | 本节核对的派发接收链路未见按 Task／尝试身份去重 | 复用本机活动记录覆盖排队和执行期，业务实际退出即释放，不等结果 ACK，不做跨重启或终态长期缓存 |
+
+SnailJob 可批量生成和保存 Task，Map 执行器也可向调度端批量上报待生成的子工作项；这不等于调度端将多条 Task 打包为一次执行器接单 RPC。XXL-JOB 分片广播是逐地址调用，不因一次触发产生多个分片就变成批量网络接单。一次业务 Task 自身处理多条业务记录也不改变上述协议粒度。
+
+直接证据：
+
+- XXL-JOB：[单条执行接口](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-core/src/main/java/com/xxl/job/core/biz/ExecutorBiz.java)、[分片循环及单条派发](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-admin/src/main/java/com/xxl/job/admin/core/trigger/XxlJobTrigger.java)、[执行器接单](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-core/src/main/java/com/xxl/job/core/biz/impl/ExecutorBizImpl.java#L121-L148)、[排队防重及出队移除](https://github.com/xuxueli/xxl-job/blob/92577cc33e3974a2f46d9223ed9a405a03c8ee1d/xxl-job-core/src/main/java/com/xxl/job/core/thread/JobThread.java#L61-L118)。
+- SnailJob：[单条 RPC 契约](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/client/JobRpcClient.java#L25-L26)、[每 Task 单独派发](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/executor/job/MapReduceJobExecutor.java#L31-L38)、[单次请求与调用](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-server-dispatcher/snail-job-server-job-task/src/main/java/com/aizuda/snailjob/server/job/task/support/executor/job/RequestClientActor.java#L96-L104)、[接单入口](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-job-core/src/main/java/com/aizuda/snailjob/client/job/core/client/JobEndPoint.java#L43-L104)、[异步业务提交](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-job-core/src/main/java/com/aizuda/snailjob/client/job/core/executor/AbstractJobExecutor.java#L43-L90)、[Map 子工作项批量上报](https://github.com/aizuda/snail-job/blob/cacc2b698c1880552d4b0c3582b44713dc350566/snail-job-client/snail-job-client-job-core/src/main/java/com/aizuda/snailjob/client/job/core/executor/MapInvokeHandler.java#L75-L90)。
+
+DogX 的明确 BUSY、当前尝试绑定及活动期防重是本项目协议，不能据此声称两家具有同等语义或容量保证。权威设计见[派发接单契约](data-contracts.md#dispatch-acceptance)，容量及恢复参数仍须另行闭合。
 
 ## 文档维护边界
 

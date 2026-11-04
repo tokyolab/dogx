@@ -181,7 +181,7 @@ Set-Location 'apps/system/api'
 goctl api go --api system.api --dir . --style gozero
 ```
 
-修改 Protobuf 契约后，在 RPC 目录重新生成：
+修改应用 Protobuf 契约后，在 RPC 目录重新生成：
 
 ```powershell
 Set-Location 'apps/system/rpc'
@@ -195,7 +195,15 @@ Set-Location 'apps/job/rpc'
 goctl rpc protoc job.proto --go_out=./types --go-grpc_out=./types --zrpc_out=. --style gozero
 ```
 
-生成命令会更新契约派生文件，但不会覆盖已有的 Logic。修改已有接口的输入或输出类型后，仍需手动同步 Logic 方法签名并运行测试。包含 `DO NOT EDIT` 标记的文件禁止直接修改，完整规则见 [goctl 代码生成规范](docs/development/code-generation.md)。
+上述应用生成命令会更新契约派生文件，但不会覆盖已有的 Logic。修改已有接口的输入或输出类型后，仍需手动同步 Logic 方法签名并运行测试。
+
+公共执行协议已批准使用 `pkg/jobexecutor/protocol/execution.proto`，当前仍是待实现设计。以后创建或修改该文件时，从**仓库根目录**执行以下固定命令，使用官方 `protoc`、`protoc-gen-go` 和 `protoc-gen-go-grpc`，只生成协议类型与 gRPC 客户端／服务端接口：
+
+```powershell
+protoc --proto_path=. --go_out=. --go_opt=module=github.com/tokyolab/dogx --go-grpc_out=. --go-grpc_opt=module=github.com/tokyolab/dogx pkg/jobexecutor/protocol/execution.proto
+```
+
+该协议的 `go_package` 必须为 `github.com/tokyolab/dogx/pkg/jobexecutor/protocol`，输出为同目录的 `execution.pb.go`、`execution_grpc.pb.go`；不生成应用 Main、配置、Svc、Logic 或 Server 骨架，不改变应用 goctl 命令和 zrpc＋etcd 通信方式。设计阶段不执行该命令。包含 `DO NOT EDIT` 标记的文件禁止直接修改，完整规则见[契约代码生成规范](docs/development/code-generation.md#execution-protocol-generation)。
 
 ## 测试
 

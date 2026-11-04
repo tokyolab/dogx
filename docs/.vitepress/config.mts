@@ -50,6 +50,7 @@ const config = withMermaid({
           { text: '7 管理与运维', link: '/design/scheduler/operations' },
           { text: '8 验证与交付', link: '/design/scheduler/verification' },
           { text: '设计进度与评审计划', link: '/design/scheduler/progress' },
+          { text: '普通执行开工检查与开发计划', link: '/design/scheduler/ordinary-readiness-review' },
           {
             text: '触发模块开工总审',
             link: '/design/scheduler/trigger-readiness-review',

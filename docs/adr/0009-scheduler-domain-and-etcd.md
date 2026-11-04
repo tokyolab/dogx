@@ -14,7 +14,7 @@
 
 - 产品定位为 DogX 一体化后台内置的分布式调度能力；后端保持单 Git 仓库、单 Go Module，当前不拆分独立调度产品或发布对外执行器 SDK。
 - 调度数据属于 `job` 域。管理 API/BFF 不直接访问组、Job、Instance 或 Task 表；执行器只通过 RPC 回报，不持有调度数据库写入逻辑。
-- 调度服务独立多副本部署，同一组副本承担选主、触发及后续对等推进职责，不拆出单独的 Leader 服务。
+- 调度服务独立多副本部署，同一组副本承担选主、触发及后续对等推进职责，不拆出单独的 Leader 服务。2026-10-22／23 补充确认：现有 Leader 还负责 RUNNING Instance 的低频统一复核和 STOPPING Instance 的停止恢复候选发现；两类查询分开、各有预算，正常结果与停止决定提交后的处理仍由本节点即时推进，不建立整轮负责人。
 - 使用 `robfig/cron/v3` 维护长期规则，etcd 负责选主、服务发现和 Job 配置通知，PostgreSQL 保存权威事实。
 - Job 和 Instance 的短事务、条件更新及唯一约束保证持久化规则；不增加全局数据库任期锁，不承诺旧 Leader 的合法在途事务绝不提交。
 - 本批交付止于 WAITING Instance 与本轮配置，Task 执行、组凭据和客户端生命周期仍在后续模块落实。
@@ -72,7 +72,11 @@ dogx/                                后端 Git 仓库
 
 上述为已确认的实现路径。Job HTTP 契约仍由 `system.api` 统一导入和生成；管理 Logic 负责各自用例编排，不直接执行 SQL。自动／手动创建 Instance 提取为 `trigger.Creator`，不把普通 CRUD 一并塞入大 Service。域内 `repository.TransactionRunner` 仅提供同一事务连接上的仓储，不包含业务规则；Logic 与 Creator 保留各自的判断顺序和事务边界，不各自开启独立事务。调度运行组件的资源由进程装配并关闭；继续执行一个 Model 对应一个 Repository 的规范，不建立通用 BaseRepository，也不允许跨域导入 `internal` 数据层。
 
-`job-rpc` 既提供管理 RPC，也承担调度运行职责，不是只有 CRUD 的服务。业务处理器仍运行于所属业务进程或同域 Worker，不放进 `scheduler/`。公共执行组件在仓库内复用，具体包路径在执行模块设计时确定；不为本次接入增加独立 SDK Module、发布流程或调度端注册／心跳中心。管理入口使用生成的 `jobclient`，不因此获得访问 Job 内部数据层的权限。
+`job-rpc` 既提供管理 RPC，也承担调度运行职责，不是只有 CRUD 的服务。业务处理器仍运行于所属业务进程或同域 Worker，不放进 `scheduler/`。执行模块已确认公共组件使用 `pkg/jobexecutor`，System 处理器放在 `apps/system/internal/job`，首个接入由 `system-rpc` 装配；具体边界见[执行器接入与处理器注册](../design/scheduler/architecture.md#processor-layout)。不为本次接入增加独立 SDK Module、发布流程或调度端注册／心跳中心。管理入口使用生成的 `jobclient`，不因此获得访问 Job 内部数据层的权限。
+
+2026-10-19 确认执行接入采用同进程独立 RPC Server：`job-rpc` 分开管理与执行器通信入口，System 首版在 `system-rpc` 内嵌由 `pkg/jobexecutor` 创建的执行器 Server，与原业务 Server 分开，不新增 Worker 进程。公共组件和域内处理器不依赖宿主 RPC 的 `internal`，保留以后拆分同域 Worker 的能力。两套监听复用进程内业务组件与数据连接，不增加管理 RPC 到回报 RPC 的内部转发；组 Token 只校验执行协议。管理 RPC 保留 go-zero 原生鉴权配置能力，由部署方决定启用和配置，不另建管理权限机制或强制网络访问规则。具体边界见[RPC 入口与鉴权装配](../design/scheduler/architecture.md#rpc-boundaries)；本项为设计决定，执行组件及第二套入口尚未实现。
+
+2026-10-30 进一步通过[执行 RPC 协议与装配](../design/scheduler/data-contracts.md#execution-rpc-contract)：调度端与执行端的 Server／Client 统一使用 zrpc，注册发现保留 etcd。公共契约置于 `pkg/jobexecutor/protocol`，仅此纯协议包以官方 protoc 生成 protobuf／gRPC 绑定，应用契约仍按 goctl 固定命令生成。三方法为 Executor.DispatchTask、Executor.CancelInstance 与 ResultReceiver.ReportTaskResult；请求体 GroupAuth 由全部执行业务入口共用认证逻辑校验，新增执行入口不叠加原生 App／Token，保留标准 Health 但不将其等同业务就绪，不注册反射。宿主统一进程级配置及包含框架阶段的共享 30 秒停机预算，RpcServer.Stop 不作为完成屏障，退出回调不得等待 Start 返回，全局日志最后关闭。生成、适配和跨平台验证尚未实施，非 BUSY 明确拒绝的当前尝试结算仍须闭合；本决定不授权执行模块编码，也不建立新注册／心跳中心。
 
 新增 Job RPC 客户端使用非阻塞连接；调度服务暂不可达不能使现有 System API 整体无法启动。相关 Job 请求按既有技术错误规则失败，不修改 System 当前 `/health`、`/ready` 的检查范围。Job 运行能力的监控不以“是不是 Leader”代替健康判断。
 
@@ -92,7 +96,7 @@ etcd 只用于已经批准的调度控制与发现职责：
 
 | 用途 | 协议与边界 |
 | --- | --- |
-| 触发 Leader 选举 | 官方 `concurrency.Session + Election`；独立任期上下文，部署租约初值 15 秒 |
+| 调度 Leader 选举 | 官方 `concurrency.Session + Election`；独立任期上下文，部署租约初值 15 秒；同一 Leader 承担 Job 触发、RUNNING Instance 统一复核及 STOPPING 停止恢复候选发现，不另建一套选举 |
 | Job 配置通知 | 独立的持久 `reload` 标记；提交后通知，每分钟数据库核对兜底，不是可靠消息 |
 | RPC 服务发现 | go-zero 对接 etcd；不由应用另建数据库心跳注册中心 |
 
@@ -118,6 +122,12 @@ etcd 只用于已经批准的调度控制与发现职责：
 新增一个有独立数据职责的 RPC 进程及其部署、迁移、测试配置；换取调度伸缩和故障不挤入 System 业务进程。etcd 是明确的运行依赖，但不代替业务事实存储。独立迁移账本避免跨域版本冲突，不意味着允许各副本并发执行迁移。
 
 接受非 Leader 正常服务、通知最终同步、旧合法事务可能提交以及有界队满可能错失触发等已定边界；不以本 ADR 承诺零故障、恰好一次业务执行或具体吞吐。
+
+RUNNING Instance 复核由 Leader 每 2 分钟执行或继续有界扫描，以本趟数据库时间减 4 分钟为开始时间上界，每页 256 条，交给本节点已有 Instance 检查组件。失主停止新候选发现，已接纳检查仍按数据库协议完成；新 Leader 就绪后从头开始一次有界扫描，仍遵守 4 分钟门槛，不转移游标。没有有效 Leader 时周期复核及其超时发现暂停，正常结果接收与本地推进不因此暂停。这是已批准、待实现的发现职责调整，不把全部执行恢复集中到 Leader；完整范围与取舍见[统一 Instance 复核](../design/scheduler/execution.md#instance-recheck-direction)。
+
+2026-10-29 后续已批准 [RUNNING 扫描预算与恢复补充](../design/scheduler/execution.md#instance-recheck-defaults)：在共享检查集合占用低于总量一半时接纳新的恢复 ID，已有 ID 可合并，不按来源分池或预留并发；达到门槛或集合满时，在本周期剩余扫描预算内等待空间，替代 RUNNING 满即退出规则。默认查询 1 秒、每周期扫描／交接 5 秒，参数与处理预算分别管理。该取舍减少恢复突发挤占正常提示，但不保证持续或覆盖整个扫描窗口的拥塞下恢复仍能准入，也不承诺恢复 SLA；STOPPING 的独立队满退出规则保持。
+
+2026-10-23 已批准停止协议改为持久化 `STOPPING = 6` 后按 Instance 有界取消未结束 Task，确认子记录全部终态后再结束父 Instance；不等待远端停止成功。STOPPING 候选复用同一 Leader 每 2 分钟的低频驱动，但独立查询与分页预算、不套用 RUNNING 的 4 分钟开始时间门槛，新 Leader 就绪后进行一次有界检查。处理使用既有后台恢复容量，不占派发的 64 个工作协程；没有有效 Leader 时周期发现暂停，本地已接纳处理仍可继续。本项不新增选举、整轮 owner、可靠通知表或全局 Task 扫描，具体协议见[停止与超时](../design/scheduler/data-contracts.md#instance-termination-sql)。这是待实现设计，不修改本批已交付的状态枚举及迁移。
 
 ## 验证要求
 

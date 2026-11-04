@@ -4,6 +4,27 @@
 
 **状态：2026-10-16 随开工总审通过，随后获得编码授权。** 本文是已批准的 SQL 契约；迁移实现及隔离环境验证随首批交付推进，不自动执行开发或生产数据库迁移。
 
+## 执行阶段的已批准修订（2026-10-23）
+
+下面的建表与首批 SQL 保留触发模块已经交付的历史基线，不代表执行阶段仍沿用五态规则。最新[停止协议](data-contracts.md#instance-termination-sql)已经批准、尚未实现，实施执行模块时必须同步调整：
+
+- Instance 增加非终态 `STOPPING = 6`，旧值 1～5 不重编号；进入 STOPPING 时冻结 `end_reason`，确认全部子 Task 终态后才保存父终态和 `finished_at`。既有“待开始直接取消”和“原因仅在终态保存”的注释随后续迁移修订。
+- Job 的阻塞丢弃检查、Job／组删除保护及历史保留都必须把 STOPPING 视为未结束；自动和手动创建共用的活跃查询及活跃部分索引均采用 `status IN (1, 2, 6)`，不能只改代码查询而留下旧索引谓词。
+- 新工作授权不能把“非终态”当作“可执行”，首次启动仍要求 WAITING，后续 Task 插入、Post 与新尝试登记仍明确要求 RUNNING 并校验截止；正常完成条件 UPDATE 仍只允许 `status = 2`。
+- 新增 STOPPING 的独立有界候选查询与索引，复用 Leader 每 2 分钟低频驱动和既有后台恢复容量，不使用 RUNNING 的 4 分钟开始时间门槛；不跨 Instance 扫描 Task。RUNNING 每页 256 条及原查询、索引规则不变。
+
+后续活跃查询的目标谓词为：
+
+```sql
+SELECT EXISTS (
+ SELECT 1 FROM job_instance WHERE job_id = $1 AND status IN (1, 2, 6)
+);
+-- Replacement predicate for idx_job_instance_active_job in a later migration:
+-- ON job_instance (job_id) WHERE status IN (1, 2, 6)
+```
+
+以上是设计修订，不回写已交付迁移，也未修改当前 Model、Repository 或运行行为；后续实现与迁移需要独立授权和验证。
+
 ## 迁移归属与实施边界
 
 `job` 域使用 `apps/job/internal/migration/migrations` 和独立迁移命令；同库部署也不导入 `system/internal`。总审确认使用 Goose Provider 的 `goose.WithTableName("job_goose_db_version")`，与现有 system 默认的 `goose_db_version` 分开，避免两套版本序列共用一个账本。当前依赖 Goose v3.27.3 支持该实例级选项，不使用全局表名开关。
@@ -11,6 +32,8 @@
 沿用[迁移规范](../../development/database-migrations.md)：开发时间戳、发布前 fix、已发布迁移不可变、默认事务执行。生产由一个迁移任务顺序运行所需域的迁移，不由各 RPC 副本启动时自动执行；不要因账本独立就并发迁移共享数据库。首批没有生产默认组种子；集成测试使用正式组表准备受控数据。
 
 以下为 Goose Up 的主体。业务初值由创建逻辑明确赋值；创建和首次修改时间由 GORM 或数据库默认值初始化，不替代必填校验。普通更新由 GORM 维护 `updated_at`；使用 Raw／Exec 时必须显式维护。首批仅保留触发身份结构 CHECK，不增加业务数值范围、状态枚举或流程 CHECK，也不建物理外键。
+
+以下 SQL 保留首批触发模块的已交付定义。其中组 `name` 的“展示名称”和 `updated_at` 的“名称修改”注释属于当时表述；2026-10-20 已明确组名是执行器接入身份，组名和 etcd Key 创建后不可修改，当前契约见[组身份与发现标识](operations.md#group-identity)。相关数据库注释与完整接入字段约束在组模块实施时同步，不因本次设计记录改写既有迁移。
 
 ## 三个表及注释
 
