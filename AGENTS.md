@@ -93,6 +93,7 @@
 
 ## 测试组织
 
+- Windows 本地测试通过 `scripts/test-exec-windows.ps1` 的 `go test -exec` 入口运行，让测试二进制保存到忽略的固定目录，避免每次换临时路径导致防火墙重复询问；同一 checkout 不同时启动多个测试命令。网络测试只监听回环地址，并显式关闭 go-zero 默认 DevServer；不要为测试修改防火墙全局开关或通知设置。需要安装本机程序规则时须取得用户授权，使用独立的 `scripts/allow-local-test-firewall.ps1`；运行测试本身不要求管理员权限。具体命令见[测试方案](docs/development/testing.md#windows-local-tests)。
 - 跨业务域的 PostgreSQL 测试连接、隔离 Schema 与清理复用 `pkg/testutil/postgres`；执行本域迁移、业务数据准备等仍留在域内。公共测试工具不依赖业务域内部包，不连接共享开发数据库。
 - Logic 单元测试默认使用手写 Stub；同一个 Stub 的结构体与全部方法必须集中在一个 `_test.go` 文件，跨测试文件复用时整体放入消费包内独立的 `<dependency>_stub_test.go`，扩展时不得把新增方法另拆文件。详见 [测试替身规范](docs/development/testing.md#测试替身)。
 

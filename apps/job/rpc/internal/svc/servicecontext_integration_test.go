@@ -47,7 +47,14 @@ func jobServiceConfig(t *testing.T, db *sql.DB) (config.Config, string) {
 		RpcServerConf: zrpc.RpcServerConf{Etcd: discov.EtcdConf{Hosts: []string{"127.0.0.1:1"}, Key: "/dogx/test/job"}},
 		Postgres: postgres.Config{Host: parsed.Host, Port: int(parsed.Port), User: parsed.User, Password: parsed.Password, Database: parsed.Database,
 			SSLMode: "disable", TimeZone: "Asia/Shanghai", MaxIdleConns: 1, MaxOpenConns: 2, ConnMaxLifetime: time.Minute},
-		Scheduler: config.SchedulerConf{Prefix: "/dogx/test/" + schema, QueueCapacity: 1024, CreationConcurrency: 32, CreationBudget: 3 * time.Second, LeaseTTLSeconds: 15, RecoveryLimit: 1024, QueryTimeout: 5 * time.Second},
+		Scheduler:          config.SchedulerConf{Prefix: "/dogx/test/" + schema, QueueCapacity: 1024, CreationConcurrency: 32, CreationBudget: 3 * time.Second, LeaseTTLSeconds: 15, RecoveryLimit: 1024, QueryTimeout: 5 * time.Second},
+		ResultPersistence:  config.ResultPersistenceConf{Capacity: 512, Concurrency: 8, SaveTimeout: 2 * time.Second},
+		InstanceCheck:      config.InstanceCheckConf{Capacity: 512, Concurrency: 8, Timeout: 2 * time.Second},
+		InstanceRecovery:   config.InstanceRecoveryConf{Interval: 2 * time.Minute, PageSize: 256, RunTimeout: 5 * time.Second, SQLTimeout: time.Second},
+		UnboundRecovery:    config.UnboundRecoveryConf{ScanInterval: 10 * time.Second, PageSize: 128, RunTimeout: 5 * time.Second, OperationTimeout: time.Second, ObservationPeriod: 30 * time.Second},
+		Stopping:           config.StoppingConf{Capacity: 256, Concurrency: 2, BatchSize: 256, MaxBatches: 4, RunTimeout: 2 * time.Second, SQLTimeout: time.Second, RecoveryPageSize: 256, RecoveryTimeout: 5 * time.Second},
+		CancelNotification: config.CancelNotificationConf{InstanceCapacity: 256, PageSize: 32, TargetCapacity: 256, Concurrency: 16, QueryTimeout: time.Second, InstanceTimeout: time.Minute},
+		Dispatch:           config.DispatchConf{Concurrency: 64, WaitingCapacity: 256, ScanInterval: time.Second, TotalTimeout: 10 * time.Second, RPCTimeout: 3 * time.Second, BusyDelay: 5 * time.Second},
 	}, applicationName
 }
 
@@ -63,8 +70,14 @@ func TestNewServiceContextWiresJobsAndClosesOfflineElection(t *testing.T) {
 			t.Errorf("close Job service: %v", err)
 		}
 	})
-	if s.JobRepo == nil || s.Transactions == nil || s.Trigger == nil || s.NotifyJobChanged == nil || s.etcd == nil || s.sqlDB == nil || s.done == nil || s.cancel == nil {
+	if s.JobRepo == nil || s.GroupRepo == nil || s.Transactions == nil || s.Trigger == nil || s.NotifyJobChanged == nil || s.etcd == nil || s.sqlDB == nil || s.done == nil || s.cancel == nil || s.Dispatch == nil || s.ExecutorClients == nil || s.UnboundRecovery == nil {
 		t.Fatal("service dependencies are incomplete")
+	}
+	// Isolate the trigger's committed WAITING handoff with discovery offline.
+	// TestServiceContextDispatchesOnFollower exercises production dispatch/etcd.
+	s.Dispatch.Stop()
+	if err := s.Dispatch.Wait(context.Background()); err != nil {
+		t.Fatal(err)
 	}
 	if s.sqlDB.Stats().MaxOpenConnections != c.Postgres.MaxOpenConns {
 		t.Fatalf("pool limits=%+v", s.sqlDB.Stats())
@@ -73,7 +86,7 @@ func TestNewServiceContextWiresJobsAndClosesOfflineElection(t *testing.T) {
 	if err := s.sqlDB.QueryRow("SELECT current_setting('application_name')").Scan(&actualApplication); err != nil || actualApplication != applicationName {
 		t.Fatalf("service connection identity=%q error=%v", actualApplication, err)
 	}
-	group := model.ExecutorGroup{Name: "offline executor group"}
+	group := model.ExecutorGroup{Name: "offline executor group", DiscoveryKey: "test.offline.executor.group", Token: "00000000000040008000000000000001"}
 	if err := db.Create(&group).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -143,6 +156,7 @@ func TestNewServiceContextInitializationFailuresReleaseConnections(t *testing.T)
 	}{
 		{"discovery", "job discovery", func(c *config.Config) { c.Etcd.Hosts = nil }},
 		{"scheduler capacity", "scheduler capacities", func(c *config.Config) { c.Scheduler.CreationConcurrency = 0 }},
+		{"unbound scan budget", "unbound recovery limits", func(c *config.Config) { c.UnboundRecovery.RunTimeout = 0 }},
 		{"TLS files", "etcd TLS", func(c *config.Config) {
 			dir := t.TempDir()
 			c.Etcd.CertFile = filepath.Join(dir, "missing.crt")

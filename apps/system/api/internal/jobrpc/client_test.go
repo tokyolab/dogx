@@ -164,7 +164,7 @@ func TestInitializationFailureCanRetryWithoutExposingDetails(t *testing.T) {
 func TestSensitiveJobMethodsDoNotLogContent(t *testing.T) {
 	methods := map[string]bool{}
 	protectContent(func(method string) { methods[method] = true })
-	for _, method := range []string{job.Job_CreateJob_FullMethodName, job.Job_UpdateJob_FullMethodName, job.Job_GetJob_FullMethodName, job.Job_TriggerJob_FullMethodName} {
+	for _, method := range []string{job.Job_CreateJob_FullMethodName, job.Job_UpdateJob_FullMethodName, job.Job_GetJob_FullMethodName, job.Job_TriggerJob_FullMethodName, job.Job_GetExecutorGroup_FullMethodName, job.Job_GetInstance_FullMethodName, job.Job_ListInstanceTasks_FullMethodName} {
 		if !methods[method] {
 			t.Fatalf("missing protection: %s", method)
 		}

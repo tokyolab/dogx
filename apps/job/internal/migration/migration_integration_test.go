@@ -24,27 +24,29 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	results, err := provider.Up(ctx)
-	if err != nil || len(results) != 2 {
+	if err != nil || len(results) != 5 {
 		t.Fatalf("Up results=%v error=%v", results, err)
 	}
 	if results, err := provider.Up(ctx); err != nil || len(results) != 0 {
 		t.Fatalf("second Up results=%v error=%v", results, err)
 	}
-	if version, err := provider.GetDBVersion(ctx); err != nil || version != 20261016183147 {
+	if version, err := provider.GetDBVersion(ctx); err != nil || version != 20261105120000 {
 		t.Fatalf("Job version=%d err=%v", version, err)
 	}
 	updatedAtComments := map[string]string{
-		"job_executor_group": "记录最后更新时间，名称修改等常规更新时维护，不作为业务配置版本；逻辑删除时间由deleted_at记录",
+		"job_executor_group": "Last record update time for auditing only; soft deletion updates deleted_at using the default GORM behavior",
 		"job_definition":     "记录最后更新时间，配置修改、触发推进等常规更新时维护，不作为业务配置版本；逻辑删除时间由deleted_at记录",
 		"job_instance":       "记录最后更新时间，含运行状态和结果变更，不作为业务配置版本",
+		"job_task":           "Last record update time for auditing only, not an execution deadline or progress marker",
 	}
 
 	// Every declared field is checked against the deployed schema, including
 	// nullability and capacities shared by current values and historical snapshots.
 	columns := map[string]map[string]string{
-		"job_executor_group": {"id": "bigint!", "name": "character varying(128)!", "created_at": "timestamp with time zone!", "updated_at": "timestamp with time zone!", "deleted_at": "timestamp with time zone"},
+		"job_executor_group": {"id": "bigint!", "name": "character varying(128)!", "discovery_key": "character varying(255)!", "token": "character varying(32)!", "created_at": "timestamp with time zone!", "updated_at": "timestamp with time zone!", "deleted_at": "timestamp with time zone"},
 		"job_definition":     {"id": "bigint!", "name": "character varying(128)!", "remark": "character varying(500)!", "executor_group_id": "bigint!", "processor_name": "character varying(128)!", "execution_mode": "smallint!", "post_enabled": "boolean!", "params": "text!", "cron_expr": "character varying(128)!", "status": "smallint!", "misfire_policy": "smallint!", "block_policy": "smallint!", "max_retries": "integer!", "retry_interval_seconds": "integer!", "timeout_seconds": "integer!", "next_trigger_at": "timestamp with time zone", "created_at": "timestamp with time zone!", "updated_at": "timestamp with time zone!", "deleted_at": "timestamp with time zone"},
 		"job_instance":       {"id": "bigint!", "job_id": "bigint!", "job_name": "character varying(128)!", "executor_group_id": "bigint!", "trigger_type": "smallint!", "scheduled_at": "timestamp with time zone", "request_id": "uuid", "params_overridden": "boolean!", "triggered_by": "bigint", "execution_config": "jsonb!", "status": "smallint!", "started_at": "timestamp with time zone", "deadline_at": "timestamp with time zone", "finished_at": "timestamp with time zone", "end_reason": "character varying(64)", "result_summary": "text", "created_at": "timestamp with time zone!", "updated_at": "timestamp with time zone!"},
+		"job_task":           {"id": "bigint!", "instance_id": "bigint!", "task_type": "smallint!", "status": "smallint!", "attempt_no": "bigint!", "used_attempts": "integer!", "attempt_registered_at": "timestamp with time zone", "next_dispatch_at": "timestamp with time zone", "executor_instance_id": "uuid", "executor_address": "character varying(255)", "result_data": "jsonb", "result_summary": "text", "end_reason": "character varying(64)", "started_at": "timestamp with time zone", "finished_at": "timestamp with time zone", "created_at": "timestamp with time zone!", "updated_at": "timestamp with time zone!"},
 	}
 	for table, expected := range columns {
 		var comment string
@@ -84,14 +86,25 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 		}
 	}
 	indexes := map[string]string{
-		"uq_job_instance_auto_identity":   "UNIQUE INDEX|job_id, scheduled_at|scheduled_at IS NOT NULL",
-		"uq_job_instance_manual_identity": "UNIQUE INDEX|job_id, request_id|request_id IS NOT NULL",
-		"idx_job_definition_due":          "next_trigger_at, id|deleted_at IS NULL|status = 1|next_trigger_at IS NOT NULL",
-		"idx_job_instance_active_job":     "job_id|status = ANY",
-		"idx_job_instance_waiting":        "id|status = 1",
-		"idx_job_definition_group_active": "executor_group_id, id DESC|deleted_at IS NULL",
+		"idx_job_task_instance":               "instance_id, id",
+		"uq_job_instance_auto_identity":       "UNIQUE INDEX|job_id, scheduled_at|scheduled_at IS NOT NULL",
+		"uq_job_instance_manual_identity":     "UNIQUE INDEX|job_id, request_id|request_id IS NOT NULL",
+		"idx_job_definition_due":              "next_trigger_at, id|deleted_at IS NULL|status = 1|next_trigger_at IS NOT NULL",
+		"idx_job_instance_active_job":         "job_id|ARRAY[1, 2, 6]",
+		"idx_job_instance_active_group":       "executor_group_id|ARRAY[1, 2, 6]",
+		"idx_job_instance_waiting":            "id|status = 1",
+		"idx_job_definition_group_active":     "executor_group_id, id DESC|deleted_at IS NULL",
+		"uq_job_executor_group_name":          "UNIQUE INDEX|name",
+		"uq_job_executor_group_discovery_key": "UNIQUE INDEX|discovery_key",
+		"idx_job_instance_running_started":    "started_at, id|status = 2",
+		"idx_job_instance_stopping":           "id|status = 6",
+		"uq_job_task_singleton":               "UNIQUE INDEX|instance_id, task_type|ARRAY[1, 2, 4]",
+		"idx_job_task_retry_due":              "next_dispatch_at, id|status = 3",
+		"idx_job_task_unbound_observation":    "attempt_registered_at, id|status = 2|executor_instance_id IS NULL|executor_address IS NULL",
+		"idx_job_task_unfinished_instance":    "instance_id, id|ARRAY[1, 2, 3]",
+		"idx_job_task_instance_address":       "instance_id, executor_address|executor_address IS NOT NULL",
 	}
-	rows, err := sqlDB.QueryContext(ctx, `SELECT c.relname, pg_get_indexdef(i.indexrelid) FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid WHERE i.indrelid IN ('job_executor_group'::regclass, 'job_definition'::regclass, 'job_instance'::regclass) AND NOT i.indisprimary`)
+	rows, err := sqlDB.QueryContext(ctx, `SELECT c.relname, pg_get_indexdef(i.indexrelid) FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid WHERE i.indrelid IN ('job_executor_group'::regclass, 'job_definition'::regclass, 'job_instance'::regclass, 'job_task'::regclass) AND NOT i.indisprimary`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,15 +131,15 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 	if err := rows.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if count != 6 {
-		t.Fatalf("non-primary indexes=%d want=6", count)
+	if count != len(indexes) {
+		t.Fatalf("non-primary indexes=%d want=%d", count, len(indexes))
 	}
 	var businessTables int
-	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM pg_tables WHERE schemaname = current_schema() AND tablename <> 'job_goose_db_version'").Scan(&businessTables); err != nil || businessTables != 3 {
-		t.Fatalf("business tables=%d want=3 error=%v", businessTables, err)
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM pg_tables WHERE schemaname = current_schema() AND tablename <> 'job_goose_db_version'").Scan(&businessTables); err != nil || businessTables != 4 {
+		t.Fatalf("business tables=%d want=4 error=%v", businessTables, err)
 	}
 	var foreignKeys, checks int
-	if err := sqlDB.QueryRowContext(ctx, `SELECT count(*) FILTER (WHERE contype = 'f'), count(*) FILTER (WHERE contype = 'c') FROM pg_constraint WHERE conrelid IN ('job_executor_group'::regclass, 'job_definition'::regclass, 'job_instance'::regclass)`).Scan(&foreignKeys, &checks); err != nil {
+	if err := sqlDB.QueryRowContext(ctx, `SELECT count(*) FILTER (WHERE contype = 'f'), count(*) FILTER (WHERE contype = 'c') FROM pg_constraint WHERE conrelid IN ('job_executor_group'::regclass, 'job_definition'::regclass, 'job_instance'::regclass, 'job_task'::regclass)`).Scan(&foreignKeys, &checks); err != nil {
 		t.Fatal(err)
 	}
 	if foreignKeys != 0 || checks != 1 {
@@ -135,6 +148,27 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 	var groups int
 	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM job_executor_group").Scan(&groups); err != nil || groups != 0 {
 		t.Fatalf("implicit group seeds=%d err=%v", groups, err)
+	}
+	if _, err := provider.Down(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var taskQueryIndexRemoved bool
+	if err := sqlDB.QueryRowContext(ctx, "SELECT to_regclass('idx_job_task_instance') IS NULL").Scan(&taskQueryIndexRemoved); err != nil || !taskQueryIndexRemoved {
+		t.Fatalf("task query migration rollback left index: removed=%v err=%v", taskQueryIndexRemoved, err)
+	}
+	if _, err := provider.Down(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var groupReferenceIndexRemoved bool
+	if err := sqlDB.QueryRowContext(ctx, "SELECT to_regclass('idx_job_instance_active_group') IS NULL").Scan(&groupReferenceIndexRemoved); err != nil || !groupReferenceIndexRemoved {
+		t.Fatalf("group reference migration rollback left index: removed=%v err=%v", groupReferenceIndexRemoved, err)
+	}
+	if _, err := provider.Down(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var taskRemoved bool
+	if err := sqlDB.QueryRowContext(ctx, "SELECT to_regclass('job_task') IS NULL").Scan(&taskRemoved); err != nil || !taskRemoved {
+		t.Fatalf("execution migration rollback left Task table: removed=%v err=%v", taskRemoved, err)
 	}
 	if _, err := provider.Down(ctx); err != nil {
 		t.Fatal(err)
@@ -158,7 +192,7 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 			t.Fatalf("Down left %s: missing=%v error=%v", table, missing, err)
 		}
 	}
-	if results, err := provider.Up(ctx); err != nil || len(results) != 2 {
+	if results, err := provider.Up(ctx); err != nil || len(results) != 5 {
 		t.Fatalf("Up after Down results=%v error=%v", results, err)
 	}
 }
@@ -189,7 +223,7 @@ func TestJobAndSystemMigrationsUseIndependentLedgers(t *testing.T) {
 		t.Fatal(err)
 	}
 	jobVersion, err := job.GetDBVersion(ctx)
-	if err != nil || jobVersion != 20261016183147 {
+	if err != nil || jobVersion != 20261105120000 {
 		t.Fatalf("Job version=%d err=%v", jobVersion, err)
 	}
 	if _, err := job.DownTo(ctx, 0); err != nil {

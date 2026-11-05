@@ -46,7 +46,7 @@ Set-Location 'apps/job/rpc'
 goctl rpc protoc job.proto --go_out=./types --go-grpc_out=./types --zrpc_out=. --style gozero
 ```
 
-Job HTTP 契约放在 `apps/system/api/desc/job.api`，仍由唯一入口 `system.api` 导入并生成，不新增 API 生成入口。各域生成的 RPC Client、Server 和协议文件均遵守下述不可手改规则。
+Job HTTP 契约按资源放在 `apps/system/api/desc/job.api`、`jobgroup.api`、`jobinstance.api` 和 `jobtask.api`，统一由唯一入口 `system.api` 导入并生成，不新增 API 生成入口。各域生成的 RPC Client、Server 和协议文件均遵守下述不可手改规则。
 
 以下文件包含 `DO NOT EDIT` 标记，禁止直接编辑：
 
@@ -59,7 +59,7 @@ Job HTTP 契约放在 `apps/system/api/desc/job.api`，仍由唯一入口 `syste
 
 ## 公共执行协议 {#execution-protocol-generation}
 
-[执行通信协议](../design/scheduler/data-contracts.md#execution-rpc-contract)已批准、尚未实现：共享契约源文件为 `pkg/jobexecutor/protocol/execution.proto`，同一文件定义 `Executor`（`DispatchTask`、`CancelInstance`）和 `ResultReceiver`（`ReportTaskResult`）两个服务。`go_package` 固定为 `github.com/tokyolab/dogx/pkg/jobexecutor/protocol`。
+[执行通信协议](../design/scheduler/data-contracts.md#execution-rpc-contract)的源文件及生成绑定已实现；运行装配进度见[阶段 1 记录](../design/scheduler/ordinary-readiness-review.md#ordinary-stage1-progress)：共享契约源文件为 `pkg/jobexecutor/protocol/execution.proto`，同一文件定义 `Executor`（`DispatchTask`、`CancelInstance`）和 `ResultReceiver`（`ReportTaskResult`）两个服务。`go_package` 固定为 `github.com/tokyolab/dogx/pkg/jobexecutor/protocol`。
 
 该子包只保存协议源文件与标准生成代码，不导入父级执行组件或业务域内部包。Job 调度端可单独导入协议子包，无须依赖执行器运行组件。具体 Server、业务适配与依赖由各自宿主装配，运行时仍统一使用 zrpc＋etcd。
 

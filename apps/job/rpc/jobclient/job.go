@@ -14,23 +14,41 @@ import (
 )
 
 type (
-	CreateJobRequest       = job.CreateJobRequest
-	CreateJobResponse      = job.CreateJobResponse
-	DeleteJobRequest       = job.DeleteJobRequest
-	EmptyResponse          = job.EmptyResponse
-	GetJobRequest          = job.GetJobRequest
-	GetJobResponse         = job.GetJobResponse
-	JobInfo                = job.JobInfo
-	JobInput               = job.JobInput
-	JobListItem            = job.JobListItem
-	ListJobsRequest        = job.ListJobsRequest
-	ListJobsResponse       = job.ListJobsResponse
-	PreviewJobCronRequest  = job.PreviewJobCronRequest
-	PreviewJobCronResponse = job.PreviewJobCronResponse
-	TriggerJobRequest      = job.TriggerJobRequest
-	TriggerJobResponse     = job.TriggerJobResponse
-	UpdateJobRequest       = job.UpdateJobRequest
-	UpdateJobStatusRequest = job.UpdateJobStatusRequest
+	CreateExecutorGroupRequest  = job.CreateExecutorGroupRequest
+	CreateExecutorGroupResponse = job.CreateExecutorGroupResponse
+	CreateJobRequest            = job.CreateJobRequest
+	CreateJobResponse           = job.CreateJobResponse
+	DeleteExecutorGroupRequest  = job.DeleteExecutorGroupRequest
+	DeleteJobRequest            = job.DeleteJobRequest
+	EmptyResponse               = job.EmptyResponse
+	ExecutionConfigInfo         = job.ExecutionConfigInfo
+	ExecutorGroupInfo           = job.ExecutorGroupInfo
+	ExecutorGroupListItem       = job.ExecutorGroupListItem
+	GetExecutorGroupRequest     = job.GetExecutorGroupRequest
+	GetExecutorGroupResponse    = job.GetExecutorGroupResponse
+	GetInstanceRequest          = job.GetInstanceRequest
+	GetInstanceResponse         = job.GetInstanceResponse
+	GetJobRequest               = job.GetJobRequest
+	GetJobResponse              = job.GetJobResponse
+	InstanceInfo                = job.InstanceInfo
+	JobInfo                     = job.JobInfo
+	JobInput                    = job.JobInput
+	JobListItem                 = job.JobListItem
+	ListExecutorGroupsRequest   = job.ListExecutorGroupsRequest
+	ListExecutorGroupsResponse  = job.ListExecutorGroupsResponse
+	ListInstanceTasksRequest    = job.ListInstanceTasksRequest
+	ListInstanceTasksResponse   = job.ListInstanceTasksResponse
+	ListJobsRequest             = job.ListJobsRequest
+	ListJobsResponse            = job.ListJobsResponse
+	PreviewJobCronRequest       = job.PreviewJobCronRequest
+	PreviewJobCronResponse      = job.PreviewJobCronResponse
+	StopInstanceRequest         = job.StopInstanceRequest
+	StopInstanceResponse        = job.StopInstanceResponse
+	TaskListItem                = job.TaskListItem
+	TriggerJobRequest           = job.TriggerJobRequest
+	TriggerJobResponse          = job.TriggerJobResponse
+	UpdateJobRequest            = job.UpdateJobRequest
+	UpdateJobStatusRequest      = job.UpdateJobStatusRequest
 
 	Job interface {
 		ListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error)
@@ -41,6 +59,13 @@ type (
 		DeleteJob(ctx context.Context, in *DeleteJobRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		PreviewJobCron(ctx context.Context, in *PreviewJobCronRequest, opts ...grpc.CallOption) (*PreviewJobCronResponse, error)
 		TriggerJob(ctx context.Context, in *TriggerJobRequest, opts ...grpc.CallOption) (*TriggerJobResponse, error)
+		CreateExecutorGroup(ctx context.Context, in *CreateExecutorGroupRequest, opts ...grpc.CallOption) (*CreateExecutorGroupResponse, error)
+		GetExecutorGroup(ctx context.Context, in *GetExecutorGroupRequest, opts ...grpc.CallOption) (*GetExecutorGroupResponse, error)
+		ListExecutorGroups(ctx context.Context, in *ListExecutorGroupsRequest, opts ...grpc.CallOption) (*ListExecutorGroupsResponse, error)
+		DeleteExecutorGroup(ctx context.Context, in *DeleteExecutorGroupRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+		GetInstance(ctx context.Context, in *GetInstanceRequest, opts ...grpc.CallOption) (*GetInstanceResponse, error)
+		StopInstance(ctx context.Context, in *StopInstanceRequest, opts ...grpc.CallOption) (*StopInstanceResponse, error)
+		ListInstanceTasks(ctx context.Context, in *ListInstanceTasksRequest, opts ...grpc.CallOption) (*ListInstanceTasksResponse, error)
 	}
 
 	defaultJob struct {
@@ -92,4 +117,39 @@ func (m *defaultJob) PreviewJobCron(ctx context.Context, in *PreviewJobCronReque
 func (m *defaultJob) TriggerJob(ctx context.Context, in *TriggerJobRequest, opts ...grpc.CallOption) (*TriggerJobResponse, error) {
 	client := job.NewJobClient(m.cli.Conn())
 	return client.TriggerJob(ctx, in, opts...)
+}
+
+func (m *defaultJob) CreateExecutorGroup(ctx context.Context, in *CreateExecutorGroupRequest, opts ...grpc.CallOption) (*CreateExecutorGroupResponse, error) {
+	client := job.NewJobClient(m.cli.Conn())
+	return client.CreateExecutorGroup(ctx, in, opts...)
+}
+
+func (m *defaultJob) GetExecutorGroup(ctx context.Context, in *GetExecutorGroupRequest, opts ...grpc.CallOption) (*GetExecutorGroupResponse, error) {
+	client := job.NewJobClient(m.cli.Conn())
+	return client.GetExecutorGroup(ctx, in, opts...)
+}
+
+func (m *defaultJob) ListExecutorGroups(ctx context.Context, in *ListExecutorGroupsRequest, opts ...grpc.CallOption) (*ListExecutorGroupsResponse, error) {
+	client := job.NewJobClient(m.cli.Conn())
+	return client.ListExecutorGroups(ctx, in, opts...)
+}
+
+func (m *defaultJob) DeleteExecutorGroup(ctx context.Context, in *DeleteExecutorGroupRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	client := job.NewJobClient(m.cli.Conn())
+	return client.DeleteExecutorGroup(ctx, in, opts...)
+}
+
+func (m *defaultJob) GetInstance(ctx context.Context, in *GetInstanceRequest, opts ...grpc.CallOption) (*GetInstanceResponse, error) {
+	client := job.NewJobClient(m.cli.Conn())
+	return client.GetInstance(ctx, in, opts...)
+}
+
+func (m *defaultJob) StopInstance(ctx context.Context, in *StopInstanceRequest, opts ...grpc.CallOption) (*StopInstanceResponse, error) {
+	client := job.NewJobClient(m.cli.Conn())
+	return client.StopInstance(ctx, in, opts...)
+}
+
+func (m *defaultJob) ListInstanceTasks(ctx context.Context, in *ListInstanceTasksRequest, opts ...grpc.CallOption) (*ListInstanceTasksResponse, error) {
+	client := job.NewJobClient(m.cli.Conn())
+	return client.ListInstanceTasks(ctx, in, opts...)
 }

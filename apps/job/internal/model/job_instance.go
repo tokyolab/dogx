@@ -25,6 +25,9 @@ const (
 	InstanceSucceeded InstanceStatus = 3
 	InstanceFailed    InstanceStatus = 4
 	InstanceCanceled  InstanceStatus = 5
+	// InstanceStopping freezes a stop decision while unfinished child Tasks
+	// converge. It remains active and does not authorize further execution.
+	InstanceStopping InstanceStatus = 6
 )
 
 // ExecutionConfig is the JSONB execution snapshot fixed at Instance creation;
@@ -93,7 +96,8 @@ type JobInstance struct {
 	StartedAt  *time.Time
 	DeadlineAt *time.Time
 	FinishedAt *time.Time
-	// EndReason is a stable completion reason code, not a full error message.
+	// EndReason is a stable completion or stopping-decision reason code, not a
+	// full error message. FinishedAt remains nil until the Instance is terminal.
 	// ResultSummary is not a store for detailed execution logs.
 	EndReason     *string   `gorm:"type:varchar(64)"`
 	ResultSummary *string   `gorm:"type:text"`

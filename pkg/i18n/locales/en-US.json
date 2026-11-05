@@ -15,6 +15,15 @@
     "business_error": "Business operation failed"
   },
   "job": {
+    "instance": {
+      "not_found": "The Job instance does not exist"
+    },
+    "executor_group": {
+      "not_found": "The executor group does not exist or has been deleted",
+      "name_exists": "The executor group name is already reserved",
+      "discovery_key_exists": "The executor group discovery key is already reserved",
+      "in_use": "Job references or unfinished instances prevent deleting this executor group"
+    },
     "definition": {
       "not_found": "The Job does not exist",
       "state_not_allowed": "Disable the Job before editing or deleting it",

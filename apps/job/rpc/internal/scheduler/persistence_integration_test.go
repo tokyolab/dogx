@@ -72,7 +72,7 @@ func (o observedTrigger) TriggerAutomatic(ctx context.Context, id int64) (trigge
 func TestEtcdPostgresFailoverAndRealMinuteFallback(t *testing.T) {
 	f := newEtcdFixture(t)
 	db, sqlDB := testutil.OpenMigratedPostgres(t)
-	group := model.ExecutorGroup{Name: "offline but valid test group"}
+	group := model.ExecutorGroup{Name: "offline but valid test group", DiscoveryKey: "test.offline.but.valid.test.group", Token: "00000000000040008000000000000001"}
 	if err := db.Create(&group).Error; err != nil {
 		t.Fatal(err)
 	}

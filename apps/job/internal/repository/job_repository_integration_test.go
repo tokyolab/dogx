@@ -27,7 +27,7 @@ func repositoryFixture(t *testing.T) (*gorm.DB, *model.JobDefinition) {
 		t.Fatal(tx.Error)
 	}
 	t.Cleanup(func() { tx.Rollback() })
-	group := model.ExecutorGroup{Name: "offline group"}
+	group := model.ExecutorGroup{Name: "offline group", DiscoveryKey: "test.offline.group", Token: "00000000000040008000000000000001"}
 	if err := tx.Create(&group).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +350,11 @@ func TestInstanceRepositoryIdentityAndSnapshot(t *testing.T) {
 	if stored.Status != model.InstanceWaiting || stored.ExecutionConfig != instance.ExecutionConfig || stored.StartedAt != nil || stored.DeadlineAt != nil || stored.FinishedAt != nil || stored.EndReason != nil || stored.ResultSummary != nil {
 		t.Fatalf("waiting snapshot=%+v", stored)
 	}
-	ids, err := repo.ListWaitingIDs(ctx, 0, 1024)
+	upper, err := repo.MaxWaitingID(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids, err := repo.ListWaitingIDs(ctx, 0, upper, 128)
 	if err != nil || !reflect.DeepEqual(ids, []int64{id, manualID}) {
 		t.Fatalf("waiting ids=%v err=%v", ids, err)
 	}

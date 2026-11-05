@@ -67,6 +67,15 @@ type CreateDictionaryResp struct {
 	Id int64 `json:"id"`
 }
 
+type CreateExecutorGroupReq struct {
+	Name         string `json:"name" validate:"required,max=128"`
+	DiscoveryKey string `json:"discoveryKey" validate:"required,max=255"`
+}
+
+type CreateExecutorGroupResp struct {
+	Id int64 `json:"id"`
+}
+
 type CreateJobReq struct {
 	Name                 string `json:"name" validate:"required"`
 	Remark               string `json:"remark,optional"`
@@ -193,6 +202,23 @@ type DictionaryOptions struct {
 type EmptyResp struct {
 }
 
+type ExecutorGroupDetail struct {
+	Id           int64  `json:"id"`
+	Name         string `json:"name"`
+	DiscoveryKey string `json:"discoveryKey"`
+	Token        string `json:"token"`
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
+}
+
+type ExecutorGroupListItem struct {
+	Id           int64  `json:"id"`
+	Name         string `json:"name"`
+	DiscoveryKey string `json:"discoveryKey"`
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
+}
+
 type GetDictionaryItemReq struct {
 	Id int64 `json:"id" validate:"gt=0"`
 }
@@ -262,6 +288,44 @@ type JobDetail struct {
 	TimeoutSeconds       int32   `json:"timeoutSeconds"`
 }
 
+type JobExecutionConfig struct {
+	SchemaVersion        int32  `json:"schemaVersion"`
+	ProcessorName        string `json:"processorName"`
+	ExecutionMode        int32  `json:"executionMode"`
+	PostEnabled          bool   `json:"postEnabled"`
+	Params               string `json:"params"`
+	MaxRetries           int32  `json:"maxRetries"`
+	RetryIntervalSeconds int32  `json:"retryIntervalSeconds"`
+	TimeoutSeconds       int32  `json:"timeoutSeconds"`
+}
+
+type JobInstanceDetail struct {
+	Id               int64              `json:"id"`
+	JobId            int64              `json:"jobId"`
+	JobName          string             `json:"jobName"`
+	ExecutorGroupId  int64              `json:"executorGroupId"`
+	TriggerType      int32              `json:"triggerType"`
+	ScheduledAt      *string            `json:"scheduledAt"`
+	RequestId        *string            `json:"requestId"`
+	ParamsOverridden bool               `json:"paramsOverridden"`
+	TriggeredBy      *int64             `json:"triggeredBy"`
+	ExecutionConfig  JobExecutionConfig `json:"executionConfig"`
+	Status           int32              `json:"status"`
+	StartedAt        *string            `json:"startedAt"`
+	DeadlineAt       *string            `json:"deadlineAt"`
+	FinishedAt       *string            `json:"finishedAt"`
+	EndReason        *string            `json:"endReason"`
+	ResultSummary    *string            `json:"resultSummary"`
+	CreatedAt        string             `json:"createdAt"`
+	UpdatedAt        string             `json:"updatedAt"`
+}
+
+type JobInstanceStopResp struct {
+	InstanceId int64   `json:"instanceId"`
+	Status     int32   `json:"status"`
+	EndReason  *string `json:"endReason"`
+}
+
 type JobListItem struct {
 	Id                int64   `json:"id"`
 	Name              string  `json:"name"`
@@ -290,6 +354,35 @@ type JobListResp struct {
 	Total int64         `json:"total"`
 }
 
+type JobTaskListItem struct {
+	Id                  int64   `json:"id"`
+	InstanceId          int64   `json:"instanceId"`
+	TaskType            int32   `json:"taskType"`
+	Status              int32   `json:"status"`
+	AttemptNo           int64   `json:"attemptNo"`
+	UsedAttempts        int32   `json:"usedAttempts"`
+	AttemptRegisteredAt *string `json:"attemptRegisteredAt"`
+	NextDispatchAt      *string `json:"nextDispatchAt"`
+	ExecutorInstanceId  *string `json:"executorInstanceId"`
+	ExecutorAddress     *string `json:"executorAddress"`
+	ResultSummary       *string `json:"resultSummary"`
+	EndReason           *string `json:"endReason"`
+	StartedAt           *string `json:"startedAt"`
+	FinishedAt          *string `json:"finishedAt"`
+	CreatedAt           string  `json:"createdAt"`
+	UpdatedAt           string  `json:"updatedAt"`
+}
+
+type JobTaskListReq struct {
+	PageReq
+	InstanceId int64 `json:"instanceId" validate:"gt=0"`
+}
+
+type JobTaskListResp struct {
+	PageMeta
+	Items []JobTaskListItem `json:"items"`
+}
+
 type ListDictionariesResp struct {
 	Items []DictionaryInfo `json:"items"`
 }
@@ -300,6 +393,16 @@ type ListDictionaryItemsReq struct {
 
 type ListDictionaryItemsResp struct {
 	Items []DictionaryItemInfo `json:"items"`
+}
+
+type ListExecutorGroupsReq struct {
+	PageReq
+	Name string `json:"name,optional"`
+}
+
+type ListExecutorGroupsResp struct {
+	Items []ExecutorGroupListItem `json:"items"`
+	PageMeta
 }
 
 type LoginLogItem struct {

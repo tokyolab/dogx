@@ -143,12 +143,17 @@ func (c *lazyConnection) Invoke(ctx context.Context, method string, args, reply 
 }
 
 func protectContent(register func(string)) {
-	// Parameters are arbitrary business input, and Get returns them in full.
+	// Job parameters are arbitrary business input. Group details include the
+	// complete credential; execution queries contain frozen input and summaries.
+	// go-zero otherwise includes them in slow client responses.
 	for _, method := range []string{
 		job.Job_CreateJob_FullMethodName,
 		job.Job_UpdateJob_FullMethodName,
 		job.Job_GetJob_FullMethodName,
 		job.Job_TriggerJob_FullMethodName,
+		job.Job_GetExecutorGroup_FullMethodName,
+		job.Job_GetInstance_FullMethodName,
+		job.Job_ListInstanceTasks_FullMethodName,
 	} {
 		register(method)
 	}

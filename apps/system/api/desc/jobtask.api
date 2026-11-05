@@ -1,0 +1,40 @@
+import "base.api"
+
+type (
+ JobTaskListReq {
+  PageReq
+  InstanceId int64 `json:"instanceId" validate:"gt=0"`
+ }
+ JobTaskListItem {
+  Id int64 `json:"id"`
+  InstanceId int64 `json:"instanceId"`
+  TaskType int32 `json:"taskType"`
+  Status int32 `json:"status"`
+  AttemptNo int64 `json:"attemptNo"`
+  UsedAttempts int32 `json:"usedAttempts"`
+  AttemptRegisteredAt *string `json:"attemptRegisteredAt"`
+  NextDispatchAt *string `json:"nextDispatchAt"`
+  ExecutorInstanceId *string `json:"executorInstanceId"`
+  ExecutorAddress *string `json:"executorAddress"`
+  ResultSummary *string `json:"resultSummary"`
+  EndReason *string `json:"endReason"`
+  StartedAt *string `json:"startedAt"`
+  FinishedAt *string `json:"finishedAt"`
+  CreatedAt string `json:"createdAt"`
+  UpdatedAt string `json:"updatedAt"`
+ }
+ JobTaskListResp {
+  PageMeta
+  Items []JobTaskListItem `json:"items"`
+ }
+)
+
+@server (
+ group: jobexecution
+ jwt: Auth
+ middleware: SessionAuth, Authorization
+)
+service system-api {
+ @handler listInstanceTasks
+ post /job/task/list (JobTaskListReq) returns (JobTaskListResp)
+}

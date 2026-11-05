@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package jobexecutor;
+
+option go_package = "github.com/tokyolab/dogx/pkg/jobexecutor/protocol";
+
+import "google/protobuf/timestamp.proto";
+
+// Executor accepts attempts and processes best-effort Instance cancellation.
+// Its methods are served separately from the host's business RPC services.
+service Executor {
+  // DispatchTask acknowledges local admission, not completion of business work.
+  rpc DispatchTask(DispatchTaskRequest) returns (DispatchTaskResponse);
+  // CancelInstance acknowledges local cancellation signals, not business exit.
+  rpc CancelInstance(CancelInstanceRequest) returns (CancelInstanceResponse);
+}
+
+// ResultReceiver accepts results into the scheduler's bounded memory buffer.
+// A successful response does not acknowledge a database commit.
+service ResultReceiver {
+  rpc ReportTaskResult(ReportTaskResultRequest) returns (ReportTaskResultResponse);
+}
+
+// GroupAuth is supplied by the communication component, never by a processor.
+// Request and response body logging must be disabled for all execution methods.
+message GroupAuth {
+  string group_name = 1;
+  // token is a lowercase UUIDv4 without hyphens, shared by one executor group.
+  string token = 2;
+}
+
+// DispatchTaskRequest identifies one already registered execution attempt.
+message DispatchTaskRequest {
+  GroupAuth auth = 1;
+  int64 job_id = 2;
+  int64 instance_id = 3;
+  int64 task_id = 4;
+  int64 attempt_no = 5;
+  string processor_name = 6;
+  // params is the frozen Instance input, not the current Job configuration.
+  string params = 7;
+  // deadline_at is the original absolute Instance deadline, including retries.
+  google.protobuf.Timestamp deadline_at = 8;
+  // required_post checks capability; it does not authorize running Post now.
+  // Ordinary input must not require Post.
+  bool required_post = 9;
+  // input must be present. An unknown or absent branch is not ordinary input.
+  oneof input {
+    OrdinaryInput ordinary = 10;
+    PrepareInput prepare = 11;
+    ShardInput shard = 12;
+    PostInput post = 13;
+  }
+}
+
+// OrdinaryInput explicitly selects the ordinary processor method.
+message OrdinaryInput {}
+
+// PrepareInput explicitly selects the sharding preparation method.
+message PrepareInput {}
+
+// ShardInput carries only the work-item subset assigned to this Task.
+message ShardInput {
+  // items contains raw JSON values, preserving encoded numeric precision.
+  repeated bytes items = 1;
+}
+
+// PostInput contains final business-shard counts, not individual results.
+message PostInput {
+  int64 total = 1;
+  int64 succeeded = 2;
+  int64 failed = 3;
+}
+
+// DispatchStatus distinguishes admission from a definite capacity refusal.
+enum DispatchStatus {
+  DISPATCH_STATUS_UNSPECIFIED = 0;
+  ACCEPTED = 1;
+  // BUSY guarantees that this request was not admitted, queued, or executed.
+  BUSY = 2;
+}
+
+message DispatchTaskResponse {
+  DispatchStatus status = 1;
+  // executor_instance_id is required for ACCEPTED: a canonical UUIDv4 with
+  // hyphens, generated once per executor process and also used in its reports.
+  // The scheduler obtains the actual peer address from the dispatch RPC.
+  string executor_instance_id = 2;
+}
+
+// TaskOutcome describes business completion, not result delivery or persistence.
+enum TaskOutcome {
+  TASK_OUTCOME_UNSPECIFIED = 0;
+  SUCCESS = 1;
+  FAILURE = 2;
+}
+
+message ReportTaskResultRequest {
+  GroupAuth auth = 1;
+  int64 job_id = 2;
+  int64 instance_id = 3;
+  int64 task_id = 4;
+  int64 attempt_no = 5;
+  string executor_instance_id = 6;
+  TaskOutcome outcome = 7;
+  string summary = 8;
+  // output is ignored for FAILURE. SUCCESS may omit ordinary/shard/Post Data;
+  // successful preparation must explicitly provide prepared_items instead.
+  oneof output {
+    // data_json is a raw JSON value; an absent output differs from JSON null.
+    bytes data_json = 9;
+    PreparedItems prepared_items = 10;
+  }
+}
+
+// PreparedItems preserves the difference between missing preparation output and
+// an explicitly present empty work-item collection (zero shards).
+message PreparedItems {
+  repeated bytes items = 1;
+}
+
+// ReportTaskResultResponse acknowledges admission of this result to memory.
+message ReportTaskResultResponse {}
+
+enum CancelReason {
+  CANCEL_REASON_UNSPECIFIED = 0;
+  MANUAL_STOP = 1;
+  INSTANCE_TIMEOUT = 2;
+}
+
+// CancelInstanceRequest targets all current local activities for one Instance.
+// It intentionally carries no Task list, attempt, or expected process identity.
+message CancelInstanceRequest {
+  GroupAuth auth = 1;
+  int64 instance_id = 2;
+  CancelReason reason = 3;
+}
+
+// CancelInstanceResponse also succeeds when no matching activity was present.
+// It does not acknowledge business exit or a scheduler state transition.
+message CancelInstanceResponse {}

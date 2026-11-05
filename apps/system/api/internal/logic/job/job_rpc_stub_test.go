@@ -77,3 +77,30 @@ func (s *jobRPCStub) TriggerJob(_ context.Context, in *jobclient.TriggerJobReque
 	}
 	return &jobclient.TriggerJobResponse{InstanceId: 9}, s.err
 }
+
+func (s *jobRPCStub) CreateExecutorGroup(context.Context, *jobclient.CreateExecutorGroupRequest, ...grpc.CallOption) (*jobclient.CreateExecutorGroupResponse, error) {
+	panic("unexpected executor group RPC in Job-only test")
+}
+
+func (s *jobRPCStub) GetExecutorGroup(context.Context, *jobclient.GetExecutorGroupRequest, ...grpc.CallOption) (*jobclient.GetExecutorGroupResponse, error) {
+	panic("unexpected executor group RPC in Job-only test")
+}
+
+func (s *jobRPCStub) ListExecutorGroups(context.Context, *jobclient.ListExecutorGroupsRequest, ...grpc.CallOption) (*jobclient.ListExecutorGroupsResponse, error) {
+	panic("unexpected executor group RPC in Job-only test")
+}
+
+func (s *jobRPCStub) DeleteExecutorGroup(context.Context, *jobclient.DeleteExecutorGroupRequest, ...grpc.CallOption) (*jobclient.EmptyResponse, error) {
+	panic("unexpected executor group RPC in Job-only test")
+}
+func (*jobRPCStub) GetInstance(context.Context, *jobclient.GetInstanceRequest, ...grpc.CallOption) (*jobclient.GetInstanceResponse, error) {
+	panic("unexpected execution query in Job-only test")
+}
+
+func (*jobRPCStub) StopInstance(context.Context, *jobclient.StopInstanceRequest, ...grpc.CallOption) (*jobclient.StopInstanceResponse, error) {
+	panic("unexpected instance stop in Job-only test")
+}
+
+func (*jobRPCStub) ListInstanceTasks(context.Context, *jobclient.ListInstanceTasksRequest, ...grpc.CallOption) (*jobclient.ListInstanceTasksResponse, error) {
+	panic("unexpected execution query in Job-only test")
+}

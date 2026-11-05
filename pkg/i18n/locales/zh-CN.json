@@ -15,6 +15,15 @@
     "business_error": "业务处理失败"
   },
   "job": {
+    "instance": {
+      "not_found": "任务实例不存在"
+    },
+    "executor_group": {
+      "not_found": "执行器组不存在或已删除",
+      "name_exists": "执行器组名称已被占用",
+      "discovery_key_exists": "执行器组服务发现Key已被占用",
+      "in_use": "执行器组仍被任务或未结束的实例引用，无法删除"
+    },
     "definition": {
       "not_found": "任务不存在或已删除",
       "state_not_allowed": "请先停用任务后再编辑或删除",

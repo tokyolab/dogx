@@ -187,7 +187,7 @@ go-zero 当前默认的 `p2c_ewma` 使用 RPC 时延、在途调用等信息选�
 
 停止恢复复用同一 Leader 的 2 分钟低频驱动，单独按 STOPPING 状态索引发现候选，不使用 RUNNING 的 4 分钟门槛；新 Leader 就绪后执行一次有界检查。每轮有独立分页与扫描预算，按 Instance 限制处理量并公平轮转，使用既有后台恢复容量，不借用 64 个派发工作协程，也不跨 Instance 扫描 Task。数据库故障后保留 STOPPING 并继续恢复，不设置数据库收敛的永久重试耗尽；能最终完成仍以依赖恢复、有效服务和公平容量为前提。此项增加低频查询与处理成本，不是“无新增扫描”，也不建立新标记、owner、可靠通知表或独立恢复队列；完整契约见[停止与超时](data-contracts.md#instance-termination-sql)。[STOPPING 取消竞争与容量](execution.md#stopping-processing)已于 2026-10-26 通过：每页 256、每周期扫描／投递 5 秒、队满停止，不额外设 1024 候选上限；本地容量 256 个 Instance（含排队和处理中）、并发 2、子批最多 256 条、单 Instance 每次最多 4 批或到 2 秒后不再启动下一批，单条 SQL 超时 1 秒。处理成功且未完成者按份额轮转到队尾；竞争失败或技术错误不立即重排。上述协调仅适用于 STOPPING，不扩展为派发竞争协议，亦不承诺整个处理或锁释放的硬时限。
 
-[远端取消通知的来源、地址查询与容量](execution.md#cancel-notification-capacity)于 2026-10-26 单独通过：按批次（Instance）向本轮去重地址通知，不逐 Task 发 RPC；新 STOPPING 决定确认提交后独立交接，不按子批、两分钟恢复或重复读取旧决定重新通知。一个地址读取协程配合有界目标队列与 16 个发送协程，不占数据库取消或派发额度；父终态不撤销已接纳通知，其仍在接纳起 60 秒内尽力继续。地址索引、有界查询、两个 256 容量及通信预算详见对应契约，不增加全局通知锁、可靠补送或跨通知客户端缓存，尚未实现。
+[远端取消通知的来源、地址查询与容量](execution.md#cancel-notification-capacity)于 2026-10-26 单独通过：按批次（Instance）向本轮去重地址通知，不逐 Task 发 RPC；新 STOPPING 决定确认提交后独立交接，不按子批、两分钟恢复或重复读取旧决定重新通知。一个地址读取协程配合有界目标队列与 16 个发送协程，不占数据库取消或派发额度；父终态不撤销已接纳通知，其仍在接纳起 60 秒内尽力继续。地址索引、有界查询、两个 256 容量及通信预算详见对应契约，不增加全局通知锁、可靠补送或跨通知客户端缓存。人工停止、后台收敛、远端通知及 STOPPING Leader 发现已接通，实际范围与验证见[停止运行记录](ordinary-readiness-review.md#ordinary-stop-runtime-progress)；自动超时决定与 RUNNING 复核仍待实施。
 
 服务发现继续使用 etcd＋go-zero，而不采用 SnailJob 式由调度服务维护心跳注册表、同步地址缓存和剔除过期实例的方案。两种路线都能支持多副本；DogX 已选择 etcd 选主和原生 RPC，复用注册、租约与地址监听可减少自研的注册生命周期代码，不是认定自管注册天然不可靠。代价是需要运维 etcd、管理执行器的注册权限，且选主与发现共享其故障影响。相关实现与参考边界见[参考资料](references.md#internal-trust-evidence)。
 
@@ -253,7 +253,7 @@ pkg/jobexecutor/
 
 [派发与取消错误映射](data-contracts.md#dispatch-cancel-errors)已通过：仅新增 `job.executor.dispatch_rejected` 这一共享拒绝 subcode，在本协议包统一声明，复用 `100001` 和标准 `ErrorInfo.Reason`；上图仅列出 Proto 及生成文件，不预定标识声明的源码文件名，也不手改生成文件。`common.invalid_request` 引用现有公共定义；Job 管理业务 subcode 保留在域内，运行错误仍在组件内部，由接口适配转换，不新增 errors 包或统一错误框架。
 
-本节协议、目录及装配设计已通过，尚未创建或实现上述文件及新增 Server。完整契约见[执行通信协议](data-contracts.md#execution-rpc-contract)，验收见[执行通信检查](verification.md#execution-rpc-checks)。[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)已另行通过，[派发与取消错误映射](data-contracts.md#dispatch-cancel-errors)也已通过，实现验证继续推进，不授权提前实现。
+本节协议、目录及装配设计已通过，公共协议与 Job／System 双 Server 已按阶段接线；本轮 System 验证与剩余项见[实施记录](ordinary-readiness-review.md#ordinary-system-executor-wiring-progress)，不代表完整执行闭环已验收。完整契约见[执行通信协议](data-contracts.md#execution-rpc-contract)，验收见[执行通信检查](verification.md#execution-rpc-checks)。[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)及[派发与取消错误映射](data-contracts.md#dispatch-cancel-errors)已通过，后续编排和验证按开发计划继续落实。
 
 ### 执行接入配置与来源 {#execution-configuration}
 
@@ -263,12 +263,16 @@ pkg/jobexecutor/
 | --- | --- |
 | `job-rpc` 现有顶层 RPC 配置 | 管理入口，保持既有 `zrpc.RpcServerConf` |
 | `job-rpc.ExecutionRPC` | 新增执行器回报入口，复用 `zrpc.RpcServerConf` |
+| `job-rpc.ResultPersistence` | 调度端结果保存配置；Capacity／Concurrency／SaveTimeout 默认 512／8／2s，均须为正值 |
 | `system-rpc` 现有顶层 RPC 配置 | 原业务入口，保持现有配置 |
-| `system-rpc.JobExecutor` | 公共执行组件的组名（接入身份）和组 Token，以及下列 Server、ReportClient 配置 |
+| `system-rpc.JobExecutor` | 公共 `jobexecutor.Config`，包含组名（接入身份）、组 Token、Server、ReportClient 与 Runtime |
 | `JobExecutor.Server` | 接收派发和取消的执行器专用入口，复用 `zrpc.RpcServerConf` |
-| `JobExecutor.ReportClient` | 向调度端执行器通信入口回报结果，复用 `zrpc.RpcClientConf` |
+| `JobExecutor.ReportClient` | 向调度端执行器通信入口回报结果，复用 `zrpc.RpcClientConf`，使用 etcd 发现和非阻塞拨号 |
+| `JobExecutor.Runtime` | 业务并发／等待／结果保留／回报并发，解码缺省值为 32／128／256／16；显式配置值均须为正数 |
 
 上述位置是各进程配置结构中的字段路径，不是新增配置文件或进程。复用 `RpcServerConf` 不代表复制一套进程配置：装配前由宿主统一 `ServiceConf` 中的日志、监控、模式和退出设置，两个新增入口同时落实上文的 `Auth: false`、`Health: true` 及不注册反射规则。既有 `Postgres`、`Scheduler` 和 System 业务配置保持各自职责，不复制数据库连接池或调度运行组件，也不另建重复的 RPC 配置类型。
+
+2026-11-04 已落实 Job 双 Server、ResultPersistence 及真实 Queue／Saver 接线，详见[生产接线记录](ordinary-readiness-review.md#ordinary-result-wiring-progress)。`ExecutionRPC.Name` 因原生配置解码要求仍须填写；解码成功后，其整个 `ServiceConf` 由顶层宿主配置覆盖，不另设独立的进程名称、日志或退出策略。监听地址和发现 Key 必须分开，示例使用管理 9002／`/dogx/development/default/rpc/job`、回报 9003／`/dogx/development/default/rpc/job-execution`。配置校验只识别字面监听冲突及共同 etcd 端点下的同 Key，不能替代部署方核对 DNS 别名、集群归属和实际绑定。2026-11-05 已接入 System 的 `JobExecutor`，原业务端口 9001、执行器端口 9004；`Server.Name` 同样因原生解码须填写，随后由宿主统一 ServiceConf。示例组名 `system.executor` 与发现 Key `/dogx/development/default/executor/system.executor` 均由部署方手工对应组管理记录，Token 使用带 YAML 引号的环境占位。ReportClient 指向 Job 的回报 Key；配置禁止直接 Endpoints／Target 和原生 App／Token，非阻塞拨号不免除 etcd 首次发现及注册依赖。本轮验证见 [System 内嵌接线记录](ordinary-readiness-review.md#ordinary-system-executor-wiring-progress)，完整执行闭环仍待完成。
 
 | 调用方向 | 客户端目标来源 | 对应服务端 |
 | --- | --- | --- |
@@ -290,13 +294,15 @@ System 第一版只实现内嵌接入，不提前创建 Worker 启动入口或�
 
 业务处理器在启动时通过 Go 代码显式注册，建立名称与处理器的对应关系，不做注解扫描或反射发现。名称由开发者定义，与 Job 的 `processor_name` 一致；例如 `system.cleanup` 只是自定义名称，不是 RPC 路径，`system.` 前缀也不是强制格式。
 
+2026-11-05 已提供 `NewServiceContext(c, register RegisterProcessors)`：System 依赖初始化后同步执行注册回调，由回调向处理器注入同域依赖；Runtime 准备好后，独立 Server 的 provider 才在实际注册时取得 Adapter。当前 Main 传 nil，生产注册表为空、未知处理器明确拒绝；本轮不实现 `system.cleanup`，也不提前创建空的 `apps/system/internal/job` 包。具体业务确定后再新增处理器和注册代码。注册错误或 panic 导致初始化失败并清理已有资源，不开放部分初始化的接单入口。
+
 注册表在启动后固定，不提供运行期间动态增删。空名称、同一进程内重复名称或无效处理器使初始化失败，不能静默覆盖；同名处理器在兼容副本中重复部署是正常行为。同组参与负载均衡的副本必须提供兼容的执行服务和处理器，不能依赖负载均衡识别处理器缺失。
 
 公共执行组件负责接单、容量保护、异步执行、协作取消和结果回报；业务处理器只执行业务并返回结果或错误，不手写回报 RPC。业务仍负责副作用幂等并配合取消，不以注册表固定代替这些责任。
 
 处理器采用普通 `Processor`、分片 `ShardingProcessor` 和可选 `PostProcessor` 三个小接口，共用执行组件及公共输入。普通只实现执行，分片实现准备与分片执行，需要时增加收尾；一项分片业务仍按一个名称注册一个对象。不同阶段及重试可能在不同进程运行，不能通过对象成员传递本轮数据。完整已通过部分见[接口与数据语义](data-contracts.md#processor-contract)。
 
-本项已确定接入位置、目录职责、注册方式、方法分工及独立 Server 的鉴权装配边界。处理器职责、输入输出与共同执行约束已收口；普通任务不支持 Post，分片 Post 不增加结果访问器、分页或查询 RPC。[配置布局与来源](#execution-configuration)、组 Token 格式与存储、详情查看、[组缓存](operations.md#group-cache)及[已删组客户端清理](operations.md#group-client-cleanup)已确定，组名和 Key 创建后固定，第一版不提供 Token 重置。[启动与停机](operations.md#startup-readiness)采用能力就绪后接纳、整个进程默认共用 30 秒有限善后的规则；[执行通信协议与装配](data-contracts.md#execution-rpc-contract)已通过，具体注册代码和参数落地仍待实现验证；[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)已通过，[派发与取消错误映射](data-contracts.md#dispatch-cancel-errors)也已通过，具体实现仍待验证。设计通过不代表执行组件或第二套 Server 已经实现。
+本项已确定接入位置、目录职责、注册方式、方法分工及独立 Server 的鉴权装配边界。处理器职责、输入输出与共同执行约束已收口；普通任务不支持 Post，分片 Post 不增加结果访问器、分页或查询 RPC。[配置布局与来源](#execution-configuration)、组 Token 格式与存储、详情查看、[组缓存](operations.md#group-cache)及[已删组客户端清理](operations.md#group-client-cleanup)已确定，组名和 Key 创建后固定，第一版不提供 Token 重置。[启动与停机](operations.md#startup-readiness)采用能力就绪后接纳、整个进程默认共用 30 秒有限善后的规则；[执行通信协议与装配](data-contracts.md#execution-rpc-contract)已通过，公共配置和宿主注册接线及本轮所列验证已完成，具体生产业务处理器仍待定义；[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)已通过，[派发与取消错误映射](data-contracts.md#dispatch-cancel-errors)也已通过，具体实现仍待验证。设计通过不代表执行组件或第二套 Server 已经实现。
 
 ### 内部信任边界 {#internal-trust}
 

@@ -2,10 +2,84 @@ Name: job-rpc
 ListenOn: 0.0.0.0:9002
 Mode: dev
 Timeout: 5000
+Shutdown:
+  # One process-wide budget, including wrap-up and dependency cleanup.
+  WrapUpTime: 1s
+  WaitTime: 30s
 Etcd:
   Hosts:
     - 127.0.0.1:2379
   Key: /dogx/development/default/rpc/job
+
+ExecutionRPC:
+  # Required by the native decoder; process settings come from the top level.
+  Name: job-rpc
+  ListenOn: 0.0.0.0:9003
+  Etcd:
+    Hosts:
+      - 127.0.0.1:2379
+    Key: /dogx/development/default/rpc/job-execution
+  Auth: false
+  Health: true
+
+ResultPersistence:
+  Capacity: 512
+  Concurrency: 8
+  SaveTimeout: 2s
+
+InstanceCheck:
+  # Unique IDs include both waiting and active checks, independent of result saves.
+  Capacity: 512
+  Concurrency: 8
+  Timeout: 2s
+
+# Both leader discovery branches share this interval. These scan limits belong
+# only to RUNNING recovery; STOPPING has an independent page and pass budget.
+# RUNNING recovery excludes instances started within the last four minutes.
+InstanceRecovery:
+  Interval: 2m
+  PageSize: 256
+  RunTimeout: 5s
+  SQLTimeout: 1s
+
+Dispatch:
+  Concurrency: 64
+  # Includes waiting hints and reserved candidate pages, excluding active workers.
+  WaitingCapacity: 256
+  ScanInterval: 1s
+  TotalTimeout: 10s
+  # Keep the executor Server.MethodTimeouts for DispatchTask in sync.
+  RPCTimeout: 3s
+  BusyDelay: 5s
+
+UnboundRecovery:
+  # Each node waits after actual completion; the interval has independent 20% jitter.
+  ScanInterval: 10s
+  PageSize: 128
+  RunTimeout: 5s
+  OperationTimeout: 1s
+  # Keep this consistent across replicas and with dispatch/response-save budgets.
+  ObservationPeriod: 30s
+
+Stopping:
+  # Database convergence is independent of best-effort executor notification.
+  Capacity: 256
+  Concurrency: 2
+  BatchSize: 256
+  MaxBatches: 4
+  RunTimeout: 2s
+  SQLTimeout: 1s
+  RecoveryPageSize: 256
+  RecoveryTimeout: 5s
+
+CancelNotification:
+  # Capacities include active work; the Instance deadline starts at admission.
+  InstanceCapacity: 256
+  PageSize: 32
+  TargetCapacity: 256
+  Concurrency: 16
+  QueryTimeout: 1s
+  InstanceTimeout: 60s
 
 Postgres:
   Host: 127.0.0.1

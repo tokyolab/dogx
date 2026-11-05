@@ -70,6 +70,13 @@ type routeSecurityCase struct {
 }
 
 var routeSecurityMatrix = []routeSecurityCase{
+	{name: "GetInstance", method: http.MethodPost, path: "/job/instance/get", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "GetInstance"},
+	{name: "StopInstance", method: http.MethodPost, path: "/job/instance/stop", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "StopInstance"},
+	{name: "ListInstanceTasks", method: http.MethodPost, path: "/job/task/list", body: `{"instanceId":7,"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListInstanceTasks"},
+	{name: "CreateExecutorGroup", method: http.MethodPost, path: "/job/group/create", body: `{"name":"workers","discoveryKey":"workers.rpc"}`, level: routeAuthorized, rpcMethod: "CreateExecutorGroup"},
+	{name: "GetExecutorGroup", method: http.MethodPost, path: "/job/group/get", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "GetExecutorGroup"},
+	{name: "ListExecutorGroups", method: http.MethodPost, path: "/job/group/list", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListExecutorGroups"},
+	{name: "DeleteExecutorGroup", method: http.MethodPost, path: "/job/group/delete", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "DeleteExecutorGroup"},
 	{name: "ListJobs", method: http.MethodPost, path: "/job/list", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListJobs"},
 	{name: "GetJob", method: http.MethodPost, path: "/job/get", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "GetJob"},
 	{name: "CreateJob", method: http.MethodPost, path: "/job/create", body: `{"name":"job","executorGroupId":1,"processorName":"p","cronExpr":"0 * * * * *","timeoutSeconds":900}`, level: routeAuthorized, rpcMethod: "CreateJob"},

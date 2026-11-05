@@ -52,3 +52,29 @@ func TestInstanceRepositoryCreateIgnoresExistingIdentityAndExecutionFields(t *te
 		t.Fatalf("reused object new identity id=%d created=%v err=%v", nextID, created, err)
 	}
 }
+
+func TestInstanceRepositoryStoppingRemainsActive(t *testing.T) {
+	db, job := repositoryFixture(t)
+	repo, err := NewJobInstanceRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	instance := repositoryInstance(job)
+	id, inserted, err := repo.Insert(ctx, instance)
+	if err != nil || !inserted {
+		t.Fatalf("inserted=%v err=%v", inserted, err)
+	}
+	for _, state := range []model.InstanceStatus{model.InstanceWaiting, model.InstanceRunning, model.InstanceStopping, model.InstanceSucceeded, model.InstanceFailed, model.InstanceCanceled} {
+		if err := db.Model(&model.JobInstance{}).Where("id = ?", id).Update("status", state).Error; err != nil {
+			t.Fatal(err)
+		}
+		want := state == model.InstanceWaiting || state == model.InstanceRunning || state == model.InstanceStopping
+		if active, err := repo.HasActive(ctx, job.ID); err != nil || active != want {
+			t.Errorf("state=%d active=%v want=%v err=%v", state, active, want, err)
+		}
+		if ids, err := repo.ListWaitingIDs(ctx, 0, id, 10); err != nil || (len(ids) == 1) != (state == model.InstanceWaiting) {
+			t.Errorf("state=%d waiting=%v err=%v", state, ids, err)
+		}
+	}
+}

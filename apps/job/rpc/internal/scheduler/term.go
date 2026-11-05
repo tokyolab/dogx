@@ -45,6 +45,13 @@ func (r *Runtime) runTerm(ctx context.Context) {
 	sources.Go(t.configTicker)
 	sources.Go(t.watchLoop)
 	sources.Go(t.recoveryLoop)
+	if r.recoverInstances != nil {
+		sources.Go(func() {
+			if err := r.recoverInstances(ctx); err != nil && ctx.Err() == nil {
+				r.log.error("instance-discovery", 0, err)
+			}
+		})
+	}
 	t.signalReload()
 	<-ctx.Done()
 	t.queue.close()

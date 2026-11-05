@@ -6,6 +6,8 @@
 
 ## 5.1 一轮执行的主路径 {#main-flow}
 
+当前普通阶段 1～5 核心已完成，阶段 6 进行中。最新执行器骤停、etcd 恢复与本机收尾结果见[本机收尾记录](ordinary-readiness-review.md#ordinary-local-checkpoint)。GitHub Linux 实际运行、race、覆盖率和代表性负载尚待验证；以下分片生成、阶段推进及 Post 仍是待实施契约。
+
 ### 普通任务 {#ordinary-flow}
 
 普通任务主路径与职责已通过评审。Job 配置普通执行模式，Instance 沿用创建时保存的模式和其他执行配置；每轮只创建一条普通执行 Task，不增加 Pre／Post，也不建立整轮固定归属。
@@ -401,6 +403,8 @@ Leader 负责长期规则触发、接任时和每 1 分钟的 Job 触发进度�
 
 #### 执行器接单、执行与结果交接 {#executor-processing-flow}
 
+实现状态：2026-11-04 公共 `pkg/jobexecutor.Runtime` 与 reporter 已落实本节流程，真实普通处理器结果已通过 RPC／PostgreSQL 组件联测；System 内嵌接线和调度端完整派发、父完成仍待实现，详见[执行器运行记录](ordinary-readiness-review.md#ordinary-executor-runtime-progress)。四阶段调用能力不代表分片生成、持久化及阶段推进已实现。
+
 执行器采用以下流程：
 
 ```text
@@ -433,7 +437,7 @@ ACK 只确认接纳，不承诺业务已开始。活动防重不延长到结果�
 
 #### 执行器业务部署初值 {#executor-business-defaults}
 
-**2026-10-28 已通过，尚未实现或压测。** 以下两个参数按执行器进程配置，普通、准备、分片和收尾共同使用，不按每个 Job／Instance 增加一套，也不进入 Job 管理页面。
+**2026-10-28 已通过，2026-11-04 已落实公共 Runtime 配置与处理流程，尚未接入 System 生产配置或压测。** 实际验证见[执行器运行记录](ordinary-readiness-review.md#ordinary-executor-runtime-progress)。以下两个参数按执行器进程配置，普通、准备、分片和收尾共同使用，不按每个 Job／Instance 增加一套，也不进入 Job 管理页面。
 
 | 参数 | 默认值 | 计量范围 |
 | --- | --- | --- |
@@ -462,7 +466,7 @@ ACK 只确认接纳，不承诺业务已开始。活动防重不延长到结果�
 
 ### 派发缓冲、候选补充与扫描退避 {#dispatch-supply-defaults}
 
-**2026-10-28 已通过，尚未实现。** 本节落实调度端的容量初值、候选补充、临时分页与无进展退避，只规定行为及参数，不提前确定新的 Go 并发原语或内部编码结构。正常产生与数据库发现的工作继续共享派发能力，不新增恢复专用派发池或来源固定份额。
+**2026-10-28 已通过，2026-11-05 已接入普通首次派发与重试供给，实际验证见[实施记录](ordinary-readiness-review.md#ordinary-retry-progress)。** 本节落实调度端的容量初值、候选补充、临时分页与无进展退避，只规定行为及参数，不提前确定新的 Go 并发原语或内部编码结构。正常产生与数据库发现的工作继续共享派发能力，不新增恢复专用派发池或来源固定份额；分片阶段登记及恢复扫描尚未实现。
 
 #### 容量与配置初值
 
@@ -504,11 +508,11 @@ WAITING 候选每趟固定 ID 上界并按 `id` 续扫；到期重试每趟固�
 
 默认值下，全部竞争失败的一次连续补查最多返回 512 条候选，随后退避；512 不是数据库实际访问行数、每秒成功派发上限或整个扫描趟次上限。持续产生有效登记进展时可以继续供给，混合竞争下仍有额外读取和失败事务成本；须验证实际查询计划、候选重复率和登记吞吐。
 
-本节不改变 RUNNING 的两分钟复核、STOPPING 恢复或 Job 触发恢复，不将其并入一秒补查。发送及 ACK 绑定预算已由[派发时间预算](#dispatch-time-budgets)另行确认，[执行器业务初值](#executor-business-defaults)与[回报机制和初值](#reporting-defaults)也已独立通过；登记批量和分片首次可派发查询仍分别待定。对应[供给验收](verification.md#dispatch-supply-checks)为待实现要求，不表示已完成测试或授权编码。
+本节不改变 RUNNING 的两分钟复核、STOPPING 恢复或 Job 触发恢复，不将其并入一秒补查。发送及 ACK 绑定预算已由[派发时间预算](#dispatch-time-budgets)另行确认，[执行器业务初值](#executor-business-defaults)与[回报机制和初值](#reporting-defaults)也已独立通过；登记批量和分片首次可派发查询仍分别待定。对应[供给验收](verification.md#dispatch-supply-checks)是已批准的完整验收要求，普通首次与重试共享供给的实际覆盖见[阶段 4 记录](ordinary-readiness-review.md#ordinary-retry-progress)；分片、恢复及正式负载验证仍待完成，不将局部测试等同于全表验收。
 
 ### 单次派发时间预算与确认失败处理 {#dispatch-time-budgets}
 
-**2026-10-28 已通过，尚未实现；2026-10-30 已批准将有限响应保存预算扩展到非 BUSY 明确拒绝。** 本节共同确定登记、接单等待、响应保存、绑定缺失观察及明确 BUSY 延期的初值；沿用现有状态协议、派发并发和条件写入，不增加同次业务重发、长期响应队列或新的 Go 编码结构。
+**2026-10-28 已通过；2026-10-30 已批准将有限响应保存预算扩展到非 BUSY 明确拒绝。普通首次与重试派发的登记、接单、响应保存及 BUSY 延期已实现，实际覆盖见[普通重试记录](ordinary-readiness-review.md#ordinary-retry-progress)；未知结算与自动观察扫描已接入生产，见[最新记录](ordinary-readiness-review.md#ordinary-unbound-scan-progress)。** 本节共同确定登记、接单等待、响应保存、绑定缺失观察及明确 BUSY 延期的初值；沿用现有状态协议、派发并发和条件写入，不增加同次业务重发、长期响应队列或新的 Go 编码结构。
 
 #### 时间初值与计时起点
 
@@ -559,11 +563,11 @@ RPC 超时、断连或没有明确答复，不等于执行器未接单；不能�
 
 项目采用的 go-zero v1.10.3 中，原生客户端和 Server 的默认超时均为 2000 毫秒。实现 3 秒接单预算时，须协调原生客户端配置／调用超时与执行器 Server 方法超时，不能只给外层 Context 设置三秒而被内部默认两秒提前截断。现有 System 普通 RPC 与 Job 管理入口保持各自职责；不新增重复的 RPC 配置类型或自定义通信包装来替代原生能力。
 
-执行器业务并发与等待队列已由[业务初值](#executor-business-defaults)、回报缓冲、发送并发及重传参数已由[回报提案](#reporting-defaults)另行确认；无绑定扫描与处理按[已定安排](#unbound-recovery-defaults)执行，分片生成和登记批量仍分别闭合，不由本节推定。配置边界见[时间配置](operations.md#dispatch-time-configuration)，对应[时间预算验收](verification.md#dispatch-time-budget-checks)尚未实现或运行；本项批准不构成编码授权。
+执行器业务并发与等待队列已由[业务初值](#executor-business-defaults)、回报缓冲、发送并发及重传参数已由[回报提案](#reporting-defaults)另行确认；无绑定扫描与处理按[已定安排](#unbound-recovery-defaults)实施，分片生成和登记批量仍分别闭合，不由本节推定。配置边界见[时间配置](operations.md#dispatch-time-configuration)，对应[时间预算验收](verification.md#dispatch-time-budget-checks)继续保留完整要求；普通派发预算与保存处理的实际覆盖见[普通重试记录](ordinary-readiness-review.md#ordinary-retry-progress)，未知结算核心的预算与部分进展验证见[最新记录](ordinary-readiness-review.md#ordinary-unknown-progress)。自动观察扫描及生产接线的当前范围见[扫描记录](ordinary-readiness-review.md#ordinary-unbound-scan-progress)，完整进程故障和负载验收仍按阶段 6 推进。
 
 ### 派发候选合并与跨节点竞争 {#dispatch-contention}
 
-**2026-10-26 已通过，尚未实现。** 普通首次启动及已有 Task 的新尝试登记，将原等待式父行 `FOR UPDATE` 修订为 `FOR UPDATE NOWAIT`。普通、准备、分片和收尾共用派发竞争原则，不重开各类型的生成条件或状态机；本节不把 NOWAIT 扩展到分片生成、Post 创建、人工停止决定、正常完成或普通 CRUD。STOPPING 子取消已单独批准，不是本次修订的默认授权来源。
+**2026-10-26 已通过，普通首次启动及重试登记已实现，实际验证见[实施记录](ordinary-readiness-review.md#ordinary-retry-progress)。** 普通首次启动及已有 Task 的新尝试登记，将原等待式父行 `FOR UPDATE` 修订为 `FOR UPDATE NOWAIT`。普通、准备、分片和收尾共用派发竞争原则，不重开各类型的生成条件或状态机；分片阶段登记仍待实施。本节不把 NOWAIT 扩展到分片生成、Post 创建、人工停止决定、正常完成或普通 CRUD。STOPPING 子取消已单独批准，不是本次修订的默认授权来源。
 
 #### 父行竞争与退出
 
@@ -733,7 +737,7 @@ go-zero 当前默认 `p2c_ewma` 依据 RPC 时延和在途调用等信息选择�
 
 ### 远端取消通知来源、容量与预算 {#cancel-notification-capacity}
 
-**2026-10-26 已通过，尚未实现。** 本节细化按 Instance 的远端通知，不改变 [STOPPING 数据库取消](#stopping-processing)的每批父主键 NOWAIT、子批量与恢复职责；地址分页、数据库子批次和 RPC 停止粒度是三件不同的事。
+**2026-10-26 已通过。单目标 `execution.Canceller`、递归地址枚举、独立有界 `execution.Notifier` 及宿主接线已实现，当前范围及验证见[停止运行链路记录](ordinary-readiness-review.md#ordinary-stop-runtime-progress)。** 本节细化按 Instance 的远端通知，不改变 [STOPPING 数据库取消](#stopping-processing)的每批父主键 NOWAIT、子批量与恢复职责；地址分页、数据库子批次和 RPC 停止粒度是三件不同的事。
 
 #### 提示来源及重复边界
 
@@ -813,15 +817,15 @@ Instance 容量包含排队、正在读取地址以及地址读取已结束但�
 
 状态从执行中改为等待重试并提交后，第一次结果即使业务成功也不再采纳；第二次开始后，还会因执行编号不匹配而拒绝。关闭的是数据库中本次执行的结果接纳资格，不证明执行器业务停止，也不撤销已产生的副作用。拒绝已关闭尝试的迟到成功是本系统明确选择的结果规则，不是仅有执行编号就必然要求这样处理。
 
-上述竞争语义、[绑定 SQL](data-contracts.md#executor-binding-sql)、[普通结果条件更新](data-contracts.md#task-result-persistence)及[普通未知结算 SQL](data-contracts.md#ordinary-unknown-settlement)已通过；观察条件使用本批数据库时间减观察期，默认 30 秒已确认，结束原因编码及实现验证仍需落实。Task 条件更新保护当前尝试，新执行许可另外经过父行授权关口，不能把未知结算成功当作再次发送许可。
+上述竞争语义、[绑定 SQL](data-contracts.md#executor-binding-sql)、[普通结果条件更新](data-contracts.md#task-result-persistence)及[普通未知结算 SQL](data-contracts.md#ordinary-unknown-settlement)已通过；观察条件使用本批数据库时间减观察期，默认 30 秒已确认。普通未知结算核心、`result_unknown` 原因及固定英文诊断已实现并完成专项验证，见[实施记录](ordinary-readiness-review.md#ordinary-unknown-progress)；自动观察扫描与生产调用已接入，范围及验证见[自动扫描记录](ordinary-readiness-review.md#ordinary-unbound-scan-progress)。Task 条件更新保护当前尝试，新执行许可另外经过父行授权关口，不能把未知结算成功当作再次发送许可。
 
 普通未知结算复用已有有界恢复批次，批量取得父关系和本轮配置。前置观察到父运行、时间有效且尚未到期后，才按原执行编号、执行中状态、双绑定为空及观察期条件更新 Task；父已终态或到期走既有终止路径，运行时间异常跳过并诊断。UPDATE 使用当前行已用次数决定等待重试或最终失败，清空 Data 并更新最近的结果不确定诊断，不变更编号、计数或登记时间。当前摘要可以来自旧尝试，不参与无结果条件。
 
-只有该条 Task 本次更新且独立提交明确成功后才提示 Instance 检查，不在结算流程重发；零行结束、不补查。写库失败或提交不明时释放临时候选，已尝试项可按下节临时游标规则越过，但立即结束本次运行，后续新一趟从头覆盖仍合格的失败项；这里没有未落库业务结果需要保留，不能与结果回报的有界保留混同，也不能因释放候选或前移游标就断言提交成功或已经回滚。对应[专项验收](verification.md#ordinary-unknown-settlement-checks)仍待实现。
+只有该条 Task 本次更新且独立提交明确成功后才提示 Instance 检查，不在结算流程重发；零行结束、不补查。写库失败或提交不明时释放临时候选，已尝试项可按下节临时游标规则越过，但立即结束本次运行，后续新一趟从头覆盖仍合格的失败项；这里没有未落库业务结果需要保留，不能与结果回报的有界保留混同，也不能因释放候选或前移游标就断言提交成功或已经回滚。对应[专项验收](verification.md#ordinary-unknown-settlement-checks)的有界结算核心已完成所列测试，自动扫描接续已接入，当前范围与验证见[实施记录](ordinary-readiness-review.md#ordinary-unbound-scan-progress)，完整进程故障及负载验收仍归阶段 6。
 
 #### 观察到期扫描与结算安排 {#unbound-recovery-defaults}
 
-**2026-10-29 已通过，尚未实现。** 各调度节点独立参与无绑定观察到期恢复，每节点同一时刻只运行一个扫描／结算流程，并在本地串行结算；不依赖 Leader 任期，不把 RUNNING／STOPPING 的 Leader 发现规则扩展到本分支。流程在既有后台恢复职责内读取并处理有界候选，不另建待结算队列、长期结果保留缓存或专用处理池，也不占派发、结果保存或 Instance 检查的处理并发。具体 Go 并发原语和内部组织不由本节冻结。
+**2026-10-29 已通过。普通有界结算、自动观察扫描与 ServiceContext 启停已接入，当前范围及验证见[实施记录](ordinary-readiness-review.md#ordinary-unbound-scan-progress)。** 各调度节点独立参与无绑定观察到期恢复，每节点同一时刻只运行一个扫描／结算流程，并在本地串行结算；不依赖 Leader 任期，不把 RUNNING／STOPPING 的 Leader 发现规则扩展到本分支。流程在既有后台恢复职责内读取并处理有界候选，不另建待结算队列、长期结果保留缓存或专用处理池，也不占派发、结果保存或 Instance 检查的处理并发。具体 Go 并发原语和内部组织不由本节冻结。生产配置为 `UnboundRecovery`：`ScanInterval` 默认 10 秒并在每次实际结束后增加 ±20% 抖动，`PageSize` 默认 128，`RunTimeout` 默认 5 秒，`OperationTimeout` 默认 1 秒，`ObservationPeriod` 默认 30 秒；复核子批最多 16 条。宿主把相同观察期和操作预算传给扫描器及 Settler，各节点保持相同观察期配置。停止时取消扫描、等待实际返回后才关闭共享连接；该流程不承担 STOPPING 收敛、超时或 Leader Instance 复核。
 
 | 参数 | 初值 | 范围与配置归属 |
 | --- | --- | --- |
@@ -888,7 +892,7 @@ Instance 已 STOPPING、已终态或到期，不再授权新尝试或允许迟�
 
 ### 执行器的有界回报缓冲与单次发送 {#executor-result-queue}
 
-**2026-10-28 修订通过，尚未实现。结果由回报组件保留，发送者每次只负责一次 RPC，等待重试不占发送并发。** 本节替代此前“发送者持有结果完成全部退避重传后再取下一条”的安排，也将仅统计等待项的结果队列改为包含待首次发送、等待重试和在途记录的局部结果缓冲；不增加接单、业务和回报共用的总量额度。
+**2026-10-28 修订通过，2026-11-04 已实现公共 reporter，实际验证见[执行器运行记录](ordinary-readiness-review.md#ordinary-executor-runtime-progress)。结果由回报组件保留，发送者每次只负责一次 RPC，等待重试不占发送并发。** 本节替代此前“发送者持有结果完成全部退避重传后再取下一条”的安排，也将仅统计等待项的结果队列改为包含待首次发送、等待重试和在途记录的局部结果缓冲；不增加接单、业务和回报共用的总量额度。
 
 业务处理器返回结果后，公共组件按[执行器处理流程](#executor-processing-flow)交接一份结果。交接成功后由回报组件保留原结果、原 Task／尝试身份、应用层已发起调用次数及下次可发送的本地时间，直至 ACK、永久交付失败或有限尝试耗尽。发送只是使用原记录，不提前释放保存位置；失败后更新原记录，不阻塞着将结果回填到可能已被新结果占满的队列。
 
@@ -931,7 +935,7 @@ Instance 已 STOPPING、已终态或到期，不再授权新尝试或允许迟�
 
 ### 回报部署初值与重传常量 {#reporting-defaults}
 
-**2026-10-28 已通过，尚未实现或压测。** 以下只作用于执行器结果回报，不外推为业务并发、调度端写库参数或 Task 执行重试规则。
+**2026-10-28 已通过，2026-11-04 已实现并通过组件测试，尚未完成生产接线或压测。** 具体范围见[执行器运行记录](ordinary-readiness-review.md#ordinary-executor-runtime-progress)。以下只作用于执行器结果回报，不外推为业务并发、调度端写库参数或 Task 执行重试规则。
 
 | 参数 | 初值 | 范围与口径 |
 | --- | --- | --- |
@@ -947,7 +951,7 @@ Instance 已 STOPPING、已终态或到期，不再授权新尝试或允许迟�
 
 ### 调度端入队与后台落库 {#scheduler-result-queue}
 
-**2026-10-29 已确认：Task 结果逐条关联读取、条件更新和独立提交，替代此前批量预读及多条结果小批量提交的正常路径。不设置整批保存超时，也不增加整批超时后改为单条保存的降级机制。** 同日通过[结果保留、保存并发及重试初值](#scheduler-result-defaults)，2026-10-30 通过[回报错误分类](data-contracts.md#result-error-classification)；单次保存预算、Instance 执行期限和进程共享停机宽限分别适用，不混用。Protobuf 表达和装配设计已按[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)通过，源文件生成、具体 SQL 和 Go 装配仍待实现验证。
+**2026-10-29 已确认：Task 结果逐条关联读取、条件更新和独立提交，替代此前批量预读及多条结果小批量提交的正常路径。不设置整批保存超时，也不增加整批超时后改为单条保存的降级机制。** 同日通过[结果保留、保存并发及重试初值](#scheduler-result-defaults)，2026-10-30 通过[回报错误分类](data-contracts.md#result-error-classification)；单次保存预算、Instance 执行期限和进程共享停机宽限分别适用，不混用。Protobuf 已生成，普通单条 Saver／仓储、结果 Queue／消费者及 RPC 接纳适配已实现；Job 生产配置、宿主接线、独立回报 Server 及普通父完成推进已落实，实际验证见[父完成记录](ordinary-readiness-review.md#ordinary-completion-progress)，普通重试接续见[阶段 4 记录](ordinary-readiness-review.md#ordinary-retry-progress)。遗漏恢复与分片阶段推进仍待实施，不能把本地完成提示当作持久化恢复保障。
 
 1. 按[内部信任边界](architecture.md#internal-trust)完成组 Token 认证及报文格式等基础校验，报文大小复用 RPC 接收上限，保留已认证的组上下文。组缓存未命中先走既定回源；认证依赖查询失败返回 `Unavailable`，不当作 Token 错误。
 2. 不查 Task 表，对本次请求的单条结果进行基础校验并尝试交给有界结果队列；成功入队才返回接收 ACK，队列满返回 `ResourceExhausted`，未就绪或退出返回 `Unavailable`。明确认证失败与永久报文错误按[已定分类](data-contracts.md#result-error-classification)拒绝，不能丢弃结果却回复已接收。
@@ -956,7 +960,7 @@ Instance 已 STOPPING、已终态或到期，不再授权新尝试或允许迟�
 
 结果保存与 Instance 推进是两个分支：前者按 Task 类型核验和持久化本次业务输出，准备结果供后续生成读取，普通／分片／收尾结果供相应完成判定读取；后者消费已提交事实，根据本轮快照和 Task 类型决定结束、等待或进入仍获授权的后续阶段。不能把每条结果回报直接展开为查询当前 Job、扫描整轮 Task 和更新父 Instance；结果提交后的提示只交接检查职责，不承诺父推进已经完成。
 
-认证和接收不能代替持久化授权校验。关联查询取得可信的 Task／Instance 所属关系、执行器组及本轮冻结的重试上限和间隔；组身份沿用入口认证结果，不再次查询或校验 Token。查询后的内存判断不能替代 UPDATE 的原尝试、旧状态及绑定条件，重复入队、旧尝试或跨组引用不能覆盖有效状态。已有绑定必须匹配回报进程；绑定尚未保存时仍允许当前有效尝试的结果先保存。结果不补写绑定；失败仍有预算则直接进入等待重试，不先保存最终失败再恢复，也不在此扣次数或增加执行编号。每条结果按该次保存取得的数据库处理时间设置结束时间及最早重试时间，不使用前次读取或执行器自报的旧时间，不冒充业务真实结束时间；具体取时 SQL 随持久化实现确定。
+认证和接收不能代替持久化授权校验。关联查询取得可信的 Task／Instance 所属关系、执行器组及本轮冻结的重试上限和间隔；组身份沿用入口认证结果，不再次查询或校验 Token。查询后的内存判断不能替代 UPDATE 的原尝试、旧状态及绑定条件，重复入队、旧尝试或跨组引用不能覆盖有效状态。已有绑定必须匹配回报进程；绑定尚未保存时仍允许当前有效尝试的结果先保存。结果不补写绑定；失败仍有预算则直接进入等待重试，不先保存最终失败再恢复，也不在此扣次数或增加执行编号。每条结果按该次保存取得的数据库处理时间设置结束时间及最早重试时间，不使用前次读取或执行器自报的旧时间，不冒充业务真实结束时间；当前普通结果 UPDATE 内共用一次数据库取时，不另发取时查询。
 
 单条关联读取放弃批量预读摊薄查询往返的收益：N 条正常结果约有 N 次关联查询及 N 次条件 UPDATE，另有实际取时方式和事务提交的成本。每次只查询该条必要字段，不为一次结果拆成多次关联补查，也不增加批量预读组件、凑批等待或预读批量参数；后续仅在实测查询往返成为瓶颈时再评估有界预读优化。逐条保存仍有行写、WAL、索引和提交成本，不能宣称具有批量事务的吞吐。
 
@@ -964,11 +968,11 @@ Instance 已 STOPPING、已终态或到期，不再授权新尝试或允许迟�
 
 影响一行且确认该条保存已提交，才表示本次结果生效；无错误但零行只表示本次未应用，不补查猜测原因，也不证明此前已经保存成功。单条保存正常完成后释放该条已处理结果，可对已核实归属的 Instance 发本地检查提示，包括重复结果重做后零行的情况；检查只按数据库当前事实推进，不恢复父终态或直接重派，不再向执行器反向确认落库。单次数据库操作仍须限制等待，并使用后台组件生命周期及剩余停机宽限控制，不沿用已经返回的入站 RPC Context；超时不能被当作确定回滚或结果已保存的证据。
 
-执行器结果缓冲条数和发送并发，以及调度端结果保留条数、保存并发和单条保存预算属于部署参数，不进入 Job 页面；执行器不设置网络合批窗口或批次数量参数，调度端不设置结果合批提交参数。执行器按[回报初值](#reporting-defaults)、调度端按[保存初值](#scheduler-result-defaults)分别执行，不因数值相同就共享配置含义。[进程停机](operations.md#process-shutdown)采用已确认的共享有限宽限。逐条结果保存不取消下面的分片完成检查合并；回报错误分类及[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)已定，Proto 生成、SQL、具体驱动行为和装配验证仍待完成。
+执行器结果缓冲条数和发送并发，以及调度端结果保留条数、保存并发和单条保存预算属于部署参数，不进入 Job 页面；执行器不设置网络合批窗口或批次数量参数，调度端不设置结果合批提交参数。执行器按[回报初值](#reporting-defaults)、调度端按[保存初值](#scheduler-result-defaults)分别执行，不因数值相同就共享配置含义。[进程停机](operations.md#process-shutdown)采用已确认的共享有限宽限。逐条结果保存不取消下面的分片完成检查合并；回报错误分类及[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)已定，当前协议、普通单条保存与结果队列实现见[结果队列进度](ordinary-readiness-review.md#ordinary-result-queue-progress)，完整生产装配与进程验收仍待完成。
 
 ### 调度端写库故障与结果积压 {#scheduler-result-retention}
 
-**调度端已经接收的结果逐条独立保存；遇到可恢复的数据库故障或提交不明时，有界保留受影响的原结果并退避重试，结果队列满后拒收新结果，不按固定重试次数或保留 TTL 主动丢弃。** 不以整批结果为重试单元，不重放已经明确提交成功的其他结果。写库重试不占 Task 执行预算，也不重新调用业务处理器。
+**调度端已经接收的结果逐条独立保存；遇到可恢复的数据库故障或提交不明时，有界保留受影响的原结果并退避重试，结果队列满后拒收新结果，不按固定重试次数或保留 TTL 主动丢弃。** 不以整批结果为重试单元，不重放已经明确提交成功的其他结果。写库重试不占 Task 执行预算，也不重新调用业务处理器。上述保留、退避与并发行为已落实到 `taskresult.Queue`，Job 生产接线已落实，当前验证范围见[生产接线进度](ordinary-readiness-review.md#ordinary-result-wiring-progress)。
 
 | 情况 | 已确认处理 |
 | --- | --- |
@@ -989,11 +993,11 @@ Instance 已 STOPPING、已终态或到期，不再授权新尝试或允许迟�
 
 这些约束不等于整个 Go 进程的内存硬上限：业务结果构造、序列化、RPC、对象和 GC 仍有额外开销。结合实际 RPC 报文上限与结果体积验证占用，大结果场景应调整保留条数；第一版不做队列总字节配额或按 MB 准入，也不增加独立业务结果长度限制或 Job 页面参数。准备工作项数组的生成和暂存仍按其独立契约设计。逐条结果保存不撤销已定的任务生成、尝试登记或 STOPPING 子取消批次规则。
 
-数据库是调度端推进的必要依赖，故障期间由保存组件有界保留已有结果，满后拒收新结果；让出保存能力只消除退避空等，不消除数据库故障或保留空间被占满的影响。执行器有限重报与调度端保留采用不同规则。内存保留不延长整轮截止时间，也不使已停止或超时的 Instance 复活；进程停机在[统一宽限](operations.md#process-shutdown)内尽力保存已接收结果，预算到期可以结束等待，不把该期限当作正常运行期结果 TTL。[回报错误分类](data-contracts.md#result-error-classification)已定，[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)已通过，Proto 生成、驱动行为及停机装配仍须实现验证。
+数据库是调度端推进的必要依赖，故障期间由保存组件有界保留已有结果，满后拒收新结果；让出保存能力只消除退避空等，不消除数据库故障或保留空间被占满的影响。执行器有限重报与调度端保留采用不同规则。内存保留不延长整轮截止时间，也不使已停止或超时的 Instance 复活；进程停机在[统一宽限](operations.md#process-shutdown)内尽力保存已接收结果，预算到期可以结束等待，不把该期限当作正常运行期结果 TTL。[回报错误分类](data-contracts.md#result-error-classification)已定，[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)已通过，协议与普通结果队列已实现；驱动和队列生命周期验证范围见[结果队列进度](ordinary-readiness-review.md#ordinary-result-queue-progress)，Job 结果停机装配已落实，实际验证见[生产接线记录](ordinary-readiness-review.md#ordinary-result-wiring-progress)，System 执行器停机接线仍待完成。
 
 ### 调度端结果保存初值 {#scheduler-result-defaults}
 
-**2026-10-29 已通过，尚未实现或压测。** 以下只作用于调度端已接收结果的保存，不替代执行器回报参数、Task 执行预算或其他调度职责的批次规则。
+**2026-10-29 已通过；2026-11-04 已落实 Saver／Queue 及 Job 生产配置和宿主接线，压测尚未完成。** 部署配置为 `ResultPersistence.Capacity`、`Concurrency` 和 `SaveTimeout`，分别传给 Queue 和 Saver；实际验证见[Job 生产接线进度](ordinary-readiness-review.md#ordinary-result-wiring-progress)。以下只作用于调度端已接收结果的保存，不替代执行器回报参数、Task 执行预算或其他调度职责的批次规则。
 
 | 项目 | 初值 | 计量与配置边界 |
 | --- | --- | --- |
@@ -1061,7 +1065,7 @@ Instance 停止决定、各 Task 的取消／结果落库、父最终结束不�
 
 ### 检查提示生命周期与初值 {#instance-check-defaults}
 
-**2026-10-29 已通过，尚未实现。** 本节闭合本地检查提示的接纳、合并、处理结束及资源初值；Leader RUNNING 候选查询／交接预算与恢复补充规则已于同日后续按[扫描预算与恢复补充](#instance-recheck-defaults)收口，不因共用集合就宣称严格来源公平。
+**2026-10-29 已通过，本地检查队列及普通完成已实现并验证，见[阶段 3 记录](ordinary-readiness-review.md#ordinary-completion-progress)。Leader 复核已在阶段 5 接入，见[最新记录](ordinary-readiness-review.md#ordinary-timeout-recovery-progress)。** 本节闭合本地检查提示的接纳、合并、处理结束及资源初值；Leader RUNNING 候选查询／交接预算与恢复补充规则已于同日后续按[扫描预算与恢复补充](#instance-recheck-defaults)收口，不因共用集合就宣称严格来源公平。
 
 | 参数 | 默认值 | 计量范围与配置归属 |
 | --- | --- | --- |
@@ -1191,11 +1195,11 @@ Task／Post 最终结果已持久化、Instance 更新中断时，只恢复平�
 | 故障交界 | 已确定的不变量 | 尚需完成的协议 |
 | --- | --- | --- |
 | Task 已保存，尝试尚未登记 | 持久化工作可被重新发现；有容量后复用批量条件登记，不依赖原节点存活 | 条件写入的具体字段与 SQL、恢复检查覆盖范围 |
-| 尝试登记已提交，尚未发 RPC 或发送情况不明 | 已占一次机会，不免费重发同一尝试；发送前总预算耗尽也放弃本次发送，无绑定及结果时按有限观察与条件结算处理，零重试可能未执行业务就失败 | [总预算及默认 30 秒观察期](#dispatch-time-budgets)已定，条件写入的具体实现及故障验证待完成 |
+| 尝试登记已提交，尚未发 RPC 或发送情况不明 | 已占一次机会，不免费重发同一尝试；发送前总预算耗尽也放弃本次发送，无绑定及结果时按有限观察与条件结算处理，零重试可能未执行业务就失败 | [总预算及默认 30 秒观察期](#dispatch-time-budgets)已定，普通条件结算与自动观察扫描已接入，当前范围及验证见[实施记录](ordinary-readiness-review.md#ordinary-unbound-scan-progress) |
 | 登记提交返回超时或断连，结果不明 | 撤销本地发送计划、释放槽位；事后看到已登记也不补发，交既有观察与结算；真未提交且仍合格则普通条件登记 | 错误分类、撤销本地发送与恢复路径的实现验证 |
 | BUSY 返还写库失败或提交结果不明 | 有界有限重试同一条件事务；不重复返还，响应释放或失效后不猜测补返 | [普通 BUSY 条件 SQL](data-contracts.md#ordinary-busy-settlement)及[保存预算](#dispatch-time-budgets)已定；其他类型及清理实现待完成 |
-| 执行器已接收，RPC 确认丢失或绑定尚未提交 | 从登记的数据库时间有限观察；到期仅获结算资格，绑定／结果／未知结算持久化竞争；不重置、不重复扣预算、不恢复旧尝试 | [普通未知结算 SQL](data-contracts.md#ordinary-unknown-settlement)及默认 30 秒观察期已定；[稳定结束原因](data-contracts.md#execution-end-reasons)已定，恢复实现待完成 |
-| 已绑定执行器失联或重启，无有效结果 | 不提前重派；等待有效结果、手动停止或整轮截止，终态不得复活 | [停止超时与子取消 SQL](data-contracts.md#instance-termination-sql)已定；索引、参数及实现验证待完成 |
+| 执行器已接收，RPC 确认丢失或绑定尚未提交 | 从登记的数据库时间有限观察；到期仅获结算资格，绑定／结果／未知结算持久化竞争；不重置、不重复扣预算、不恢复旧尝试 | [普通未知结算 SQL](data-contracts.md#ordinary-unknown-settlement)及默认 30 秒观察期已定；[稳定结束原因](data-contracts.md#execution-end-reasons)与普通结算核心已实现，自动观察扫描及生产调用已接入，见[实施记录](ordinary-readiness-review.md#ordinary-unbound-scan-progress) |
+| 已绑定执行器失联或重启，无有效结果 | 不提前重派；等待有效结果、手动停止或整轮截止，终态不得复活 | [停止超时与子取消 SQL](data-contracts.md#instance-termination-sql)已定，人工停止入口、后台收敛与尽力通知已接通；普通自动超时已接通，见[最新记录](ordinary-readiness-review.md#ordinary-timeout-recovery-progress) |
 | 回报 ACK 丢失，执行器仍保留结果 | 原记录保留，单次 RPC 结束释放发送并发，按可发送时间独立有限重试；耗尽后释放并记录错误及丢弃指标，重复入队不能重复推进 | 单条确认、[回报机制](#executor-result-queue)、[256／16／2 秒／7 次初值](#reporting-defaults)及[错误分类](data-contracts.md#result-error-classification)已定；消息表达按[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)执行；Proto 生成及实现验证待完成 |
 | 回报已 ACK，数据库持续发生可恢复故障 | 有界保留受影响的原结果并按条退避重试，不按次数或保留 TTL 丢弃；退避不占保存能力，不重放其他已明确提交的结果，满后拒收，不做队列总字节配额 | [保存初值](#scheduler-result-defaults)、重试安排及[错误分类](data-contracts.md#result-error-classification)已定；SQL、RPC 报文边界和实现验证继续闭合 |
 | 回报已 ACK，但接收节点在落库前退出 | 允许原结果丢失；已有绑定则等待整轮终止，无绑定则适用独立观察规则，均不依赖本地文件 | 普通结果、未知结算及停止超时条件写入已定；实现验证继续，进程退出不保证恢复原结果 |
@@ -1203,7 +1207,7 @@ Task／Post 最终结果已持久化、Instance 更新中断时，只恢复平�
 | 最后一个分片已提交，检查提示丢失 | Leader 统一复核补漏并复用既有检查，不依赖内存计数；拥塞下的恢复准入不保证 | 统一候选查询、索引、[扫描预算与恢复补充](#instance-recheck-defaults)已定；完整分片事实查询及实现验证仍待完成 |
 | Post 已创建，派发尚未完成 | 每轮唯一 Post，恢复复用同一 Task | 通用派发／尝试恢复协议 |
 | Post 成功已提交，Instance 未结束 | 只恢复平台终态推进，不重跑 Post；父仍 RUNNING 且具备完整最终结果时可在截止后按结果结束，不覆盖 STOPPING 或已有终态 | 正常完成条件 UPDATE、摘要及超时衔接已定；生成封口字段、完整分片事实查询 SQL／索引和恢复实现仍待完成 |
-| STOPPING 已提交，子 Task 仍待执行、执行中或等待重试 | 不再新增 Task 或授予新尝试；已有子终态保留，未终态按自身条件取消，全部子终态后再结束父；独立尽力发送取消 RPC | 停止状态协议、[候选查询及索引](data-contracts.md#stopping-recovery-query)、[子定位查询及索引](data-contracts.md#task-cancel-query)已定；取消单批父 NOWAIT、容量和队尾轮转已定，[通知来源、地址查询及参数](#cancel-notification-capacity)也已通过，均待实现，不保证取消 RPC 补送 |
+| STOPPING 已提交，子 Task 仍待执行、执行中或等待重试 | 不再新增 Task 或授予新尝试；已有子终态保留，未终态按自身条件取消，全部子终态后再结束父；独立尽力发送取消 RPC | 停止状态协议、[候选查询及索引](data-contracts.md#stopping-recovery-query)、[子定位查询及索引](data-contracts.md#task-cancel-query)已定；取消单批父 NOWAIT、容量和队尾轮转已定，[通知来源、地址查询及参数](#cancel-notification-capacity)也已通过；单批数据库核心、工作队列、地址枚举与独立通知、STOPPING Leader 发现已接通，见[停止运行链路记录](ordinary-readiness-review.md#ordinary-stop-runtime-progress)，不保证取消 RPC 补送 |
 | STOPPING 的子 Task 已全部终态，父最终更新尚未提交 | 重新核验父仍 STOPPING 且无未结束子记录，再按已保存原因结束父 | 与子批次共用停止恢复，不依赖原请求、原节点或取消 RPC 成功 |
 
 子 Task 已全部终态、但节点在发送取消 RPC 前退出时，数据库恢复仍能通过 STOPPING 结束父；父最终状态已提交后不再持续扫描该轮补送通知。无论数据库处理进行到哪一步，都接受取消通知未发出或丢失且不保证补送的窗口。恢复接续数据库状态，不提供可靠消息送达，不增加取消通知表或长期缓存。
@@ -1216,7 +1220,7 @@ Task／Post 最终结果已持久化、Instance 更新中断时，只恢复平�
 
 ### Leader 统一复核 RUNNING Instance {#instance-recheck-direction}
 
-**2026-10-22 完整提案已通过，尚未实现。Leader 每 2 分钟执行或续接一趟有界复核，候选为开始已超过 4 分钟、仍处于 RUNNING 的 Instance，每页 256 条。** 统一覆盖结果落库后遗漏的阶段推进、正常完成，以及整轮已到期但父尚未结束；正常事件驱动路径仍由各调度节点立即推进，不等待扫描。
+**2026-10-22 完整提案已通过，2026-11-05 普通模式复核与自动超时已接通，实际验证见[实施记录](ordinary-readiness-review.md#ordinary-timeout-recovery-progress)。Leader 每 2 分钟执行或续接一趟有界复核，候选为开始已超过 4 分钟、仍处于 RUNNING 的 Instance，每页 256 条。** 当前普通模式补正常完成遗漏及到期处理；分片阶段推进仍待后续实施。正常事件驱动路径仍由各调度节点立即推进，不等待扫描。
 
 #### 职责与候选范围
 
@@ -1238,7 +1242,7 @@ Task／Post 最终结果已持久化、Instance 更新中断时，只恢复平�
 
 #### 扫描预算与恢复补充 {#instance-recheck-defaults}
 
-**2026-10-29 已通过，尚未实现。** 本节替代 RUNNING 复核队满就结束本周期的旧规则，并把来源公平的绝对表述收窄为明确的补充与排队行为；不改变 STOPPING 的队满退出规则，不新增恢复专用队列、处理池、来源计数或固定并发份额。
+**2026-10-29 已通过，2026-11-05 已实现并接入 Leader 任期，实际验证见[实施记录](ordinary-readiness-review.md#ordinary-timeout-recovery-progress)。** 本节替代 RUNNING 复核队满就结束本周期的旧规则，并把来源公平的绝对表述收窄为明确的补充与排队行为；不改变 STOPPING 的队满退出规则，不新增恢复专用队列、处理池、来源计数或固定并发份额。
 
 | 参数 | 默认值 | 作用范围 |
 | --- | --- | --- |
@@ -1247,6 +1251,8 @@ Task／Post 最终结果已持久化、Instance 更新中断时，只恢复平�
 | 恢复新增 ID 的补充门槛 | 检查集合容量的一半，默认 256 个 | 按当前唯一 ID 占用量判断，包含合并等待、排队及处理中；随集合容量派生，不额外配置 |
 
 新一趟读取 `scan_now` 也计入本周期 5 秒，扫描数据库读取受上述单次查询预算限制。未完遍历在下一周期续接时获得新的 5 秒，但沿用原 `scan_now`、`eligible_before` 和已接纳游标，不刷新本趟候选上界。已有检查使用进程组件上下文及自己的 2 秒预算，不把扫描上下文作为已交接工作的处理上下文。
+
+生产配置使用 `InstanceRecovery.Interval` 共用默认 2 分钟驱动；RUNNING 的 PageSize／RunTimeout／SQLTimeout 与 STOPPING 自身预算独立。两条分支各自即时首轮、逐次串行，忙分支跳过 tick，不影响另一分支、不积累补跑。失主取消两条发现流程，并等待实际返回后释放任期资源；已经交给进程级队列的处理不随任期取消。
 
 恢复交接遵守以下规则：
 
@@ -1285,7 +1291,7 @@ Task／Post 最终结果已持久化、Instance 更新中断时，只恢复平�
 
 ### Leader 恢复 STOPPING Instance {#stopping-recovery}
 
-**停止决定提交后立即在本节点进行有界处理是正常路径；Leader 每 2 分钟按独立 STOPPING 候选分支补漏。** 此职责于 2026-10-23 通过，2026-10-26 另已通过[单批父 NOWAIT 协调与容量](#stopping-processing)，尚未实现。它与 RUNNING 复核共用既有周期驱动，不增加停止专用延迟队列、时间轮、固定 owner 或可靠通知系统；确实增加了一类数据库候选查询和后台处理工作，不能表述为“没有新增扫描”。
+**停止决定提交后立即在本节点进行有界处理是正常路径；Leader 每 2 分钟按独立 STOPPING 候选分支补漏。** 此职责于 2026-10-23 通过，2026-10-26 另已通过[单批父 NOWAIT 协调与容量](#stopping-processing)；单批处理、工作队列、新 Leader 就绪检查及每 2 分钟 STOPPING 发现已接通，见[停止运行链路记录](ordinary-readiness-review.md#ordinary-stop-runtime-progress)。它与 RUNNING 复核共用既有周期驱动，不增加停止专用延迟队列、时间轮、固定 owner 或可靠通知系统；确实增加了一类数据库候选查询和后台处理工作，不能表述为“没有新增扫描”。
 
 - 候选按[已通过的查询](data-contracts.md#stopping-recovery-query)只从 `job_instance` 的 `idx_job_instance_stopping (id) WHERE status = 6` 有界读取，再按 Instance 定向处理 Task；不全局扫描 Task。不套 RUNNING 的 4 分钟开始时间门槛，也不要求 `started_at` 或 `deadline_at` 非空，因为 WAITING 也可被人工停止。
 - 新 Leader 在依赖及本地后台处理能力就绪后立即做一次有界检查；后续每 2 分钟续接未完遍历或开启新一趟。STOPPING 候选与 RUNNING 候选分别分页、分别限定工作预算，不让一个分支耗尽另一个分支的处理机会；其独立初值已在[取消竞争与容量](#stopping-processing)确认：每页 256、每周期扫描／投递 5 秒；数值相同不表示与 RUNNING 共用额度。
@@ -1295,11 +1301,11 @@ Task／Post 最终结果已持久化、Instance 更新中断时，只恢复平�
 
 数据库和服务恢复、处理获得公平容量且无永久数据损坏或不可恢复缺陷，是最终完成的前提，不承诺固定完成时间。STOPPING 积压期间继续按非终态保护删除和历史保留；配置了阻塞丢弃策略的 Job 继续丢弃后续触发，并行策略不因此阻塞；取消 RPC 失败不构成维持 STOPPING 的理由。最终父更新成功后不为可靠通知再保留该候选。
 
-上述查询和两条部分索引已通过、尚未创建；Task 未结束索引也由正常活跃任务维护，需验证写入和清理成本，不只计算取消读取收益。取消竞争与部署初值见下节；这两条索引不覆盖取消目标地址查询；[通知地址索引与有界查询](data-contracts.md#cancel-target-query)已另行通过，尚待实现与验证。
+上述查询和两条部分索引已通过，索引已在此前迁移中创建；子定位与最终 NOT EXISTS、STOPPING 父候选发现均已接通，具体范围见[停止运行链路记录](ordinary-readiness-review.md#ordinary-stop-runtime-progress)；Task 未结束索引也由正常活跃任务维护，需验证写入和清理成本，不只计算取消读取收益。取消竞争与部署初值见下节；这两条索引不覆盖取消目标地址查询；[通知地址索引与有界查询](data-contracts.md#cancel-target-query)已实现，递归定位 SQL、首屏和续屏索引计划已有真实 PostgreSQL 验证，见[停止运行链路记录](ordinary-readiness-review.md#ordinary-stop-runtime-progress)。
 
 ### STOPPING 取消竞争与容量 {#stopping-processing}
 
-**2026-10-26 已通过，尚未实现。** 本节只细化 STOPPING 的数据库取消处理，不改变单 Leader 触发、对等结果接收及本地推进架构，不增加分桶、整轮负责人或跨节点转发。Leader 的 STOPPING 周期发现与停止决定提交节点的即时处理共用以下协议；[派发候选竞争](#dispatch-contention)同日另行批准，不由本节自动推导，也不共用本节容量参数。
+**2026-10-26 已通过。`ProcessBatch` 已实现一次父 NOWAIT 短事务下的有界取消或最终父更新；工作队列、处理份额轮转与 STOPPING Leader 发现已接通，见[停止运行链路记录](ordinary-readiness-review.md#ordinary-stop-runtime-progress)。** 本节只细化 STOPPING 的数据库取消处理，不改变单 Leader 触发、对等结果接收及本地推进架构，不增加分桶、整轮负责人或跨节点转发。Leader 的 STOPPING 周期发现与停止决定提交节点的即时处理共用以下协议；[派发候选竞争](#dispatch-contention)同日另行批准，不由本节自动推导，也不共用本节容量参数。
 
 #### 每批处理与竞争退出
 
@@ -1384,11 +1390,11 @@ BUSY 只检查尝试 ID 不够，还必须检查**尚未结算的旧状态**；�
 
 RUNNING Instance 统一复核的 2 分钟周期、4 分钟门槛、每页 256 条及开始时间部分索引已通过；其他类别尚未确认的检查间隔、批量、索引，以及共享容量和公平性仍依赖各自设计与压测，不凭空设定吞吐承诺，也不直接套用每分钟 Job 触发恢复参数。重点验证提交交界故障、单轮大任务、密集回报、跨节点分散回报、稀疏小 Instance 及重试洪峰，见[验证与交付](./verification.md)。
 
-依赖故障时哪些能力暂停、继续或拒绝请求，见[管理与运维](operations.md#dependency-boundaries)。数据库前置步骤未提交不能凭内存越过授权派发；失去 Leader 资格不自动停止其他满足执行权条件的推进。回报成功入队可确认接收，数据库故障时有界保留并背压；两侧内存结果均不保证跨进程退出保存。依赖恢复后的处理仍服从预算与终止规则，普通未知结算条件写入已通过，重连、重传参数及执行协议的实现验证继续推进。
+依赖故障时哪些能力暂停、继续或拒绝请求，见[管理与运维](operations.md#dependency-boundaries)。数据库前置步骤未提交不能凭内存越过授权派发；失去 Leader 资格不自动停止其他满足执行权条件的推进。回报成功入队可确认接收，数据库故障时有界保留并背压；两侧内存结果均不保证跨进程退出保存。依赖恢复后的处理仍服从预算与终止规则，普通未知结算核心及条件写入已实现并完成专项验证，自动观察扫描及生产调用也已接入，当前范围及验证见[实施记录](ordinary-readiness-review.md#ordinary-unbound-scan-progress)；完整进程故障及负载验证仍待阶段 6。
 
 ## 5.12 本章待决事项与完成条件 {#chapter-exit}
 
-本章已确认的本地直接派发、父行授权、终态条件竞争、绑定、回报、结果保留、提交结果不明恢复及完成推进规则继续有效；终态裁决以本轮修订的[行为规则](behavior.md#terminal-order)为准，不再沿用所有入口到期一律超时的旧要求。触发模块已经实现、提交并通过[本地及 CI 验证](progress.md#trigger-ci-verification)。当前进入[普通 Task 执行闭环设计](progress.md#ordinary-task-design)，完成与终态机制按普通和分片共用设计，尚未实现业务执行链路。
+本章已确认的本地直接派发、父行授权、终态条件竞争、绑定、回报、结果保留、提交结果不明恢复及完成推进规则继续有效；终态裁决以本轮修订的[行为规则](behavior.md#terminal-order)为准，不再沿用所有入口到期一律超时的旧要求。触发模块已经实现、提交并通过[本地及 CI 验证](progress.md#trigger-ci-verification)。当前按[普通执行六阶段计划](ordinary-readiness-review.md#ordinary-implementation-order)实施，公共 Runtime／reporter 已执行真实处理器并通过普通结果落库联测，见[最新记录](ordinary-readiness-review.md#ordinary-executor-runtime-progress)。完成与终态机制按普通和分片共用设计；System 内嵌接线、实际派发编排、父完成和管理查询仍未接通，不将组件调用能力视为完整业务执行链路。
 
 已落地的触发能力包括 etcd 选主及任期资源管理、配置通知和串行差异同步、首次装载、长期 Cron、触发容量和每分钟限量恢复，以及创建 Instance、快照和进度原子保存的事务、约束、索引与管理接口。其正式吞吐及长期资源稳定性验收仍未完成。
 
@@ -1397,10 +1403,10 @@ RUNNING Instance 统一复核的 2 分钟周期、4 分钟门槛、每页 256 �
 - 普通 Task 首次开始、Task 创建与首次执行信息合并事务、公共字段、单例唯一索引、[首次创建与重复推进 SQL](data-contracts.md#ordinary-start-sql)、[ACK 绑定 SQL](data-contracts.md#executor-binding-sql)、[普通结果保存与状态转换](data-contracts.md#task-result-persistence)、[普通重试登记 SQL](data-contracts.md#ordinary-retry-registration)、[普通未知结算 SQL](data-contracts.md#ordinary-unknown-settlement)、[普通 BUSY 返还 SQL](data-contracts.md#ordinary-busy-settlement)、[正常完成条件 UPDATE 与超时衔接](data-contracts.md#instance-completion-contract)及[停止超时与子取消 SQL](data-contracts.md#instance-termination-sql)已通过；继续落实完整事实查询、其他类型推进条件更新、查询索引和提交交界故障测试，不重新评审已定协议。
 - 已持久化 Instance 配置及 JSONB v1 在执行链路中的批量读取、RPC 传递和未来结构兼容实现，不重选字段分工、创建时固定和整轮沿用规则。
 - PreTask 创建、分片生成权、分批保存和生成完整性封口。
-- 普通结果保存、重试登记、未知结算及 BUSY 返还的尝试、状态、预算与身份处理已通过；将已定 `attempt_no`、`used_attempts`、登记时间及绑定字段继续落实到其他类型的条件写入。[派发时间预算](#dispatch-time-budgets)、默认 30 秒观察期及[观察到期扫描／结算安排](#unbound-recovery-defaults)已定；已绑定无结果等待整轮终止使用已定停止超时协议，各项仍待实现验证。
+- 普通结果保存、重试登记、未知结算及 BUSY 返还的尝试、状态、预算与身份处理已通过；普通失败与重试核心逻辑及专项实现已完成，最新范围见[未知结果结算记录](ordinary-readiness-review.md#ordinary-unknown-progress)。已定 `attempt_no`、`used_attempts`、登记时间及绑定字段继续落实到其他类型的条件写入。[派发时间预算](#dispatch-time-budgets)、默认 30 秒观察期及[观察到期扫描／结算安排](#unbound-recovery-defaults)已定；观察扫描与未知结算已接入生产，范围见[自动扫描记录](ordinary-readiness-review.md#ordinary-unbound-scan-progress)；人工停止入口、有界数据库处理与尽力通知、STOPPING Leader 发现已实现，见[停止运行链路记录](ordinary-readiness-review.md#ordinary-stop-runtime-progress)；普通自动超时及 Leader RUNNING 复核已接通，见[最新记录](ordinary-readiness-review.md#ordinary-timeout-recovery-progress)，已绑定 Task 不提前重派。
 - [排队、并发与满载处理](#capacity-model)、[派发候选合并与跨节点竞争](#dispatch-contention)及[派发供给参数](#dispatch-supply-defaults)已通过。总纲六条和[执行器接单、执行与结果交接](#executor-processing-flow)已确认：业务与结果分别保留并受控处理，结果缓冲满时当前处理者等待交接，压力传回业务队列；不另建统一总量计量。[执行器业务部署初值](#executor-business-defaults)已确定每进程处理并发 32、等待队列 128，均部署可调；处理位置包括业务执行及完成结果交接前的等待，队列只统计尚未领取任务。[回报机制及初值](#reporting-defaults)另已通过：局部保留 256 条含在途、同时 RPC 16 个，单次 2 秒、总调用 7 次、间隔 1／2／4／8／16／16 秒各上下浮动 20%；发送者不等待退避。调度端候选总量、查询页、补查间隔与抖动、轮转份额及无进展退避已有初值，[派发时间预算](#dispatch-time-budgets)也已确定登记、接单、响应保存、观察及 BUSY 延期初值。[调度端结果保存](#scheduler-result-queue)已于 2026-10-29 确定单条关联查询、条件更新和独立提交，不设整批超时或拆批降级；[保存初值](#scheduler-result-defaults)确认为局部保留 512 条含在途、保存并发 8、单条处理 2 秒，均部署可调，失败按 1／2／4／8／16／30 秒封顶并各上下浮动 20% 退避，不占保存者等待、不按次数或 TTL 丢弃。其余恢复类别的周期与并发、登记批量等继续分别闭合。具体 Go 组织结合完整流程选择，不复用 STOPPING 初值。取消的定向路由与上下文契约按已定范围实现。
 - 已定停止超时与统一子收敛协议的实现、恢复查询及迟到结果验证；不重新引入独立活动探测或失联提前重派。
-- [回报错误分类与无效结果处理](data-contracts.md#result-error-classification)已于 2026-10-30 通过；结果保存及重试安排继续有效，[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)及[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)已通过；[派发与取消错误映射](data-contracts.md#dispatch-cancel-errors)已通过，Proto 生成、条件 SQL、驱动错误识别和停机装配仍待实现验证，不重开网络合批协议。[本地检查提示生命周期与初值](#instance-check-defaults)及 [RUNNING 扫描预算与恢复补充](#instance-recheck-defaults)已通过，尚未实现；其他待处理查询索引、参数与退避继续闭合。STOPPING 的单批父 NOWAIT、部署初值和队尾轮转已通过，尚未实现。
+- [回报错误分类与无效结果处理](data-contracts.md#result-error-classification)、[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)、[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)及[派发与取消错误映射](data-contracts.md#dispatch-cancel-errors)均已通过，不重开网络合批协议。Proto、普通结果与响应条件保存、必要驱动错误识别和宿主停机装配已实现，实际覆盖见[阶段 4 记录](ordinary-readiness-review.md#ordinary-retry-progress)；不将普通组件验证扩大为全部分片、远端停止通知或完整进程验收。[本地检查提示生命周期与初值](#instance-check-defaults)已在[阶段 3](ordinary-readiness-review.md#ordinary-completion-progress)实现；[RUNNING 扫描预算与恢复补充](#instance-recheck-defaults)及 STOPPING 的单批父 NOWAIT、部署初值和队尾轮转已接通，实际专项验证见[最新记录](ordinary-readiness-review.md#ordinary-timeout-recovery-progress)，完整负载验收仍待阶段 6。
 - 普通与分片共用的完成事实分支、正常完成条件更新、摘要及结束时间、自动超时仅在明确 `NotReady` 后进入父短事务的规则已通过；补齐生成封口字段、完整事实查询 SQL／索引和原因码字典，并验证与人工停止、新授权的竞争，不重新定义展示阶段名称或管理 API。
 
 **本章最终完成条件**：主路径与重要失败路径共用可重入的状态推进协议；每个提交／通信间隙都有明确恢复入口、执行预算和旧动作隔离；记录防重、结果幂等与业务幂等职责不混淆；正常推进、停止和超时竞争可通过故障测试验证。各批先闭合本模块适用部分再实现，触发模块不等待全部生成与执行细节。完整字段与接口在[第 6 章](./data-contracts.md)承接，验证清单在[第 8 章](./verification.md)承接，不把排版或命名细节误当作架构收口前提。

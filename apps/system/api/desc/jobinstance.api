@@ -1,0 +1,52 @@
+import "base.api"
+
+type (
+ JobExecutionConfig {
+  SchemaVersion int32 `json:"schemaVersion"`
+  ProcessorName string `json:"processorName"`
+  ExecutionMode int32 `json:"executionMode"`
+  PostEnabled bool `json:"postEnabled"`
+  Params string `json:"params"`
+  MaxRetries int32 `json:"maxRetries"`
+  RetryIntervalSeconds int32 `json:"retryIntervalSeconds"`
+  TimeoutSeconds int32 `json:"timeoutSeconds"`
+ }
+ JobInstanceDetail {
+  Id int64 `json:"id"`
+  JobId int64 `json:"jobId"`
+  JobName string `json:"jobName"`
+  ExecutorGroupId int64 `json:"executorGroupId"`
+  TriggerType int32 `json:"triggerType"`
+  ScheduledAt *string `json:"scheduledAt"`
+  RequestId *string `json:"requestId"`
+  ParamsOverridden bool `json:"paramsOverridden"`
+  TriggeredBy *int64 `json:"triggeredBy"`
+  ExecutionConfig JobExecutionConfig `json:"executionConfig"`
+  Status int32 `json:"status"`
+  StartedAt *string `json:"startedAt"`
+  DeadlineAt *string `json:"deadlineAt"`
+  FinishedAt *string `json:"finishedAt"`
+  EndReason *string `json:"endReason"`
+  ResultSummary *string `json:"resultSummary"`
+  CreatedAt string `json:"createdAt"`
+  UpdatedAt string `json:"updatedAt"`
+ }
+ JobInstanceStopResp {
+  InstanceId int64 `json:"instanceId"`
+  Status int32 `json:"status"`
+  EndReason *string `json:"endReason"`
+ }
+)
+
+@server (
+ group: jobexecution
+ jwt: Auth
+ middleware: SessionAuth, Authorization
+)
+service system-api {
+ @handler getInstance
+ post /job/instance/get (IDReq) returns (JobInstanceDetail)
+
+ @handler stopInstance
+ post /job/instance/stop (IDReq) returns (JobInstanceStopResp)
+}

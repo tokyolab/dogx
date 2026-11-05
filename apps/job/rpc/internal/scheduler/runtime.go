@@ -1,6 +1,6 @@
-// Package scheduler runs the Job trigger leader in the management RPC process.
-// Its hints only identify Jobs; the creator rereads database facts before creating
-// a WAITING Instance. No Task execution or Instance ownership lives here.
+// Package scheduler runs the Job trigger leader and elected candidate discovery
+// in the management RPC process. Consumers reread durable facts before acting on
+// hints. No Task execution or Instance ownership lives here.
 package scheduler
 
 import (
@@ -71,17 +71,36 @@ type cronEngine interface {
 // per instance; Notify and Stats may run concurrently. The caller owns the etcd
 // client and must close it only after Run and other calls have finished.
 type Runtime struct {
-	config       Config
-	keys         keys
-	trigger      TriggerService
-	rules        RuleSource
-	coordination coordination
-	timing       timings
-	now          func() time.Time
-	newCron      func() cronEngine
-	running      atomic.Bool
-	counters     counters
-	log          rateLog
+	config           Config
+	keys             keys
+	trigger          TriggerService
+	rules            RuleSource
+	coordination     coordination
+	timing           timings
+	now              func() time.Time
+	newCron          func() cronEngine
+	running          atomic.Bool
+	counters         counters
+	log              rateLog
+	recoverInstances func(context.Context) error
+}
+
+// Option binds elected-term discovery before Run begins.
+type Option func(*Runtime) error
+
+// WithInstanceRecovery installs serial candidate discovery for each elected
+// term. The callback must propagate term cancellation and wait for its queries
+// to actually exit. It may enqueue process-owned work but must not tie that work
+// to the term Context. Each call starts a new traversal; old discovery must exit
+// before reelection. The callback must not panic or return before cancellation.
+func WithInstanceRecovery(run func(context.Context) error) Option {
+	return func(r *Runtime) error {
+		if run == nil {
+			return errors.New("instance recovery callback is nil")
+		}
+		r.recoverInstances = run
+		return nil
+	}
 }
 
 type counters struct {
@@ -104,7 +123,7 @@ func (r *Runtime) Stats() Stats {
 // New validates dependencies and configuration without starting election or
 // background work. The caller must share a process-scoped TriggerService and
 // manage the supplied client's lifetime.
-func New(client *clientv3.Client, rules RuleSource, trigger TriggerService, config Config) (*Runtime, error) {
+func New(client *clientv3.Client, rules RuleSource, trigger TriggerService, config Config, options ...Option) (*Runtime, error) {
 	if client == nil || rules == nil || trigger == nil {
 		return nil, errors.New("scheduler requires etcd, rule source and trigger creator")
 	}
@@ -114,9 +133,18 @@ func New(client *clientv3.Client, rules RuleSource, trigger TriggerService, conf
 	}
 	timing := defaultTimings()
 	timing.query = cfg.QueryTimeout
-	return &Runtime{config: cfg, keys: makeKeys(cfg.Prefix), rules: rules, trigger: trigger,
+	r := &Runtime{config: cfg, keys: makeKeys(cfg.Prefix), rules: rules, trigger: trigger,
 		coordination: etcdCoordination{client: client, request: timing.request}, timing: timing, now: time.Now,
-		newCron: func() cronEngine { return cron.New(cron.WithLocation(time.Local)) }}, nil
+		newCron: func() cronEngine { return cron.New(cron.WithLocation(time.Local)) }}
+	for _, option := range options {
+		if option == nil {
+			return nil, errors.New("scheduler option is nil")
+		}
+		if err := option(r); err != nil {
+			return nil, err
+		}
+	}
+	return r, nil
 }
 
 // Notify hints that the leader should reload after a confirmed management commit;

@@ -13,9 +13,26 @@ DogX 采用四层测试：
 1. Logic 单元测试：验证业务规则、成功分支和失败分支，是数量最多、执行最频繁的测试。
 2. HTTP / gRPC 协议测试：验证参数解析、响应结构、错误转换、中间件和传输行为。
 3. PostgreSQL / Redis 集成测试：验证真实数据库方言、迁移、约束、查询和缓存行为。
-4. 端到端测试：只覆盖登录、刷新令牌、权限判定等少量关键业务闭环。
+4. 端到端测试：覆盖登录、刷新令牌、权限判定，以及普通 Job 触发、执行、重试和停止等关键业务闭环。
 
 普通测试不得访问公网、共享开发数据库或其他不受测试进程控制的服务。
+
+## Windows 本地测试 {#windows-local-tests}
+
+在 PowerShell 7 中从仓库根目录运行：
+
+```powershell
+$testRunner = 'pwsh -NoProfile -File "' + (Resolve-Path 'scripts/test-exec-windows.ps1').Path + '"'
+go test -p 2 -exec $testRunner ./...
+```
+
+该入口仍由 Go 负责构建、测试选择及覆盖率参数，仅将每个包的临时测试程序复制到忽略目录 `bin/windows-tests` 的固定路径后执行。包完整相对路径区分同名 `config`／`logic`／`svc`，退出码和测试参数原样交给 Go；同一 checkout 不同时运行多个测试命令，避免覆盖正在执行的同包二进制。`-tags integration` 等标记照常使用；隔离依赖的要求不变。Linux／CI 继续使用原生 Go 命令。
+
+包装进程在启动测试前通过 Windows Job Object 管理测试及其子进程；包装进程退出或被强制终止时，一并结束这些进程，避免取消测试后留下监听服务或占用固定程序文件。该管理只作用于本次测试进程树，不终止外部已运行的开发服务。
+
+有网络的测试仅监听 `127.0.0.1` 随机端口；使用 `conf.FillDefault` 的 zrpc 测试须在构造 Server 前明确设置 `DevServer.Enabled = false`，避免 go-zero 默认额外监听全部网卡的 6060 开发端口。测试不修改生产配置，也不关闭 Windows 防火墙或全局通知。
+
+Windows 程序规则按 `.exe` 完整路径匹配，放行 `go.exe` 或旧的临时 `*.test.exe` 无法覆盖之后生成的新路径。确需本机白名单并取得机器使用者授权后，可以在**管理员 PowerShell 7** 中显式执行 `scripts/allow-local-test-firewall.ps1`。脚本仅为已列明的六个固定测试程序添加入站 TCP 规则，本地和远端地址均限 `127.0.0.1`，不允许局域网／公网客户端；报告写入忽略目录，不改其他程序规则。普通测试本身不要求提权，也不会自动运行该脚本。新增监听程序应先审查是否必要，再按实际需要单独补充规则，不能扩大成整个临时目录或全部程序放行。
 
 ## Logic 单元测试
 
@@ -213,8 +230,64 @@ go build -o /tmp/dogx-bin/system-rpc ./apps/system/rpc
 go build -o /tmp/dogx-bin/system-api ./apps/system/api
 DOGX_E2E_RPC_BINARY=/tmp/dogx-bin/system-rpc \
 DOGX_E2E_API_BINARY=/tmp/dogx-bin/system-api \
-go test -tags=integration,e2e -shuffle=on -count=1 -timeout=3m ./apps/system/e2e
+go test -tags=integration,e2e -run '^TestSystemAuthenticationAndRBACEndToEnd$' -count=1 -timeout=3m ./apps/system/e2e
 ```
+
+普通 Job 的 HTTP 执行验收复用上述 System API／RPC 生产二进制，并额外准备 Job RPC、迁移命令和 System 执行测试进程：
+
+```shell
+go build -o /tmp/dogx-bin/job-rpc ./apps/job/rpc
+go build -o /tmp/dogx-bin/job-migrate ./apps/job/cmd/migrate
+go test -c -tags=integration,e2e -o /tmp/dogx-bin/system-executor.test ./apps/system/rpc
+DOGX_E2E_RPC_BINARY=/tmp/dogx-bin/system-rpc \
+DOGX_E2E_API_BINARY=/tmp/dogx-bin/system-api \
+DOGX_E2E_JOB_RPC_BINARY=/tmp/dogx-bin/job-rpc \
+DOGX_E2E_JOB_MIGRATE_BINARY=/tmp/dogx-bin/job-migrate \
+DOGX_E2E_SYSTEM_EXECUTOR_BINARY=/tmp/dogx-bin/system-executor.test \
+go test -tags=integration,e2e -run '^TestJobOrdinaryExecutionEndToEnd$' -count=1 -timeout=5m ./apps/system/e2e
+```
+
+两项测试都需要显式配置 `DOGX_TEST_POSTGRES_DSN`、`DOGX_TEST_REDIS_HOST` 和 `DOGX_TEST_ETCD_BINARY`，使用隔离 Schema、Redis 前缀及测试持有的 etcd。Windows 使用上述固定路径包装器，并将这些二进制构建到 `bin/windows-tests` 的固定路径。
+
+System 尚未定义生产 Job 处理器，执行测试进程只在 `integration,e2e` 测试文件中注册测试处理器，通过生产 `run` 函数完成相同的依赖初始化和双 Server 装配；生产 `main` 仍不注册虚构业务。测试处理器只写隔离的 System 测试业务表，不访问 Job 表。该用例验证真实 API／Job／System 生产进程与复用生产装配的 System 测试进程之间的执行链路，不把测试处理器当成已交付业务。此 HTTP 用例的收尾仍使用强制退出，不能用它证明优雅停机；以下独立用例才主动发送操作系统停止信号。
+
+复用上述二进制和环境变量，单独运行进程生命周期验收：
+
+```sh
+DOGX_E2E_RPC_BINARY=/tmp/dogx-bin/system-rpc \
+DOGX_E2E_JOB_RPC_BINARY=/tmp/dogx-bin/job-rpc \
+DOGX_E2E_JOB_MIGRATE_BINARY=/tmp/dogx-bin/job-migrate \
+DOGX_E2E_SYSTEM_EXECUTOR_BINARY=/tmp/dogx-bin/system-executor.test \
+go test -tags=integration,e2e -run '^Test(ProductionRPCProcessSignalShutdown|SystemExecutorProcessSignalDrain|SystemExecutorProcessShutdownDeadline|JobSchedulerProcessCrashRecovery)EndToEnd$' -count=1 -timeout=4m ./apps/system/e2e
+```
+
+此命令运行四个场景：真实 Job／System 生产 Main 空载信号退出；System 测试处理器在双入口停止接收后继续完成已接纳业务并回报；不配合取消的测试业务令停机预算耗尽，宿主异常退出且平台不伪造成功；真实 Job 进程被 kill 后，仍存活的执行器完成业务，新 Job 进程通过相同发现 Key 接收原 Task／尝试结果。Job 记录只通过公开 RPC 读取，测试只操纵 System 业务表来控制业务完成时点，不伪造执行结果。进程退出、端口关闭及数据库连接归零均实际检查，不能单独据此推断内部 Close 调用顺序。
+
+Unix 使用 SIGTERM；Windows 每个测试子进程使用隐藏私有控制台，独立发送进程附着并确认该控制台仅含目标及自身后发送 CTRL_BREAK，不影响用户终端。共享的 `pkg/testutil/process` 只负责信号，每个消费包提供固定的测试发送入口；Windows 子发送器还须输出实际接收事件的确认行，缺少入口或跳过测试不能假成功。正常排空场景要求目标实际正常退出；预算耗尽场景要求实际异常退出，不能用测试收尾的强杀冒充。
+
+Job 域另有已 ACK 结果保存与丢失的真实进程验收，只需上述 Job 二进制、隔离 PostgreSQL 与 etcd：
+
+```sh
+DOGX_E2E_JOB_RPC_BINARY=/tmp/dogx-bin/job-rpc \
+go test -tags=integration,e2e -run '^TestJobResultAcknowledgementProcessRecoveryEndToEnd$' -count=1 -timeout=3m ./apps/job/rpc/internal/execution
+```
+
+测试以两个独立 Instance、单个保存者构造明确的内存排队：精确行锁卡住第一条结果的保存，目标结果获得 ACK 后尚未开始写库。正常信号退出须排空目标结果；kill 则使目标内存结果丢失，替换节点通过原有选主与复核收敛，已有结果正常成功、丢失结果按超时结束父子状态。第一条在途 SQL 的提交结果不从断连推定。该 Job 域测试使用预置的旧开始时间、已过截止时间及协议结果样本，未运行业务处理器或真实等待四分钟；不改写时间或直接调用推进组件代替恢复。
+
+复用生命周期命令中的四个二进制环境变量和隔离依赖，分别运行执行器骤停至最终超时、etcd 停止后保留数据重启两个专项：
+
+```sh
+export DOGX_E2E_RPC_BINARY=/tmp/dogx-bin/system-rpc
+export DOGX_E2E_JOB_RPC_BINARY=/tmp/dogx-bin/job-rpc
+export DOGX_E2E_JOB_MIGRATE_BINARY=/tmp/dogx-bin/job-migrate
+export DOGX_E2E_SYSTEM_EXECUTOR_BINARY=/tmp/dogx-bin/system-executor.test
+go test -tags=integration,e2e -run '^TestExecutorCrashEventuallyTimesOutEndToEnd$' -count=1 -timeout=6m ./apps/system/e2e
+go test -tags=integration,e2e -run '^TestJobProcessesRecoverAfterEtcdRestartEndToEnd$' -count=1 -timeout=3m ./apps/system/e2e
+```
+
+执行器骤停专项真实等待生产 4 分钟开始年龄门槛，仅把可部署扫描间隔设为 1 秒，不改写执行时间或直接触发检查；最终核对父子超时终态及原尝试／绑定。etcd 专项保持原 Job／System 进程存活，使用原数据和原地址重启 etcd，核对三类服务注册及实际选主使用新租约，再执行一条新 Task。Unix 实际运行与负载仍须分别取证；本场景不提供非对称分区或 etcd 数据丢失的证据。本机专项结果及最终检查状态统一见[本机收尾记录](../design/scheduler/ordinary-readiness-review.md#ordinary-local-checkpoint)，不以专项通过代替普通模块整体验收。
+
+端到端命令没有为子进程采集覆盖率；不能把这些通过结论计入 `coverage/integration.txt` 或推算 patch 覆盖率。
 
 Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通单元测试，用于发现开发环境和生产环境之间的跨平台问题。
 

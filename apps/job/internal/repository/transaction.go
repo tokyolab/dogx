@@ -16,6 +16,7 @@ type Repositories struct {
 	Jobs      JobDefinitionRepository
 	Groups    ExecutorGroupRepository
 	Instances JobInstanceRepository
+	Tasks     JobTaskRepository
 }
 
 // TransactionRunner runs a callback in one transaction. It attempts rollback if
@@ -40,6 +41,18 @@ func NewTransactionRunner(db *gorm.DB) (TransactionRunner, error) {
 	if db == nil {
 		return nil, errors.New("job transaction database is nil")
 	}
+	// A nested GORM transaction may only release a savepoint. Its success would
+	// incorrectly authorize post-commit actions before the outer commit exists.
+	if db.Statement != nil {
+		if _, nested := db.Statement.ConnPool.(gorm.TxCommitter); nested {
+			return nil, errors.New("job transaction runner requires an independently committing database handle")
+		}
+	}
+	if db.Config != nil {
+		if _, nested := db.ConnPool.(gorm.TxCommitter); nested {
+			return nil, errors.New("job transaction runner requires an independently committing database handle")
+		}
+	}
 	return func(ctx context.Context, fn func(Repositories) error) error {
 		if fn == nil {
 			return errors.New("job transaction callback is nil")
@@ -59,7 +72,11 @@ func NewTransactionRunner(db *gorm.DB) (TransactionRunner, error) {
 			if err != nil {
 				return err
 			}
-			return fn(Repositories{Jobs: jobs, Groups: groups, Instances: instances})
+			tasks, err := NewJobTaskRepository(tx)
+			if err != nil {
+				return err
+			}
+			return fn(Repositories{Jobs: jobs, Groups: groups, Instances: instances, Tasks: tasks})
 		})
 		if err != nil {
 			return fmt.Errorf("job transaction: %w", err)

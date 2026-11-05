@@ -31,6 +31,7 @@ import (
 	commonsubcode "github.com/tokyolab/dogx/pkg/subcode"
 	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 	"github.com/zeromicro/go-zero/core/stores/redis"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"gorm.io/gorm"
@@ -121,12 +122,18 @@ func TestSystemAuthenticationAndRBACEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse end-to-end PostgreSQL DSN: %v", err)
 	}
+	etcdEndpoint := systemE2EEtcd(t)
 	rpcPort := freeTCPPort(t)
 	apiPort := freeTCPPort(t)
+	executorPort := freeTCPPort(t)
+	for executorPort == rpcPort || executorPort == apiPort {
+		executorPort = freeTCPPort(t)
+	}
 	configDir := t.TempDir()
 	rpcConfig := filepath.Join(configDir, "system-rpc.yaml")
 	apiConfig := filepath.Join(configDir, "system-api.yaml")
-	writeFile(t, rpcConfig, rpcConfigYAML(rpcPort, sessionPrefix, userSessionsPrefix, policyChannel))
+	writeFile(t, rpcConfig, rpcConfigYAML(rpcPort, executorPort, etcdEndpoint, "/dogx/test/e2e/"+schema,
+		sessionPrefix, userSessionsPrefix, policyChannel))
 	writeFile(t, apiConfig, apiConfigYAML(apiPort, rpcPort, sessionPrefix, policyChannel))
 
 	processEnv := append(os.Environ(),
@@ -495,11 +502,37 @@ func writeFile(t testing.TB, path, content string) {
 	}
 }
 
-func rpcConfigYAML(port int, sessionPrefix, userSessionsPrefix, policyChannel string) string {
+func rpcConfigYAML(port, executorPort int, etcdEndpoint, discoveryPrefix, sessionPrefix, userSessionsPrefix, policyChannel string) string {
 	return fmt.Sprintf(`Name: system-rpc-e2e
 ListenOn: 127.0.0.1:%d
 Mode: test
 Timeout: 5000
+DevServer:
+  Enabled: false
+
+JobExecutor:
+  GroupName: system-e2e
+  Token: "00000000000040008000000000000001"
+  Server:
+    Name: system-executor-e2e
+    ListenOn: 127.0.0.1:%d
+    Auth: false
+    Health: true
+    Etcd:
+      Hosts:
+        - %q
+      Key: %s/executor
+  ReportClient:
+    Etcd:
+      Hosts:
+        - %q
+      Key: %s/results
+    NonBlock: true
+  Runtime:
+    Concurrency: 32
+    QueueCapacity: 128
+    ReportCapacity: 256
+    ReportConcurrency: 16
 
 App:
   ReadinessTimeout: 2s
@@ -534,7 +567,8 @@ RedisConf:
   PingTimeout: 1s
   DisableIdentity: true
   MaintNotifications: disabled
-`, port, sessionPrefix, userSessionsPrefix, policyChannel)
+`, port, executorPort, etcdEndpoint, discoveryPrefix, etcdEndpoint, discoveryPrefix,
+		sessionPrefix, userSessionsPrefix, policyChannel)
 }
 
 func apiConfigYAML(port, rpcPort int, sessionPrefix, policyChannel string) string {
@@ -543,6 +577,8 @@ Host: 127.0.0.1
 Port: %d
 Mode: test
 Timeout: 5000
+DevServer:
+  Enabled: false
 
 App:
   Version: e2e
@@ -612,6 +648,49 @@ type runningProcess struct {
 	err error
 }
 
+// systemE2EEtcd supplies real discovery to the embedded executor while the test
+// remains scoped to authentication and RBAC. Its empty result key intentionally
+// has no scheduler; nonblocking reporting must not prevent System from serving.
+func systemE2EEtcd(t testing.TB) string {
+	t.Helper()
+	binary := requiredBinary(t, "DOGX_TEST_ETCD_BINARY")
+	endpoint := "http://127.0.0.1:" + strconv.Itoa(freeTCPPort(t))
+	peerURL := "http://127.0.0.1:" + strconv.Itoa(freeTCPPort(t))
+	for peerURL == endpoint {
+		peerURL = "http://127.0.0.1:" + strconv.Itoa(freeTCPPort(t))
+	}
+	dir := t.TempDir()
+	process := startProcess(t, "etcd", binary, os.Environ(),
+		"--name", "test", "--data-dir", filepath.Join(dir, "data"),
+		"--listen-client-urls", endpoint, "--advertise-client-urls", endpoint,
+		"--listen-peer-urls", peerURL, "--initial-advertise-peer-urls", peerURL,
+		"--initial-cluster", "test="+peerURL, "--initial-cluster-token", filepath.Base(dir), "--log-level", "error")
+	client, err := clientv3.New(clientv3.Config{Endpoints: []string{endpoint}, DialTimeout: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = client.Close() }()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		probe, stop := context.WithTimeout(ctx, 200*time.Millisecond)
+		response, err := client.Status(probe, endpoint)
+		stop()
+		if err == nil && response.Leader != 0 {
+			return endpoint
+		}
+		select {
+		case <-process.done:
+			t.Fatal(process.failure())
+		case <-ctx.Done():
+			t.Fatal("isolated end-to-end etcd did not become ready")
+		case <-ticker.C:
+		}
+	}
+}
+
 func startProcess(
 	t testing.TB,
 	name string,
@@ -623,6 +702,7 @@ func startProcess(
 	ctx, cancel := context.WithCancel(context.Background())
 	process := &runningProcess{name: name, cancel: cancel, done: make(chan struct{})}
 	process.cmd = exec.CommandContext(ctx, binary, arguments...)
+	configureE2ESignalProcess(process.cmd)
 	process.cmd.Env = environment
 	process.cmd.Stdout = &process.logs
 	process.cmd.Stderr = &process.logs
@@ -665,7 +745,11 @@ func waitForRPCReady(t testing.TB, port int, process *runningProcess) {
 	if err != nil {
 		t.Fatalf("create RPC readiness client: %v", err)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			t.Errorf("close RPC readiness client: %v", err)
+		}
+	}()
 	client := system.NewSystemClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()

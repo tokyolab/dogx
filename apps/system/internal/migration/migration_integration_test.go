@@ -28,8 +28,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 24 {
-		t.Fatalf("unexpected applied migration count: got %d, want 24", len(results))
+	if len(results) != 27 {
+		t.Fatalf("unexpected applied migration count: got %d, want 27", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -123,8 +123,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20261016093000 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20261016093000", version)
+	if version != 20261105200000 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20261105200000", version)
 	}
 
 	expectedTables := map[string]string{
@@ -294,6 +294,67 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	assertColumnComment(t, ctx, sqlDB, "sys_security_config", "created_at", "创建时间")
 	assertColumnComment(t, ctx, sqlDB, "sys_security_config", "updated_at", "更新时间")
 	assertColumnComment(t, ctx, sqlDB, "sys_login_log", "user_id", "登录时关联的用户主键，未识别到用户时为NULL；用户删除后保留原值")
+	for _, path := range []string{"/job/group/create", "/job/group/get", "/job/group/list", "/job/group/delete"} {
+		if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE service_name='system-api' AND path=$1 AND method='POST' AND status=1 AND is_required=FALSE AND deleted_at IS NULL", path).Scan(&seedCount); err != nil || seedCount != 1 {
+			t.Fatalf("executor group API seed %s: count=%d error=%v", path, seedCount, err)
+		}
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM casbin_rule WHERE ptype='p' AND v1 LIKE '/job/group/%'").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("group API migration implicitly granted permissions: count=%d error=%v", seedCount, err)
+	}
+	if _, err := sqlDB.ExecContext(ctx, "INSERT INTO casbin_rule (ptype,v0,v1,v2) VALUES ('p','r:7','/job/group/get','POST')"); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/job/instance/get", "/job/task/list"} {
+		if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE service_name='system-api' AND path=$1 AND method='POST' AND status=1 AND is_required=FALSE AND deleted_at IS NULL", path).Scan(&seedCount); err != nil || seedCount != 1 {
+			t.Fatalf("execution query API seed %s: count=%d error=%v", path, seedCount, err)
+		}
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM casbin_rule WHERE ptype='p' AND v1 IN ('/job/instance/get','/job/task/list')").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("execution query migration implicitly granted permissions: count=%d error=%v", seedCount, err)
+	}
+	if _, err := sqlDB.ExecContext(ctx, "INSERT INTO casbin_rule (ptype,v0,v1,v2) VALUES ('p','r:7','/job/instance/get','POST')"); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE service_name='system-api' AND path='/job/instance/stop' AND method='POST' AND status=1 AND is_required=FALSE AND deleted_at IS NULL").Scan(&seedCount); err != nil || seedCount != 1 {
+		t.Fatalf("instance stop API seed: count=%d error=%v", seedCount, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM casbin_rule WHERE ptype='p' AND v1='/job/instance/stop'").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("instance stop migration implicitly granted permissions: count=%d error=%v", seedCount, err)
+	}
+	if _, err := sqlDB.ExecContext(ctx, "INSERT INTO casbin_rule (ptype,v0,v1,v2) VALUES ('p','r:7','/job/instance/stop','POST')"); err != nil {
+		t.Fatal(err)
+	}
+	stopDown, err := provider.Down(ctx)
+	if err != nil || stopDown.Source.Version != 20261105200000 {
+		t.Fatalf("instance stop rollback: %+v %v", stopDown, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE path='/job/instance/stop'").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("instance stop rollback left resources: count=%d error=%v", seedCount, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM casbin_rule WHERE ptype='p' AND v1='/job/instance/stop' AND v2='POST'").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("instance stop rollback left permissions: count=%d error=%v", seedCount, err)
+	}
+	executionDown, err := provider.Down(ctx)
+	if err != nil || executionDown.Source.Version != 20261105180000 {
+		t.Fatalf("execution query rollback: %+v %v", executionDown, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE path IN ('/job/instance/get','/job/task/list')").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("execution query rollback left resources: count=%d error=%v", seedCount, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM casbin_rule WHERE ptype='p' AND v1='/job/instance/get' AND v2='POST'").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("execution query rollback left permissions: count=%d error=%v", seedCount, err)
+	}
+	groupDown, err := provider.Down(ctx)
+	if err != nil || groupDown.Source.Version != 20261104143000 {
+		t.Fatalf("executor group management rollback: %+v %v", groupDown, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE path LIKE '/job/group/%'").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("group API rollback left resources: count=%d error=%v", seedCount, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM casbin_rule WHERE ptype='p' AND v1='/job/group/get' AND v2='POST'").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("group API rollback left permissions: count=%d error=%v", seedCount, err)
+	}
 	for _, path := range []string{"/job/list", "/job/get", "/job/create", "/job/update", "/job/status/update", "/job/delete", "/job/cron/preview", "/job/trigger"} {
 		if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE service_name='system-api' AND path=$1 AND method='POST' AND status=1 AND is_required=FALSE AND deleted_at IS NULL", path).Scan(&seedCount); err != nil || seedCount != 1 {
 			t.Fatalf("Job API seed %s: count=%d error=%v", path, seedCount, err)
@@ -618,7 +679,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 22 ||
+	if len(reapplyResults) != 25 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
@@ -640,7 +701,10 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		reapplyResults[18].Source.Version != 20260930141521 ||
 		reapplyResults[19].Source.Version != 20260930142445 ||
 		reapplyResults[20].Source.Version != 20260930143512 ||
-		reapplyResults[21].Source.Version != 20261016093000 {
+		reapplyResults[21].Source.Version != 20261016093000 ||
+		reapplyResults[22].Source.Version != 20261104143000 ||
+		reapplyResults[23].Source.Version != 20261105180000 ||
+		reapplyResults[24].Source.Version != 20261105200000 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 	assertSystemMenuSeed(t, ctx, sqlDB)

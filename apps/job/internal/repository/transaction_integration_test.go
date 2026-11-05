@@ -10,7 +10,29 @@ import (
 	"github.com/google/uuid"
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/testutil"
+	"gorm.io/gorm"
 )
+
+func TestTransactionRunnerRejectsOuterTransactionsWithoutTakingOwnership(t *testing.T) {
+	db, _ := testutil.OpenMigratedPostgres(t)
+	for _, prepared := range []bool{false, true} {
+		tx := db.Session(&gorm.Session{PrepareStmt: prepared}).Begin()
+		if tx.Error != nil {
+			t.Fatal(tx.Error)
+		}
+		defer tx.Rollback()
+		if runner, err := NewTransactionRunner(tx); err == nil || runner != nil {
+			t.Fatal("nested savepoint success could masquerade as a confirmed root commit")
+		}
+		var one int
+		if err := tx.Raw("SELECT 1").Scan(&one).Error; err != nil || one != 1 {
+			t.Fatal("rejected construction damaged the caller's existing transaction")
+		}
+		if err := tx.Commit().Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
 func TestTransactionRunnerCommitsOrRollsBackAllRepositories(t *testing.T) {
 	for _, rollback := range []bool{false, true} {
@@ -20,7 +42,7 @@ func TestTransactionRunnerCommitsOrRollsBackAllRepositories(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			db, _ := testutil.OpenMigratedPostgres(t)
-			group := model.ExecutorGroup{Name: "transaction group"}
+			group := model.ExecutorGroup{Name: "transaction group", DiscoveryKey: "test.transaction.group", Token: "00000000000040008000000000000001"}
 			if err := db.Create(&group).Error; err != nil {
 				t.Fatal(err)
 			}

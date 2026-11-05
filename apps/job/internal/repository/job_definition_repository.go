@@ -88,6 +88,13 @@ type JobDefinitionRepository interface {
 	// It never returns nil, nil.
 	Get(context.Context, int64) (*JobDetail, error)
 
+	// HasGroupReferences reports whether any undeleted Job references the group,
+	// including disabled Jobs. It takes no Job locks. For group deletion, first
+	// lock that group through LockAvailable in the same transaction and issue this
+	// query separately, then check active Instances only if this returns false.
+	// This order observes references committed by the preceding group-lock holder.
+	HasGroupReferences(context.Context, int64) (bool, error)
+
 	// Lock locks the Job by primary key in the caller's explicit transaction.
 	// The lock lasts until the transaction ends. The result contains configuration,
 	// status, and stored progress needed for triggering and status changes, not
@@ -203,6 +210,18 @@ func (r *jobDefinitionRepository) Get(ctx context.Context, id int64) (*JobDetail
 		return nil, fmt.Errorf("get job: %w", err)
 	}
 	return &item, nil
+}
+
+func (r *jobDefinitionRepository) HasGroupReferences(ctx context.Context, groupID int64) (bool, error) {
+	var referenced bool
+	db := r.db.WithContext(ctx)
+	query := db.Model(&model.JobDefinition{}).Select("1").Where("executor_group_id = ?", groupID)
+	// The tableless EXISTS wrapper is SQL; GORM applies the model's soft-delete
+	// scope to the subquery, matching the existing group-reference partial index.
+	if err := db.Raw("SELECT EXISTS (?)", query).Scan(&referenced).Error; err != nil {
+		return false, fmt.Errorf("check executor group job references: %w", err)
+	}
+	return referenced, nil
 }
 
 func (r *jobDefinitionRepository) Lock(ctx context.Context, id int64) (*model.JobDefinition, error) {

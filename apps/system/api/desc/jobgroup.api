@@ -1,0 +1,53 @@
+import "base.api"
+
+type (
+	CreateExecutorGroupReq {
+		Name         string `json:"name" validate:"required,max=128"`
+		DiscoveryKey string `json:"discoveryKey" validate:"required,max=255"`
+	}
+	CreateExecutorGroupResp {
+		Id int64 `json:"id"`
+	}
+	ListExecutorGroupsReq {
+		PageReq
+		Name string `json:"name,optional"`
+	}
+	ExecutorGroupListItem {
+		Id           int64  `json:"id"`
+		Name         string `json:"name"`
+		DiscoveryKey string `json:"discoveryKey"`
+		CreatedAt    string `json:"createdAt"`
+		UpdatedAt    string `json:"updatedAt"`
+	}
+	ExecutorGroupDetail {
+		Id           int64  `json:"id"`
+		Name         string `json:"name"`
+		DiscoveryKey string `json:"discoveryKey"`
+		Token        string `json:"token"`
+		CreatedAt    string `json:"createdAt"`
+		UpdatedAt    string `json:"updatedAt"`
+	}
+	ListExecutorGroupsResp {
+		Items []ExecutorGroupListItem `json:"items"`
+		PageMeta
+	}
+)
+
+@server (
+	group: jobgroup
+	jwt: Auth
+	middleware: SessionAuth, Authorization
+)
+service system-api {
+	@handler createExecutorGroup
+	post /job/group/create (CreateExecutorGroupReq) returns (CreateExecutorGroupResp)
+
+	@handler getExecutorGroup
+	post /job/group/get (IDReq) returns (ExecutorGroupDetail)
+
+	@handler listExecutorGroups
+	post /job/group/list (ListExecutorGroupsReq) returns (ListExecutorGroupsResp)
+
+	@handler deleteExecutorGroup
+	post /job/group/delete (IDReq) returns (EmptyResp)
+}

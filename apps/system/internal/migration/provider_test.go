@@ -20,8 +20,17 @@ func TestNewProviderLoadsEmbeddedMigrations(t *testing.T) {
 	}
 
 	sources := provider.ListSources()
-	if len(sources) != 24 {
-		t.Fatalf("unexpected migration count: got %d, want 24", len(sources))
+	if len(sources) != 27 {
+		t.Fatalf("unexpected migration count: got %d, want 27", len(sources))
+	}
+	if sources[26].Version != 20261105200000 {
+		t.Fatalf("unexpected instance stop migration: %+v", sources[26])
+	}
+	if sources[25].Version != 20261105180000 {
+		t.Fatalf("unexpected execution query migration: %+v", sources[25])
+	}
+	if sources[24].Version != 20261104143000 {
+		t.Fatalf("unexpected executor group management migration: %+v", sources[24])
 	}
 	if sources[23].Version != 20261016093000 {
 		t.Fatalf("unexpected Job management migration: %+v", sources[23])

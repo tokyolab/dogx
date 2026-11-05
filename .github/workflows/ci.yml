@@ -166,13 +166,59 @@ jobs:
 
       - name: Test authentication and RBAC end to end
         env:
+          DOGX_TEST_ETCD_BINARY: ${{ runner.temp }}/dogx-etcd/etcd
           DOGX_E2E_RPC_BINARY: ${{ runner.temp }}/dogx-bin/system-rpc
           DOGX_E2E_API_BINARY: ${{ runner.temp }}/dogx-bin/system-api
         run: |
           mkdir -p "${{ runner.temp }}/dogx-bin"
           go build -o "$DOGX_E2E_RPC_BINARY" ./apps/system/rpc
           go build -o "$DOGX_E2E_API_BINARY" ./apps/system/api
-          go test -tags=integration,e2e -shuffle=on -count=1 -timeout=3m ./apps/system/e2e
+          go test -tags=integration,e2e -run '^TestSystemAuthenticationAndRBACEndToEnd$' -count=1 -timeout=3m ./apps/system/e2e
+
+      - name: Test ordinary Job execution end to end
+        env:
+          DOGX_TEST_ETCD_BINARY: ${{ runner.temp }}/dogx-etcd/etcd
+          DOGX_E2E_RPC_BINARY: ${{ runner.temp }}/dogx-bin/system-rpc
+          DOGX_E2E_API_BINARY: ${{ runner.temp }}/dogx-bin/system-api
+          DOGX_E2E_JOB_RPC_BINARY: ${{ runner.temp }}/dogx-bin/job-rpc
+          DOGX_E2E_JOB_MIGRATE_BINARY: ${{ runner.temp }}/dogx-bin/job-migrate
+          DOGX_E2E_SYSTEM_EXECUTOR_BINARY: ${{ runner.temp }}/dogx-bin/system-executor.test
+        run: |
+          go build -o "$DOGX_E2E_JOB_RPC_BINARY" ./apps/job/rpc
+          go build -o "$DOGX_E2E_JOB_MIGRATE_BINARY" ./apps/job/cmd/migrate
+          go test -c -tags=integration,e2e -o "$DOGX_E2E_SYSTEM_EXECUTOR_BINARY" ./apps/system/rpc
+          go test -tags=integration,e2e -run '^TestJobOrdinaryExecutionEndToEnd$' -count=1 -timeout=5m ./apps/system/e2e
+
+      - name: Test RPC process shutdown and scheduler crash recovery
+        env:
+          DOGX_TEST_ETCD_BINARY: ${{ runner.temp }}/dogx-etcd/etcd
+          DOGX_E2E_RPC_BINARY: ${{ runner.temp }}/dogx-bin/system-rpc
+          DOGX_E2E_JOB_RPC_BINARY: ${{ runner.temp }}/dogx-bin/job-rpc
+          DOGX_E2E_JOB_MIGRATE_BINARY: ${{ runner.temp }}/dogx-bin/job-migrate
+          DOGX_E2E_SYSTEM_EXECUTOR_BINARY: ${{ runner.temp }}/dogx-bin/system-executor.test
+        run: go test -tags=integration,e2e -run '^Test(ProductionRPCProcessSignalShutdown|SystemExecutorProcessSignalDrain|SystemExecutorProcessShutdownDeadline|JobSchedulerProcessCrashRecovery)EndToEnd$' -count=1 -timeout=4m ./apps/system/e2e
+
+      - name: Test acknowledged results across shutdown and crash
+        env:
+          DOGX_TEST_ETCD_BINARY: ${{ runner.temp }}/dogx-etcd/etcd
+          DOGX_E2E_JOB_RPC_BINARY: ${{ runner.temp }}/dogx-bin/job-rpc
+        run: go test -tags=integration,e2e -run '^TestJobResultAcknowledgementProcessRecoveryEndToEnd$' -count=1 -timeout=3m ./apps/job/rpc/internal/execution
+
+      - name: Test executor crash through the recovery age gate
+        env:
+          DOGX_TEST_ETCD_BINARY: ${{ runner.temp }}/dogx-etcd/etcd
+          DOGX_E2E_JOB_RPC_BINARY: ${{ runner.temp }}/dogx-bin/job-rpc
+          DOGX_E2E_JOB_MIGRATE_BINARY: ${{ runner.temp }}/dogx-bin/job-migrate
+          DOGX_E2E_SYSTEM_EXECUTOR_BINARY: ${{ runner.temp }}/dogx-bin/system-executor.test
+        run: go test -tags=integration,e2e -run '^TestExecutorCrashEventuallyTimesOutEndToEnd$' -count=1 -timeout=6m ./apps/system/e2e
+
+      - name: Test running processes across etcd restart
+        env:
+          DOGX_TEST_ETCD_BINARY: ${{ runner.temp }}/dogx-etcd/etcd
+          DOGX_E2E_JOB_RPC_BINARY: ${{ runner.temp }}/dogx-bin/job-rpc
+          DOGX_E2E_JOB_MIGRATE_BINARY: ${{ runner.temp }}/dogx-bin/job-migrate
+          DOGX_E2E_SYSTEM_EXECUTOR_BINARY: ${{ runner.temp }}/dogx-bin/system-executor.test
+        run: go test -tags=integration,e2e -run '^TestJobProcessesRecoverAfterEtcdRestartEndToEnd$' -count=1 -timeout=3m ./apps/system/e2e
 
       - name: Upload integration coverage to Codecov
         uses: codecov/codecov-action@v7

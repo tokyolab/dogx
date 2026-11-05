@@ -154,7 +154,7 @@ func TestManagementFailuresDoNotNotify(t *testing.T) {
 				s := managementContext(r)
 				if step == "commit" {
 					s.Transactions = func(_ context.Context, fn func(repository.Repositories) error) error {
-						if err := fn(repository.Repositories{Jobs: r, Groups: r, Instances: r}); err != nil {
+						if err := fn(repository.Repositories{Jobs: r, Groups: &groupRepositoryStub{r}, Instances: r}); err != nil {
 							return err
 						}
 						return failure

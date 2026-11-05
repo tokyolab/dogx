@@ -9,13 +9,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/tokyolab/dogx/apps/system/internal/migration"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
+	"github.com/tokyolab/dogx/pkg/jobexecutor"
 	"github.com/tokyolab/dogx/pkg/postgres"
 	testutil "github.com/tokyolab/dogx/pkg/testutil/postgres"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/zeromicro/go-zero/core/discov"
+	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/core/stores/redis"
+	"github.com/zeromicro/go-zero/zrpc"
 )
 
 const testRedisHostEnv = "DOGX_TEST_REDIS_HOST"
@@ -38,7 +43,7 @@ func TestNewServiceContextWiresDependencies(t *testing.T) {
 	}
 	t.Setenv("PGOPTIONS", "-c search_path="+schema)
 	c := testServiceConfig(t)
-	ctx, err := NewServiceContext(c)
+	ctx, err := NewServiceContext(c, nil)
 	if err != nil {
 		t.Fatalf("create service context: %v", err)
 	}
@@ -99,7 +104,7 @@ func TestNewServiceContextRejectsInvalidRedisConfig(t *testing.T) {
 	c := testServiceConfig(t)
 	c.RedisConf = redis.RedisConf{}
 
-	ctx, err := NewServiceContext(c)
+	ctx, err := NewServiceContext(c, nil)
 	if err == nil {
 		if ctx != nil {
 			_ = ctx.Close()
@@ -122,8 +127,31 @@ func testServiceConfig(t testing.TB) config.Config {
 	if redisHost == "" {
 		t.Fatalf("%s is required for service-context integration tests", testRedisHostEnv)
 	}
+	etcdEndpoint := systemServiceEtcdEndpoint(t)
+	discoveryPrefix := "/dogx/test/system-svc/" + uuid.NewString()
+	hostRPC := zrpc.RpcServerConf{ListenOn: systemServiceTestAddress(t)}
+	hostRPC.Name, hostRPC.Mode = "system-svc-test", service.TestMode
+	hostRPC.DevServer.Enabled = false
+	executorAddress := systemServiceTestAddress(t)
+	for executorAddress == hostRPC.ListenOn {
+		executorAddress = systemServiceTestAddress(t)
+	}
 
 	return config.Config{
+		RpcServerConf: hostRPC,
+		JobExecutor: jobexecutor.Config{
+			GroupName: "system-svc-test",
+			Token:     "00000000000040008000000000000001",
+			Server: zrpc.RpcServerConf{
+				ListenOn: executorAddress,
+				Etcd:     discov.EtcdConf{Hosts: []string{etcdEndpoint}, Key: discoveryPrefix + "/executor"},
+			},
+			ReportClient: zrpc.RpcClientConf{
+				Etcd:     discov.EtcdConf{Hosts: []string{etcdEndpoint}, Key: discoveryPrefix + "/results"},
+				NonBlock: true,
+			},
+			Runtime: jobexecutor.RuntimeConfig{Concurrency: 32, QueueCapacity: 128, ReportCapacity: 256, ReportConcurrency: 16},
+		},
 		Authentication: config.AuthenticationConf{
 			AccessSecret:          "0123456789abcdef0123456789abcdef",
 			AccessExpire:          15 * time.Minute,

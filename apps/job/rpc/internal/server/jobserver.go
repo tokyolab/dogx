@@ -62,3 +62,38 @@ func (s *JobServer) TriggerJob(ctx context.Context, in *job.TriggerJobRequest) (
 	l := logic.NewTriggerJobLogic(ctx, s.svcCtx)
 	return l.TriggerJob(in)
 }
+
+func (s *JobServer) CreateExecutorGroup(ctx context.Context, in *job.CreateExecutorGroupRequest) (*job.CreateExecutorGroupResponse, error) {
+	l := logic.NewCreateExecutorGroupLogic(ctx, s.svcCtx)
+	return l.CreateExecutorGroup(in)
+}
+
+func (s *JobServer) GetExecutorGroup(ctx context.Context, in *job.GetExecutorGroupRequest) (*job.GetExecutorGroupResponse, error) {
+	l := logic.NewGetExecutorGroupLogic(ctx, s.svcCtx)
+	return l.GetExecutorGroup(in)
+}
+
+func (s *JobServer) ListExecutorGroups(ctx context.Context, in *job.ListExecutorGroupsRequest) (*job.ListExecutorGroupsResponse, error) {
+	l := logic.NewListExecutorGroupsLogic(ctx, s.svcCtx)
+	return l.ListExecutorGroups(in)
+}
+
+func (s *JobServer) DeleteExecutorGroup(ctx context.Context, in *job.DeleteExecutorGroupRequest) (*job.EmptyResponse, error) {
+	l := logic.NewDeleteExecutorGroupLogic(ctx, s.svcCtx)
+	return l.DeleteExecutorGroup(in)
+}
+
+func (s *JobServer) GetInstance(ctx context.Context, in *job.GetInstanceRequest) (*job.GetInstanceResponse, error) {
+	l := logic.NewGetInstanceLogic(ctx, s.svcCtx)
+	return l.GetInstance(in)
+}
+
+func (s *JobServer) StopInstance(ctx context.Context, in *job.StopInstanceRequest) (*job.StopInstanceResponse, error) {
+	l := logic.NewStopInstanceLogic(ctx, s.svcCtx)
+	return l.StopInstance(in)
+}
+
+func (s *JobServer) ListInstanceTasks(ctx context.Context, in *job.ListInstanceTasksRequest) (*job.ListInstanceTasksResponse, error) {
+	l := logic.NewListInstanceTasksLogic(ctx, s.svcCtx)
+	return l.ListInstanceTasks(in)
+}

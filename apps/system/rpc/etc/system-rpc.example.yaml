@@ -2,6 +2,39 @@ Name: system-rpc
 ListenOn: 0.0.0.0:9001
 Mode: dev
 Timeout: 5000
+Shutdown:
+  # One process-wide budget, including wrap-up and dependency cleanup.
+  WrapUpTime: 1s
+  WaitTime: 30s
+
+JobExecutor:
+  GroupName: system.executor
+  Token: "${DOGX_JOB_EXECUTOR_TOKEN}"
+  Server:
+    # Required by the native decoder; process settings come from the top level.
+    Name: system-rpc
+    ListenOn: 0.0.0.0:9004
+    Etcd:
+      Hosts:
+        - 127.0.0.1:2379
+      # Use this exact discovery key when creating the executor group.
+      Key: /dogx/development/default/executor/system.executor
+    Auth: false
+    Health: true
+    MethodTimeouts:
+      # Keep this admission timeout aligned with Job Dispatch.RPCTimeout.
+      - FullMethod: /jobexecutor.Executor/DispatchTask
+        Timeout: 3s
+  ReportClient:
+    Etcd:
+      Hosts:
+        - 127.0.0.1:2379
+      Key: /dogx/development/default/rpc/job-execution
+  Runtime:
+    Concurrency: 32
+    QueueCapacity: 128
+    ReportCapacity: 256
+    ReportConcurrency: 16
 
 App:
   ReadinessTimeout: 2s

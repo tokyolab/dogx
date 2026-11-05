@@ -19,14 +19,21 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Job_ListJobs_FullMethodName        = "/job.Job/ListJobs"
-	Job_GetJob_FullMethodName          = "/job.Job/GetJob"
-	Job_CreateJob_FullMethodName       = "/job.Job/CreateJob"
-	Job_UpdateJob_FullMethodName       = "/job.Job/UpdateJob"
-	Job_UpdateJobStatus_FullMethodName = "/job.Job/UpdateJobStatus"
-	Job_DeleteJob_FullMethodName       = "/job.Job/DeleteJob"
-	Job_PreviewJobCron_FullMethodName  = "/job.Job/PreviewJobCron"
-	Job_TriggerJob_FullMethodName      = "/job.Job/TriggerJob"
+	Job_ListJobs_FullMethodName            = "/job.Job/ListJobs"
+	Job_GetJob_FullMethodName              = "/job.Job/GetJob"
+	Job_CreateJob_FullMethodName           = "/job.Job/CreateJob"
+	Job_UpdateJob_FullMethodName           = "/job.Job/UpdateJob"
+	Job_UpdateJobStatus_FullMethodName     = "/job.Job/UpdateJobStatus"
+	Job_DeleteJob_FullMethodName           = "/job.Job/DeleteJob"
+	Job_PreviewJobCron_FullMethodName      = "/job.Job/PreviewJobCron"
+	Job_TriggerJob_FullMethodName          = "/job.Job/TriggerJob"
+	Job_CreateExecutorGroup_FullMethodName = "/job.Job/CreateExecutorGroup"
+	Job_GetExecutorGroup_FullMethodName    = "/job.Job/GetExecutorGroup"
+	Job_ListExecutorGroups_FullMethodName  = "/job.Job/ListExecutorGroups"
+	Job_DeleteExecutorGroup_FullMethodName = "/job.Job/DeleteExecutorGroup"
+	Job_GetInstance_FullMethodName         = "/job.Job/GetInstance"
+	Job_StopInstance_FullMethodName        = "/job.Job/StopInstance"
+	Job_ListInstanceTasks_FullMethodName   = "/job.Job/ListInstanceTasks"
 )
 
 // JobClient is the client API for Job service.
@@ -41,6 +48,13 @@ type JobClient interface {
 	DeleteJob(ctx context.Context, in *DeleteJobRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	PreviewJobCron(ctx context.Context, in *PreviewJobCronRequest, opts ...grpc.CallOption) (*PreviewJobCronResponse, error)
 	TriggerJob(ctx context.Context, in *TriggerJobRequest, opts ...grpc.CallOption) (*TriggerJobResponse, error)
+	CreateExecutorGroup(ctx context.Context, in *CreateExecutorGroupRequest, opts ...grpc.CallOption) (*CreateExecutorGroupResponse, error)
+	GetExecutorGroup(ctx context.Context, in *GetExecutorGroupRequest, opts ...grpc.CallOption) (*GetExecutorGroupResponse, error)
+	ListExecutorGroups(ctx context.Context, in *ListExecutorGroupsRequest, opts ...grpc.CallOption) (*ListExecutorGroupsResponse, error)
+	DeleteExecutorGroup(ctx context.Context, in *DeleteExecutorGroupRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	GetInstance(ctx context.Context, in *GetInstanceRequest, opts ...grpc.CallOption) (*GetInstanceResponse, error)
+	StopInstance(ctx context.Context, in *StopInstanceRequest, opts ...grpc.CallOption) (*StopInstanceResponse, error)
+	ListInstanceTasks(ctx context.Context, in *ListInstanceTasksRequest, opts ...grpc.CallOption) (*ListInstanceTasksResponse, error)
 }
 
 type jobClient struct {
@@ -131,6 +145,76 @@ func (c *jobClient) TriggerJob(ctx context.Context, in *TriggerJobRequest, opts 
 	return out, nil
 }
 
+func (c *jobClient) CreateExecutorGroup(ctx context.Context, in *CreateExecutorGroupRequest, opts ...grpc.CallOption) (*CreateExecutorGroupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateExecutorGroupResponse)
+	err := c.cc.Invoke(ctx, Job_CreateExecutorGroup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *jobClient) GetExecutorGroup(ctx context.Context, in *GetExecutorGroupRequest, opts ...grpc.CallOption) (*GetExecutorGroupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetExecutorGroupResponse)
+	err := c.cc.Invoke(ctx, Job_GetExecutorGroup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *jobClient) ListExecutorGroups(ctx context.Context, in *ListExecutorGroupsRequest, opts ...grpc.CallOption) (*ListExecutorGroupsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListExecutorGroupsResponse)
+	err := c.cc.Invoke(ctx, Job_ListExecutorGroups_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *jobClient) DeleteExecutorGroup(ctx context.Context, in *DeleteExecutorGroupRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmptyResponse)
+	err := c.cc.Invoke(ctx, Job_DeleteExecutorGroup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *jobClient) GetInstance(ctx context.Context, in *GetInstanceRequest, opts ...grpc.CallOption) (*GetInstanceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetInstanceResponse)
+	err := c.cc.Invoke(ctx, Job_GetInstance_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *jobClient) StopInstance(ctx context.Context, in *StopInstanceRequest, opts ...grpc.CallOption) (*StopInstanceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StopInstanceResponse)
+	err := c.cc.Invoke(ctx, Job_StopInstance_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *jobClient) ListInstanceTasks(ctx context.Context, in *ListInstanceTasksRequest, opts ...grpc.CallOption) (*ListInstanceTasksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListInstanceTasksResponse)
+	err := c.cc.Invoke(ctx, Job_ListInstanceTasks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // JobServer is the server API for Job service.
 // All implementations must embed UnimplementedJobServer
 // for forward compatibility.
@@ -143,6 +227,13 @@ type JobServer interface {
 	DeleteJob(context.Context, *DeleteJobRequest) (*EmptyResponse, error)
 	PreviewJobCron(context.Context, *PreviewJobCronRequest) (*PreviewJobCronResponse, error)
 	TriggerJob(context.Context, *TriggerJobRequest) (*TriggerJobResponse, error)
+	CreateExecutorGroup(context.Context, *CreateExecutorGroupRequest) (*CreateExecutorGroupResponse, error)
+	GetExecutorGroup(context.Context, *GetExecutorGroupRequest) (*GetExecutorGroupResponse, error)
+	ListExecutorGroups(context.Context, *ListExecutorGroupsRequest) (*ListExecutorGroupsResponse, error)
+	DeleteExecutorGroup(context.Context, *DeleteExecutorGroupRequest) (*EmptyResponse, error)
+	GetInstance(context.Context, *GetInstanceRequest) (*GetInstanceResponse, error)
+	StopInstance(context.Context, *StopInstanceRequest) (*StopInstanceResponse, error)
+	ListInstanceTasks(context.Context, *ListInstanceTasksRequest) (*ListInstanceTasksResponse, error)
 	mustEmbedUnimplementedJobServer()
 }
 
@@ -176,6 +267,27 @@ func (UnimplementedJobServer) PreviewJobCron(context.Context, *PreviewJobCronReq
 }
 func (UnimplementedJobServer) TriggerJob(context.Context, *TriggerJobRequest) (*TriggerJobResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TriggerJob not implemented")
+}
+func (UnimplementedJobServer) CreateExecutorGroup(context.Context, *CreateExecutorGroupRequest) (*CreateExecutorGroupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateExecutorGroup not implemented")
+}
+func (UnimplementedJobServer) GetExecutorGroup(context.Context, *GetExecutorGroupRequest) (*GetExecutorGroupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetExecutorGroup not implemented")
+}
+func (UnimplementedJobServer) ListExecutorGroups(context.Context, *ListExecutorGroupsRequest) (*ListExecutorGroupsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListExecutorGroups not implemented")
+}
+func (UnimplementedJobServer) DeleteExecutorGroup(context.Context, *DeleteExecutorGroupRequest) (*EmptyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteExecutorGroup not implemented")
+}
+func (UnimplementedJobServer) GetInstance(context.Context, *GetInstanceRequest) (*GetInstanceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetInstance not implemented")
+}
+func (UnimplementedJobServer) StopInstance(context.Context, *StopInstanceRequest) (*StopInstanceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StopInstance not implemented")
+}
+func (UnimplementedJobServer) ListInstanceTasks(context.Context, *ListInstanceTasksRequest) (*ListInstanceTasksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListInstanceTasks not implemented")
 }
 func (UnimplementedJobServer) mustEmbedUnimplementedJobServer() {}
 func (UnimplementedJobServer) testEmbeddedByValue()             {}
@@ -342,6 +454,132 @@ func _Job_TriggerJob_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Job_CreateExecutorGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateExecutorGroupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JobServer).CreateExecutorGroup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Job_CreateExecutorGroup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JobServer).CreateExecutorGroup(ctx, req.(*CreateExecutorGroupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Job_GetExecutorGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetExecutorGroupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JobServer).GetExecutorGroup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Job_GetExecutorGroup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JobServer).GetExecutorGroup(ctx, req.(*GetExecutorGroupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Job_ListExecutorGroups_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListExecutorGroupsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JobServer).ListExecutorGroups(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Job_ListExecutorGroups_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JobServer).ListExecutorGroups(ctx, req.(*ListExecutorGroupsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Job_DeleteExecutorGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteExecutorGroupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JobServer).DeleteExecutorGroup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Job_DeleteExecutorGroup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JobServer).DeleteExecutorGroup(ctx, req.(*DeleteExecutorGroupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Job_GetInstance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetInstanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JobServer).GetInstance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Job_GetInstance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JobServer).GetInstance(ctx, req.(*GetInstanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Job_StopInstance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopInstanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JobServer).StopInstance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Job_StopInstance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JobServer).StopInstance(ctx, req.(*StopInstanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Job_ListInstanceTasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListInstanceTasksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JobServer).ListInstanceTasks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Job_ListInstanceTasks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JobServer).ListInstanceTasks(ctx, req.(*ListInstanceTasksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Job_ServiceDesc is the grpc.ServiceDesc for Job service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -380,6 +618,34 @@ var Job_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TriggerJob",
 			Handler:    _Job_TriggerJob_Handler,
+		},
+		{
+			MethodName: "CreateExecutorGroup",
+			Handler:    _Job_CreateExecutorGroup_Handler,
+		},
+		{
+			MethodName: "GetExecutorGroup",
+			Handler:    _Job_GetExecutorGroup_Handler,
+		},
+		{
+			MethodName: "ListExecutorGroups",
+			Handler:    _Job_ListExecutorGroups_Handler,
+		},
+		{
+			MethodName: "DeleteExecutorGroup",
+			Handler:    _Job_DeleteExecutorGroup_Handler,
+		},
+		{
+			MethodName: "GetInstance",
+			Handler:    _Job_GetInstance_Handler,
+		},
+		{
+			MethodName: "StopInstance",
+			Handler:    _Job_StopInstance_Handler,
+		},
+		{
+			MethodName: "ListInstanceTasks",
+			Handler:    _Job_ListInstanceTasks_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -9,6 +9,21 @@ import (
 
 type routeJobRPCStub struct{ recorder *routeSystemRPCStub }
 
+func (s *routeJobRPCStub) StopInstance(context.Context, *jobclient.StopInstanceRequest, ...grpc.CallOption) (*jobclient.StopInstanceResponse, error) {
+	s.record("StopInstance")
+	return &jobclient.StopInstanceResponse{InstanceId: 7, Status: 6}, nil
+}
+
+func (s *routeJobRPCStub) GetInstance(context.Context, *jobclient.GetInstanceRequest, ...grpc.CallOption) (*jobclient.GetInstanceResponse, error) {
+	s.record("GetInstance")
+	return &jobclient.GetInstanceResponse{Instance: &jobclient.InstanceInfo{Id: 7, ExecutionConfig: &jobclient.ExecutionConfigInfo{SchemaVersion: 1}}}, nil
+}
+
+func (s *routeJobRPCStub) ListInstanceTasks(context.Context, *jobclient.ListInstanceTasksRequest, ...grpc.CallOption) (*jobclient.ListInstanceTasksResponse, error) {
+	s.record("ListInstanceTasks")
+	return &jobclient.ListInstanceTasksResponse{}, nil
+}
+
 func newRouteJobRPC(rpc systemclient.System) jobclient.Job {
 	recorder, _ := rpc.(*routeSystemRPCStub)
 	return &routeJobRPCStub{recorder: recorder}
@@ -50,4 +65,24 @@ func (s *routeJobRPCStub) PreviewJobCron(_ context.Context, _ *jobclient.Preview
 func (s *routeJobRPCStub) TriggerJob(_ context.Context, _ *jobclient.TriggerJobRequest, _ ...grpc.CallOption) (*jobclient.TriggerJobResponse, error) {
 	s.record("TriggerJob")
 	return &jobclient.TriggerJobResponse{InstanceId: 9}, nil
+}
+
+func (s *routeJobRPCStub) CreateExecutorGroup(_ context.Context, _ *jobclient.CreateExecutorGroupRequest, _ ...grpc.CallOption) (*jobclient.CreateExecutorGroupResponse, error) {
+	s.record("CreateExecutorGroup")
+	return &jobclient.CreateExecutorGroupResponse{Id: 7}, nil
+}
+
+func (s *routeJobRPCStub) GetExecutorGroup(_ context.Context, _ *jobclient.GetExecutorGroupRequest, _ ...grpc.CallOption) (*jobclient.GetExecutorGroupResponse, error) {
+	s.record("GetExecutorGroup")
+	return &jobclient.GetExecutorGroupResponse{Group: &jobclient.ExecutorGroupInfo{Id: 7}}, nil
+}
+
+func (s *routeJobRPCStub) ListExecutorGroups(_ context.Context, _ *jobclient.ListExecutorGroupsRequest, _ ...grpc.CallOption) (*jobclient.ListExecutorGroupsResponse, error) {
+	s.record("ListExecutorGroups")
+	return &jobclient.ListExecutorGroupsResponse{}, nil
+}
+
+func (s *routeJobRPCStub) DeleteExecutorGroup(_ context.Context, _ *jobclient.DeleteExecutorGroupRequest, _ ...grpc.CallOption) (*jobclient.EmptyResponse, error) {
+	s.record("DeleteExecutorGroup")
+	return &jobclient.EmptyResponse{}, nil
 }

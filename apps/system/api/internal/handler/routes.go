@@ -12,6 +12,8 @@ import (
 	dictionary "github.com/tokyolab/dogx/apps/system/api/internal/handler/dictionary"
 	health "github.com/tokyolab/dogx/apps/system/api/internal/handler/health"
 	job "github.com/tokyolab/dogx/apps/system/api/internal/handler/job"
+	jobexecution "github.com/tokyolab/dogx/apps/system/api/internal/handler/jobexecution"
+	jobgroup "github.com/tokyolab/dogx/apps/system/api/internal/handler/jobgroup"
 	loginlog "github.com/tokyolab/dogx/apps/system/api/internal/handler/loginlog"
 	menu "github.com/tokyolab/dogx/apps/system/api/internal/handler/menu"
 	role "github.com/tokyolab/dogx/apps/system/api/internal/handler/role"
@@ -309,6 +311,68 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/job/update",
 					Handler: job.UpdateJobHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/instance/get",
+					Handler: jobexecution.GetInstanceHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/instance/stop",
+					Handler: jobexecution.StopInstanceHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/task/list",
+					Handler: jobexecution.ListInstanceTasksHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.SessionAuth, serverCtx.Authorization},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/group/create",
+					Handler: jobgroup.CreateExecutorGroupHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/group/delete",
+					Handler: jobgroup.DeleteExecutorGroupHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/group/get",
+					Handler: jobgroup.GetExecutorGroupHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/group/list",
+					Handler: jobgroup.ListExecutorGroupsHandler(serverCtx),
 				},
 			}...,
 		),

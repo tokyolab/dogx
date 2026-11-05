@@ -1,8 +1,10 @@
 package config
 
 import (
+	"errors"
 	"time"
 
+	"github.com/tokyolab/dogx/pkg/jobexecutor"
 	"github.com/tokyolab/dogx/pkg/postgres"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
@@ -16,6 +18,17 @@ type Config struct {
 	Authorization  AuthorizationConf
 	Postgres       postgres.Config
 	RedisConf      redis.RedisConf
+	JobExecutor    jobexecutor.Config
+}
+
+// PrepareExecutor validates the embedded executor and gives its separate RPC
+// server the normalized process settings of the host. Call it after applying
+// the shared shutdown policy and before constructing either RPC server.
+func (c *Config) PrepareExecutor() error {
+	if c == nil {
+		return errors.New("system configuration is required")
+	}
+	return c.JobExecutor.Prepare(c.RpcServerConf)
 }
 
 type AppConf struct {

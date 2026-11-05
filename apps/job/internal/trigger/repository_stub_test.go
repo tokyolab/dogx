@@ -21,6 +21,40 @@ type repositoryStub struct {
 	failures                   map[string]error
 }
 
+func (*repositoryStub) LockForStop(context.Context, int64, bool) (*repository.StoppingInstance, error) {
+	panic("unexpected LockForStop")
+}
+func (*repositoryStub) RecordStop(context.Context, int64, model.InstanceStatus, string, string, time.Time) (bool, error) {
+	panic("unexpected RecordStop")
+}
+func (*repositoryStub) FinishStop(context.Context, int64, string) (bool, error) {
+	panic("unexpected FinishStop")
+}
+
+func (*repositoryStub) StoppingUpperID(context.Context) (int64, error) {
+	panic("unexpected StoppingUpperID")
+}
+
+func (*repositoryStub) ListRunningCandidates(context.Context, time.Time, *repository.RunningCandidate, int) ([]repository.RunningCandidate, error) {
+	panic("unexpected ListRunningCandidates")
+}
+func (*repositoryStub) ListStoppingCandidates(context.Context, int64, int64, int) ([]int64, error) {
+	panic("unexpected ListStoppingCandidates")
+}
+
+func (*repositoryStub) Exists(context.Context, int64) (bool, error) {
+	panic("unexpected Exists")
+}
+func (*repositoryStub) FindCompletion(context.Context, int64) (*repository.InstanceCompletion, error) {
+	panic("unexpected FindCompletion")
+}
+func (*repositoryStub) FindByID(context.Context, int64) (*model.JobInstance, error) {
+	panic("unexpected FindByID")
+}
+func (*repositoryStub) Complete(context.Context, int64, model.InstanceStatus, *string) (bool, error) {
+	panic("unexpected Complete")
+}
+
 func (r *repositoryStub) call(name string) error {
 	r.calls = append(r.calls, name)
 	return r.failures[name]
@@ -30,6 +64,9 @@ func (r *repositoryStub) List(context.Context, repository.JobFilter) ([]reposito
 }
 func (r *repositoryStub) Get(context.Context, int64) (*repository.JobDetail, error) {
 	return &repository.JobDetail{JobDefinition: *r.job}, r.call("get")
+}
+func (*repositoryStub) HasGroupReferences(context.Context, int64) (bool, error) {
+	panic("unexpected executor group reference check")
 }
 func (r *repositoryStub) Lock(context.Context, int64) (*model.JobDefinition, error) {
 	return r.job, r.call("lock")
@@ -73,6 +110,9 @@ func (r *repositoryStub) Available(context.Context, int64) (bool, error) {
 func (r *repositoryStub) HasActive(context.Context, int64) (bool, error) {
 	return r.active, r.call("active")
 }
+func (*repositoryStub) HasActiveForGroup(context.Context, int64) (bool, error) {
+	panic("unexpected executor group active instance check")
+}
 func (r *repositoryStub) FindManual(context.Context, int64, uuid.UUID) (*repository.ManualIdentity, error) {
 	var identity *repository.ManualIdentity
 	if r.finds < len(r.identities) {
@@ -85,9 +125,47 @@ func (r *repositoryStub) Insert(_ context.Context, i *model.JobInstance) (int64,
 	r.inserted = i
 	return 99, r.created, r.call("insert")
 }
-func (r *repositoryStub) ListWaitingIDs(context.Context, int64, int) ([]int64, error) {
+func (r *repositoryStub) MaxWaitingID(context.Context) (int64, error) {
+	return 0, r.call("waiting_upper")
+}
+func (r *repositoryStub) ListWaitingIDs(context.Context, int64, int64, int) ([]int64, error) {
 	return nil, r.call("waiting")
 }
 func (r *repositoryStub) LoadWaiting(context.Context, []int64) ([]repository.WaitingInstance, error) {
 	return nil, r.call("load_waiting")
+}
+func (*repositoryStub) LockForExecution(context.Context, int64) (*repository.ExecutionInstance, error) {
+	panic("unexpected execution instance lock")
+}
+func (*repositoryStub) DatabaseTime(context.Context) (time.Time, error) {
+	panic("unexpected execution database time query")
+}
+func (*repositoryStub) StartExecution(context.Context, int64, time.Time, time.Time) (bool, error) {
+	panic("unexpected execution instance start")
+}
+
+// groupRepositoryStub shares the fixture's call ordering and failures while
+// keeping group-specific CRUD signatures separate from the Job repository.
+type groupRepositoryStub struct{ *repositoryStub }
+
+func (*groupRepositoryStub) Create(context.Context, *model.ExecutorGroup) (int64, error) {
+	panic("unexpected executor group creation")
+}
+func (*groupRepositoryStub) FindByID(context.Context, int64) (*model.ExecutorGroup, error) {
+	panic("unexpected executor group detail")
+}
+func (*groupRepositoryStub) Delete(context.Context, int64) error {
+	panic("unexpected executor group deletion")
+}
+func (*groupRepositoryStub) List(context.Context, repository.ExecutorGroupFilter) ([]repository.ExecutorGroupListItem, int64, error) {
+	panic("unexpected executor group list")
+}
+func (*groupRepositoryStub) LoadExecutionGroups(context.Context) ([]repository.ExecutorGroupConfig, error) {
+	panic("unexpected executor group snapshot")
+}
+func (*groupRepositoryStub) FindExecutionGroupByID(context.Context, int64) (*repository.ExecutorGroupConfig, error) {
+	panic("unexpected executor group configuration by ID")
+}
+func (*groupRepositoryStub) FindExecutionGroupByName(context.Context, string) (*repository.ExecutorGroupConfig, error) {
+	panic("unexpected executor group configuration by name")
 }

@@ -28,7 +28,7 @@ import (
 func integrationPersistenceFixture(t *testing.T) (*gorm.DB, *sql.DB, *integrationUseCases, *model.JobDefinition) {
 	t.Helper()
 	db, sqlDB := testutil.OpenMigratedPostgres(t)
-	group := model.ExecutorGroup{Name: "offline group"}
+	group := model.ExecutorGroup{Name: "offline group", DiscoveryKey: "test.offline.group", Token: "00000000000040008000000000000001"}
 	if err := db.Create(&group).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +281,7 @@ func TestCreateAndEditWaitForGroupDeletionMark(t *testing.T) {
 			if err := s.UpdateJobStatus(context.Background(), job.ID, basemodel.RecordStatusDisabled); err != nil {
 				t.Fatal(err)
 			}
-			target := model.ExecutorGroup{Name: "target"}
+			target := model.ExecutorGroup{Name: "target", DiscoveryKey: "test.target", Token: "00000000000040008000000000000001"}
 			if err := db.Create(&target).Error; err != nil {
 				t.Fatal(err)
 			}
@@ -439,17 +439,25 @@ func TestWaitingScanRediscoversLowerIDCommittedLater(t *testing.T) {
 	if err != nil || high <= low {
 		t.Fatalf("low=%d high=%d err=%v", low, high, err)
 	}
-	ids, err := repo.ListWaitingIDs(ctx, 0, 1024)
+	upper, err := repo.MaxWaitingID(ctx)
+	if err != nil || upper != high {
+		t.Fatalf("waiting upper=%d high=%d err=%v", upper, high, err)
+	}
+	ids, err := repo.ListWaitingIDs(ctx, 0, upper, 128)
 	if err != nil || !reflect.DeepEqual(ids, []int64{high}) {
 		t.Fatalf("before late commit=%v err=%v", ids, err)
 	}
 	if err := late.Commit().Error; err != nil {
 		t.Fatal(err)
 	}
-	if ids, err := repo.ListWaitingIDs(ctx, high, 1024); err != nil || len(ids) != 0 {
+	if ids, err := repo.ListWaitingIDs(ctx, high, upper, 128); err != nil || len(ids) != 0 {
 		t.Fatalf("temporary high cursor=%v err=%v", ids, err)
 	}
-	ids, err = repo.ListWaitingIDs(ctx, 0, 1024)
+	upper, err = repo.MaxWaitingID(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids, err = repo.ListWaitingIDs(ctx, 0, upper, 128)
 	if err != nil || !reflect.DeepEqual(ids, []int64{low, high}) {
 		t.Fatalf("recovery did not rediscover late commit=%v err=%v", ids, err)
 	}
@@ -496,7 +504,7 @@ func TestManualAndAutomaticCreationShareJobBlockingDecision(t *testing.T) {
 func TestGroupReferenceCheckAfterLockSeesNewlyCommittedJob(t *testing.T) {
 	db, sqlDB, _, job := integrationPersistenceFixture(t)
 	ctx := context.Background()
-	group := model.ExecutorGroup{Name: "new target"}
+	group := model.ExecutorGroup{Name: "new target", DiscoveryKey: "test.new.target", Token: "00000000000040008000000000000001"}
 	if err := db.Create(&group).Error; err != nil {
 		t.Fatal(err)
 	}

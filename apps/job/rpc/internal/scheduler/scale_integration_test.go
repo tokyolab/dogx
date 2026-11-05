@@ -54,7 +54,7 @@ func TestEtcdPostgresFiveHundredRulesHundredDueSmoke(t *testing.T) {
 	const ruleCount, dueCount = 500, 100
 	f := newEtcdFixture(t)
 	db, _ := testutil.OpenMigratedPostgres(t)
-	group := model.ExecutorGroup{Name: "scale smoke group"}
+	group := model.ExecutorGroup{Name: "scale smoke group", DiscoveryKey: "test.scale.smoke.group", Token: "00000000000040008000000000000001"}
 	if err := db.Create(&group).Error; err != nil {
 		t.Fatal(err)
 	}

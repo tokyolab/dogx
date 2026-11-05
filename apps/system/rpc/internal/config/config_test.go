@@ -12,6 +12,7 @@ func TestExampleConfigLoadsWithEnvironmentSecrets(t *testing.T) {
 	t.Setenv("DOGX_ACCESS_SECRET", "0123456789abcdef0123456789abcdef")
 	t.Setenv("DOGX_POSTGRES_PASSWORD", "postgres-test-password")
 	t.Setenv("DOGX_REDIS_PASSWORD", "redis-test-password")
+	t.Setenv("DOGX_JOB_EXECUTOR_TOKEN", "11111111111141118111111111111111")
 
 	var loaded Config
 	path := filepath.Join("..", "..", "etc", "system-rpc.example.yaml")
@@ -27,6 +28,9 @@ func TestExampleConfigLoadsWithEnvironmentSecrets(t *testing.T) {
 	}
 	if loaded.RedisConf.Pass != "redis-test-password" {
 		t.Fatal("redis password was not expanded from the environment")
+	}
+	if loaded.JobExecutor.Token != "11111111111141118111111111111111" {
+		t.Fatal("executor group token was not expanded from the environment")
 	}
 	if loaded.Authentication.AccessSecret != "0123456789abcdef0123456789abcdef" {
 		t.Fatal("access token secret was not expanded from the environment")
