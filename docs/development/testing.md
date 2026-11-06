@@ -291,6 +291,14 @@ go test -tags=integration,e2e -run '^TestJobProcessesRecoverAfterEtcdRestartEndT
 
 Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通单元测试，用于发现开发环境和生产环境之间的跨平台问题。
 
+### go-zero 退出竞态的临时测试范围 {#gozero-shutdown-race-workaround}
+
+已确认 go-zero v1.10.3 在显式设置 `Shutdown`、关闭 info 日志后，真实 SIGTERM 退出存在配置写入与信号协程读取的竞态，见 [go-zero #5876](https://github.com/zeromicro/go-zero/issues/5876)。2026-11-06 用户同意在上游修复前暂缓这组日志配置下的竞态覆盖：`pkg/rpchost` 测试配置暂用 `info`，保留原有 11 个生命周期场景、真实 SIGTERM／CTRL_BREAK、Context 取消、排空与资源释放断言及 `-race`。不跳过用例或抑制 race 输出，也不修改生产日志配置、停机期限或 go-zero 依赖。
+
+这是明确缩小配置覆盖范围的临时取舍。info 日志引入的同步可避开已知上游问题，测试通过不证明关闭 info 日志时仍然并发安全，也不代表上游缺陷已修复。实施与验证记录见[退出竞态临时处理](../design/scheduler/ordinary-readiness-review.md#ordinary-shutdown-race-workaround)。
+
+采用包含上游修复的官方版本后，应恢复原 `error` 测试配置，复验显式 `Shutdown` 下真实信号退出的 race 用例，并重新确认 info 对照配置；两种配置均通过后再撤销本节临时例外和对应代码注释。
+
 ## 覆盖率策略
 
 - Linux 单元测试和依赖集成测试分别生成覆盖率文件，并使用 `unit`、`integration` 标记上传到 Codecov，由 Codecov 在同一提交下合并展示。

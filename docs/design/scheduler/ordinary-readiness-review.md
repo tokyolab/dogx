@@ -1,6 +1,6 @@
 # 普通执行模块开工检查与开发计划
 
-状态：普通阶段 1～5 核心开发已完成，阶段 6 整体验收进行中；**实现已推送，首次 CI 失败，两类项目测试修正已完成本机验证，达到提交节点。** 具体结果见[CI 修正记录](#ordinary-ci-correction)；本轮修正尚未提交或推送。按用户决定暂不修改 go-zero，保留上游退出 race 为已知阻塞；Linux E2E、有效覆盖率及代表性负载仍待验证，分片与 System 生产处理器未实施。
+状态：普通阶段 1～5 核心开发已完成，阶段 6 整体验收进行中；**项目测试修正已随 `0949b8f` 推送，最新 CI 的 lint、Windows、集成及 E2E 通过，Linux race 仍失败于 `pkg/rpchost` 的上游停机竞态。** 用户已批准暂用 info 测试配置、等待官方修复，详见[退出竞态临时处理](#ordinary-shutdown-race-workaround)。本轮五包 Linux race／Windows 回归及 rpchost lint 已通过；新提交的 CI 及代表性负载仍待验收，分片与 System 生产处理器未实施。
 
 审计结论：已批准的普通执行主路径、错误及恢复规则、最小管理契约足以支持实施；未发现需要重新选择产品行为的开工阻塞。Task 持久化、公共执行运行组件和生产进程双 Server 装配仍按下述阶段实施；协议及通信边界已开始落地。
 
@@ -708,6 +708,16 @@ integration 标签任务同时包含普通测试，不称纯集成测试独立�
 
 本轮仅修正上述两类测试问题及进度文档，不修改生产逻辑或依赖，尚未提交或推送；相关用例回归和静态检查已通过，完成提交前敏感信息检查后即可提交，由新 CI 验证项目修正、集成和 E2E。上游 race 暂不处理，不承诺新 CI 全绿。代表性负载仍待开展，阶段 6 保持进行中。
 
+### 阶段 6 后续 CI 与退出竞态临时处理（2026-11-06） {#ordinary-shutdown-race-workaround}
+
+上节两类项目测试修正已随提交 `0949b8fa97a52d1465a47f0541ef0131cfe2f4f8` 推送。[GitHub Actions 42145921510](https://github.com/tokyolab/dogx/actions/runs/42145921510) 的 Go lint、Windows 普通测试、PostgreSQL／Redis／etcd 集成及全部 E2E 已通过；Linux race 仍失败于 `pkg/rpchost` 的三个真实信号场景，项目恢复分支测试竞态未再出现。以上是该提交的远端结果，不代表本轮改动已通过新 CI。
+
+独立原生 zrpc 复现已提交 [go-zero #5876](https://github.com/zeromicro/go-zero/issues/5876)。用户确认接受上游修复前暂缓“关闭 info 日志时的原生信号退出竞态”覆盖，不采用 fork、补丁或依赖替换；本轮 `pkg/rpchost` 测试配置改为 `info`，保留原 11 个生命周期场景及其真实信号、Context、排空／释放断言和 `-race`。这项临时限制不等于上游缺陷已解决，生产日志配置不变；恢复条件见[测试方案](../../development/testing.md#gozero-shutdown-race-workaround)。
+
+同时删除 `rpchost.Run` 中重复的 `proc.Setup`：所有现有调用方已在构造各 Server 前按约定 Normalize，同源停机策略已由 `zrpc.NewServer` 应用，无需 Run 再写一次全局变量。默认 1 秒／30 秒策略和宿主共享截止时间不变。这项冗余初始化清理与上游读取缺少同步的问题分开记录，不能把删除重复写入称为修复了上游首次配置写入的竞态。
+
+本轮正式源码验证：`pkg/rpchost`、`pkg/jobexecutor`、Job execution、System RPC config、Job RPC config 五个受影响包的 Linux race 随机顺序测试通过；同五包 Windows 普通测试通过，使用固定 `-exec` 包装器。Linux 使用 WSL Debian 13、Go 1.27.0 与外部链接的 Zig C 工具链；此次是正式源码运行，未使用临时 overlay。此前临时副本三轮生命周期通过仅作为方案实验。golangci-lint v2.13.2 对 `pkg/rpchost`（含测试）的检查通过；本轮未重跑全仓测试，提交后的 GitHub CI 及代表性负载仍待验收，阶段 6 保持进行中。
+
 以下验收矩阵按各阶段涉及的行为逐步落实，保留跨阶段的最终复核。
 
 | 编号 | 必须验证的行为 | 验证层 |
@@ -734,7 +744,7 @@ integration 标签任务同时包含普通测试，不称纯集成测试独立�
 | Linux 全仓普通测试、race 和覆盖率 | 会包含新增 pkg/jobexecutor 等普通测试 | 编写真正覆盖并发交接与资源生命周期的测试，不把空目录纳入命令当成已有覆盖 |
 | Windows 全仓普通测试 | 会包含新增普通测试，但没有 integration 标签 | 显式加入 Windows 宿主退出用例，不从现有通过结果推定双 Server 已验证 |
 | integration 命令含 Job internal、RPC internal 和 pkg | 可运行放在这些路径的 PostgreSQL／etcd 集成测试 | 新增 Task 执行与并发场景；若新建独立 E2E 目录，必须同步加入执行命令 |
-| System 认证、普通 Job 执行、进程生命周期与 Job 结果故障独立 E2E 步骤 | 认证／RBAC 原步骤保留；Job 步骤构建 RPC、迁移 CLI 和 System 执行器测试二进制；生命周期步骤覆盖空载信号、业务排空、预算耗尽及 Job kill 后替换，结果步骤覆盖已 ACK 排队结果正常排空／骤停丢失及替换恢复 | 本地 Windows 结果见[本机收尾记录](#ordinary-local-checkpoint)；另增执行器骤停与 etcd 恢复两个独立步骤。首次 GitHub 工作流因前置集成失败而跳过 E2E，见[CI 修正记录](#ordinary-ci-correction)；Unix E2E、race、有效覆盖率及代表性负载仍未完成 |
+| System 认证、普通 Job 执行、进程生命周期与 Job 结果故障独立 E2E 步骤 | 认证／RBAC 原步骤保留；Job 步骤构建 RPC、迁移 CLI 和 System 执行器测试二进制；生命周期步骤覆盖空载信号、业务排空、预算耗尽及 Job kill 后替换，结果步骤覆盖已 ACK 排队结果正常排空／骤停丢失及替换恢复 | 本地 Windows 结果见[本机收尾记录](#ordinary-local-checkpoint)；执行器骤停与 etcd 恢复为两个独立步骤。首次 GitHub 工作流因前置集成失败而跳过 E2E，后续 `0949b8f` 的 Unix E2E 已通过，见[后续 CI 记录](#ordinary-shutdown-race-workaround)；当前停机竞态临时处理的新 CI 及代表性负载仍待验收 |
 
 以现有工作流提供的真实 PostgreSQL／etcd 环境执行集成验收，测试连接和 Schema 隔离继续复用公共测试工具；不假定用户本地已运行这些服务，也不连接共享业务库。处理器验收使用可核验的真实 Go 调用及测试业务数据，不把讨论中的示例名称当作授权新增数据清理业务。
 
@@ -744,4 +754,4 @@ integration 标签任务同时包含普通测试，不称纯集成测试独立�
 
 本次静态审计未发现需要另起架构提案的普通执行开工阻塞。未实现不等于未设计；Proto 字段号、SQL 适配、表结构迁移和 Go 内部组织在上述范围内落实。分片生成及完整管理功能仍归后续模块，不重新变成普通编码的前置条件。
 
-六阶段开发安排已经确认，普通阶段 1～5 核心开发已完成，实现已推送。首次 CI 失败后，两类项目测试修正已完成本机验证，达到提交节点，详见[CI 修正记录](#ordinary-ci-correction)；本轮修正尚未提交或推送，下一步完成相关用例回归、静态检查与提交前检查，再由新 CI 验证集成和 E2E。按用户决定保留 go-zero 退出 race 为已知阻塞，代表性负载独立开展；远端与负载验收完成后才关闭阶段 6。分片生命周期及 System 生产处理器仍属后续范围，未迁移共享业务库。
+六阶段开发安排已经确认，普通阶段 1～5 核心开发已完成，项目测试修正已随 `0949b8f` 推送，后续 CI 的集成及全部 E2E 通过。已落实批准的[退出竞态临时处理](#ordinary-shutdown-race-workaround)，本轮五包回归与 rpchost lint 已通过，下一步按授权与敏感信息检查要求进入提交／推送及新 CI；上游缺陷及暂缓的 error 日志配置覆盖继续跟踪。代表性负载独立开展，当前验收范围的远端结果与负载证据齐备后才关闭阶段 6。分片生命周期及 System 生产处理器仍属后续范围，未迁移共享业务库。

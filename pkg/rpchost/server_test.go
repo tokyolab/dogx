@@ -268,6 +268,10 @@ func testStartupPanic(t *testing.T) {
 	}()
 }
 
+// testConfig keeps info logging enabled as a temporary workaround for
+// https://github.com/zeromicro/go-zero/issues/5876. Signal shutdown coverage with
+// info logging disabled is deferred. Restore the error-level fixture and rerun
+// the lifecycle race tests after upgrading to an upstream fix.
 func testConfig(t *testing.T, timeoutMillis int64) zrpc.RpcServerConf {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -282,7 +286,7 @@ func testConfig(t *testing.T, timeoutMillis int64) zrpc.RpcServerConf {
 		ServiceConf: service.ServiceConf{
 			Name: "rpchost-test",
 			Mode: service.TestMode,
-			Log:  logx.LogConf{Mode: "console", Level: "error", Encoding: "plain"},
+			Log:  logx.LogConf{Mode: "console", Level: "info", Encoding: "plain"},
 		},
 		ListenOn: address,
 		Health:   true,

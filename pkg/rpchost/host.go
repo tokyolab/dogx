@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/core/proc"
 	"github.com/zeromicro/go-zero/core/service"
 )
 
@@ -45,7 +44,8 @@ type Hooks struct {
 // through a go-zero ServiceGroup and returns after a termination signal, ctx
 // cancellation, or startup failure has triggered shutdown. An already cancelled
 // ctx skips startup and still performs cleanup. Config must also be normalized
-// into every server's shared ServiceConf before constructing the servers.
+// into every server's shared ServiceConf before constructing the servers, which
+// applies the native process shutdown policy. Run does not reapply that policy.
 //
 // The first stop request fixes one WaitTime deadline for wrap-up, RPC draining,
 // background draining, dependency cleanup and logging. A timeout does not prove
@@ -74,13 +74,6 @@ func Run(ctx context.Context, config ShutdownConfig, hooks Hooks, servers ...*Se
 		}
 		seen[server] = struct{}{}
 	}
-	// NewServer invokes go-zero SetUp. Reassert the same host-owned settings
-	// before serving so its Unix watchdog cannot retain the upstream 5.5s default.
-	var process service.ServiceConf
-	if err := config.Normalize(&process); err != nil {
-		return err
-	}
-	proc.Setup(process.Shutdown)
 	signal, waitNative, releaseSignals := terminationSignal()
 	defer releaseSignals()
 	var stopping atomic.Bool

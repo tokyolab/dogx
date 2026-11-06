@@ -6,7 +6,7 @@
 
 ## 当前工作
 
-当前交付节点：**实现已推送，首次 CI 失败，两类项目测试修正已完成本机验证，达到提交节点。** GitHub lint、Windows 测试通过，Linux race 与 PostgreSQL 集成失败，后续 E2E 及覆盖率上传跳过，见[CI 修正记录](ordinary-readiness-review.md#ordinary-ci-correction)。按用户决定暂不修改 go-zero，上游退出 race 保留为已知阻塞；本轮修正尚未提交或推送。远端 E2E、有效覆盖率及代表性负载仍待验收，阶段 6 未完成；实际 commit／push 前继续分别检查敏感内容与提交信息。
+当前交付节点：**项目测试修正已随 `0949b8f` 推送；最新 CI 的 lint、Windows、集成及全部 E2E 通过，Linux race 仍失败于 `pkg/rpchost` 的上游停机竞态。** 用户已批准暂缓关闭 info 日志时的竞态覆盖，采用 info 测试配置并清理 Run 的重复配置写入，见[退出竞态临时处理](ordinary-readiness-review.md#ordinary-shutdown-race-workaround)。本轮五包 Linux race／Windows 回归及 rpchost lint 已通过；上游问题继续跟踪，新提交的 CI 及代表性负载仍待验收，阶段 6 未完成。实际 commit／push 前继续分别检查敏感内容与提交信息。
 
 2026-11-04 修订：[产品版本兼容边界](../../development/database-migrations.md#release-compatibility)已确定；同一产品版本不为开发中间态编写兼容，仅在已有历史 Release、明确升级到后续版本且实际不兼容时允许必要兼容。此前旧组回填、分阶段升级及历史 NULL 例外撤销，组字段统一完整非空；该次规则修订本身不授予编码权限；后续已批准的开发安排及当前进度见下段。
 
@@ -479,3 +479,4 @@ Job 触发遗漏恢复查询采用单批限量、每分钟重读，原 Job 分�
 | 2026-11-05 | 阶段 6 续做：System 不配合取消的业务耗尽退出预算；真实 Job 进程对已 ACK 排队结果正常排空／骤停丢失，以及替换节点自然选主恢复 | Windows 最终 System 全包双标签随机顺序通过 45.968s，Job 补强后两场景专项通过 24.182s；受影响范围 vet／lint、Linux 双消费者交叉编译和 actionlint 通过。具体断言及预设过期协议数据的边界见[最新记录](ordinary-readiness-review.md#ordinary-result-loss-progress)。System 退出后仅观察 1 秒，不代表完整退出至最终超时链路；Unix 实际运行、其余故障、race、覆盖率及正式负载仍待验收，阶段 6 进行中。隔离服务已清理，前端干净，未提交或推送 |
 | 2026-11-05 | 阶段 6 本机收尾：新增执行器骤停至最终超时、etcd 保留数据重启后原进程恢复两个故障 E2E，并接入独立 CI 步骤 | 执行器专项通过 257.270s，真实等待生产 4 分钟年龄门槛；补强后的 etcd 场景在最终 System E2E 中通过 42.59s，全包排除已冻结四分钟专项后通过 90.490s，全仓普通测试通过。全仓双标签 vet／lint、生成一致性与工作流检查通过，待提交内容检查未发现真实凭据，达到可提交节点；结果统一见[本机收尾记录](ordinary-readiness-review.md#ordinary-local-checkpoint)，远端及负载验收尚未完成，阶段 6 仍进行中；本轮隔离服务与测试进程已清理，前端干净，未提交或推送 |
 | 2026-11-06 | 阶段 6 首次 CI 失败诊断：实现 e5946ab 已推送；修正测试计数器同步，以及查询计划测试的索引断言与日志 SQL 回放 | Go lint、Windows tests 通过，Linux race 与 PostgreSQL 集成失败，后续 E2E 及覆盖率上传跳过。svc 普通全包及 RUNNING 绑定参数专项已通过；统一 SQL＋Vars 捕获后的最终 12 项查询回归通过 11.238s，受影响两包 integration 标签 vet／lint 通过，完整证据与旧零行计划更正见[CI 修正记录](ordinary-readiness-review.md#ordinary-ci-correction)。用户决定不修改 go-zero，上游退出 race 保留，不跳过测试或抑制 race；本轮仅测试及文档修正，尚未提交或推送，阶段 6 与代表性负载验收仍未完成 |
+| 2026-11-06 | 阶段 6 后续 CI 与退出竞态临时处理：`0949b8f` 已推送，集成及全部 E2E 通过；用户批准等待官方修复前暂用 info 测试配置，并删除 Run 的重复停机配置写入 | 上游 [#5876](https://github.com/zeromicro/go-zero/issues/5876) 未修复，关闭 info 日志时的竞态覆盖明确暂缓；不采用 fork／补丁，不修改生产日志级别或 1 秒／30 秒停机策略，保留真实信号、全部生命周期断言及 race 检测。本轮五包 Linux race／Windows 回归及 rpchost lint 已通过，结果统一见[临时处理记录](ordinary-readiness-review.md#ordinary-shutdown-race-workaround)；提交后的新 CI 与代表性负载仍待验收，阶段 6 进行中 |
