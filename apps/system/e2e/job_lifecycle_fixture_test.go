@@ -37,6 +37,9 @@ type jobLifecycleFixture struct {
 	group                 *job.ExecutorGroupInfo
 	processes             []*runningProcess
 	ports                 map[int]bool
+	// jobConfigTransform lets opt-in load tests restore production scan defaults.
+	// Lifecycle tests leave it nil and retain their existing bounded test timings.
+	jobConfigTransform func(string) string
 }
 
 type jobLifecycleNode struct {
@@ -121,6 +124,8 @@ func createSystemJobBusinessTable(t testing.TB, db *sql.DB) {
 		task_id BIGINT NOT NULL, invocation_no BIGINT NOT NULL,
 		instance_id BIGINT NOT NULL, job_id BIGINT NOT NULL,
 		value TEXT NOT NULL, state TEXT NOT NULL,
+		started_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+		finished_at TIMESTAMPTZ,
 		PRIMARY KEY (task_id, invocation_no))`)
 	if err != nil {
 		t.Fatalf("create System business fixture table: %v", err)
@@ -150,6 +155,9 @@ func (f *jobLifecycleFixture) startJob(t testing.TB, name string, recoveryInterv
 		// Only the deployment scan interval changes; the production four-minute
 		// eligibility rule and all persisted timestamps remain untouched.
 		config += fmt.Sprintf("\nInstanceRecovery:\n  Interval: %s\n", recoveryInterval[0])
+	}
+	if f.jobConfigTransform != nil {
+		config = f.jobConfigTransform(config)
 	}
 	writeFile(t, file, config)
 	env := append(append([]string(nil), f.environment...), "PGAPPNAME="+node.appName)

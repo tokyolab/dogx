@@ -47,14 +47,18 @@ type systemExecutionProcessor struct {
 
 func (p *systemExecutionProcessor) Execute(ctx context.Context, input jobexecutor.Input) (jobexecutor.Result, error) {
 	var params struct {
-		Mode  string `json:"mode"`
-		Value string `json:"value"`
+		Mode    string `json:"mode"`
+		Value   string `json:"value"`
+		DelayMS int    `json:"delay_ms"`
 	}
 	if err := json.Unmarshal([]byte(input.Params), &params); err != nil {
 		return jobexecutor.Result{}, errors.New("invalid E2E business parameters")
 	}
-	if params.Mode != "success" && params.Mode != "retry" && params.Mode != "wait" && params.Mode != "gated" && params.Mode != "stubborn" {
+	if params.Mode != "success" && params.Mode != "retry" && params.Mode != "wait" && params.Mode != "gated" && params.Mode != "stubborn" && params.Mode != "load" {
 		return jobexecutor.Result{}, errors.New("unsupported E2E business mode")
+	}
+	if params.Mode == "load" && (params.DelayMS < 1 || params.DelayMS > 1000) {
+		return jobexecutor.Result{}, errors.New("load business delay must be between 1 and 1000 milliseconds")
 	}
 	p.mu.Lock()
 	p.invocations[input.TaskID]++
@@ -67,6 +71,27 @@ func (p *systemExecutionProcessor) Execute(ctx context.Context, input jobexecuto
 	}
 	if err := p.database.WithContext(ctx).Table("system_job_e2e_records").Create(row).Error; err != nil {
 		return jobexecutor.Result{}, fmt.Errorf("record E2E business invocation: %w", err)
+	}
+	if params.Mode == "load" {
+		// A fixed wait models I/O latency without holding a database connection.
+		// The load fixture's database timestamps bracket this actual invocation.
+		timer := time.NewTimer(time.Duration(params.DelayMS) * time.Millisecond)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return jobexecutor.Result{}, ctx.Err()
+		case <-timer.C:
+		}
+		result := p.database.WithContext(ctx).Table("system_job_e2e_records").
+			Where("task_id = ? AND invocation_no = ?", input.TaskID, invocation).
+			Updates(map[string]any{"state": "succeeded", "finished_at": gorm.Expr("clock_timestamp()")})
+		if result.Error != nil {
+			return jobexecutor.Result{}, fmt.Errorf("save load business completion: %w", result.Error)
+		}
+		if result.RowsAffected != 1 {
+			return jobexecutor.Result{}, errors.New("load business invocation record is missing")
+		}
+		return jobexecutor.Result{Summary: "Load business persisted.", Data: json.RawMessage(`{"completed":true}`)}, nil
 	}
 	if params.Mode == "gated" {
 		// Only the test's System business record controls this gate. Shutdown

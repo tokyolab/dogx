@@ -1,6 +1,6 @@
 # 8 验证与交付
 
-本章将设计边界转为可检查的交付依据。触发闭环的[历史 CI](progress.md#trigger-ci-verification)不代表当前代码。普通阶段 1～5 核心已完成，阶段 6 进行中；最新执行器骤停、etcd 恢复及最终本机检查见[本机收尾记录](ordinary-readiness-review.md#ordinary-local-checkpoint)。GitHub Linux 实际运行、race、覆盖率和代表性负载尚待验证。下列清单包含已实施和待实施的普通、分片及运维能力，实际范围以各增量记录为准。
+本章将设计边界转为可检查的交付依据。触发闭环的[历史 CI](progress.md#trigger-ci-verification)不代表当前代码。普通阶段 1～5 核心开发及阶段 6 适用范围验收已完成；生产实现 `7f9d32e` 的 Linux race、Windows、真实依赖集成及全部 E2E 已通过，实际覆盖率见[CI 记录](ordinary-readiness-review.md#ordinary-ci-success)。本机[代表性负载](ordinary-load-validation.md)、原普通执行 E2E 回归及本轮 lint 通过，当前测试／文档增量可提交，尚无该增量的新 CI，详见[收尾记录](ordinary-readiness-review.md#ordinary-load-closeout)。已批准的 info 日志临时覆盖限制保持；普通验收完成不代表完整第一版发布。下列清单包含普通、分片及运维能力，后两类的未实施项目仍按后续范围推进。
 
 阶段 6 当前已验证范围与余项：
 
@@ -17,8 +17,9 @@
 | 既有进程专项 | 此前 System 六业务 E2E 全包通过 45.968s，Job 两结果场景通过 24.182s，范围及静态检查保留在[前次记录](ordinary-readiness-review.md#ordinary-result-loss-progress)，不冒称包含本轮新增故障场景 |
 | 执行器骤停至最终超时 | 真实 kill 已接单执行器，保留生产 4 分钟年龄门槛、仅将扫描间隔设为 1 秒；实际收敛父 FAILED／子 CANCELED，原因 instance_timeout，原 Task／attempt／绑定保持且业务一次；包通过 257.270s |
 | etcd 恢复与当前检查 | 原 Job／System 在 etcd 停止 18 秒及原数据重启期间存活，三类发现与实际 Leader 获得新租约，同 ClusterID，原执行器执行新 Task 一次。补强场景通过 42.59s；最终 System E2E 排除四分钟专项后通过 90.490s，全仓普通测试通过；全仓双标签 vet／lint 等最终检查均通过，见[最新记录](ordinary-readiness-review.md#ordinary-local-checkpoint) |
-| 日志与 CI | 既有 Token 日志检查证据保留；新增执行器骤停及 etcd 恢复两个独立 CI 步骤，超时分别 6 分钟／3 分钟。GitHub 尚未运行，工作流接入及历史静态结果不代替本轮实际运行 |
-| 当前提交节点与余项 | 本机收尾完成，达到可提交节点，本轮未提交或推送；commit／push 前仍按规范检查敏感内容与提交信息。GitHub Linux 实际运行、race、覆盖率及代表性负载待验证，阶段 6 保持进行中 |
+| 日志与 CI | 既有 Token 日志检查证据保留；`7f9d32e` 的 CI 42158366847 全部成功，包含执行器骤停及 etcd 恢复专项；Linux 普通测试启用 race，integration 与独立 E2E 未启用 race。已批准的 info 日志临时覆盖限制继续保留，详见[最新 CI 记录](ordinary-readiness-review.md#ordinary-ci-success) |
+| 代表性负载与受影响回归 | 两个 Job 进程、一个 System 执行器，500 条启用规则、每 30 秒 100 条同秒到期，五轮共 500 个父／子／业务记录成功，400 条未来规则零触发，事前延迟门槛通过；最终包 186.916s、测试退出码 0。重建原生产／测试宿主后的普通执行 E2E 通过，8.123s；四个受影响包三标签 lint 通过、0 issues。资源口径、测试断言修正及清理限制见[负载记录](ordinary-load-validation.md) |
+| 当前提交节点与余项 | 普通阶段 6 适用范围验收完成；本轮新增测试／文档可提交，尚未提交且无新 CI，提交后仍须验证该增量。生产实现的远端证据仍对应 `7f9d32e`；commit／push 前继续按规范检查敏感内容与提交信息。分片、Post 完整推进及 System 生产处理器仍未实施 |
 
 ## 8.1 验证原则
 
