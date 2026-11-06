@@ -147,7 +147,8 @@ func TestRetryCandidateQueryUsesDueIndexAndParentPrimaryKey(t *testing.T) {
 		}
 	}
 	counter := &queryCounter{Interface: logger.Default.LogMode(logger.Silent)}
-	repo, err := NewJobTaskRepository(db.Session(&gorm.Session{Logger: counter}))
+	capture := &executionQueryCapture{queryCounter: counter}
+	repo, err := NewJobTaskRepository(db.Session(&gorm.Session{Logger: capture}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,11 +158,11 @@ func TestRetryCandidateQueryUsesDueIndexAndParentPrimaryKey(t *testing.T) {
 	}
 	last := page[len(page)-1]
 	page, err = repo.ListRetryCandidates(context.Background(), now, &RetryCursor{NextDispatchAt: last.NextDispatchAt, TaskID: last.TaskID}, 128)
-	if err != nil || len(page) != 128 || counter.count != 2 {
+	if err != nil || len(page) != 128 || counter.count != 2 || len(capture.queries) != 2 {
 		t.Fatalf("indexed retry next page: len=%d count=%d err=%v", len(page), counter.count, err)
 	}
-	for _, statement := range counter.statements {
-		plan := explainExecutionQuery(t, db, statement)
+	for _, query := range capture.queries {
+		plan := explainExecutionQuery(t, db, query)
 		if !strings.Contains(plan, "idx_job_task_retry_due") || !strings.Contains(plan, "job_instance_pkey") ||
 			strings.Contains(plan, "Seq Scan") || strings.Contains(plan, "Sort  (") {
 			t.Fatalf("retry candidates lost indexed ordering or parent lookup:\n%s", plan)

@@ -14,51 +14,51 @@ func TestInstanceRecoveryBranchesDoNotShareBackpressureOrCatchUpTicks(t *testing
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		release := make(chan struct{})
-		var runningCalls, stoppingCalls int
+		var runningCalls, stoppingCalls atomic.Int32
 		running := func(ctx context.Context, ticks <-chan struct{}) error {
-			runningCalls++
+			runningCalls.Add(1)
 			<-release
 			for {
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
 				case <-ticks:
-					runningCalls++
+					runningCalls.Add(1)
 				}
 			}
 		}
 		stopping := func(ctx context.Context, ticks <-chan struct{}) error {
-			stoppingCalls++
+			stoppingCalls.Add(1)
 			for {
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
 				case <-ticks:
-					stoppingCalls++
+					stoppingCalls.Add(1)
 				}
 			}
 		}
 		done := make(chan error, 1)
 		go func() { done <- runInstanceRecovery(ctx, time.Minute, running, stopping) }()
 		synctest.Wait()
-		if runningCalls != 1 || stoppingCalls != 1 {
+		if runningCalls.Load() != 1 || stoppingCalls.Load() != 1 {
 			t.Fatal("both branches must perform their immediate pass")
 		}
 		for range 3 {
 			time.Sleep(time.Minute)
 			synctest.Wait()
 		}
-		if runningCalls != 1 || stoppingCalls != 4 {
+		if runningCalls.Load() != 1 || stoppingCalls.Load() != 4 {
 			t.Fatal("one blocked branch prevented the other from receiving discovery ticks")
 		}
 		close(release)
 		synctest.Wait()
-		if runningCalls != 1 {
+		if runningCalls.Load() != 1 {
 			t.Fatal("busy discovery accumulated catch-up passes")
 		}
 		time.Sleep(time.Minute)
 		synctest.Wait()
-		if runningCalls != 2 || stoppingCalls != 5 {
+		if runningCalls.Load() != 2 || stoppingCalls.Load() != 5 {
 			t.Fatal("released branch failed to rejoin the common clock")
 		}
 		cancel()

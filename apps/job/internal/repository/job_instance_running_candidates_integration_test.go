@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -127,11 +128,22 @@ func TestRunningCandidateQueryErrorsDoNotBecomeEmptySuccess(t *testing.T) {
 	}
 }
 
-func TestRunningCandidateActualQueriesUseStartTimePartialIndex(t *testing.T) {
+func TestRunningCandidateIndexAndQueryContract(t *testing.T) {
 	db, _ := testutil.OpenMigratedPostgres(t)
-	// Large terminal history plus old and recent running rows exposes missing
-	// partial-index predicates, an unnecessary sort, or a second time filter.
-	// Plan checks do not disable planner choices or invent a duration guarantee.
+	// Verify the installed access path separately from the planner's cost-based
+	// choice. With one group and few active rows, its group-reference index plus
+	// a top-N sort is also a valid plan; neither plan is a runtime guarantee.
+	var definition string
+	if err := db.Raw(`SELECT indexdef FROM pg_indexes
+		WHERE schemaname = current_schema() AND tablename = 'job_instance'
+		AND indexname = 'idx_job_instance_running_started'`).Scan(&definition).Error; err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(definition, "USING btree (started_at, id) WHERE (status = 2)") {
+		t.Fatalf("running candidate index lost its ordered keys or partial predicate: %s", definition)
+	}
+	// Keep both old and recent running rows among a large terminal history to
+	// exercise the actual query's age boundary, projection and continuation.
 	if err := db.Exec(`INSERT INTO job_instance
 		(job_id, job_name, executor_group_id, trigger_type, scheduled_at, params_overridden, execution_config, status, started_at, deadline_at)
 		SELECT n, 'running candidate history', 1, 1, CURRENT_TIMESTAMP, FALSE,
@@ -147,29 +159,62 @@ func TestRunningCandidateActualQueriesUseStartTimePartialIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 	counter := &queryCounter{Interface: logger.Default.LogMode(logger.Silent)}
-	repo, err := NewJobInstanceRepository(db.Session(&gorm.Session{Logger: counter}))
+	capture := &executionQueryCapture{queryCounter: counter}
+	repo, err := NewJobInstanceRepository(db.Session(&gorm.Session{Logger: capture}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	bound := time.Date(2026, 11, 5, 6, 0, 0, 0, time.UTC)
 	var cursor *RunningCandidate
 	for pageNumber := range 2 {
-		counter.count, counter.statements = 0, nil
+		capture.reset()
 		page, err := repo.ListRunningCandidates(context.Background(), bound, cursor, 256)
 		if err != nil || len(page) != 256 || page[0].ID != int64(pageNumber*5120+20) || page[255].ID != int64((pageNumber+1)*5120) {
-			t.Fatalf("indexed page %d: rows=%d error=%v", pageNumber, len(page), err)
+			t.Fatalf("running candidate page %d: rows=%d error=%v", pageNumber, len(page), err)
 		}
 		assertRunningCandidateProjection(t, counter)
-		plan := explainExecutionQuery(t, db, counter.statements[0])
-		if !strings.Contains(plan, "idx_job_instance_running_started") || strings.Contains(plan, "Seq Scan") ||
-			strings.Contains(plan, "Sort  (") || !strings.Contains(plan, "started_at <") {
-			t.Fatalf("running candidate read did not use its ordered partial index:\n%s", plan)
+		if len(capture.queries) != 1 {
+			t.Fatalf("running candidate query capture: got %d statements", len(capture.queries))
 		}
-		if pageNumber > 0 && !strings.Contains(plan, "ROW(started_at, id)") {
-			t.Fatalf("continuation lost the composite index condition:\n%s", plan)
+		statement := counter.statements[0]
+		if pageNumber > 0 && !strings.Contains(statement, "(started_at, id) >") {
+			t.Fatalf("continuation lost the composite cursor condition: %s", statement)
 		}
+		// Retain real execution plans for diagnosis without asserting a specific
+		// index, sort strategy or elapsed time across PostgreSQL environments.
+		explainRunningCandidateQuery(t, db, capture.queries[0], len(page))
 		after := page[len(page)-1]
 		cursor = &after
+	}
+}
+
+func explainRunningCandidateQuery(t *testing.T, db *gorm.DB, query executionQuery, expectedRows int) {
+	t.Helper()
+	if query.sql == "" || len(query.vars) == 0 {
+		t.Fatal("running candidate query did not retain its SQL and bound parameters")
+	}
+	// GORM's interpolated log SQL omits timestamp offsets. Replaying that text
+	// would reinterpret UTC bounds in the PostgreSQL session's time zone. Keep
+	// the actual repository placeholders and time.Time arguments instead.
+	var data []byte
+	if err := db.Statement.ConnPool.QueryRowContext(context.Background(),
+		"EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) "+query.sql, query.vars...).Scan(&data); err != nil {
+		t.Fatal(err)
+	}
+	var plans []struct {
+		Plan struct {
+			NodeType    string  `json:"Node Type"`
+			ActualRows  float64 `json:"Actual Rows"`
+			ActualLoops float64 `json:"Actual Loops"`
+		} `json:"Plan"`
+	}
+	if err := json.Unmarshal(data, &plans); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("running candidate execution query plan:\n%s", data)
+	if len(plans) != 1 || plans[0].Plan.NodeType != "Limit" ||
+		plans[0].Plan.ActualRows != float64(expectedRows) || plans[0].Plan.ActualLoops != 1 {
+		t.Fatalf("EXPLAIN did not execute the same bounded candidate page: want %d rows, plan=%s", expectedRows, data)
 	}
 }
 

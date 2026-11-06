@@ -109,41 +109,80 @@ func TestExecutionQueriesUseCompletionAndPaginationIndexes(t *testing.T) {
 		}
 	}
 	counter := &queryCounter{Interface: logger.Default.LogMode(logger.Silent)}
-	instances, err := NewJobInstanceRepository(db.Session(&gorm.Session{Logger: counter}))
+	capture := &executionQueryCapture{queryCounter: counter}
+	instances, err := NewJobInstanceRepository(db.Session(&gorm.Session{Logger: capture}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	completion, err := instances.FindCompletion(context.Background(), 10000)
-	if err != nil || completion == nil || completion.TaskID == nil || counter.count != 1 {
+	if err != nil || completion == nil || completion.TaskID == nil || counter.count != 1 || len(capture.queries) != 1 {
 		t.Fatalf("completion lookup: completion=%+v count=%d err=%v", completion, counter.count, err)
 	}
-	plan := explainExecutionQuery(t, db, counter.statements[0])
+	plan := explainExecutionQuery(t, db, capture.queries[0])
 	if !strings.Contains(plan, "job_instance_pkey") || !strings.Contains(plan, "uq_job_task_singleton") || strings.Contains(plan, "Seq Scan") {
 		t.Fatalf("completion did not use parent and singleton indexes:\n%s", plan)
 	}
-	counter.count, counter.statements = 0, nil
-	tasks, err := NewJobTaskRepository(db.Session(&gorm.Session{Logger: counter}))
+	capture.reset()
+	tasks, err := NewJobTaskRepository(db.Session(&gorm.Session{Logger: capture}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	items, total, err := tasks.ListByInstance(context.Background(), 10000, 2, 200)
-	if err != nil || total != 601 || len(items) != 200 || counter.count != 2 {
+	if err != nil || total != 601 || len(items) != 200 || counter.count != 2 || len(capture.queries) != 2 {
 		t.Fatalf("indexed Task page: total=%d items=%d count=%d err=%v", total, len(items), counter.count, err)
 	}
-	for index, statement := range counter.statements {
-		plan := explainExecutionQuery(t, db, statement)
+	for index, query := range capture.queries {
+		plan := explainExecutionQuery(t, db, query)
 		if !strings.Contains(plan, "idx_job_task_instance") || strings.Contains(plan, "Seq Scan") || (index == 1 && strings.Contains(plan, "Sort  (")) {
 			t.Fatalf("Task count/page did not use its management index:\n%s", plan)
 		}
 	}
 }
 
-func explainExecutionQuery(t *testing.T, db *gorm.DB, statement string) string {
+type executionQuery struct {
+	sql  string
+	vars []any
+}
+
+// executionQueryCapture retains repository SQL and bindings before GORM formats
+// its log message. It is used serially and leaves the logging inputs intact.
+type executionQueryCapture struct {
+	*queryCounter
+	queries []executionQuery
+}
+
+func (c *executionQueryCapture) ParamsFilter(_ context.Context, statement string, vars ...any) (string, []any) {
+	c.queries = append(c.queries, executionQuery{sql: statement, vars: append([]any(nil), vars...)})
+	return statement, vars
+}
+
+func (c *executionQueryCapture) reset() {
+	c.count, c.statements, c.queries = 0, nil, nil
+}
+
+func explainExecutionQuery(t *testing.T, db *gorm.DB, query executionQuery) string {
 	t.Helper()
+	// GORM's interpolated log SQL omits timestamp offsets. Execute the original
+	// placeholders and arguments through this session's connection pool so that
+	// time bounds and any transaction-local state match the repository call.
+	rows, err := db.Statement.ConnPool.QueryContext(context.Background(), "EXPLAIN (ANALYZE, BUFFERS) "+query.sql, query.vars...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	var lines []string
-	// Explain the actual SQL emitted by the repository, not a hand-optimized
-	// equivalent that could hide a missing predicate or accidental projection.
-	if err := db.Raw("EXPLAIN (ANALYZE, BUFFERS) " + statement).Scan(&lines).Error; err != nil {
+	for rows.Next() {
+		var line string
+		if err := rows.Scan(&line); err != nil {
+			t.Fatal(err)
+		}
+		lines = append(lines, line)
+	}
+	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
 	plan := strings.Join(lines, "\n")

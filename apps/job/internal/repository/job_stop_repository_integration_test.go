@@ -486,7 +486,8 @@ func TestStoppingQueriesShareTheUnfinishedIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 	counter := &queryCounter{Interface: logger.Default.LogMode(logger.Silent)}
-	tx := db.Session(&gorm.Session{Logger: counter}).Begin()
+	capture := &executionQueryCapture{queryCounter: counter}
+	tx := db.Session(&gorm.Session{Logger: capture}).Begin()
 	if tx.Error != nil {
 		t.Fatal(tx.Error)
 	}
@@ -502,27 +503,28 @@ func TestStoppingQueriesShareTheUnfinishedIndex(t *testing.T) {
 	if _, err := instances.LockForStop(context.Background(), parent.ID, true); err != nil {
 		t.Fatal(err)
 	}
-	counter.count, counter.statements = 0, nil
+	capture.reset()
 	ids, err := tasks.ListUnfinishedIDs(context.Background(), parent.ID, 257)
-	if err != nil || len(ids) != 257 || counter.count != 1 {
+	if err != nil || len(ids) != 257 || counter.count != 1 || len(capture.queries) != 1 {
 		t.Fatalf("bounded cancellation read: ids=%d statements=%v err=%v", len(ids), counter.statements, err)
 	}
 	childQuery := counter.statements[0]
+	childExecution := capture.queries[0]
 	for _, forbidden := range []string{"result_data", "result_summary", "task_type", "attempt_no", "FOR UPDATE", "OFFSET", "JOIN"} {
 		if strings.Contains(childQuery, forbidden) {
 			t.Fatalf("unfinished query added %s", forbidden)
 		}
 	}
-	counter.count, counter.statements = 0, nil
-	if changed, err := instances.FinishStop(context.Background(), parent.ID, model.EndReasonManualStop); changed || err != nil || counter.count != 1 {
+	capture.reset()
+	if changed, err := instances.FinishStop(context.Background(), parent.ID, model.EndReasonManualStop); changed || err != nil || counter.count != 1 || len(capture.queries) != 1 {
 		t.Fatalf("NOT EXISTS guard: changed=%v statements=%v err=%v", changed, counter.statements, err)
 	}
 	finishQuery := counter.statements[0]
 	if !strings.Contains(finishQuery, "NOT EXISTS") {
 		t.Fatalf("final parent transition omitted child guard: %s", finishQuery)
 	}
-	for _, statement := range []string{childQuery, finishQuery} {
-		plan := explainExecutionQuery(t, tx, statement)
+	for _, query := range []executionQuery{childExecution, capture.queries[0]} {
+		plan := explainExecutionQuery(t, tx, query)
 		if !strings.Contains(plan, "idx_job_task_unfinished_instance") || strings.Contains(plan, "Seq Scan on job_task") || strings.Contains(plan, "Sort  (") {
 			t.Fatalf("stopping query lost the shared unfinished index:\n%s", plan)
 		}

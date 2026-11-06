@@ -195,7 +195,8 @@ func TestUnboundCandidateQueryUsesObservationIndexAndParentPrimaryKey(t *testing
 		}
 	}
 	counter := &queryCounter{Interface: logger.Default.LogMode(logger.Silent)}
-	repo, err := NewJobTaskRepository(db.Session(&gorm.Session{Logger: counter}))
+	capture := &executionQueryCapture{queryCounter: counter}
+	repo, err := NewJobTaskRepository(db.Session(&gorm.Session{Logger: capture}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,11 +208,11 @@ func TestUnboundCandidateQueryUsesObservationIndexAndParentPrimaryKey(t *testing
 	last := page[len(page)-1]
 	page, err = repo.ListUnboundCandidates(context.Background(), now, cutoff,
 		&UnboundCursor{AttemptRegisteredAt: last.AttemptRegisteredAt, TaskID: last.TaskID}, 129)
-	if err != nil || len(page) != 129 || counter.count != 2 {
+	if err != nil || len(page) != 129 || counter.count != 2 || len(capture.queries) != 2 {
 		t.Fatalf("indexed continued page: len=%d count=%d err=%v", len(page), counter.count, err)
 	}
-	for _, statement := range counter.statements {
-		plan := explainExecutionQuery(t, db, statement)
+	for _, query := range capture.queries {
+		plan := explainExecutionQuery(t, db, query)
 		if !strings.Contains(plan, "idx_job_task_unbound_observation") || !strings.Contains(plan, "job_instance_pkey") ||
 			strings.Contains(plan, "Seq Scan") || strings.Contains(plan, "Sort  (") {
 			t.Fatalf("unbound candidates lost indexed ordering or parent lookup:\n%s", plan)

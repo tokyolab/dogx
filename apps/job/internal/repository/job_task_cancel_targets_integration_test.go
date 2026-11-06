@@ -135,18 +135,34 @@ func TestCancelTargetQuerySeeksPastHeavyDuplicateAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 	counter := &queryCounter{Interface: logger.Default.LogMode(logger.Silent)}
+	capture := &executionQueryCapture{queryCounter: counter}
+	// GORM Scan temporarily replaces the logger, bypassing ParamsFilter. Capture
+	// its row callback inputs on this test's DB before GORM clears the statement.
+	const callbackName = "test:capture_cancel_target_query"
+	if err := db.Callback().Row().After("gorm:row").Register(callbackName, func(tx *gorm.DB) {
+		capture.queries = append(capture.queries, executionQuery{
+			sql: tx.Statement.SQL.String(), vars: append([]any(nil), tx.Statement.Vars...),
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Callback().Row().Remove(callbackName); err != nil {
+			t.Error(err)
+		}
+	})
 	repo, err := NewJobTaskRepository(db.Session(&gorm.Session{Logger: counter}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	cursor := ""
 	for range 2 {
-		counter.count, counter.statements = 0, nil
+		capture.reset()
 		page, err := repo.ListCancelTargets(context.Background(), instance.ID, cursor, 32)
-		if err != nil || len(page) != 32 || counter.count != 1 {
+		if err != nil || len(page) != 32 || counter.count != 1 || len(capture.queries) != 1 {
 			t.Fatalf("duplicate-heavy address page: count=%d page=%v err=%v", counter.count, page, err)
 		}
-		plan := explainExecutionQuery(t, db, counter.statements[0])
+		plan := explainExecutionQuery(t, db, capture.queries[0])
 		if strings.Count(plan, "idx_job_task_instance_address") < 2 || !strings.Contains(plan, "Recursive Union") ||
 			strings.Contains(plan, "Seq Scan") || strings.Contains(plan, "Unique") || strings.Contains(plan, "HashAggregate") ||
 			!strings.Contains(plan, "executor_address >") {
