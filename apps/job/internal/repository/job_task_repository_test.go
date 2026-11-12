@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"gorm.io/gorm"
 )
 
@@ -27,7 +28,7 @@ func TestTaskRepositoryRejectsInvalidInputsBeforeDatabaseAccess(t *testing.T) {
 		id int64
 		at time.Time
 	}{{0, started}, {-1, started}, {1, time.Time{}}} {
-		if id, err := repo.InsertOrdinary(ctx, tc.id, tc.at); id != 0 || err == nil {
+		if id, err := repo.InsertInitial(ctx, tc.id, model.TaskTypeOrdinary, tc.at); id != 0 || err == nil {
 			t.Fatalf("invalid start: id = %d, error = %v", id, err)
 		}
 	}

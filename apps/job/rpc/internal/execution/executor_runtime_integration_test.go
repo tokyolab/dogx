@@ -201,7 +201,7 @@ func testOrdinaryDispatchRuntime(t *testing.T, resultBeforeACK bool) {
 		t.Fatal(err)
 	}
 	dispatchCtx, dispatchCancel := context.WithCancel(ctx)
-	response, err := dispatcher.DispatchOrdinary(dispatchCtx, instance.ID)
+	response, err := dispatcher.DispatchInstance(dispatchCtx, instance.ID)
 	dispatchCancel()
 	if err != nil || !response.Registered || response.Outcome != dispatch.OutcomeAccepted || response.Applied == resultBeforeACK {
 		t.Fatalf("dispatch did not acknowledge actual admission: %v", err)
@@ -242,7 +242,7 @@ func testOrdinaryDispatchRuntime(t *testing.T, resultBeforeACK bool) {
 		saved.ResultSummary == nil || *saved.ResultSummary != "runtime completed" {
 		t.Fatal("executor result was not persisted with original attempt and exact JSON")
 	}
-	replayed, err := dispatcher.DispatchOrdinary(ctx, instance.ID)
+	replayed, err := dispatcher.DispatchInstance(ctx, instance.ID)
 	if err != nil || replayed.Registered || sends.Load() != 1 || processor.calls.Load() != 1 || reports.Load() != 2 {
 		t.Fatalf("dispatch/report retry reran business or lost retry: sends=%d business=%d reports=%d err=%v", sends.Load(), processor.calls.Load(), reports.Load(), err)
 	}

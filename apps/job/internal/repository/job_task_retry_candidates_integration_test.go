@@ -17,7 +17,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func TestRetryCandidatesUseFixedTimeAndOriginalAttemptCursor(t *testing.T) {
+func TestDispatchCandidatesUseFixedTimeAndOriginalAttemptCursor(t *testing.T) {
 	db, job := resultRepositoryFixture(t)
 	scanNow := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
 	due := scanNow.Add(-time.Minute)
@@ -45,39 +45,39 @@ func TestRetryCandidatesUseFixedTimeAndOriginalAttemptCursor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	page, err := repo.ListRetryCandidates(context.Background(), scanNow, nil, 1)
+	page, err := repo.ListDispatchCandidates(context.Background(), scanNow, nil, 1)
 	if err != nil || len(page) != 1 || page[0].TaskID != first.ID || page[0].AttemptNo != 7 || !page[0].NextDispatchAt.Equal(due) {
 		t.Fatalf("first retry page: %+v err=%v", page, err)
 	}
 	if counter.count != 1 || strings.Contains(counter.statements[0], "(t.next_dispatch_at, t.id) >") {
 		t.Fatalf("initial page added a cursor or extra reads: %v", counter.statements)
 	}
-	for _, forbidden := range []string{"task_type", "execution_config", "result_data", "result_summary", "executor_address", "job_definition", "FOR UPDATE", "OFFSET"} {
+	for _, forbidden := range []string{"input_data", "execution_config", "result_data", "result_summary", "executor_address", "job_definition", "FOR UPDATE", "OFFSET"} {
 		if strings.Contains(counter.statements[0], forbidden) {
 			t.Fatalf("retry discovery added %s: %s", forbidden, counter.statements[0])
 		}
 	}
-	cursor := &RetryCursor{NextDispatchAt: page[0].NextDispatchAt, TaskID: page[0].TaskID}
+	cursor := &DispatchCursor{NextDispatchAt: page[0].NextDispatchAt, TaskID: page[0].TaskID}
 	// The original position stays valid after a handed-off row leaves retry state.
 	if err := db.Model(&model.JobTask{}).Where("id = ?", first.ID).Update("status", model.TaskSucceeded).Error; err != nil {
 		t.Fatal(err)
 	}
-	page, err = repo.ListRetryCandidates(context.Background(), scanNow, cursor, 128)
+	page, err = repo.ListDispatchCandidates(context.Background(), scanNow, cursor, 128)
 	if err != nil || len(page) != 2 || page[0].TaskID != second.ID || page[1].TaskID != boundary.ID {
 		t.Fatalf("continued retry page: %+v err=%v", page, err)
 	}
-	cursor = &RetryCursor{NextDispatchAt: page[1].NextDispatchAt, TaskID: page[1].TaskID}
-	page, err = repo.ListRetryCandidates(context.Background(), scanNow, cursor, 128)
+	cursor = &DispatchCursor{NextDispatchAt: page[1].NextDispatchAt, TaskID: page[1].TaskID}
+	page, err = repo.ListDispatchCandidates(context.Background(), scanNow, cursor, 128)
 	if err != nil || page == nil || len(page) != 0 {
 		t.Fatalf("fixed upper time admitted later work: %+v err=%v", page, err)
 	}
-	page, err = repo.ListRetryCandidates(context.Background(), scanNow.Add(time.Second), nil, 128)
+	page, err = repo.ListDispatchCandidates(context.Background(), scanNow.Add(time.Second), nil, 128)
 	if err != nil || len(page) != 3 || page[2].TaskID != later.ID {
 		t.Fatalf("new traversal did not discover newly due work: %+v err=%v", page, err)
 	}
 }
 
-func TestRetryCandidatesFilterParentStateDeadlineAndTaskState(t *testing.T) {
+func TestDispatchCandidatesFilterParentStateDeadlineAndTaskState(t *testing.T) {
 	db, job := resultRepositoryFixture(t)
 	now := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
 	_, valid := createRetryRepositoryTask(t, db, job, now, now)
@@ -112,21 +112,21 @@ func TestRetryCandidatesFilterParentStateDeadlineAndTaskState(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := readRepositoryTask(t, db, valid.ID)
-	page, err := repo.ListRetryCandidates(context.Background(), now, nil, 128)
+	page, err := repo.ListDispatchCandidates(context.Background(), now, nil, 128)
 	if err != nil || len(page) != 1 || page[0].TaskID != valid.ID || !reflect.DeepEqual(before, readRepositoryTask(t, db, valid.ID)) {
 		t.Fatalf("discovery changed work or included ineligible facts: %+v err=%v", page, err)
 	}
 	if err := db.Exec("ALTER TABLE job_instance RENAME TO unavailable_retry_parent").Error; err != nil {
 		t.Fatal(err)
 	}
-	page, err = repo.ListRetryCandidates(context.Background(), now, nil, 128)
+	page, err = repo.ListDispatchCandidates(context.Background(), now, nil, 128)
 	var driverErr *pgconn.PgError
 	if page != nil || !errors.As(err, &driverErr) || driverErr.Code != "42P01" {
 		t.Fatalf("query failure became an empty traversal: %+v err=%v", page, err)
 	}
 }
 
-func TestRetryCandidateQueryUsesDueIndexAndParentPrimaryKey(t *testing.T) {
+func TestDispatchCandidateQueryUsesDueIndexAndParentPrimaryKey(t *testing.T) {
 	db, _ := testutil.OpenMigratedPostgres(t)
 	now := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
 	if err := db.Exec(`INSERT INTO job_instance
@@ -152,18 +152,18 @@ func TestRetryCandidateQueryUsesDueIndexAndParentPrimaryKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	page, err := repo.ListRetryCandidates(context.Background(), now, nil, 128)
+	page, err := repo.ListDispatchCandidates(context.Background(), now, nil, 128)
 	if err != nil || len(page) != 128 {
 		t.Fatalf("indexed retry first page: len=%d err=%v", len(page), err)
 	}
 	last := page[len(page)-1]
-	page, err = repo.ListRetryCandidates(context.Background(), now, &RetryCursor{NextDispatchAt: last.NextDispatchAt, TaskID: last.TaskID}, 128)
+	page, err = repo.ListDispatchCandidates(context.Background(), now, &DispatchCursor{NextDispatchAt: last.NextDispatchAt, TaskID: last.TaskID}, 128)
 	if err != nil || len(page) != 128 || counter.count != 2 || len(capture.queries) != 2 {
 		t.Fatalf("indexed retry next page: len=%d count=%d err=%v", len(page), counter.count, err)
 	}
 	for _, query := range capture.queries {
 		plan := explainExecutionQuery(t, db, query)
-		if !strings.Contains(plan, "idx_job_task_retry_due") || !strings.Contains(plan, "job_instance_pkey") ||
+		if !strings.Contains(plan, "idx_job_task_dispatch_due") || !strings.Contains(plan, "job_instance_pkey") ||
 			strings.Contains(plan, "Seq Scan") || strings.Contains(plan, "Sort  (") {
 			t.Fatalf("retry candidates lost indexed ordering or parent lookup:\n%s", plan)
 		}

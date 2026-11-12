@@ -15,7 +15,7 @@ import (
 
 func TestRegistrarReturnsOnlyConfirmedNewAttempt(t *testing.T) {
 	f := newRegistrationFixture(t)
-	got, err := f.registrar.StartOrdinary(context.Background(), 11)
+	got, err := f.registrar.StartInstance(context.Background(), 11)
 	if err != nil || got == nil || got.TaskID != 31 || got.AttemptNo != 1 ||
 		got.JobID != 21 || got.ExecutorGroupID != 41 || got.InstanceID != 11 ||
 		got.ExecutionConfig.ProcessorName != "system.cleanup" || !got.RegisteredAt.Equal(f.now) ||
@@ -28,7 +28,7 @@ func TestRegistrarReturnsOnlyConfirmedNewAttempt(t *testing.T) {
 
 	f = newRegistrationFixture(t)
 	f.commitErr = errors.New("synthetic lost commit confirmation")
-	got, err = f.registrar.StartOrdinary(context.Background(), 11)
+	got, err = f.registrar.StartInstance(context.Background(), 11)
 	if got != nil || !errors.Is(err, f.commitErr) || !f.inserted || f.callbackErr != nil {
 		t.Fatalf("unconfirmed registration=%+v err=%v callback=%v", got, err, f.callbackErr)
 	}
@@ -49,15 +49,17 @@ func TestRegistrarSkipsOldCandidatesBeforeDecoding(t *testing.T) {
 		f.instance = nil
 		f.assertSkipped(t)
 	})
-	t.Run("sharded", func(t *testing.T) {
+	t.Run("incomplete sharded snapshot", func(t *testing.T) {
 		f := newRegistrationFixture(t)
 		f.instance.ExecutionConfig = json.RawMessage(`{"schema_version":1,"execution_mode":2}`)
-		f.assertSkipped(t)
+		if got, err := f.registrar.StartInstance(context.Background(), 11); got != nil || !errors.Is(err, ErrInvalidExecutionConfig) || f.clockRead {
+			t.Fatalf("invalid sharded snapshot registered=%+v err=%v", got, err)
+		}
 	})
 	t.Run("lock conflict", func(t *testing.T) {
 		f := newRegistrationFixture(t)
 		f.lockErr = fmt.Errorf("lock: %w", repository.ErrInstanceLocked)
-		got, err := f.registrar.StartOrdinary(context.Background(), 11)
+		got, err := f.registrar.StartInstance(context.Background(), 11)
 		if got != nil || !errors.Is(err, repository.ErrInstanceLocked) ||
 			!errors.Is(f.callbackErr, repository.ErrInstanceLocked) || f.clockRead || f.started || f.inserted {
 			t.Fatal("lock conflict was lost or continued registration instead of requesting rollback")
@@ -89,7 +91,7 @@ func TestRegistrarFailuresNeverPublishAnAttempt(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			f := newRegistrationFixture(t)
 			scenario.configure(f)
-			got, err := f.registrar.StartOrdinary(context.Background(), 11)
+			got, err := f.registrar.StartInstance(context.Background(), 11)
 			if got != nil || err == nil || (scenario.want != nil && !errors.Is(err, scenario.want)) {
 				t.Fatalf("registration=%+v err=%v want=%v", got, err, scenario.want)
 			}
@@ -114,21 +116,21 @@ func TestRegistrarPreservesEarlierBudgetAndCancellation(t *testing.T) {
 	deadline := time.Now().Add(time.Second)
 	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
-	if _, err := f.registrar.StartOrdinary(ctx, 11); err != nil {
+	if _, err := f.registrar.StartInstance(ctx, 11); err != nil {
 		t.Fatal(err)
 	}
 	if !f.deadline.Equal(deadline) {
 		t.Fatalf("caller deadline extended to %v from %v", f.deadline, deadline)
 	}
 	for _, id := range []int64{0, -1} {
-		if got, err := f.registrar.StartOrdinary(context.Background(), id); got != nil || err == nil {
+		if got, err := f.registrar.StartInstance(context.Background(), id); got != nil || err == nil {
 			t.Fatalf("invalid ID %d: %+v %v", id, got, err)
 		}
 	}
 	f = newRegistrationFixture(t)
 	canceled, stop := context.WithCancel(context.Background())
 	stop()
-	if got, err := f.registrar.StartOrdinary(canceled, 11); got != nil || !errors.Is(err, context.Canceled) || f.called {
+	if got, err := f.registrar.StartInstance(canceled, 11); got != nil || !errors.Is(err, context.Canceled) || f.called {
 		t.Fatalf("canceled registration=%+v err=%v runnerCalled=%v", got, err, f.called)
 	}
 }
@@ -154,7 +156,7 @@ func TestRegistrarRejectsInvalidOrdinarySnapshot(t *testing.T) {
 			t.Fatal(err)
 		}
 		f.instance.ExecutionConfig = data
-		if got, err := f.registrar.StartOrdinary(context.Background(), 11); got != nil || !errors.Is(err, ErrInvalidExecutionConfig) || f.clockRead {
+		if got, err := f.registrar.StartInstance(context.Background(), 11); got != nil || !errors.Is(err, ErrInvalidExecutionConfig) || f.clockRead {
 			t.Fatalf("invalid snapshot registered=%+v err=%v clockRead=%v", got, err, f.clockRead)
 		}
 	}
@@ -167,11 +169,12 @@ type registrationFixture struct {
 	instance                                                       *repository.ExecutionInstance
 	now, deadline                                                  time.Time
 	taskID                                                         int64
+	insertedType                                                   model.TaskType
 	called, clockRead, started, inserted, startChanged             bool
 	transactionReturned                                            bool
 	lockErr, clockErr, startErr, insertErr, commitErr, callbackErr error
 	retryTask                                                      *repository.RegisteredTask
-	retryWrite                                                     repository.RetryRegistration
+	retryWrite                                                     repository.AttemptRegistration
 	retryCalls                                                     int
 	retryErr                                                       error
 }
@@ -207,7 +210,7 @@ func newRegistrationFixture(t *testing.T, options ...RegistrarOption) *registrat
 
 func (f *registrationFixture) assertSkipped(t *testing.T) {
 	t.Helper()
-	got, err := f.registrar.StartOrdinary(context.Background(), 11)
+	got, err := f.registrar.StartInstance(context.Background(), 11)
 	if got != nil || err != nil || f.clockRead || f.started || f.inserted {
 		t.Fatalf("skipped registration=%+v err=%v clock=%v started=%v inserted=%v", got, err, f.clockRead, f.started, f.inserted)
 	}
@@ -312,15 +315,15 @@ func (*registrationTaskStub) ListUnboundCandidates(context.Context, time.Time, t
 	panic("unexpected ListUnboundCandidates")
 }
 
-func (*registrationTaskStub) SettleOrdinaryUnknown(context.Context, repository.UnknownSettlement) (*repository.SettledTask, error) {
-	panic("unexpected SettleOrdinaryUnknown")
+func (*registrationTaskStub) SettleUnknown(context.Context, repository.UnknownSettlement) (*repository.SettledTask, error) {
+	panic("unexpected SettleUnknown")
 }
 
-func (*registrationTaskStub) ListRetryCandidates(context.Context, time.Time, *repository.RetryCursor, int) ([]repository.RetryCandidate, error) {
-	panic("unexpected ListRetryCandidates")
+func (*registrationTaskStub) ListDispatchCandidates(context.Context, time.Time, *repository.DispatchCursor, int) ([]repository.DispatchCandidate, error) {
+	panic("unexpected ListDispatchCandidates")
 }
 
-func (s *registrationTaskStub) RegisterOrdinaryRetry(_ context.Context, write repository.RetryRegistration) (*repository.RegisteredTask, error) {
+func (s *registrationTaskStub) RegisterAttempt(_ context.Context, write repository.AttemptRegistration) (*repository.RegisteredTask, error) {
 	if !s.f.clockRead || !write.RegisteredAt.Equal(s.f.now) {
 		s.t.Fatal("retry registration did not use the fresh database time")
 	}
@@ -333,11 +336,12 @@ func (*registrationTaskStub) ListByInstance(context.Context, int64, int64, int64
 	panic("unexpected ListByInstance")
 }
 
-func (s *registrationTaskStub) InsertOrdinary(_ context.Context, id int64, start time.Time) (int64, error) {
+func (s *registrationTaskStub) InsertInitial(_ context.Context, id int64, taskType model.TaskType, start time.Time) (int64, error) {
 	if !s.f.started || id != 11 || !start.Equal(s.f.now) {
 		s.t.Fatal("Task insert did not follow the parent start")
 	}
 	s.f.inserted = true
+	s.f.insertedType = taskType
 	return s.f.taskID, s.f.insertErr
 }
 func (*registrationTaskStub) BindExecutor(context.Context, repository.ExecutorBinding) (bool, error) {
@@ -360,6 +364,46 @@ func (*registrationTaskStub) SaveResult(context.Context, repository.TaskResultWr
 	panic("unexpected SaveResult")
 }
 
-func (*registrationTaskStub) CheckResultData(context.Context, model.TaskResultData) (bool, error) {
+func (*registrationTaskStub) CheckResultData(context.Context, model.TaskData) (bool, error) {
 	panic("unexpected CheckResultData")
+}
+
+func (*registrationTaskStub) ListInstanceDispatchCandidates(context.Context, int64, time.Time, int) ([]repository.DispatchCandidate, error) {
+	panic("unexpected ListInstanceDispatchCandidates")
+}
+
+func (*registrationTaskStub) FindPreparation(context.Context, int64) (*repository.PreparationTask, error) {
+	panic("unexpected FindPreparation")
+}
+
+func (*registrationTaskStub) HasShards(context.Context, int64) (bool, error) {
+	panic("unexpected HasShards")
+}
+
+func (*registrationTaskStub) FindPreparationResult(context.Context, int64) (*repository.PreparationResult, error) {
+	panic("unexpected FindPreparationResult")
+}
+
+func (*registrationTaskStub) InsertShards(context.Context, int64, []model.TaskData, time.Time) error {
+	panic("unexpected InsertShards")
+}
+
+func (*registrationTaskStub) FindStages(context.Context, int64) (*repository.StageFacts, error) {
+	panic("attempt registration must not check stage completion")
+}
+
+func (*registrationTaskStub) HasUnfinishedShards(context.Context, int64) (bool, error) {
+	panic("attempt registration must not inspect unfinished shards")
+}
+
+func (*registrationTaskStub) CountShards(context.Context, int64) (repository.ShardCounts, error) {
+	panic("attempt registration must not aggregate shards")
+}
+
+func (*registrationTaskStub) FindPost(context.Context, int64) (*repository.StageTask, error) {
+	panic("attempt registration must not look up Post")
+}
+
+func (*registrationTaskStub) InsertPost(context.Context, int64, repository.ShardCounts, time.Time) (int64, error) {
+	panic("attempt registration must not create Post")
 }

@@ -23,21 +23,23 @@ import (
 type Outcome uint8
 
 const (
-	// OutcomeSkipped covers a missing or waiting parent and modes whose stage
-	// progression is not implemented by this checker.
+	// OutcomeSkipped covers a missing or waiting parent, or a failed check.
 	OutcomeSkipped Outcome = iota
-	// OutcomeNotReady means the read succeeded but ordinary final facts are absent.
+	// OutcomeNotReady means the read succeeded but complete final facts are absent.
 	// It is not a database error or evidence that an automatic timeout committed.
 	OutcomeNotReady
 	// OutcomeStopping observes or newly commits a stop decision and hands it to
 	// configured stop processing; it does not confirm child cancellation.
 	OutcomeStopping
-	// OutcomeNotApplied means the conditional completion changed no row. It does
-	// not prove a terminal parent and must not fall through to automatic timeout.
+	// OutcomeNotApplied means completion or stage creation confirmed no change.
+	// It does not prove a terminal parent or allow automatic timeout fallback.
 	OutcomeNotApplied
 	// OutcomeTerminal confirms a previously observed terminal parent or a new
 	// normal completion whose independent commit was confirmed.
 	OutcomeTerminal
+	// OutcomeAdvanced confirms one shard-generation or Post-creation commit, not
+	// a terminal parent. Hints received during the check must remain eligible.
+	OutcomeAdvanced
 )
 
 var (
@@ -69,20 +71,50 @@ type timeoutRequester interface {
 	RequestTimeout(context.Context, int64) (instancestop.Decision, error)
 }
 
-// Checker performs one finite completion and optional timeout check. It owns no
-// connection, worker or retry loop. Dependencies must permit concurrent calls. The caller
-// retains the processing slot until Check actually returns, even after cancellation.
+// stageStore reads only the facts needed for the current sharded stage. Stage
+// projections and aggregate counts contain no business payload; the complete
+// preparation result is read only when no shard exists. Reads do not claim work.
+// Final facts rely on atomic generation, immutable final Task outcomes and no
+// cleanup of active Instances. A nil StageFacts without an error is invalid.
+type stageStore interface {
+	FindStages(context.Context, int64) (*repository.StageFacts, error)
+	HasShards(context.Context, int64) (bool, error)
+	FindPreparationResult(context.Context, int64) (*repository.PreparationResult, error)
+	HasUnfinishedShards(context.Context, int64) (bool, error)
+	CountShards(context.Context, int64) (repository.ShardCounts, error)
+}
+
+// shardGenerator authorizes and atomically creates the complete saved preparation
+// list under the parent lock. True confirms its own commit; false is not evidence
+// that the parent remains incomplete. Errors never authorize timeout fallback.
+type shardGenerator interface {
+	Generate(context.Context, int64, repository.PreparationResult) (bool, error)
+}
+
+// postCreator authorizes one Post with stable, already-complete shard counts.
+// True confirms its own commit; false may mean another node already advanced.
+// The caller supplies the existing check Context, never a renewed phase budget.
+type postCreator interface {
+	Create(context.Context, int64, repository.ShardCounts) (bool, error)
+}
+
+// Checker performs one finite stage, completion or optional timeout check. It
+// owns no connection, worker or retry loop. Dependencies permit concurrent calls;
+// the caller retains its slot until Check actually returns, even after cancellation.
 type Checker struct {
 	instances completionStore
 	timeout   timeoutRequester
 	afterStop func(instancestop.Decision)
 	resume    func(int64)
+	tasks     stageStore
+	generator shardGenerator
+	post      postCreator
 }
 
 // Option configures a Checker before concurrent use begins.
 type Option func(*Checker) error
 
-// WithStopping enables timeout decisions after explicit ordinary NotReady facts.
+// WithStopping enables timeout decisions after explicit NotReady facts.
 // afterDecision hands a newly committed stop to independent database cancellation
 // and best-effort notification. resume only resumes database cancellation for an
 // already-stopping parent and must not send another remote notification. Both
@@ -94,6 +126,19 @@ func WithStopping(requester timeoutRequester, afterDecision func(instancestop.De
 			return errors.New("instance stopping dependencies must not be nil")
 		}
 		c.timeout, c.afterStop, c.resume = requester, afterDecision, resume
+		return nil
+	}
+}
+
+// WithSharding supplies the shared stage reads and independently committing stage
+// operations. It starts no work. All dependencies must support concurrent checks;
+// encountering a sharded Instance without them returns an assembly error.
+func WithSharding(tasks stageStore, generator shardGenerator, post postCreator) Option {
+	return func(c *Checker) error {
+		if nilCheckDependency(tasks) || nilCheckDependency(generator) || nilCheckDependency(post) {
+			return errors.New("instance sharding dependencies must not be nil")
+		}
+		c.tasks, c.generator, c.post = tasks, generator, post
 		return nil
 	}
 }
@@ -118,12 +163,14 @@ func NewChecker(instances completionStore, options ...Option) (*Checker, error) 
 }
 
 // Check interprets parent state before decoding the settings still needed for
-// completion. An ordinary final Task permits a conditional parent update even
-// after the round deadline; missing or canceled Tasks diagnose an anomaly but
-// never cause Task recreation. Only explicit ordinary NotReady facts may enter
+// completion. Complete final facts permit a conditional parent update even after
+// the round deadline; missing or canceled Tasks diagnose an anomaly but never
+// cause Task recreation. Only explicit NotReady facts may enter
 // the optional timeout path, after checking a valid deadline against fresh database
 // time. That path rechecks parent state and time under its own short transaction.
-// Waiting and unsupported sharded progression never become timeout candidates.
+// Waiting parents never become timeout candidates. A sharded check performs at
+// most one stage write: shard generation, Post creation or parent completion.
+// It never starts a fresh processing budget or waits for dispatch or business work.
 // Existing STOPPING parents only resume database cancellation when configured.
 //
 // A zero-row update is OutcomeNotApplied, not OutcomeNotReady or terminal. Read,
@@ -169,12 +216,15 @@ func (c *Checker) Check(ctx context.Context, id int64) (Outcome, error) {
 	if err := json.Unmarshal(facts.ExecutionConfig, &config); err != nil {
 		return OutcomeSkipped, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
 	}
-	if config.SchemaVersion == nil || *config.SchemaVersion != 1 || config.ExecutionMode == nil {
+	if config.SchemaVersion == nil || *config.SchemaVersion != 1 || config.ExecutionMode == nil || config.PostEnabled == nil {
 		return OutcomeSkipped, ErrInvalidConfig
 	}
 	switch *config.ExecutionMode {
 	case model.ExecutionModeSharded:
-		return OutcomeSkipped, nil
+		if c.tasks == nil || c.generator == nil || c.post == nil {
+			return OutcomeSkipped, errors.New("instance sharding dependencies are not configured")
+		}
+		return c.checkSharded(ctx, facts, *config.PostEnabled)
 	case model.ExecutionModeNormal:
 		if config.PostEnabled == nil || *config.PostEnabled {
 			return OutcomeSkipped, ErrInvalidConfig
@@ -203,7 +253,11 @@ func (c *Checker) Check(ctx context.Context, id int64) (Outcome, error) {
 	default:
 		return OutcomeSkipped, ErrInvalidFacts
 	}
-	changed, err := c.instances.Complete(ctx, id, target, facts.ResultSummary)
+	return c.complete(ctx, id, target, facts.ResultSummary)
+}
+
+func (c *Checker) complete(ctx context.Context, id int64, target model.InstanceStatus, summary *string) (Outcome, error) {
+	changed, err := c.instances.Complete(ctx, id, target, summary)
 	if err != nil {
 		return OutcomeSkipped, fmt.Errorf("complete instance: %w", err)
 	}
@@ -234,6 +288,13 @@ func (c *Checker) notReady(ctx context.Context, facts *repository.InstanceComple
 		return OutcomeSkipped, ErrInvalidFacts
 	}
 	if now.Before(*facts.DeadlineAt) {
+		return OutcomeNotReady, nil
+	}
+	return c.requestTimeout(ctx, facts)
+}
+
+func (c *Checker) requestTimeout(ctx context.Context, facts *repository.InstanceCompletion) (Outcome, error) {
+	if c.timeout == nil {
 		return OutcomeNotReady, nil
 	}
 	decision, err := c.timeout.RequestTimeout(ctx, facts.ID)

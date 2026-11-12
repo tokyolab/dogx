@@ -23,7 +23,11 @@ func TestDispatchWirePreservesStageAndIdentity(t *testing.T) {
 		{name: "absent"},
 		{name: "ordinary", input: &DispatchTaskRequest_Ordinary{Ordinary: &OrdinaryInput{}}},
 		{name: "prepare", input: &DispatchTaskRequest_Prepare{Prepare: &PrepareInput{}}},
-		{name: "shard", input: &DispatchTaskRequest_Shard{Shard: &ShardInput{Items: [][]byte{[]byte(`9007199254740993`), []byte(`{"id":9007199254740993}`)}}}},
+		{name: "shard with missing value", input: &DispatchTaskRequest_Shard{Shard: &ShardInput{}}},
+		{name: "shard with JSON null", input: &DispatchTaskRequest_Shard{Shard: &ShardInput{Item: []byte(`null`)}}},
+		{name: "shard with large integer", input: &DispatchTaskRequest_Shard{Shard: &ShardInput{Item: []byte(`9007199254740993`)}}},
+		{name: "shard with object", input: &DispatchTaskRequest_Shard{Shard: &ShardInput{Item: []byte(`{"id":9007199254740993}`)}}},
+		{name: "shard with nested array", input: &DispatchTaskRequest_Shard{Shard: &ShardInput{Item: []byte(`[[1,2],{"ids":[3,4]},null]`)}}},
 		{name: "post", input: &DispatchTaskRequest_Post{Post: &PostInput{Total: 3, Succeeded: 2, Failed: 1}}},
 	}
 	for _, test := range cases {

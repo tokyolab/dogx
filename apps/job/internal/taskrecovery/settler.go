@@ -44,13 +44,13 @@ type databaseClock interface {
 
 // taskStore reads a bounded set without explicit locks and independently commits
 // each conditional settlement. FindUnboundTargets returns at most one projection
-// per requested Task; missing rows are omitted. SettleOrdinaryUnknown returns a row
+// per requested Task; missing rows are omitted. SettleUnknown returns a row
 // only after its own commit is confirmed, nil, nil for no change, and an error for
 // technical failure or an unknown commit outcome. It must not use an outer
 // transaction, retry writes internally or infer a newer attempt from an old input.
 type taskStore interface {
 	FindUnboundTargets(context.Context, []int64) ([]repository.UnboundTarget, error)
-	SettleOrdinaryUnknown(context.Context, repository.UnknownSettlement) (*repository.SettledTask, error)
+	SettleUnknown(context.Context, repository.UnknownSettlement) (*repository.SettledTask, error)
 }
 
 // BatchResult describes a contiguous processed prefix of the original candidates.
@@ -127,6 +127,8 @@ func NewSettler(clock databaseClock, tasks taskStore, options ...Option) (*Settl
 // retry or parent transition is performed here. A failed write ends the batch after
 // counting that attempted item; failed reads or invalid required settings cannot
 // advance past the affected item. Earlier confirmed changes remain in Applied.
+// All four Task stages use this path. The frozen execution mode must match the
+// persisted stage, and a Post Task requires Post to be enabled in that snapshot.
 //
 // Cancellation stops new operations but does not prove rollback or release of a
 // database resource. The caller keeps its processing position until actual return.
@@ -205,7 +207,7 @@ func (s *Settler) SettleBatch(ctx context.Context, candidates []repository.Unbou
 			return result, err
 		}
 		opCtx, cancel := context.WithTimeout(ctx, s.operationTimeout)
-		settled, err := s.tasks.SettleOrdinaryUnknown(opCtx, write)
+		settled, err := s.tasks.SettleUnknown(opCtx, write)
 		operationErr := opCtx.Err()
 		cancel()
 		result.Processed++
@@ -234,9 +236,7 @@ func (s *Settler) prepare(ctx context.Context, candidate repository.UnboundCandi
 		return empty, false, nil
 	}
 	switch target.TaskType {
-	case model.TaskTypeOrdinary:
-	case model.TaskTypePrepare, model.TaskTypeShard, model.TaskTypePost:
-		return empty, false, nil
+	case model.TaskTypeOrdinary, model.TaskTypePrepare, model.TaskTypeShard, model.TaskTypePost:
 	default:
 		return empty, false, ErrInvalidFacts
 	}
@@ -279,41 +279,52 @@ func (s *Settler) prepare(ctx context.Context, candidate repository.UnboundCandi
 		s.hintInstance(candidate.InstanceID)
 		return empty, false, nil
 	}
-	maxAttempts, retryInterval, ordinary, err := frozenBudget(target.ExecutionConfig)
-	if err != nil || !ordinary {
+	maxAttempts, retryInterval, err := frozenBudget(target.ExecutionConfig, target.TaskType)
+	if err != nil {
 		return empty, false, err
 	}
 	return repository.UnknownSettlement{TaskID: candidate.TaskID, InstanceID: candidate.InstanceID, ExpectedAttemptNo: candidate.AttemptNo,
 		MaxAttempts: maxAttempts, ProcessedAt: processedAt, ObservationCutoff: cutoff, RetryAt: processedAt.Add(retryInterval)}, true, nil
 }
 
-func frozenBudget(data []byte) (int64, time.Duration, bool, error) {
+func frozenBudget(data []byte, taskType model.TaskType) (int64, time.Duration, error) {
 	var config struct {
 		SchemaVersion int32               `json:"schema_version"`
 		ExecutionMode model.ExecutionMode `json:"execution_mode"`
+		PostEnabled   *bool               `json:"post_enabled"`
 		MaxRetries    json.RawMessage     `json:"max_retries"`
 		RetryInterval json.RawMessage     `json:"retry_interval_seconds"`
 	}
 	if err := json.Unmarshal(data, &config); err != nil {
-		return 0, 0, false, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+		return 0, 0, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
 	}
-	if config.SchemaVersion != 1 {
-		return 0, 0, false, ErrInvalidConfig
+	if config.SchemaVersion != 1 || config.PostEnabled == nil {
+		return 0, 0, ErrInvalidConfig
 	}
-	if config.ExecutionMode == model.ExecutionModeSharded {
-		return 0, 0, false, nil
-	}
-	if config.ExecutionMode != model.ExecutionModeNormal {
-		return 0, 0, false, ErrInvalidConfig
+	switch taskType {
+	case model.TaskTypeOrdinary:
+		if config.ExecutionMode != model.ExecutionModeNormal || *config.PostEnabled {
+			return 0, 0, ErrInvalidConfig
+		}
+	case model.TaskTypePrepare, model.TaskTypeShard:
+		if config.ExecutionMode != model.ExecutionModeSharded {
+			return 0, 0, ErrInvalidConfig
+		}
+	case model.TaskTypePost:
+		if config.ExecutionMode != model.ExecutionModeSharded || !*config.PostEnabled {
+			return 0, 0, ErrInvalidConfig
+		}
+	default:
+		return 0, 0, ErrInvalidFacts
 	}
 	var retries, interval *int32
 	if json.Unmarshal(config.MaxRetries, &retries) != nil || json.Unmarshal(config.RetryInterval, &interval) != nil ||
 		retries == nil || interval == nil || *retries < 0 || *interval <= 0 {
-		return 0, 0, false, ErrInvalidConfig
+		return 0, 0, ErrInvalidConfig
 	}
 	// The UPDATE decides the branch from its current used_attempts; no stale
 	// budget counter is read here. Widen before including the first opportunity.
-	return int64(*retries) + 1, time.Duration(*interval) * time.Second, true, nil
+	return int64(*retries) + 1, time.Duration(*interval) * time.Second, nil
 }
 
 func (s *Settler) hintInstance(id int64) {

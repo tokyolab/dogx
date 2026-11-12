@@ -18,7 +18,7 @@ import (
 func TestRetryRegistrarsCompeteWithoutResettingFrozenExecution(t *testing.T) {
 	db, _ := testutil.OpenMigratedPostgres(t)
 	instance := createRegistrarInstance(t, db)
-	initial, err := newIntegrationRegistrar(t, db).StartOrdinary(context.Background(), instance.ID)
+	initial, err := newIntegrationRegistrar(t, db).StartInstance(context.Background(), instance.ID)
 	if err != nil || initial == nil {
 		t.Fatalf("initial registration=%+v err=%v", initial, err)
 	}
@@ -37,7 +37,7 @@ func TestRetryRegistrarsCompeteWithoutResettingFrozenExecution(t *testing.T) {
 	if err := db.Create(&job).Error; err != nil {
 		t.Fatal(err)
 	}
-	candidate := repository.RetryCandidate{TaskID: initial.TaskID, InstanceID: instance.ID,
+	candidate := repository.DispatchCandidate{TaskType: model.TaskTypeOrdinary, Status: model.TaskRetryWaiting, TaskID: initial.TaskID, InstanceID: instance.ID,
 		AttemptNo: initial.AttemptNo, NextDispatchAt: dueAt}
 	run := registrarTransactionRunner(t, db)
 	ready, release, done := make(chan struct{}), make(chan struct{}), make(chan struct{})
@@ -68,7 +68,7 @@ func TestRetryRegistrarsCompeteWithoutResettingFrozenExecution(t *testing.T) {
 	result := make(chan outcome, 1)
 	go func() {
 		defer close(done)
-		attempt, err := first.RetryOrdinary(ctx, candidate)
+		attempt, err := first.RegisterTask(ctx, candidate)
 		result <- outcome{attempt: attempt, err: err}
 	}()
 	defer func() {
@@ -87,7 +87,7 @@ func TestRetryRegistrarsCompeteWithoutResettingFrozenExecution(t *testing.T) {
 		t.Fatal("uncommitted retry became visible outside its transaction")
 	}
 	contenderCtx, stop := context.WithTimeout(ctx, time.Second)
-	contender, err := second.RetryOrdinary(contenderCtx, candidate)
+	contender, err := second.RegisterTask(contenderCtx, candidate)
 	stop()
 	if contender != nil || !errors.Is(err, repository.ErrInstanceLocked) {
 		t.Fatalf("contending retry=%+v err=%v", contender, err)
@@ -109,7 +109,7 @@ func TestRetryRegistrarsCompeteWithoutResettingFrozenExecution(t *testing.T) {
 		task.ResultSummary == nil || *task.ResultSummary != "previous failure" {
 		t.Fatal("committed retry did not preserve its original lifetime and last result")
 	}
-	if attempt, err := second.RetryOrdinary(ctx, candidate); attempt != nil || err != nil {
+	if attempt, err := second.RegisterTask(ctx, candidate); attempt != nil || err != nil {
 		t.Fatalf("same candidate obtained another authorization: attempt=%+v err=%v", attempt, err)
 	}
 }

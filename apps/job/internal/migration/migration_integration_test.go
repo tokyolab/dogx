@@ -24,13 +24,13 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	results, err := provider.Up(ctx)
-	if err != nil || len(results) != 5 {
+	if err != nil || len(results) != 6 {
 		t.Fatalf("Up results=%v error=%v", results, err)
 	}
 	if results, err := provider.Up(ctx); err != nil || len(results) != 0 {
 		t.Fatalf("second Up results=%v error=%v", results, err)
 	}
-	if version, err := provider.GetDBVersion(ctx); err != nil || version != 20261105120000 {
+	if version, err := provider.GetDBVersion(ctx); err != nil || version != 20261111120000 {
 		t.Fatalf("Job version=%d err=%v", version, err)
 	}
 	updatedAtComments := map[string]string{
@@ -46,7 +46,7 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 		"job_executor_group": {"id": "bigint!", "name": "character varying(128)!", "discovery_key": "character varying(255)!", "token": "character varying(32)!", "created_at": "timestamp with time zone!", "updated_at": "timestamp with time zone!", "deleted_at": "timestamp with time zone"},
 		"job_definition":     {"id": "bigint!", "name": "character varying(128)!", "remark": "character varying(500)!", "executor_group_id": "bigint!", "processor_name": "character varying(128)!", "execution_mode": "smallint!", "post_enabled": "boolean!", "params": "text!", "cron_expr": "character varying(128)!", "status": "smallint!", "misfire_policy": "smallint!", "block_policy": "smallint!", "max_retries": "integer!", "retry_interval_seconds": "integer!", "timeout_seconds": "integer!", "next_trigger_at": "timestamp with time zone", "created_at": "timestamp with time zone!", "updated_at": "timestamp with time zone!", "deleted_at": "timestamp with time zone"},
 		"job_instance":       {"id": "bigint!", "job_id": "bigint!", "job_name": "character varying(128)!", "executor_group_id": "bigint!", "trigger_type": "smallint!", "scheduled_at": "timestamp with time zone", "request_id": "uuid", "params_overridden": "boolean!", "triggered_by": "bigint", "execution_config": "jsonb!", "status": "smallint!", "started_at": "timestamp with time zone", "deadline_at": "timestamp with time zone", "finished_at": "timestamp with time zone", "end_reason": "character varying(64)", "result_summary": "text", "created_at": "timestamp with time zone!", "updated_at": "timestamp with time zone!"},
-		"job_task":           {"id": "bigint!", "instance_id": "bigint!", "task_type": "smallint!", "status": "smallint!", "attempt_no": "bigint!", "used_attempts": "integer!", "attempt_registered_at": "timestamp with time zone", "next_dispatch_at": "timestamp with time zone", "executor_instance_id": "uuid", "executor_address": "character varying(255)", "result_data": "jsonb", "result_summary": "text", "end_reason": "character varying(64)", "started_at": "timestamp with time zone", "finished_at": "timestamp with time zone", "created_at": "timestamp with time zone!", "updated_at": "timestamp with time zone!"},
+		"job_task":           {"id": "bigint!", "instance_id": "bigint!", "task_type": "smallint!", "status": "smallint!", "attempt_no": "bigint!", "used_attempts": "integer!", "attempt_registered_at": "timestamp with time zone", "next_dispatch_at": "timestamp with time zone", "executor_instance_id": "uuid", "executor_address": "character varying(255)", "input_data": "jsonb", "result_data": "jsonb", "result_summary": "text", "end_reason": "character varying(64)", "started_at": "timestamp with time zone", "finished_at": "timestamp with time zone", "created_at": "timestamp with time zone!", "updated_at": "timestamp with time zone!"},
 	}
 	for table, expected := range columns {
 		var comment string
@@ -99,7 +99,7 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 		"idx_job_instance_running_started":    "started_at, id|status = 2",
 		"idx_job_instance_stopping":           "id|status = 6",
 		"uq_job_task_singleton":               "UNIQUE INDEX|instance_id, task_type|ARRAY[1, 2, 4]",
-		"idx_job_task_retry_due":              "next_dispatch_at, id|status = 3",
+		"idx_job_task_dispatch_due":           "next_dispatch_at, id|ARRAY[1, 3]",
 		"idx_job_task_unbound_observation":    "attempt_registered_at, id|status = 2|executor_instance_id IS NULL|executor_address IS NULL",
 		"idx_job_task_unfinished_instance":    "instance_id, id|ARRAY[1, 2, 3]",
 		"idx_job_task_instance_address":       "instance_id, executor_address|executor_address IS NOT NULL",
@@ -149,6 +149,41 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM job_executor_group").Scan(&groups); err != nil || groups != 0 {
 		t.Fatalf("implicit group seeds=%d err=%v", groups, err)
 	}
+	var inputHasDefault, retryIndexRemoved bool
+	if err := sqlDB.QueryRowContext(ctx, `SELECT atthasdef FROM pg_attribute WHERE attrelid = 'job_task'::regclass AND attname = 'input_data' AND NOT attisdropped`).Scan(&inputHasDefault); err != nil || inputHasDefault {
+		t.Fatalf("input_data default must not mask absent input: hasDefault=%v err=%v", inputHasDefault, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT to_regclass('idx_job_task_retry_due') IS NULL").Scan(&retryIndexRemoved); err != nil || !retryIndexRemoved {
+		t.Fatalf("dispatch index did not replace retry index: removed=%v err=%v", retryIndexRemoved, err)
+	}
+	var firstKey, secondKey, predicate string
+	var attributeCount, keyCount int
+	var unique, valid, ready bool
+	if err := sqlDB.QueryRowContext(ctx, `SELECT pg_get_indexdef(indexrelid, 1, true), pg_get_indexdef(indexrelid, 2, true),
+pg_get_expr(indpred, indrelid), indnatts, indnkeyatts, indisunique, indisvalid, indisready
+FROM pg_index WHERE indexrelid = 'idx_job_task_dispatch_due'::regclass`).
+		Scan(&firstKey, &secondKey, &predicate, &attributeCount, &keyCount, &unique, &valid, &ready); err != nil {
+		t.Fatal(err)
+	}
+	if firstKey != "next_dispatch_at" || secondKey != "id" || attributeCount != 2 || keyCount != 2 || unique || !valid || !ready ||
+		strings.NewReplacer(" ", "", "(", "", ")", "").Replace(predicate) != "status=ANYARRAY[1,3]" {
+		t.Fatalf("unexpected dispatch index: keys=%q/%q predicate=%q attributes=%d keys=%d unique=%v valid=%v ready=%v",
+			firstKey, secondKey, predicate, attributeCount, keyCount, unique, valid, ready)
+	}
+	if _, err := provider.Down(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var inputRemoved, dispatchIndexRemoved bool
+	if err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS (
+SELECT 1 FROM pg_attribute WHERE attrelid = 'job_task'::regclass AND attname = 'input_data' AND NOT attisdropped),
+to_regclass('idx_job_task_dispatch_due') IS NULL`).Scan(&inputRemoved, &dispatchIndexRemoved); err != nil || !inputRemoved || !dispatchIndexRemoved {
+		t.Fatalf("input migration rollback left schema changes: inputRemoved=%v indexRemoved=%v err=%v", inputRemoved, dispatchIndexRemoved, err)
+	}
+	var retryDefinition string
+	if err := sqlDB.QueryRowContext(ctx, "SELECT pg_get_indexdef('idx_job_task_retry_due'::regclass)").Scan(&retryDefinition); err != nil ||
+		!strings.Contains(retryDefinition, "(next_dispatch_at, id)") || !strings.Contains(retryDefinition, "WHERE (status = 3)") {
+		t.Fatalf("input migration rollback did not restore retry index: definition=%q err=%v", retryDefinition, err)
+	}
 	if _, err := provider.Down(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +227,7 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 			t.Fatalf("Down left %s: missing=%v error=%v", table, missing, err)
 		}
 	}
-	if results, err := provider.Up(ctx); err != nil || len(results) != 5 {
+	if results, err := provider.Up(ctx); err != nil || len(results) != 6 {
 		t.Fatalf("Up after Down results=%v error=%v", results, err)
 	}
 }
@@ -223,7 +258,7 @@ func TestJobAndSystemMigrationsUseIndependentLedgers(t *testing.T) {
 		t.Fatal(err)
 	}
 	jobVersion, err := job.GetDBVersion(ctx)
-	if err != nil || jobVersion != 20261105120000 {
+	if err != nil || jobVersion != 20261111120000 {
 		t.Fatalf("Job version=%d err=%v", jobVersion, err)
 	}
 	if _, err := job.DownTo(ctx, 0); err != nil {

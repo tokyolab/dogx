@@ -29,7 +29,7 @@ type Processor interface {
 	Execute(ctx context.Context, input Input) (Result, error)
 }
 
-// ShardingProcessor prepares work items and executes a Task's assigned subset.
+// ShardingProcessor defines the final shards and executes one item per Task.
 // Both methods belong to one named processor. Preparation, shards, retries,
 // and optional Post work may run concurrently or in different processes;
 // processor fields cannot carry an Instance's state between these stages.
@@ -37,10 +37,11 @@ type Processor interface {
 // Processor apply.
 type ShardingProcessor interface {
 	// PreProcess must explicitly return a non-nil Items collection on success.
-	// An empty collection means zero shards; nil does not. On error, partial
-	// items are ignored and do not authorize generation of any shard Tasks.
+	// Each element defines one final shard Task; the scheduler neither splits
+	// nor combines elements. An empty collection means zero shards; nil does
+	// not. On error, partial items are ignored and authorize no shard Tasks.
 	PreProcess(ctx context.Context, input Input) (PrepareResult, error)
-	// ShardingProcess executes all items assigned to this Task. A nil error
+	// ShardingProcess executes the single item assigned to this Task. A nil error
 	// indicates success; returned Data is ignored when an error is present.
 	ShardingProcess(ctx context.Context, input ShardInput) (Result, error)
 }
@@ -67,12 +68,13 @@ type Input struct {
 	Params     string
 }
 
-// ShardInput separates frozen Job parameters from the work-item subset assigned
-// to this Task. Multiple items may belong to one Task. Items contain already
-// encoded JSON; their business meaning is defined by the processor.
+// ShardInput separates frozen Job parameters from this Task's single JSON item.
+// Item is the value of one element of PrepareResult.Items, without an outer
+// array wrapper. It may contain any JSON value, including an array or JSON null;
+// missing or empty bytes are invalid. Its structure is defined by the processor.
 type ShardInput struct {
 	Input
-	Items []json.RawMessage
+	Item json.RawMessage
 }
 
 // PostInput contains final counts of business shard Tasks only, excluding
@@ -105,22 +107,32 @@ func (r Result) Validate() error {
 	return nil
 }
 
-// PrepareResult explicitly separates preparation work items from ordinary Data.
+// MaxPreparedItems limits the number of business shard Tasks in one Instance.
+// Preparation and Post Tasks are not included in this limit.
+const MaxPreparedItems = 500
+
+// PrepareResult explicitly separates final shard inputs from ordinary Data.
+// Each element creates one Task, even if elements have identical JSON values.
 // A non-nil empty Items collection represents successful zero-shard preparation.
-// Nil Items or invalid JSON are not successful preparation output. On business
-// failure, all returned items are ignored instead of being partially adopted.
+// Nil Items, invalid JSON, or more than MaxPreparedItems elements are not valid
+// successful output. On business failure, all returned items are ignored instead
+// of being partially adopted.
 type PrepareResult struct {
 	Items   []json.RawMessage
 	Summary string
 }
 
 // Validate checks successful preparation output without modifying its JSON.
-// It preserves the distinction between missing Items and an explicit empty
-// collection. It does not validate business values, transport size, or JSONB
-// storage constraints. Failed preparation must ignore Items without this check.
+// It enforces MaxPreparedItems and preserves the distinction between missing
+// Items and an explicit empty collection. It does not validate business values,
+// transport size, or JSONB storage constraints. Failed preparation must ignore
+// Items without this check.
 func (r PrepareResult) Validate() error {
 	if r.Items == nil {
 		return errors.New("prepared items must be explicitly provided")
+	}
+	if len(r.Items) > MaxPreparedItems {
+		return fmt.Errorf("prepared items must not exceed %d elements", MaxPreparedItems)
 	}
 	for index, item := range r.Items {
 		if !json.Valid(item) {

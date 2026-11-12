@@ -49,7 +49,7 @@ type ExecutorBinding struct {
 	ExecutorAddress    string
 }
 
-// DispatchBusyWrite identifies an ordinary attempt that received an explicit
+// DispatchBusyWrite identifies an attempt that received an explicit
 // BUSY response proving it was not accepted. Delay must be positive and includes
 // any caller-selected jitter; the repository adds it to one database time at
 // PostgreSQL timestamp precision. All identity fields must be positive.
@@ -60,7 +60,7 @@ type DispatchBusyWrite struct {
 	Delay      time.Duration
 }
 
-// DispatchRejectionWrite identifies an ordinary attempt explicitly rejected
+// DispatchRejectionWrite identifies an attempt explicitly rejected
 // before admission. MaxRetries and RetryIntervalSeconds are the original
 // dispatch's frozen policy, not the current Job configuration. MaxRetries must
 // be nonnegative, RetryIntervalSeconds positive and all identity fields positive.
@@ -104,7 +104,7 @@ type TaskResultWrite struct {
 	AttemptNo            int64
 	ExecutorInstanceID   uuid.UUID
 	Status               model.TaskStatus
-	Data                 model.TaskResultData
+	Data                 model.TaskData
 	Summary              string
 	RetryIntervalSeconds int32
 }
@@ -129,7 +129,7 @@ type UnboundCursor struct {
 
 // UnboundTarget is a bounded reread of a candidate and its retained parent.
 // StartedAt and DeadlineAt belong to the Instance. ExecutionConfig contains only
-// the frozen schema version, execution mode, retry count and retry interval;
+// the frozen schema version, execution mode, Post flag, retry count and interval;
 // business parameters and other snapshot fields are not returned. Required JSON
 // values retain their original types, missing members become JSON null, and a
 // non-object snapshot becomes JSON null. Callers classify stale or ineligible
@@ -192,45 +192,101 @@ type TaskCancellation struct {
 
 const unknownResultSummary = "execution result is unknown; executor binding and result were not recorded"
 
-// RetryCandidate is a due Task observed with its original attempt identity and
+// DispatchCandidate is a due Task observed with its original attempt identity and
 // pagination position. It grants no execution ownership. Callers must retain
-// AttemptNo rather than replacing it with a newer value during registration.
-type RetryCandidate struct {
+// the original type, state and attempt when registering; a newer row version
+// cannot replace a candidate that has already been handed off.
+type DispatchCandidate struct {
 	TaskID         int64
 	InstanceID     int64
+	TaskType       model.TaskType
+	Status         model.TaskStatus
 	AttemptNo      int64
 	NextDispatchAt time.Time
 }
 
-// RetryCursor marks the last handed-off position in one traversal with a fixed
+// DispatchCursor marks the last handed-off position in one traversal with a fixed
 // scan time. It is temporary: later traversals restart without a cursor because
 // concurrent commits and state changes can move or introduce earlier candidates.
-type RetryCursor struct {
+type DispatchCursor struct {
 	NextDispatchAt time.Time
 	TaskID         int64
 }
 
-// RetryRegistration supplies the original candidate identity and the frozen
-// execution budget, including the first opportunity. All IDs and MaxAttempts
-// must be positive. RegisteredAt is the nonzero database time obtained after the
-// caller locked and authorized the running parent in this same transaction.
-type RetryRegistration struct {
+// AttemptRegistration supplies the original candidate identity, stage, state
+// and frozen execution budget, including the first opportunity. Waiting is only
+// valid for a shard or Post with attempt zero; retries require a positive attempt.
+// All IDs and MaxAttempts must be positive. RegisteredAt is the nonzero database
+// time read after locking and authorizing the running parent in this transaction.
+type AttemptRegistration struct {
 	TaskID            int64
 	InstanceID        int64
+	TaskType          model.TaskType
+	ExpectedStatus    model.TaskStatus
 	ExpectedAttemptNo int64
 	MaxAttempts       int64
 	RegisteredAt      time.Time
 }
 
 // RegisteredTask is the new Task version returned by a registration UPDATE.
-// It is valid only inside its owning transaction until commit is confirmed;
+// InputData is the fixed input for this stage and is returned without another read.
+// The record is valid only inside its owning transaction until commit is confirmed;
 // receiving this value alone never authorizes sending the newly numbered attempt.
 type RegisteredTask struct {
 	TaskID       int64
 	InstanceID   int64
+	TaskType     model.TaskType
+	InputData    model.TaskData
 	AttemptNo    int64
 	UsedAttempts int32
 	RegisteredAt time.Time
+}
+
+// PreparationTask is the preparation identity and status needed to decide
+// whether stage advancement needs its full result. It contains no business data.
+type PreparationTask struct {
+	ID     int64
+	Status model.TaskStatus
+}
+
+// PreparationResult is the preparation identity, state and complete saved output.
+// SQL NULL is distinct from an empty JSON array; callers validate the shard list.
+type PreparationResult struct {
+	ID     int64
+	Status model.TaskStatus
+	Data   model.TaskData `gorm:"column:result_data;type:jsonb"`
+}
+
+// StageTask is a preparation or Post Task's minimal execution fact. ResultSummary is
+// populated only for a finally failed preparation read by FindStages; nil is
+// distinct from an explicitly empty summary. No business input or output is read.
+type StageTask struct {
+	ID            int64
+	TaskType      model.TaskType
+	Status        model.TaskStatus
+	ResultSummary *string
+}
+
+// StageFacts contains the preparation and Post facts from one statement snapshot.
+// A nil stage pointer means no such Task exists, not an unfinished or failed Task.
+// The caller decides which facts matter using the parent's frozen configuration.
+type StageFacts struct {
+	Preparation *StageTask
+	Post        *StageTask
+}
+
+// ShardCounts is a count-only projection of all business shards in one Instance.
+// Total includes every shard state; Succeeded, Failed and Canceled count only
+// their respective final states. Other states remain visible as a difference
+// from their sum. Normal completion still requires Total = Succeeded + Failed;
+// cancellation is not business failure. Zero counts alone do not prove that the
+// preparation explicitly produced an empty list. JSON tags define fixed Post
+// input, which excludes the cancellation diagnostic.
+type ShardCounts struct {
+	Total     int64 `json:"total"`
+	Succeeded int64 `json:"succeeded"`
+	Failed    int64 `json:"failed"`
+	Canceled  int64 `json:"-"`
 }
 
 // TaskSummary is the management-list projection of execution facts. It excludes
@@ -310,7 +366,7 @@ type JobTaskRepository interface {
 
 	// FindUnboundTargets rereads at most 16 positive Task IDs with their parents
 	// in one unlocked JOIN, without inspecting the current Job or Task output.
-	// Frozen configuration is projected to the four required JSON fields described
+	// Frozen configuration is projected to the five required JSON fields described
 	// by UnboundTarget; it never returns business parameters or the full snapshot.
 	// Empty input returns a non-nil empty slice without querying. Duplicate IDs
 	// produce one row; missing Tasks or parents are omitted. Rows are ordered by
@@ -318,13 +374,13 @@ type JobTaskRepository interface {
 	// Errors return nil and preserve their cause, not an empty successful batch.
 	FindUnboundTargets(context.Context, []int64) ([]UnboundTarget, error)
 
-	// SettleOrdinaryUnknown conditionally closes one original ordinary attempt
+	// SettleUnknown conditionally closes one original attempt of any stage
 	// after the caller has reread a running parent, valid original times and an
 	// unexpired deadline using ProcessedAt and its immutable configuration. That
 	// prerequisite read takes no parent lock: a later stop may interleave, but
 	// this method never changes the parent or grants another execution attempt.
 	//
-	// The UPDATE rechecks the Task/Instance/attempt identity, ordinary running
+	// The UPDATE rechecks the Task/Instance/attempt identity, valid type, running
 	// state, two NULL bindings and registration time <= ObservationCutoff. CASE
 	// uses the row's current used-attempt count and MaxAttempts to choose retry
 	// or final failure. Counts and original times remain unchanged. Output is
@@ -335,11 +391,13 @@ type JobTaskRepository interface {
 	// default transactions are disabled. A record is returned only after confirmed
 	// commit; every error returns nil and preserves its cause, without proving
 	// rollback. Nil, nil means no row matched, with no diagnostic reread or retry.
-	SettleOrdinaryUnknown(context.Context, UnknownSettlement) (*SettledTask, error)
+	SettleUnknown(context.Context, UnknownSettlement) (*SettledTask, error)
 
-	// ListRetryCandidates reads due retry-waiting Tasks joined to running parents
-	// whose deadlines are strictly after scanNow. It preserves all Task types and
-	// reads no current Job, configuration, business data or bindings. scanNow must
+	// ListDispatchCandidates reads due retries and unregistered waiting shard/Post
+	// Tasks joined to running parents whose deadlines are strictly after scanNow.
+	// Waiting rows must have zero attempt counts and NULL start/registration times.
+	// It preserves the original Task types, states and attempts, and reads no
+	// current Job, configuration, business data or bindings. scanNow must
 	// be nonzero and fixed for the traversal. A nil cursor starts at the beginning;
 	// a supplied cursor must have a positive ID and nonzero time <= scanNow.
 	// Results are ordered by next_dispatch_at then ID, strictly after the cursor.
@@ -348,21 +406,29 @@ type JobTaskRepository interface {
 	// Empty results are non-nil slices. Errors return nil and do not advance the
 	// cursor. This single query takes no locks and grants no dispatch permission;
 	// the parent and original attempt must be rechecked during registration.
-	ListRetryCandidates(ctx context.Context, scanNow time.Time, cursor *RetryCursor, limit int) ([]RetryCandidate, error)
+	ListDispatchCandidates(ctx context.Context, scanNow time.Time, cursor *DispatchCursor, limit int) ([]DispatchCandidate, error)
 
-	// RegisterOrdinaryRetry conditionally registers the next ordinary attempt in
+	// ListInstanceDispatchCandidates applies the same eligibility, ordering, bounds
+	// and unlocked-read contract as ListDispatchCandidates to one positive parent
+	// ID. It starts at the first due position and is a bounded post-commit hint read,
+	// not a separate source of eligibility or permission to send.
+	ListInstanceDispatchCandidates(ctx context.Context, instanceID int64, scanNow time.Time, limit int) ([]DispatchCandidate, error)
+
+	// RegisterAttempt conditionally registers a first shard/Post attempt or retry in
 	// the caller's explicit transaction. The caller must first lock its parent,
 	// confirm running state, valid original times and unexpired deadline, and read
 	// the database time after that lock. This method does not repeat those reads.
 	//
-	// One UPDATE checks the original Task/Instance/attempt, ordinary type, retry
-	// state, due time and remaining used-attempt budget. It increments both counts,
+	// One UPDATE checks the original Task/Instance/attempt, type, expected state,
+	// due time and remaining used-attempt budget. A first registration additionally
+	// requires zero counts and NULL start/registration times. It increments both counts,
 	// clears old bindings, business output, terminal fields and retry time, and
-	// preserves the first-start time and last summary. PostgreSQL rejects numeric
-	// overflow instead of wrapping; any error requires the caller to roll back.
+	// sets the first-start time only on first registration and preserves the last
+	// summary. PostgreSQL rejects numeric overflow instead of wrapping; any error
+	// requires the caller to roll back.
 	// Nil, nil means no row matched, without a diagnostic query or a newer attempt
 	// lookup. A returned record describes this transaction's write, not its commit.
-	RegisterOrdinaryRetry(context.Context, RetryRegistration) (*RegisteredTask, error)
+	RegisterAttempt(context.Context, AttemptRegistration) (*RegisteredTask, error)
 
 	// ListByInstance returns a page in ascending Task ID order and the total
 	// matching count, without reading business result_data. instanceID and page
@@ -372,14 +438,84 @@ type JobTaskRepository interface {
 	// whether the parent exists; management callers check it separately.
 	ListByInstance(ctx context.Context, instanceID, page, pageSize int64) ([]TaskSummary, int64, error)
 
-	// InsertOrdinary inserts the singleton ordinary Task already running its first
-	// attempt. instanceID must be positive and startedAt must be the nonzero database
+	// FindPreparation reads only the singleton preparation Task's ID and status.
+	// instanceID must be positive. Missing preparation returns nil, nil; database
+	// failures preserve their causes. This unlocked read grants no generation right
+	// and does not load the preparation output.
+	FindPreparation(context.Context, int64) (*PreparationTask, error)
+
+	// HasShards reports whether one positive Instance has any shard Task, regardless
+	// of state. It is an indexed, unlocked existence query without business data.
+	// False, nil means absent; failures return false and preserve their causes.
+	HasShards(context.Context, int64) (bool, error)
+
+	// FindPreparationResult reads one positive Instance's complete preparation
+	// output with its ID and status. It has FindPreparation's absence/error contract.
+	// Callers only load this bounded output when generation or empty-list validation
+	// needs it; the repository does not interpret or normalize the list.
+	FindPreparationResult(context.Context, int64) (*PreparationResult, error)
+
+	// FindStages reads one positive Instance's preparation and Post identity and
+	// status in one unlocked query, plus the summary of a finally failed preparation.
+	// It does not read business JSON, Post summaries or per-shard facts. A successful
+	// result is non-nil even if both stages are missing; query failures return nil
+	// and retain their cause. These facts do not authorize stage creation or completion.
+	FindStages(context.Context, int64) (*StageFacts, error)
+
+	// HasUnfinishedShards reports whether a positive Instance has a waiting, running
+	// or retry-waiting business shard. The unlocked existence query stops at the
+	// first matching row and reads no content. False, nil does not establish normal
+	// completion: canceled and unknown states require CountShards validation, and
+	// an empty set needs the preparation's explicit empty-list fact. Errors return
+	// false and preserve their cause.
+	HasUnfinishedShards(context.Context, int64) (bool, error)
+
+	// CountShards reads one positive Instance's business shard counts in one
+	// unlocked aggregate without loading JSON, summaries, attempts or child lists.
+	// An empty set returns zero counts; any query error returns zero and its cause.
+	// Callers read this only when stage advancement needs final counts, after
+	// confirming complete generation and no unfinished shards. Stability depends
+	// on the fixed shard set, irreversible final states and no active-record cleanup;
+	// the query itself neither locks nor proves those prerequisites. Post creation
+	// must obtain these facts before taking the parent lock, not aggregate under it.
+	CountShards(context.Context, int64) (ShardCounts, error)
+
+	// FindPost reads only a positive Instance's singleton Post ID and status,
+	// assigning TaskTypePost without loading its fixed input, output or summary.
+	// Missing Post returns nil, nil; query errors return nil and retain their cause.
+	// The caller must hold the parent lock when using this read to decide creation.
+	FindPost(context.Context, int64) (*StageTask, error)
+
+	// InsertPost creates a waiting singleton Post with zero attempt counts and
+	// immutable JSON input containing Total, Succeeded and Failed. Counts must be
+	// nonnegative, Total at most 500, Total-Succeeded equal Failed and Canceled zero.
+	// The caller obtains stable final counts outside this transaction, then locks the
+	// parent, checks its running state, enabled Post configuration and original
+	// deadline using createdAt, and verifies that Post is absent. createdAt is
+	// nonzero database time shared by due and audit fields. Creation does not consume
+	// an execution opportunity or query shard counts. A singleton conflict is an
+	// error requiring rollback, never a successful replay; any error returns ID zero.
+	// A returned ID is not commit confirmation and must not yet trigger dispatch.
+	InsertPost(context.Context, int64, ShardCounts, time.Time) (int64, error)
+
+	// InsertShards inserts every supplied item as one unregistered waiting shard in
+	// one SQL statement in the caller's explicit transaction. The caller must hold
+	// the parent lock, authorize its running state/deadline using createdAt, and
+	// recheck a successful preparation and absence of shards under that lock. The
+	// slice must contain 1 through 500 non-nil valid JSON values; duplicates and JSON
+	// null are retained. createdAt is nonzero database time shared by all audit and
+	// due times. No input is split, merged or deduplicated. Any error requires outer
+	// rollback; nil confirms insertion inside the transaction, never its commit.
+	InsertShards(context.Context, int64, []model.TaskData, time.Time) error
+
+	// InsertInitial inserts the singleton ordinary or preparation Task running its
+	// first attempt. instanceID must be positive and startedAt is the nonzero database
 	// time used by StartExecution. The caller must hold the parent's primary-key
 	// lock and have successfully called StartExecution in the same transaction.
 	// Registration, first start and both audit timestamps receive that same time.
 	// A singleton conflict is an error, not a replay or permission to resend; the
 	// caller must roll back the parent transition. Any error returns ID zero.
-	InsertOrdinary(context.Context, int64, time.Time) (int64, error)
+	InsertInitial(context.Context, int64, model.TaskType, time.Time) (int64, error)
 
 	// BindExecutor conditionally saves both binding fields for the original Task,
 	// Instance and attempt, only while running with both fields still NULL. All
@@ -394,7 +530,7 @@ type JobTaskRepository interface {
 	// unchanged response; other errors do not prove a permanent rejection.
 	BindExecutor(context.Context, ExecutorBinding) (bool, error)
 
-	// SaveDispatchBusy conditionally closes the original, unbound running ordinary
+	// SaveDispatchBusy conditionally closes the original, unbound running
 	// attempt, refunds exactly one used opportunity and delays its next dispatch.
 	// AttemptNo and registration/start times never move backward. A duplicate or
 	// changed row returns false, nil without another refund or a diagnostic read.
@@ -408,7 +544,7 @@ type JobTaskRepository interface {
 	// unchanged response, as they do for BindExecutor.
 	SaveDispatchBusy(context.Context, DispatchBusyWrite) (bool, error)
 
-	// SaveDispatchRejection closes an explicitly rejected, unbound running ordinary
+	// SaveDispatchRejection closes an explicitly rejected, unbound running
 	// attempt. One UPDATE chooses retry-waiting or final failure using the current
 	// persisted UsedAttempts and the frozen policy, without refunding an opportunity
 	// or changing attempt/start/registration facts. It never inspects the parent.
@@ -445,7 +581,7 @@ type JobTaskRepository interface {
 	// only the boolean, without fetching content diagnostics. Errors retain driver
 	// causes, which callers must not log verbatim because they may contain payload.
 	// A nil Data means absent optional output and is not probe input.
-	CheckResultData(context.Context, model.TaskResultData) (bool, error)
+	CheckResultData(context.Context, model.TaskData) (bool, error)
 }
 
 type jobTaskRepository struct{ db *gorm.DB }
@@ -570,6 +706,7 @@ func (r *jobTaskRepository) FindUnboundTargets(ctx context.Context, taskIDs []in
 			CASE WHEN jsonb_typeof(instance.execution_config) = 'object' THEN jsonb_build_object(
 				'schema_version', instance.execution_config -> 'schema_version',
 				'execution_mode', instance.execution_config -> 'execution_mode',
+				'post_enabled', instance.execution_config -> 'post_enabled',
 				'max_retries', instance.execution_config -> 'max_retries',
 				'retry_interval_seconds', instance.execution_config -> 'retry_interval_seconds'
 			) ELSE 'null'::jsonb END AS execution_config`).
@@ -581,11 +718,11 @@ func (r *jobTaskRepository) FindUnboundTargets(ctx context.Context, taskIDs []in
 	return items, nil
 }
 
-func (r *jobTaskRepository) SettleOrdinaryUnknown(ctx context.Context, write UnknownSettlement) (*SettledTask, error) {
+func (r *jobTaskRepository) SettleUnknown(ctx context.Context, write UnknownSettlement) (*SettledTask, error) {
 	if write.TaskID <= 0 || write.InstanceID <= 0 || write.ExpectedAttemptNo <= 0 || write.MaxAttempts <= 0 ||
 		write.ProcessedAt.IsZero() || write.ObservationCutoff.IsZero() || write.RetryAt.IsZero() ||
 		!write.ObservationCutoff.Before(write.ProcessedAt) || !write.RetryAt.After(write.ProcessedAt) {
-		return nil, errors.New("invalid ordinary unknown-result settlement")
+		return nil, errors.New("invalid unknown-result settlement")
 	}
 	if r.inTransaction() {
 		return nil, errors.New("unknown-result settlement requires an independently committing database handle")
@@ -600,7 +737,7 @@ func (r *jobTaskRepository) SettleOrdinaryUnknown(ctx context.Context, write Unk
 		result := tx.Model(&task).Clauses(clause.Returning{Columns: []clause.Column{
 			{Name: "id"}, {Name: "instance_id"}, {Name: "attempt_no"}, {Name: "status"},
 		}}).
-			Where("id = ? AND instance_id = ? AND task_type = 1 AND attempt_no = ? AND status = 2", write.TaskID, write.InstanceID, write.ExpectedAttemptNo).
+			Where("id = ? AND instance_id = ? AND task_type IN (1, 2, 3, 4) AND attempt_no = ? AND status = 2", write.TaskID, write.InstanceID, write.ExpectedAttemptNo).
 			Where("executor_instance_id IS NULL AND executor_address IS NULL AND attempt_registered_at <= ?", write.ObservationCutoff).
 			Updates(map[string]any{
 				"status":           gorm.Expr("CASE WHEN used_attempts < ?::bigint THEN ?::smallint ELSE ?::smallint END", write.MaxAttempts, model.TaskRetryWaiting, model.TaskFailed),
@@ -623,66 +760,95 @@ func (r *jobTaskRepository) SettleOrdinaryUnknown(ctx context.Context, write Unk
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("settle ordinary unknown result: %w", err)
+		return nil, fmt.Errorf("settle unknown result: %w", err)
 	}
 	return settled, nil
 }
 
-func (r *jobTaskRepository) ListRetryCandidates(ctx context.Context, scanNow time.Time, cursor *RetryCursor, limit int) ([]RetryCandidate, error) {
+func (r *jobTaskRepository) ListDispatchCandidates(ctx context.Context, scanNow time.Time, cursor *DispatchCursor, limit int) ([]DispatchCandidate, error) {
 	if scanNow.IsZero() || limit < 1 || limit > 128 || (cursor != nil &&
 		(cursor.TaskID <= 0 || cursor.NextDispatchAt.IsZero() || cursor.NextDispatchAt.After(scanNow))) {
-		return nil, errors.New("invalid retry candidate query")
+		return nil, errors.New("invalid dispatch candidate query")
 	}
-	query := r.db.WithContext(ctx).Table("job_task AS t").
-		Select("t.id AS task_id, t.instance_id, t.attempt_no, t.next_dispatch_at").
-		Joins("JOIN job_instance AS i ON i.id = t.instance_id").
-		Where("t.status = 3 AND t.next_dispatch_at <= ? AND i.status = 2 AND i.deadline_at > ?", scanNow, scanNow)
+	query := r.dispatchCandidates(ctx, scanNow)
 	if cursor != nil {
 		query = query.Where("(t.next_dispatch_at, t.id) > (?, ?)", cursor.NextDispatchAt, cursor.TaskID)
 	}
-	items := make([]RetryCandidate, 0)
+	items := make([]DispatchCandidate, 0)
 	if err := query.Order("t.next_dispatch_at, t.id").Limit(limit).Find(&items).Error; err != nil {
-		return nil, fmt.Errorf("list retry candidates: %w", err)
+		return nil, fmt.Errorf("list dispatch candidates: %w", err)
 	}
 	return items, nil
 }
 
-func (r *jobTaskRepository) RegisterOrdinaryRetry(ctx context.Context, write RetryRegistration) (*RegisteredTask, error) {
-	if write.TaskID <= 0 || write.InstanceID <= 0 || write.ExpectedAttemptNo <= 0 || write.MaxAttempts <= 0 || write.RegisteredAt.IsZero() {
-		return nil, errors.New("invalid ordinary retry registration")
+func (r *jobTaskRepository) ListInstanceDispatchCandidates(ctx context.Context, instanceID int64, scanNow time.Time, limit int) ([]DispatchCandidate, error) {
+	if instanceID <= 0 || scanNow.IsZero() || limit < 1 || limit > 128 {
+		return nil, errors.New("invalid instance dispatch candidate query")
+	}
+	items := make([]DispatchCandidate, 0)
+	if err := r.dispatchCandidates(ctx, scanNow).Where("t.instance_id = ?", instanceID).
+		Order("t.next_dispatch_at, t.id").Limit(limit).Find(&items).Error; err != nil {
+		return nil, fmt.Errorf("list instance dispatch candidates: %w", err)
+	}
+	return items, nil
+}
+
+func (r *jobTaskRepository) dispatchCandidates(ctx context.Context, scanNow time.Time) *gorm.DB {
+	// Keep the literal outer status predicate so PostgreSQL can use the partial
+	// dispatch-due index for both first attempts and retries without reading data.
+	return r.db.WithContext(ctx).Table("job_task AS t").
+		Select("t.id AS task_id, t.instance_id, t.task_type, t.status, t.attempt_no, t.next_dispatch_at").
+		Joins("JOIN job_instance AS i ON i.id = t.instance_id").
+		Where("t.status IN (1, 3)").
+		Where("t.status = 3 OR (t.status = 1 AND t.task_type IN (3, 4) AND t.attempt_no = 0 AND t.used_attempts = 0 AND t.started_at IS NULL AND t.attempt_registered_at IS NULL)").
+		Where("t.next_dispatch_at <= ? AND i.status = 2 AND i.deadline_at > ?", scanNow, scanNow)
+}
+
+func (r *jobTaskRepository) RegisterAttempt(ctx context.Context, write AttemptRegistration) (*RegisteredTask, error) {
+	first := write.ExpectedStatus == model.TaskWaiting
+	if write.TaskID <= 0 || write.InstanceID <= 0 || write.MaxAttempts <= 0 || write.RegisteredAt.IsZero() ||
+		write.TaskType < model.TaskTypeOrdinary || write.TaskType > model.TaskTypePost ||
+		(first && (write.ExpectedAttemptNo != 0 || (write.TaskType != model.TaskTypeShard && write.TaskType != model.TaskTypePost))) ||
+		(!first && (write.ExpectedStatus != model.TaskRetryWaiting || write.ExpectedAttemptNo <= 0)) {
+		return nil, errors.New("invalid attempt registration")
 	}
 	if !r.inTransaction() {
-		return nil, errors.New("ordinary retry registration requires an explicit transaction")
+		return nil, errors.New("attempt registration requires an explicit transaction")
 	}
 	var task model.JobTask
-	// RETURNING supplies only the newly registered facts. Keeping authorization
-	// in this conditional UPDATE prevents an old candidate from registering again
-	// after a newer attempt has already returned to the retry-waiting state.
-	// The budget parameter is bigint because MaxInt32 retries plus the first
-	// opportunity cannot be represented by the used_attempts column's int32 type.
-	result := r.db.WithContext(ctx).Model(&task).
+	// The original state, type and attempt prevent a stale candidate from consuming
+	// another opportunity. RETURNING also carries fixed input for post-commit send.
+	// bigint preserves a budget larger than the used_attempts column's int32 range.
+	query := r.db.WithContext(ctx).Model(&task).
 		Clauses(clause.Returning{Columns: []clause.Column{
-			{Name: "id"}, {Name: "instance_id"}, {Name: "attempt_no"}, {Name: "used_attempts"}, {Name: "attempt_registered_at"},
+			{Name: "id"}, {Name: "instance_id"}, {Name: "task_type"}, {Name: "input_data"},
+			{Name: "attempt_no"}, {Name: "used_attempts"}, {Name: "attempt_registered_at"},
 		}}).
-		Where("id = ? AND instance_id = ? AND task_type = 1 AND status = 3 AND attempt_no = ?", write.TaskID, write.InstanceID, write.ExpectedAttemptNo).
-		Where("next_dispatch_at <= ? AND used_attempts < ?::bigint", write.RegisteredAt, write.MaxAttempts).
-		Updates(map[string]any{
-			"status": model.TaskRunning, "attempt_no": gorm.Expr("attempt_no + 1"), "used_attempts": gorm.Expr("used_attempts + 1"),
-			"attempt_registered_at": write.RegisteredAt, "next_dispatch_at": nil,
-			"executor_instance_id": nil, "executor_address": nil, "result_data": nil,
-			"finished_at": nil, "end_reason": nil, "updated_at": write.RegisteredAt,
-		})
+		Where("id = ? AND instance_id = ? AND task_type = ? AND status = ? AND attempt_no = ?", write.TaskID, write.InstanceID, write.TaskType, write.ExpectedStatus, write.ExpectedAttemptNo).
+		Where("next_dispatch_at <= ? AND used_attempts < ?::bigint", write.RegisteredAt, write.MaxAttempts)
+	values := map[string]any{
+		"status": model.TaskRunning, "attempt_no": gorm.Expr("attempt_no + 1"), "used_attempts": gorm.Expr("used_attempts + 1"),
+		"attempt_registered_at": write.RegisteredAt, "next_dispatch_at": nil,
+		"executor_instance_id": nil, "executor_address": nil, "result_data": nil,
+		"finished_at": nil, "end_reason": nil, "updated_at": write.RegisteredAt,
+	}
+	if first {
+		query = query.Where("used_attempts = 0 AND started_at IS NULL AND attempt_registered_at IS NULL")
+		values["started_at"] = write.RegisteredAt
+	}
+	result := query.Updates(values)
 	if result.Error != nil {
-		return nil, fmt.Errorf("register ordinary retry: %w", result.Error)
+		return nil, fmt.Errorf("register task attempt: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return nil, nil
 	}
-	if result.RowsAffected != 1 || task.AttemptRegisteredAt == nil {
-		return nil, errors.New("ordinary retry registration returned invalid facts")
+	if result.RowsAffected != 1 || task.ID != write.TaskID || task.InstanceID != write.InstanceID ||
+		task.TaskType != write.TaskType || task.AttemptNo != write.ExpectedAttemptNo+1 || task.AttemptRegisteredAt == nil {
+		return nil, errors.New("attempt registration returned invalid facts")
 	}
-	return &RegisteredTask{TaskID: task.ID, InstanceID: task.InstanceID, AttemptNo: task.AttemptNo,
-		UsedAttempts: task.UsedAttempts, RegisteredAt: *task.AttemptRegisteredAt}, nil
+	return &RegisteredTask{TaskID: task.ID, InstanceID: task.InstanceID, TaskType: task.TaskType, InputData: task.InputData,
+		AttemptNo: task.AttemptNo, UsedAttempts: task.UsedAttempts, RegisteredAt: *task.AttemptRegisteredAt}, nil
 }
 
 func (r *jobTaskRepository) ListByInstance(ctx context.Context, instanceID, page, pageSize int64) ([]TaskSummary, int64, error) {
@@ -703,19 +869,203 @@ func (r *jobTaskRepository) ListByInstance(ctx context.Context, instanceID, page
 	return items, total, nil
 }
 
-func (r *jobTaskRepository) InsertOrdinary(ctx context.Context, instanceID int64, startedAt time.Time) (int64, error) {
-	if instanceID <= 0 || startedAt.IsZero() {
-		return 0, errors.New("invalid ordinary task start")
+func (r *jobTaskRepository) FindPreparation(ctx context.Context, instanceID int64) (*PreparationTask, error) {
+	if instanceID <= 0 {
+		return nil, errors.New("preparation instance ID must be positive")
+	}
+	var task PreparationTask
+	err := r.db.WithContext(ctx).Model(&model.JobTask{}).Select("id, status").
+		Where("instance_id = ? AND task_type = ?", instanceID, model.TaskTypePrepare).Take(&task).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find preparation task: %w", err)
+	}
+	return &task, nil
+}
+
+func (r *jobTaskRepository) HasShards(ctx context.Context, instanceID int64) (bool, error) {
+	if instanceID <= 0 {
+		return false, errors.New("shard instance ID must be positive")
+	}
+	var task struct{ ID int64 }
+	err := r.db.WithContext(ctx).Model(&model.JobTask{}).Select("id").
+		Where("instance_id = ? AND task_type = ?", instanceID, model.TaskTypeShard).Take(&task).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check instance shards: %w", err)
+	}
+	return true, nil
+}
+
+func (r *jobTaskRepository) FindPreparationResult(ctx context.Context, instanceID int64) (*PreparationResult, error) {
+	if instanceID <= 0 {
+		return nil, errors.New("preparation result instance ID must be positive")
+	}
+	var task PreparationResult
+	err := r.db.WithContext(ctx).Model(&model.JobTask{}).Select("id, status, result_data").
+		Where("instance_id = ? AND task_type = ?", instanceID, model.TaskTypePrepare).Take(&task).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find preparation result: %w", err)
+	}
+	return &task, nil
+}
+
+func (r *jobTaskRepository) FindStages(ctx context.Context, instanceID int64) (*StageFacts, error) {
+	if instanceID <= 0 {
+		return nil, errors.New("stage instance ID must be positive")
+	}
+	var tasks []StageTask
+	err := r.db.WithContext(ctx).Model(&model.JobTask{}).
+		Select("id, task_type, status, CASE WHEN task_type = 2 AND status = 5 THEN result_summary ELSE NULL END AS result_summary").
+		Where("instance_id = ? AND task_type IN (2, 4)", instanceID).Find(&tasks).Error
+	if err != nil {
+		return nil, fmt.Errorf("find instance stages: %w", err)
+	}
+	facts := &StageFacts{}
+	for i := range tasks {
+		task := &tasks[i]
+		switch task.TaskType {
+		case model.TaskTypePrepare:
+			if facts.Preparation != nil {
+				return nil, errors.New("instance has multiple preparation tasks")
+			}
+			facts.Preparation = task
+		case model.TaskTypePost:
+			if facts.Post != nil {
+				return nil, errors.New("instance has multiple Post tasks")
+			}
+			facts.Post = task
+		default:
+			return nil, errors.New("stage query returned an unexpected task type")
+		}
+	}
+	return facts, nil
+}
+
+func (r *jobTaskRepository) HasUnfinishedShards(ctx context.Context, instanceID int64) (bool, error) {
+	if instanceID <= 0 {
+		return false, errors.New("unfinished shard instance ID must be positive")
+	}
+	var task struct{ ID int64 }
+	// Keep the literal unfinished predicate aligned with the existing partial
+	// index; cancellation and unknown states are deliberately left to the aggregate.
+	err := r.db.WithContext(ctx).Model(&model.JobTask{}).Select("id").
+		Where("instance_id = ? AND task_type = 3 AND status IN (1, 2, 3)", instanceID).Take(&task).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check unfinished instance shards: %w", err)
+	}
+	return true, nil
+}
+
+func (r *jobTaskRepository) CountShards(ctx context.Context, instanceID int64) (ShardCounts, error) {
+	if instanceID <= 0 {
+		return ShardCounts{}, errors.New("shard count instance ID must be positive")
+	}
+	var counts ShardCounts
+	result := r.db.WithContext(ctx).Model(&model.JobTask{}).
+		Select("COUNT(*) AS total, COUNT(*) FILTER (WHERE status = 4) AS succeeded, COUNT(*) FILTER (WHERE status = 5) AS failed, COUNT(*) FILTER (WHERE status = 6) AS canceled").
+		Where("instance_id = ? AND task_type = 3", instanceID).Scan(&counts)
+	if result.Error != nil {
+		return ShardCounts{}, fmt.Errorf("count instance shards: %w", result.Error)
+	}
+	if result.RowsAffected != 1 {
+		return ShardCounts{}, errors.New("shard aggregate returned no definite count")
+	}
+	return counts, nil
+}
+
+func (r *jobTaskRepository) FindPost(ctx context.Context, instanceID int64) (*StageTask, error) {
+	if instanceID <= 0 {
+		return nil, errors.New("Post instance ID must be positive")
+	}
+	var task StageTask
+	err := r.db.WithContext(ctx).Model(&model.JobTask{}).Select("id, status").
+		Where("instance_id = ? AND task_type = 4", instanceID).Take(&task).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find Post task: %w", err)
+	}
+	task.TaskType = model.TaskTypePost
+	return &task, nil
+}
+
+func (r *jobTaskRepository) InsertPost(ctx context.Context, instanceID int64, counts ShardCounts, createdAt time.Time) (int64, error) {
+	if instanceID <= 0 || createdAt.IsZero() || counts.Total < 0 || counts.Total > 500 ||
+		counts.Succeeded < 0 || counts.Failed < 0 || counts.Canceled != 0 || counts.Succeeded > counts.Total || counts.Total-counts.Succeeded != counts.Failed {
+		return 0, errors.New("invalid Post creation")
+	}
+	if !r.inTransaction() {
+		return 0, errors.New("Post creation requires an explicit parent transaction")
+	}
+	data, err := json.Marshal(counts)
+	if err != nil {
+		return 0, fmt.Errorf("encode Post statistics: %w", err)
 	}
 	task := model.JobTask{
-		InstanceID: instanceID, TaskType: model.TaskTypeOrdinary, Status: model.TaskRunning,
+		InstanceID: instanceID, TaskType: model.TaskTypePost, Status: model.TaskWaiting,
+		InputData: model.TaskData(data), NextDispatchAt: &createdAt, CreatedAt: createdAt, UpdatedAt: createdAt,
+	}
+	// Under the parent lock, a singleton conflict contradicts the creation read.
+	// Preserve it so the caller rolls back instead of publishing an existing Task.
+	if err := r.db.WithContext(ctx).Create(&task).Error; err != nil {
+		return 0, fmt.Errorf("create Post task: %w", err)
+	}
+	return task.ID, nil
+}
+
+func (r *jobTaskRepository) InsertShards(ctx context.Context, instanceID int64, items []model.TaskData, createdAt time.Time) error {
+	if instanceID <= 0 || createdAt.IsZero() || len(items) == 0 || len(items) > 500 {
+		return errors.New("invalid shard generation")
+	}
+	if !r.inTransaction() {
+		return errors.New("shard generation requires an explicit parent transaction")
+	}
+	tasks := make([]model.JobTask, len(items))
+	for i, item := range items {
+		if item == nil || !json.Valid(item) {
+			return errors.New("shard input must be a present JSON value")
+		}
+		tasks[i] = model.JobTask{
+			InstanceID: instanceID, TaskType: model.TaskTypeShard, Status: model.TaskWaiting,
+			InputData: item, NextDispatchAt: &createdAt, CreatedAt: createdAt, UpdatedAt: createdAt,
+		}
+	}
+	// Override any deployment-wide CreateBatchSize: one statement preserves the
+	// approved complete-list insertion and never exposes a partially generated set.
+	if err := r.db.WithContext(ctx).Session(&gorm.Session{CreateBatchSize: len(tasks)}).Create(&tasks).Error; err != nil {
+		return fmt.Errorf("insert instance shards: %w", err)
+	}
+	return nil
+}
+
+func (r *jobTaskRepository) InsertInitial(ctx context.Context, instanceID int64, taskType model.TaskType, startedAt time.Time) (int64, error) {
+	if instanceID <= 0 || startedAt.IsZero() || (taskType != model.TaskTypeOrdinary && taskType != model.TaskTypePrepare) {
+		return 0, errors.New("invalid initial task start")
+	}
+	if !r.inTransaction() {
+		return 0, errors.New("initial task creation requires an explicit parent transaction")
+	}
+	task := model.JobTask{
+		InstanceID: instanceID, TaskType: taskType, Status: model.TaskRunning,
 		AttemptNo: 1, UsedAttempts: 1, AttemptRegisteredAt: &startedAt, StartedAt: &startedAt,
 		CreatedAt: startedAt, UpdatedAt: startedAt,
 	}
 	// Do not ignore the singleton conflict: under the parent lock it indicates
 	// inconsistent first-start state, and the parent transition must roll back.
 	if err := r.db.WithContext(ctx).Create(&task).Error; err != nil {
-		return 0, fmt.Errorf("create ordinary job task: %w", err)
+		return 0, fmt.Errorf("create initial job task: %w", err)
 	}
 	return task.ID, nil
 }
@@ -752,7 +1102,7 @@ func (r *jobTaskRepository) SaveDispatchBusy(ctx context.Context, write Dispatch
 	result := r.db.WithContext(ctx).Model(&model.JobTask{}).
 		Clauses(clause.From{Tables: []clause.Table{{Name: "(SELECT clock_timestamp() AS processed_at)", Alias: "dispatch_clock", Raw: true}}}).
 		Where("job_task.id = ? AND job_task.instance_id = ? AND job_task.attempt_no = ?", write.TaskID, write.InstanceID, write.AttemptNo).
-		Where("job_task.task_type = ? AND job_task.status = ? AND job_task.used_attempts > 0", model.TaskTypeOrdinary, model.TaskRunning).
+		Where("job_task.task_type IN (1, 2, 3, 4) AND job_task.status = ? AND job_task.used_attempts > 0", model.TaskRunning).
 		Where("job_task.executor_instance_id IS NULL AND job_task.executor_address IS NULL").
 		Updates(map[string]any{
 			"status": model.TaskRetryWaiting, "used_attempts": gorm.Expr("job_task.used_attempts - 1"),
@@ -781,7 +1131,7 @@ func (r *jobTaskRepository) SaveDispatchRejection(ctx context.Context, write Dis
 	result := r.db.WithContext(ctx).Model(&model.JobTask{}).
 		Clauses(clause.From{Tables: []clause.Table{{Name: "(SELECT clock_timestamp() AS processed_at)", Alias: "dispatch_clock", Raw: true}}}).
 		Where("job_task.id = ? AND job_task.instance_id = ? AND job_task.attempt_no = ?", write.TaskID, write.InstanceID, write.AttemptNo).
-		Where("job_task.task_type = ? AND job_task.status = ? AND job_task.used_attempts > 0", model.TaskTypeOrdinary, model.TaskRunning).
+		Where("job_task.task_type IN (1, 2, 3, 4) AND job_task.status = ? AND job_task.used_attempts > 0", model.TaskRunning).
 		Where("job_task.executor_instance_id IS NULL AND job_task.executor_address IS NULL").
 		Updates(map[string]any{
 			"status":           gorm.Expr("CASE WHEN job_task.used_attempts < ?::bigint THEN ?::smallint ELSE ?::smallint END", totalAttempts, model.TaskRetryWaiting, model.TaskFailed),
@@ -851,7 +1201,7 @@ func (r *jobTaskRepository) SaveResult(ctx context.Context, write TaskResultWrit
 	return result.RowsAffected == 1, nil
 }
 
-func (r *jobTaskRepository) CheckResultData(ctx context.Context, data model.TaskResultData) (bool, error) {
+func (r *jobTaskRepository) CheckResultData(ctx context.Context, data model.TaskData) (bool, error) {
 	if data == nil {
 		return false, errors.New("result JSON data is absent")
 	}

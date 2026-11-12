@@ -37,6 +37,10 @@ func TestResultValidatePreservesOptionalRawJSON(t *testing.T) {
 }
 
 func TestPrepareResultRequiresExplicitItems(t *testing.T) {
+	maximum := make([]json.RawMessage, MaxPreparedItems)
+	for index := range maximum {
+		maximum[index] = json.RawMessage(`null`)
+	}
 	cases := []struct {
 		name  string
 		items []json.RawMessage
@@ -45,6 +49,9 @@ func TestPrepareResultRequiresExplicitItems(t *testing.T) {
 		{name: "missing", ok: false},
 		{name: "explicit zero shards", items: []json.RawMessage{}, ok: true},
 		{name: "independent JSON values", items: []json.RawMessage{json.RawMessage(`9007199254740993`), json.RawMessage(`{"from":1,"to":3}`), json.RawMessage(`null`)}, ok: true},
+		{name: "nested collection is one shard", items: []json.RawMessage{json.RawMessage(`[[1,2],{"ids":[3,4]},null]`)}, ok: true},
+		{name: "maximum including duplicate values", items: maximum, ok: true},
+		{name: "over maximum", items: append(append([]json.RawMessage{}, maximum...), json.RawMessage(`true`)), ok: false},
 		{name: "missing item", items: []json.RawMessage{nil}, ok: false},
 		{name: "invalid later item", items: []json.RawMessage{json.RawMessage(`1`), json.RawMessage(`no-json`)}, ok: false},
 	}

@@ -27,7 +27,7 @@ func TestTaskDispatchRepositoryRechecksAfterRowLockWait(t *testing.T) {
 		}{
 			{"opportunities changed", map[string]any{"used_attempts": 4}, true},
 			{"already settled", map[string]any{"status": model.TaskRetryWaiting}, false},
-			{"business result won", map[string]any{"status": model.TaskSucceeded, "result_data": model.TaskResultData(`{"first":true}`)}, false},
+			{"business result won", map[string]any{"status": model.TaskSucceeded, "result_data": model.TaskData(`{"first":true}`)}, false},
 			{"new attempt", map[string]any{"attempt_no": 2, "used_attempts": 2}, false},
 			{"full binding", map[string]any{"executor_instance_id": identity, "executor_address": "127.0.0.1:9000"}, false},
 			{"identity only", map[string]any{"executor_instance_id": identity}, false},

@@ -54,7 +54,7 @@ func TestUnknownRepositoryRejectsInvalidInputsBeforeDatabaseWork(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			write := unknownSettlementFixture()
 			mutate(&write)
-			if settled, err := repo.SettleOrdinaryUnknown(context.Background(), write); settled != nil || err == nil {
+			if settled, err := repo.SettleUnknown(context.Background(), write); settled != nil || err == nil {
 				t.Fatalf("invalid settlement: settled=%+v err=%v", settled, err)
 			}
 		})
@@ -76,7 +76,7 @@ func TestUnknownRepositoryRequiresConfirmedIndependentCommit(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					settled, err := repo.SettleOrdinaryUnknown(context.Background(), unknownSettlementFixture())
+					settled, err := repo.SettleUnknown(context.Background(), unknownSettlementFixture())
 					if !errors.Is(err, commitErr) {
 						t.Fatalf("settlement lost commit outcome: settled=%+v err=%v", settled, err)
 					}
@@ -118,7 +118,7 @@ func TestUnknownRepositoryPreservesWriteErrorsAndRejectsInvalidReturningFacts(t 
 			if err != nil {
 				t.Fatal(err)
 			}
-			if settled, err := repo.SettleOrdinaryUnknown(context.Background(), unknownSettlementFixture()); settled != nil || err == nil || (scenario.want != nil && !errors.Is(err, scenario.want)) {
+			if settled, err := repo.SettleUnknown(context.Background(), unknownSettlementFixture()); settled != nil || err == nil || (scenario.want != nil && !errors.Is(err, scenario.want)) {
 				t.Fatalf("invalid settlement escaped: settled=%+v err=%v", settled, err)
 			}
 			if conn.commits != 0 || (scenario.beginErr == nil && conn.rollbacks != 1) {
@@ -140,7 +140,7 @@ func TestUnknownRepositoryRejectsOuterTransactionAndPreservesReadFailure(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if settled, err := repo.SettleOrdinaryUnknown(context.Background(), unknownSettlementFixture()); settled != nil || err == nil || conn.queries != 0 || conn.commits != 0 {
+	if settled, err := repo.SettleUnknown(context.Background(), unknownSettlementFixture()); settled != nil || err == nil || conn.queries != 0 || conn.commits != 0 {
 		t.Fatalf("outer transaction produced a confirmed settlement: settled=%+v err=%v queries=%d commits=%d", settled, err, conn.queries, conn.commits)
 	}
 	if err := tx.Rollback().Error; err != nil {

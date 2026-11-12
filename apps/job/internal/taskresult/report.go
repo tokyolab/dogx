@@ -21,7 +21,9 @@ const (
 //
 // Data and PreparedItems are mutually exclusive. Nil means absent; JSON "null"
 // is present Data, and a non-nil empty PreparedItems means successful preparation
-// of zero shards. OutcomeFailure ignores both outputs, including malformed data.
+// of zero shards. Each prepared element defines one complete shard Task; a
+// successful collection must not exceed jobexecutor.MaxPreparedItems.
+// OutcomeFailure ignores both outputs, including malformed or oversized data.
 // Summary is the business result description, not a transport or database error.
 //
 // Report owns Data and every PreparedItems byte slice. Boundary adapters must

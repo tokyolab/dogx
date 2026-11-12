@@ -60,7 +60,7 @@ func TestCheckNeverFallsThroughNormalCompletionOrErrorsToTimeout(t *testing.T) {
 		{"unknown task", func(s *completionStoreStub) { s.facts.TaskStatus = checkPointer(model.TaskStatus(99)) }, OutcomeSkipped, ErrInvalidFacts},
 		{"sharded", func(s *completionStoreStub) {
 			s.facts.ExecutionConfig = []byte(`{"schema_version":1,"execution_mode":2}`)
-		}, OutcomeSkipped, nil},
+		}, OutcomeSkipped, ErrInvalidConfig},
 		{"waiting", func(s *completionStoreStub) { s.facts.Status = model.InstanceWaiting }, OutcomeSkipped, nil},
 		{"terminal", func(s *completionStoreStub) { s.facts.Status = model.InstanceSucceeded }, OutcomeTerminal, nil},
 	} {

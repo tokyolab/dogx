@@ -32,7 +32,7 @@ func TestTaskManagementPaginationPreservesNullableFactsWithoutData(t *testing.T)
 	finished := started.Add(time.Second)
 	completed := model.JobTask{InstanceID: instance.ID, TaskType: model.TaskTypeShard, Status: model.TaskSucceeded,
 		AttemptNo: 3, UsedAttempts: 2, AttemptRegisteredAt: &started, ExecutorInstanceID: &identity, ExecutorAddress: &address,
-		ResultData: model.TaskResultData(`"` + strings.Repeat("payload", 4096) + `"`), ResultSummary: &summary,
+		ResultData: model.TaskData(`"` + strings.Repeat("payload", 4096) + `"`), ResultSummary: &summary,
 		EndReason: &reason, StartedAt: &started, FinishedAt: &finished, CreatedAt: started, UpdatedAt: finished}
 	if err := db.Create(&completed).Error; err != nil {
 		t.Fatal(err)

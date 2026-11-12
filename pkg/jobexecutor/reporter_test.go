@@ -364,6 +364,41 @@ func TestReporterOutputPreservesWireMeaningAndRejectsMalformedSuccess(t *testing
 	})
 }
 
+func TestReporterPreparationLimitDoesNotFabricateBusinessFailure(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		items := make([]json.RawMessage, MaxPreparedItems+1)
+		for index := range items {
+			items[index] = json.RawMessage(`null`)
+		}
+		client := &reportClientStub{}
+		r := startTestReporter(t, client, context.Background(), 3, 1)
+		for index, result := range []executionResult{
+			{success: true, prepared: true, preparedItems: items[:MaxPreparedItems]},
+			{success: true, prepared: true, preparedItems: items},
+			{success: false, prepared: true, preparedItems: items},
+		} {
+			result.taskID = int64(index + 1)
+			if err := r.submit(context.Background(), result); err != nil {
+				t.Fatal(err)
+			}
+		}
+		r.stop()
+		if err := r.wait(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		calls := client.snapshot()
+		if len(calls) != 2 {
+			t.Fatalf("report count = %d, want maximum success and original business failure only", len(calls))
+		}
+		if request := calls[0].request; request.TaskId != 1 || request.Outcome != protocol.TaskOutcome_SUCCESS || len(request.GetPreparedItems().GetItems()) != MaxPreparedItems {
+			t.Fatal("maximum preparation output was rejected or changed")
+		}
+		if request := calls[1].request; request.TaskId != 3 || request.Outcome != protocol.TaskOutcome_FAILURE || request.Output != nil {
+			t.Fatal("invalid success was converted to failure, or business failure retained unused output")
+		}
+	})
+}
+
 func TestReportMessageProblemUsesEncodedSizeAndRejectsInvalidStrings(t *testing.T) {
 	request := &protocol.ReportTaskResultRequest{
 		Auth:  &protocol.GroupAuth{GroupName: adapterTestGroup, Token: adapterTestToken},

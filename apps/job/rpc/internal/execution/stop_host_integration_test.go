@@ -378,7 +378,7 @@ func stopHostFixture(t *testing.T, db *gorm.DB, group model.ExecutorGroup, addre
 	summary, reason := "already successful", model.EndReasonSuccess
 	terminal := model.JobTask{InstanceID: parent.ID, TaskType: model.TaskTypeShard, Status: model.TaskSucceeded,
 		AttemptNo: 1, UsedAttempts: 1, AttemptRegisteredAt: &started, StartedAt: &started, FinishedAt: &now,
-		ExecutorInstanceID: &executorID, ExecutorAddress: &address, ResultData: model.TaskResultData(`{"completed":true}`),
+		ExecutorInstanceID: &executorID, ExecutorAddress: &address, ResultData: model.TaskData(`{"completed":true}`),
 		ResultSummary: &summary, EndReason: &reason, CreatedAt: started, UpdatedAt: now}
 	if err := db.Create(&terminal).Error; err != nil {
 		t.Fatal(err)

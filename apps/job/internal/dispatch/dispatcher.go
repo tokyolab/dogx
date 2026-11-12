@@ -59,19 +59,19 @@ type Sender interface {
 	Dispatch(context.Context, RegisteredAttempt) (Response, error)
 }
 
-// ordinaryRegistrar grants permission to send only by returning a newly created,
+// attemptRegistrar grants permission to send only by returning a newly created,
 // confirmed-committed attempt. Nil, nil skips a candidate; every error grants no
 // permission, including a lost commit confirmation. It must bound registration
 // to two seconds and the caller's remaining deadline, without sending an RPC.
 // NOWAIT conflicts preserve repository.ErrInstanceLocked after rollback so the
 // host can skip the rest of that parent's current candidate group without an
 // immediate retry.
-type ordinaryRegistrar interface {
-	// StartOrdinary starts a waiting parent and creates its sole ordinary Task.
-	StartOrdinary(context.Context, int64) (*RegisteredAttempt, error)
-	// RetryOrdinary retains the candidate's original attempt identity and only
+type attemptRegistrar interface {
+	// StartInstance starts a waiting parent and creates its ordinary or prepare Task.
+	StartInstance(context.Context, int64) (*RegisteredAttempt, error)
+	// RegisterTask retains the candidate's original attempt identity and only
 	// authorizes the new version returned by the committed conditional update.
-	RetryOrdinary(context.Context, repository.RetryCandidate) (*RegisteredAttempt, error)
+	RegisterTask(context.Context, repository.DispatchCandidate) (*RegisteredAttempt, error)
 }
 
 // responseStore conditionally writes original dispatch evidence. It must use
@@ -96,13 +96,13 @@ type DispatchResult struct {
 	Applied    bool
 }
 
-// Dispatcher performs a first or retry dispatch of an ordinary Instance. It owns no
+// Dispatcher performs a first or retry dispatch of an Instance's Tasks. It owns no
 // queue, worker, connection or background retry; the host must acquire dispatch
 // capacity before calling it and retain capacity until the call actually returns.
 // Dependencies and the optional hint must support concurrent calls. Same-Instance
 // registration coalescing and candidate supply remain the host's responsibility.
 type Dispatcher struct {
-	registrar    ordinaryRegistrar
+	registrar    attemptRegistrar
 	sender       Sender
 	tasks        responseStore
 	hint         func(int64)
@@ -129,7 +129,7 @@ func WithInstanceHint(hint func(int64)) Option { return func(d *Dispatcher) { d.
 // NewDispatcher binds dependencies without starting work or taking ownership.
 // The task store must not be bound to an outer transaction: response persistence
 // happens after registration commits and after all network I/O has returned.
-func NewDispatcher(registrar ordinaryRegistrar, sender Sender, tasks responseStore, options ...Option) (*Dispatcher, error) {
+func NewDispatcher(registrar attemptRegistrar, sender Sender, tasks responseStore, options ...Option) (*Dispatcher, error) {
 	if nilDependency(registrar) || nilDependency(sender) || nilDependency(tasks) {
 		return nil, errors.New("dispatch dependencies must not be nil")
 	}
@@ -146,7 +146,7 @@ func NewDispatcher(registrar ordinaryRegistrar, sender Sender, tasks responseSto
 	return d, nil
 }
 
-// DispatchOrdinary registers and sends at most one new ordinary attempt. Its
+// DispatchInstance registers and sends at most one new ordinary or prepare attempt. Its
 // total budget (ten seconds by default) begins at entry and is clipped by the caller's deadline.
 // Only confirmed registration permits sending; an exhausted budget, uncertain
 // send or failed save never causes another RPC, refund or background continuation.
@@ -161,27 +161,28 @@ func NewDispatcher(registrar ordinaryRegistrar, sender Sender, tasks responseSto
 // Callers must log safe classifications and IDs, not raw errors or responses.
 // Inspect the returned facts even on error; an error cannot undo registration
 // or prove that a response write failed to commit.
-func (d *Dispatcher) DispatchOrdinary(ctx context.Context, instanceID int64) (DispatchResult, error) {
+func (d *Dispatcher) DispatchInstance(ctx context.Context, instanceID int64) (DispatchResult, error) {
 	if instanceID <= 0 {
 		return DispatchResult{}, errors.New("dispatch instance ID must be positive")
 	}
 	return d.dispatch(ctx, func(ctx context.Context) (*RegisteredAttempt, error) {
-		return d.registrar.StartOrdinary(ctx, instanceID)
+		return d.registrar.StartInstance(ctx, instanceID)
 	})
 }
 
-// DispatchRetry registers and sends at most one new attempt for the candidate's
-// original Task, Instance and attempt number. It shares DispatchOrdinary's total
+// DispatchTask registers and sends at most one new attempt for the candidate's
+// original Task, type, state, Instance and attempt number. Attempt zero is valid
+// only for a first pending shard or Post. It shares DispatchInstance's total
 // budget, single-send and response-save rules. A candidate is not permission to
 // resend its old attempt; no registration result or any registration error stops
 // processing. Lock conflicts retain repository.ErrInstanceLocked for the host to
 // skip that parent's remaining candidate group without an immediate retry.
-func (d *Dispatcher) DispatchRetry(ctx context.Context, candidate repository.RetryCandidate) (DispatchResult, error) {
-	if candidate.TaskID <= 0 || candidate.InstanceID <= 0 || candidate.AttemptNo <= 0 {
-		return DispatchResult{}, errors.New("retry candidate identities must be positive")
+func (d *Dispatcher) DispatchTask(ctx context.Context, candidate repository.DispatchCandidate) (DispatchResult, error) {
+	if !validDispatchCandidate(candidate) {
+		return DispatchResult{}, errors.New("dispatch candidate identity or state is invalid")
 	}
 	return d.dispatch(ctx, func(ctx context.Context) (*RegisteredAttempt, error) {
-		return d.registrar.RetryOrdinary(ctx, candidate)
+		return d.registrar.RegisterTask(ctx, candidate)
 	})
 }
 

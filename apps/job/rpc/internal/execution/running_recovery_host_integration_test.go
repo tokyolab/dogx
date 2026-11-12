@@ -40,7 +40,7 @@ func TestServiceContextRecoversRunningOnlyAfterLeadership(t *testing.T) {
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("running recovery host subprocess: %v\n%s", err, output)
 	}
-	t.Log("production leadership started RUNNING rechecks: missing results timed out, complete results succeeded after deadline, and recent/healthy/unsupported rounds stayed unchanged")
+	t.Log("production leadership started RUNNING rechecks: missing results timed out, complete results succeeded after deadline, and recent or healthy ordinary/sharded rounds stayed unchanged")
 }
 
 func testRunningRecoveryHost(t *testing.T, endpoint string) {
@@ -84,8 +84,8 @@ func testRunningRecoveryHost(t *testing.T, endpoint string) {
 		now.Add(-2*time.Minute), now.Add(-time.Minute), model.TaskRunning)
 	healthy := createRunningRecoveryRound(t, db, group, address, "healthy long run", model.ExecutionModeNormal,
 		now.Add(-10*time.Minute), now.Add(30*time.Minute), model.TaskRunning)
-	sharded := createRunningRecoveryRound(t, db, group, address, "unsupported shard", model.ExecutionModeSharded,
-		now.Add(-10*time.Minute), now.Add(-5*time.Minute), model.TaskRunning)
+	sharded := createRunningRecoveryRound(t, db, group, address, "healthy preparation", model.ExecutionModeSharded,
+		now.Add(-10*time.Minute), now.Add(30*time.Minute), model.TaskRunning)
 	installRunningRecoveryAudit(t, db)
 	client, err := clientv3.New(clientv3.Config{Endpoints: []string{endpoint}, DialTimeout: time.Second})
 	if err != nil {
@@ -202,8 +202,8 @@ func testRunningRecoveryHost(t *testing.T, endpoint string) {
 	dispatchHostEventually(t, "best-effort timeout notification to saved address", func(context.Context) bool {
 		return len(remote.snapshot()) > 0
 	})
-	// Additional discovery rounds must not terminate healthy work, infer shard
-	// completion, or bypass the minimum age merely because the deadline elapsed.
+	// Additional discovery rounds must not terminate healthy work, advance an
+	// unfinished preparation, or bypass the minimum age because a deadline elapsed.
 	for range 3 {
 		<-ticker.C
 		for _, round := range []runningRecoveryRound{recent, healthy, sharded} {
@@ -255,12 +255,12 @@ func createRunningRecoveryRound(t *testing.T, db *gorm.DB, group model.ExecutorG
 		AttemptNo: 1, UsedAttempts: 1, AttemptRegisteredAt: &started, StartedAt: &started,
 		ExecutorInstanceID: &executorID, ExecutorAddress: &address, CreatedAt: started, UpdatedAt: started}
 	if mode == model.ExecutionModeSharded {
-		task.TaskType = model.TaskTypeShard
+		task.TaskType = model.TaskTypePrepare
 	}
 	if taskStatus == model.TaskSucceeded {
 		finished, summary, reason := deadline.Add(time.Second), "Recovered the saved successful result.", model.EndReasonSuccess
 		task.FinishedAt, task.ResultSummary, task.EndReason = &finished, &summary, &reason
-		task.ResultData, task.UpdatedAt = model.TaskResultData(`{"saved":true}`), finished
+		task.ResultData, task.UpdatedAt = model.TaskData(`{"saved":true}`), finished
 	}
 	if err := db.Create(&task).Error; err != nil {
 		t.Fatal(err)

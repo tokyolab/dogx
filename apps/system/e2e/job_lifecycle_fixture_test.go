@@ -188,6 +188,18 @@ func (f *jobLifecycleFixture) createGroup(t testing.TB, node *jobLifecycleNode) 
 
 func (f *jobLifecycleFixture) startSystem(t testing.TB, name string, withProcessor bool, shutdownWait ...time.Duration) *jobLifecycleSystem {
 	t.Helper()
+	hostTest := ""
+	if withProcessor {
+		hostTest = "TestJobExecutorHostProcess"
+	}
+	return f.startSystemHost(t, name, hostTest, shutdownWait...)
+}
+
+// startSystemHost shares production configuration and process ownership with
+// ordinary lifecycle tests while allowing load-tagged test processor hosts.
+// An empty hostTest selects the unmodified production System binary.
+func (f *jobLifecycleFixture) startSystemHost(t testing.TB, name, hostTest string, shutdownWait ...time.Duration) *jobLifecycleSystem {
+	t.Helper()
 	wait := 10 * time.Second
 	if len(shutdownWait) > 1 || len(shutdownWait) == 1 && shutdownWait[0] <= 100*time.Millisecond {
 		t.Fatal("System shutdown wait must exceed the 100ms wrap-up and be supplied at most once")
@@ -204,9 +216,9 @@ func (f *jobLifecycleFixture) startSystem(t testing.TB, name string, withProcess
 	}
 	writeFile(t, file, config+fmt.Sprintf("\nShutdown:\n  WrapUpTime: 100ms\n  WaitTime: %s\n", wait))
 	env := append(append([]string(nil), f.environment...), "PGAPPNAME="+host.appName)
-	if withProcessor {
+	if hostTest != "" {
 		env = append(env, "DOGX_E2E_SYSTEM_CONFIG="+file)
-		host.process = startProcess(t, name, requiredBinary(t, "DOGX_E2E_SYSTEM_EXECUTOR_BINARY"), env, "-test.run=^TestJobExecutorHostProcess$")
+		host.process = startProcess(t, name, requiredBinary(t, "DOGX_E2E_SYSTEM_EXECUTOR_BINARY"), env, "-test.run=^"+hostTest+"$")
 	} else {
 		host.process = startProcess(t, name, requiredBinary(t, "DOGX_E2E_RPC_BINARY"), env, "-f", file)
 	}

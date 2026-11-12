@@ -59,10 +59,11 @@ message OrdinaryInput {}
 // PrepareInput explicitly selects the sharding preparation method.
 message PrepareInput {}
 
-// ShardInput carries only the work-item subset assigned to this Task.
+// ShardInput carries one final shard input selected by preparation.
 message ShardInput {
-  // items contains raw JSON values, preserving encoded numeric precision.
-  repeated bytes items = 1;
+  // item is one raw JSON value without an added array wrapper, preserving
+  // numeric precision. JSON null is valid; absent or empty bytes are invalid.
+  bytes item = 1;
 }
 
 // PostInput contains final business-shard counts, not individual results.
@@ -114,7 +115,8 @@ message ReportTaskResultRequest {
 }
 
 // PreparedItems preserves the difference between missing preparation output and
-// an explicitly present empty work-item collection (zero shards).
+// an explicitly present empty collection (zero shards). Each element defines one
+// final shard Task; at most 500 elements are accepted, without splitting or merging.
 message PreparedItems {
   repeated bytes items = 1;
 }

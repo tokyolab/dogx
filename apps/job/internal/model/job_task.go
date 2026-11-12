@@ -55,20 +55,20 @@ const (
 	EndReasonInstanceTimeout = "instance_timeout"
 )
 
-// TaskResultData preserves JSON values without decoding numbers into floating
+// TaskData preserves Task input and output JSON without decoding numbers into floating
 // point. A nil slice represents SQL NULL; the bytes "null" represent JSON null.
 // Value checks JSON syntax only; PostgreSQL remains responsible for JSONB storage
 // restrictions such as unsupported Unicode escapes and numeric range.
-type TaskResultData json.RawMessage
+type TaskData json.RawMessage
 
 // Value implements driver.Valuer. Non-nil empty or invalid JSON is rejected;
 // valid JSON is passed as text without changing its numeric precision.
-func (d TaskResultData) Value() (driver.Value, error) {
+func (d TaskData) Value() (driver.Value, error) {
 	if d == nil {
 		return nil, nil
 	}
 	if !json.Valid(d) {
-		return nil, errors.New("invalid task result JSON")
+		return nil, errors.New("invalid task JSON")
 	}
 	return string(d), nil
 }
@@ -77,7 +77,7 @@ func (d TaskResultData) Value() (driver.Value, error) {
 // copies driver-owned bytes, and leaves the receiver unchanged on failure.
 // PostgreSQL may normalize JSONB formatting; the value's numeric precision and
 // distinction between SQL NULL and JSON null are preserved.
-func (d *TaskResultData) Scan(value any) error {
+func (d *TaskData) Scan(value any) error {
 	if value == nil {
 		*d = nil
 		return nil
@@ -89,12 +89,12 @@ func (d *TaskResultData) Scan(value any) error {
 	case string:
 		data = []byte(v)
 	default:
-		return fmt.Errorf("invalid task result database type %T", value)
+		return fmt.Errorf("invalid task database type %T", value)
 	}
 	if !json.Valid(data) {
-		return errors.New("invalid task result JSON")
+		return errors.New("invalid task JSON")
 	}
-	*d = append(TaskResultData(nil), data...)
+	*d = append(TaskData(nil), data...)
 	return nil
 }
 
@@ -115,9 +115,12 @@ type JobTask struct {
 	// observation period. StartedAt retains the first registration across retries.
 	AttemptRegisteredAt *time.Time
 	NextDispatchAt      *time.Time
-	ExecutorInstanceID  *uuid.UUID     `gorm:"type:uuid"`
-	ExecutorAddress     *string        `gorm:"type:varchar(255)"`
-	ResultData          TaskResultData `gorm:"type:jsonb"`
+	ExecutorInstanceID  *uuid.UUID `gorm:"type:uuid"`
+	ExecutorAddress     *string    `gorm:"type:varchar(255)"`
+	// InputData is the immutable shard input or Post statistics for all attempts.
+	// Ordinary and prepare Tasks leave it SQL NULL; JSON null is a valid shard input.
+	InputData  TaskData `gorm:"type:jsonb"`
+	ResultData TaskData `gorm:"type:jsonb"`
 	// ResultSummary can describe the previous attempt after a retry starts; it
 	// does not prove that the current attempt has completed.
 	ResultSummary *string `gorm:"type:text"`

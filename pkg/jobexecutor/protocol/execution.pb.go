@@ -494,11 +494,12 @@ func (*PrepareInput) Descriptor() ([]byte, []int) {
 	return file_pkg_jobexecutor_protocol_execution_proto_rawDescGZIP(), []int{3}
 }
 
-// ShardInput carries only the work-item subset assigned to this Task.
+// ShardInput carries one final shard input selected by preparation.
 type ShardInput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// items contains raw JSON values, preserving encoded numeric precision.
-	Items         [][]byte `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	// item is one raw JSON value without an added array wrapper, preserving
+	// numeric precision. JSON null is valid; absent or empty bytes are invalid.
+	Item          []byte `protobuf:"bytes,1,opt,name=item,proto3" json:"item,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -533,9 +534,9 @@ func (*ShardInput) Descriptor() ([]byte, []int) {
 	return file_pkg_jobexecutor_protocol_execution_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ShardInput) GetItems() [][]byte {
+func (x *ShardInput) GetItem() []byte {
 	if x != nil {
-		return x.Items
+		return x.Item
 	}
 	return nil
 }
@@ -807,7 +808,8 @@ func (*ReportTaskResultRequest_DataJson) isReportTaskResultRequest_Output() {}
 func (*ReportTaskResultRequest_PreparedItems) isReportTaskResultRequest_Output() {}
 
 // PreparedItems preserves the difference between missing preparation output and
-// an explicitly present empty work-item collection (zero shards).
+// an explicitly present empty collection (zero shards). Each element defines one
+// final shard Task; at most 500 elements are accepted, without splitting or merging.
 type PreparedItems struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         [][]byte               `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -1018,10 +1020,10 @@ const file_pkg_jobexecutor_protocol_execution_proto_rawDesc = "" +
 	"\x04post\x18\r \x01(\v2\x16.jobexecutor.PostInputH\x00R\x04postB\a\n" +
 	"\x05input\"\x0f\n" +
 	"\rOrdinaryInput\"\x0e\n" +
-	"\fPrepareInput\"\"\n" +
+	"\fPrepareInput\" \n" +
 	"\n" +
-	"ShardInput\x12\x14\n" +
-	"\x05items\x18\x01 \x03(\fR\x05items\"W\n" +
+	"ShardInput\x12\x12\n" +
+	"\x04item\x18\x01 \x01(\fR\x04item\"W\n" +
 	"\tPostInput\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x03R\x05total\x12\x1c\n" +
 	"\tsucceeded\x18\x02 \x01(\x03R\tsucceeded\x12\x16\n" +

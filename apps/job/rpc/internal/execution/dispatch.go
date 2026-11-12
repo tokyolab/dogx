@@ -2,6 +2,7 @@ package execution
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -46,7 +47,7 @@ type ExecutorProvider interface {
 	Executor(context.Context, int64) (ExecutorTarget, error)
 }
 
-// Sender adapts one committed ordinary attempt to one executor RPC. It does not
+// Sender adapts one committed attempt to one executor RPC. It does not
 // register attempts, retry dispatch, persist responses, or manage connections.
 // Concurrent calls are safe if the provider and supplied clients are safe. The
 // caller must send each newly registered attempt at most once; Sender retains no
@@ -72,7 +73,7 @@ func NewSender(provider ExecutorProvider, rpcTimeout time.Duration) (*Sender, er
 	return &Sender{provider: provider, rpcTimeout: rpcTimeout}, nil
 }
 
-// Dispatch sends only the frozen ordinary input from attempt. Target lookup uses
+// Dispatch sends only the frozen stage input from attempt. Target lookup uses
 // the caller's overall processing budget. The actual RPC has its configured
 // limit, shortened by ctx's remaining budget. It makes one DispatchTask call,
 // without WaitForReady or an application retry.
@@ -88,7 +89,7 @@ func (s *Sender) Dispatch(ctx context.Context, attempt dispatch.RegisteredAttemp
 	if err := ctx.Err(); err != nil {
 		return unknown, err
 	}
-	request, err := ordinaryDispatchRequest(attempt)
+	request, err := dispatchRequest(attempt)
 	if err != nil {
 		return unknown, err
 	}
@@ -138,24 +139,73 @@ func (s *Sender) Dispatch(ctx context.Context, attempt dispatch.RegisteredAttemp
 	}
 }
 
-func ordinaryDispatchRequest(attempt dispatch.RegisteredAttempt) (*protocol.DispatchTaskRequest, error) {
+func dispatchRequest(attempt dispatch.RegisteredAttempt) (*protocol.DispatchTaskRequest, error) {
 	config := attempt.ExecutionConfig
 	if attempt.JobID <= 0 || attempt.InstanceID <= 0 || attempt.ExecutorGroupID <= 0 || attempt.TaskID <= 0 || attempt.AttemptNo <= 0 ||
-		config.SchemaVersion != 1 || config.ExecutionMode != model.ExecutionModeNormal || config.PostEnabled ||
+		config.SchemaVersion != 1 || (config.ExecutionMode != model.ExecutionModeNormal && config.ExecutionMode != model.ExecutionModeSharded) ||
+		(config.ExecutionMode == model.ExecutionModeNormal && config.PostEnabled) ||
+		config.MaxRetries < 0 || config.RetryIntervalSeconds <= 0 || config.TimeoutSeconds <= 0 ||
 		config.ProcessorName == "" || config.ProcessorName != strings.TrimSpace(config.ProcessorName) ||
 		!utf8.ValidString(config.ProcessorName) || strings.ContainsRune(config.ProcessorName, 0) || utf8.RuneCountInString(config.ProcessorName) > 128 ||
 		!utf8.ValidString(config.Params) || strings.ContainsRune(config.Params, 0) {
-		return nil, errors.New("registered ordinary dispatch input is invalid")
+		return nil, errors.New("registered dispatch input is invalid")
 	}
 	deadline := timestamppb.New(attempt.DeadlineAt)
 	if attempt.DeadlineAt.IsZero() || deadline.CheckValid() != nil {
 		return nil, errors.New("registered dispatch deadline is invalid")
 	}
-	return &protocol.DispatchTaskRequest{
+	request := &protocol.DispatchTaskRequest{
 		JobId: attempt.JobID, InstanceId: attempt.InstanceID, TaskId: attempt.TaskID, AttemptNo: attempt.AttemptNo,
 		ProcessorName: config.ProcessorName, Params: config.Params, DeadlineAt: deadline,
-		Input: &protocol.DispatchTaskRequest_Ordinary{Ordinary: &protocol.OrdinaryInput{}},
-	}, nil
+		RequiredPost: config.PostEnabled,
+	}
+	switch attempt.TaskType {
+	case model.TaskTypeOrdinary:
+		if config.ExecutionMode != model.ExecutionModeNormal || attempt.InputData != nil {
+			return nil, errors.New("registered ordinary input does not match its configuration")
+		}
+		request.Input = &protocol.DispatchTaskRequest_Ordinary{Ordinary: &protocol.OrdinaryInput{}}
+	case model.TaskTypePrepare:
+		if config.ExecutionMode != model.ExecutionModeSharded || attempt.InputData != nil {
+			return nil, errors.New("registered preparation input does not match its configuration")
+		}
+		request.Input = &protocol.DispatchTaskRequest_Prepare{Prepare: &protocol.PrepareInput{}}
+	case model.TaskTypeShard:
+		if config.ExecutionMode != model.ExecutionModeSharded || !json.Valid(attempt.InputData) {
+			return nil, errors.New("registered shard input is invalid")
+		}
+		request.Input = &protocol.DispatchTaskRequest_Shard{Shard: &protocol.ShardInput{Item: append([]byte(nil), attempt.InputData...)}}
+	case model.TaskTypePost:
+		if config.ExecutionMode != model.ExecutionModeSharded || !config.PostEnabled {
+			return nil, errors.New("registered Post input does not match its configuration")
+		}
+		post, err := decodePostInput(attempt.InputData)
+		if err != nil {
+			return nil, err
+		}
+		request.Input = &protocol.DispatchTaskRequest_Post{Post: post}
+	default:
+		return nil, errors.New("registered dispatch Task type is invalid")
+	}
+	return request, nil
+}
+
+// decodePostInput requires all frozen counts. Missing fields and JSON null must
+// not silently become zero; subtracting validated counts avoids sum overflow.
+func decodePostInput(data model.TaskData) (*protocol.PostInput, error) {
+	var counts struct {
+		Total     *int64 `json:"total"`
+		Succeeded *int64 `json:"succeeded"`
+		Failed    *int64 `json:"failed"`
+	}
+	if err := json.Unmarshal(data, &counts); err != nil || counts.Total == nil || counts.Succeeded == nil || counts.Failed == nil {
+		return nil, errors.New("registered Post statistics are missing or invalid")
+	}
+	total, succeeded, failed := *counts.Total, *counts.Succeeded, *counts.Failed
+	if total < 0 || succeeded < 0 || failed < 0 || succeeded > total || total-succeeded != failed {
+		return nil, errors.New("registered Post statistics are inconsistent")
+	}
+	return &protocol.PostInput{Total: total, Succeeded: succeeded, Failed: failed}, nil
 }
 
 func dispatchRejectionSummary(err error) string {

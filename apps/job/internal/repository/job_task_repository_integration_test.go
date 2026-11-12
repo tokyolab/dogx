@@ -47,7 +47,7 @@ func taskRepositoryFixture(t *testing.T) (*gorm.DB, int64, int64, time.Time) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	taskID, err := repo.InsertOrdinary(ctx, instanceID, started)
+	taskID, err := repo.InsertInitial(ctx, instanceID, model.TaskTypeOrdinary, started)
 	if err != nil || taskID <= 0 {
 		t.Fatalf("create ordinary task: ID = %d, error = %v", taskID, err)
 	}
@@ -68,7 +68,7 @@ func taskExecutorBinding(taskID, instanceID int64) ExecutorBinding {
 		ExecutorInstanceID: uuid.MustParse("11111111-1111-4111-8111-111111111111"), ExecutorAddress: "127.0.0.1:9090"}
 }
 
-func TestTaskRepositoryInsertOrdinaryUsesOneStartTime(t *testing.T) {
+func TestTaskRepositoryInsertInitialUsesOneStartTime(t *testing.T) {
 	db, instanceID, taskID, started := taskRepositoryFixture(t)
 	task := readRepositoryTask(t, db, taskID)
 	if task.InstanceID != instanceID || task.TaskType != model.TaskTypeOrdinary || task.Status != model.TaskRunning || task.AttemptNo != 1 || task.UsedAttempts != 1 {
@@ -90,7 +90,7 @@ func TestTaskRepositoryInsertOrdinaryUsesOneStartTime(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		id, err := repo.InsertOrdinary(context.Background(), instanceID, started)
+		id, err := repo.InsertInitial(context.Background(), instanceID, model.TaskTypeOrdinary, started)
 		if id != 0 || err == nil {
 			t.Fatalf("singleton conflict reported creation: ID = %d, error = %v", id, err)
 		}
@@ -160,7 +160,7 @@ func TestTaskRepositoryBindExecutorRejectsStaleOrPartiallyBoundAttempts(t *testi
 		{name: "old attempt", fields: map[string]any{"attempt_no": 2}},
 		{name: "waiting", fields: map[string]any{"status": model.TaskWaiting}},
 		{name: "retry waiting", fields: map[string]any{"status": model.TaskRetryWaiting}},
-		{name: "result succeeded", fields: map[string]any{"status": model.TaskSucceeded, "result_data": model.TaskResultData(`{"completed":true}`), "end_reason": "success"}},
+		{name: "result succeeded", fields: map[string]any{"status": model.TaskSucceeded, "result_data": model.TaskData(`{"completed":true}`), "end_reason": "success"}},
 		{name: "result failed", fields: map[string]any{"status": model.TaskFailed, "end_reason": "execution_failed"}},
 		{name: "canceled", fields: map[string]any{"status": model.TaskCanceled, "end_reason": "manual_stop"}},
 		{name: "identity only", fields: map[string]any{"executor_instance_id": uuid.MustParse("22222222-2222-4222-8222-222222222222")}},
@@ -238,7 +238,7 @@ func TestTaskRepositoryDatabaseErrorsDoNotReportSuccess(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if id, err := repo.InsertOrdinary(ctx, instanceID, started); id != 0 || !errors.Is(err, context.Canceled) {
+	if id, err := repo.InsertInitial(ctx, instanceID, model.TaskTypeOrdinary, started); id != 0 || !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled insert: ID = %d, error = %v", id, err)
 	}
 	if applied, err := repo.BindExecutor(ctx, taskExecutorBinding(taskID, instanceID)); applied || !errors.Is(err, context.Canceled) {
@@ -257,7 +257,7 @@ func TestTaskRepositoryDatabaseErrorsDoNotReportSuccess(t *testing.T) {
 					return err
 				}
 				if operation == "insert" {
-					id, err := repo.InsertOrdinary(context.Background(), instanceID, started)
+					id, err := repo.InsertInitial(context.Background(), instanceID, model.TaskTypeOrdinary, started)
 					if id != 0 || err == nil {
 						t.Fatalf("failed write reported insertion: ID = %d, error = %v", id, err)
 					}

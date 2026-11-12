@@ -49,7 +49,7 @@ func TestRegistrarStartsOrdinaryAtomicallyAndDoesNotReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := registrarDatabaseTime(t, db)
-	attempt, err := registrar.StartOrdinary(context.Background(), instance.ID)
+	attempt, err := registrar.StartInstance(context.Background(), instance.ID)
 	after := registrarDatabaseTime(t, db)
 	if err != nil || attempt == nil {
 		t.Fatalf("first start: attempt=%v error=%v", attempt, err)
@@ -90,7 +90,7 @@ func TestRegistrarStartsOrdinaryAtomicallyAndDoesNotReplay(t *testing.T) {
 	}
 
 	registrar = newIntegrationRegistrar(t, db)
-	replayed, err := registrar.StartOrdinary(context.Background(), instance.ID)
+	replayed, err := registrar.StartInstance(context.Background(), instance.ID)
 	if err != nil || replayed != nil {
 		t.Fatalf("repeat start exposed an old attempt: attempt=%v error=%v", replayed, err)
 	}
@@ -115,7 +115,7 @@ func TestRegistrarUsesFrozenInstanceConfiguration(t *testing.T) {
 	if err := db.Create(&job).Error; err != nil {
 		t.Fatal(err)
 	}
-	attempt, err := newIntegrationRegistrar(t, db).StartOrdinary(context.Background(), instance.ID)
+	attempt, err := newIntegrationRegistrar(t, db).StartInstance(context.Background(), instance.ID)
 	if err != nil || attempt == nil {
 		t.Fatalf("start with edited current Job: attempt=%v error=%v", attempt, err)
 	}
@@ -148,7 +148,7 @@ func TestRegistrarSkipsLockedParentAndCanStartAfterRollback(t *testing.T) {
 	registrar := newIntegrationRegistrar(t, db)
 	attemptCtx, attemptCancel := context.WithTimeout(ctx, time.Second)
 	started := time.Now()
-	attempt, err := registrar.StartOrdinary(attemptCtx, locked.ID)
+	attempt, err := registrar.StartInstance(attemptCtx, locked.ID)
 	elapsed := time.Since(started)
 	attemptCancel()
 	if !errors.Is(err, repository.ErrInstanceLocked) || attempt != nil || elapsed >= time.Second {
@@ -158,14 +158,14 @@ func TestRegistrarSkipsLockedParentAndCanStartAfterRollback(t *testing.T) {
 		t.Fatal("contending registration changed the committed parent")
 	}
 	assertNoRegistrarTasks(t, db, locked.ID)
-	attempt, err = registrar.StartOrdinary(ctx, other.ID)
+	attempt, err = registrar.StartInstance(ctx, other.ID)
 	if err != nil || attempt == nil || attempt.InstanceID != other.ID {
 		t.Fatalf("locked candidate prevented another Instance from starting: attempt=%v error=%v", attempt, err)
 	}
 	if err := holder.Rollback(); err != nil {
 		t.Fatal(err)
 	}
-	attempt, err = registrar.StartOrdinary(ctx, locked.ID)
+	attempt, err = registrar.StartInstance(ctx, locked.ID)
 	if err != nil || attempt == nil || attempt.InstanceID != locked.ID {
 		t.Fatalf("rollback did not permit a later first start: attempt=%v error=%v", attempt, err)
 	}
@@ -209,7 +209,7 @@ func TestConcurrentRegistrarsGrantOnlyOneCommittedAttempt(t *testing.T) {
 	result := make(chan outcome, 1)
 	go func() {
 		defer close(done)
-		attempt, err := first.StartOrdinary(ctx, instance.ID)
+		attempt, err := first.StartInstance(ctx, instance.ID)
 		result <- outcome{attempt: attempt, err: err}
 	}()
 	defer func() {
@@ -225,7 +225,7 @@ func TestConcurrentRegistrarsGrantOnlyOneCommittedAttempt(t *testing.T) {
 		t.Fatalf("first Registrar did not reach the commit barrier: %v", ctx.Err())
 	}
 	contenderCtx, contenderCancel := context.WithTimeout(ctx, time.Second)
-	contender, err := second.StartOrdinary(contenderCtx, instance.ID)
+	contender, err := second.StartInstance(contenderCtx, instance.ID)
 	contenderCancel()
 	if !errors.Is(err, repository.ErrInstanceLocked) || contender != nil {
 		t.Fatalf("competing Registrar did not skip the locked parent: attempt=%v error=%v", contender, err)
@@ -242,7 +242,7 @@ func TestConcurrentRegistrarsGrantOnlyOneCommittedAttempt(t *testing.T) {
 		stored.DeadlineAt == nil || !stored.DeadlineAt.Equal(winner.attempt.DeadlineAt) {
 		t.Fatal("the winning attempt does not match the sole committed registration")
 	}
-	repeated, err := second.StartOrdinary(ctx, instance.ID)
+	repeated, err := second.StartInstance(ctx, instance.ID)
 	if err != nil || repeated != nil {
 		t.Fatalf("post-commit contender exposed the old attempt: attempt=%v error=%v", repeated, err)
 	}
@@ -263,7 +263,7 @@ func TestRegistrarSingletonConflictRollsBackParent(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := onlyRegistrarTask(t, db, instance.ID)
-	attempt, err := newIntegrationRegistrar(t, db).StartOrdinary(context.Background(), instance.ID)
+	attempt, err := newIntegrationRegistrar(t, db).StartInstance(context.Background(), instance.ID)
 	if err == nil || attempt != nil {
 		t.Fatalf("singleton conflict was not an error without an attempt: attempt=%v error=%v", attempt, err)
 	}
@@ -279,7 +279,7 @@ func TestRegistrarSkipsIneligibleInstances(t *testing.T) {
 	db, _ := testutil.OpenMigratedPostgres(t)
 	registrar := newIntegrationRegistrar(t, db)
 	t.Run("missing", func(t *testing.T) {
-		attempt, err := registrar.StartOrdinary(context.Background(), 99999)
+		attempt, err := registrar.StartInstance(context.Background(), 99999)
 		if err != nil || attempt != nil {
 			t.Fatalf("missing Instance: attempt=%v error=%v", attempt, err)
 		}
@@ -292,7 +292,7 @@ func TestRegistrarSkipsIneligibleInstances(t *testing.T) {
 				t.Fatal(err)
 			}
 			before := loadRegistrarInstance(t, db, instance.ID)
-			attempt, err := registrar.StartOrdinary(context.Background(), instance.ID)
+			attempt, err := registrar.StartInstance(context.Background(), instance.ID)
 			if err != nil || attempt != nil {
 				t.Fatalf("ineligible state: attempt=%v error=%v", attempt, err)
 			}
@@ -309,15 +309,20 @@ func TestRegistrarSkipsIneligibleInstances(t *testing.T) {
 		if err := db.Model(&model.JobInstance{}).Where("id = ?", instance.ID).Update("execution_config", config).Error; err != nil {
 			t.Fatal(err)
 		}
-		before := loadRegistrarInstance(t, db, instance.ID)
-		attempt, err := registrar.StartOrdinary(context.Background(), instance.ID)
-		if err != nil || attempt != nil {
-			t.Fatalf("sharded Instance entered ordinary registration: attempt=%v error=%v", attempt, err)
+		attempt, err := registrar.StartInstance(context.Background(), instance.ID)
+		if err != nil || attempt == nil || attempt.TaskType != model.TaskTypePrepare || !attempt.ExecutionConfig.PostEnabled {
+			t.Fatalf("sharded registration: attempt=%v error=%v", attempt, err)
 		}
-		if got := loadRegistrarInstance(t, db, instance.ID); !reflect.DeepEqual(got, before) {
-			t.Fatal("ordinary registration modified a sharded Instance")
+		if got := loadRegistrarInstance(t, db, instance.ID); got.Status != model.InstanceRunning || got.StartedAt == nil || got.DeadlineAt == nil {
+			t.Fatal("sharded registration did not atomically start the Instance")
 		}
-		assertNoRegistrarTasks(t, db, instance.ID)
+		var tasks []model.JobTask
+		if err := db.Where("instance_id = ?", instance.ID).Find(&tasks).Error; err != nil {
+			t.Fatal(err)
+		}
+		if len(tasks) != 1 || tasks[0].TaskType != model.TaskTypePrepare || tasks[0].Status != model.TaskRunning || tasks[0].AttemptNo != 1 || tasks[0].UsedAttempts != 1 {
+			t.Fatalf("unexpected initial preparation: %+v", tasks)
+		}
 	})
 }
 
@@ -332,7 +337,7 @@ func TestRegistrarRejectsInconsistentWaitingTimes(t *testing.T) {
 				t.Fatal(err)
 			}
 			before := loadRegistrarInstance(t, db, instance.ID)
-			attempt, err := registrar.StartOrdinary(context.Background(), instance.ID)
+			attempt, err := registrar.StartInstance(context.Background(), instance.ID)
 			if !errors.Is(err, ErrInvalidInstanceState) || attempt != nil {
 				t.Fatalf("inconsistent waiting time: attempt=%v error=%v", attempt, err)
 			}
@@ -373,7 +378,7 @@ func TestRegistrarDoesNotExposeAttemptWhenCommitIsUnconfirmed(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			attempt, err := registrar.StartOrdinary(context.Background(), instance.ID)
+			attempt, err := registrar.StartInstance(context.Background(), instance.ID)
 			if !callbackCompleted || !errors.Is(err, commitErr) || attempt != nil {
 				t.Fatalf("unconfirmed commit exposed registration: callback=%v attempt=%v error=%v", callbackCompleted, attempt, err)
 			}
@@ -389,7 +394,7 @@ func TestRegistrarDoesNotExposeAttemptWhenCommitIsUnconfirmed(t *testing.T) {
 			if stored.Status != model.InstanceRunning || task.AttemptNo != 1 || task.UsedAttempts != 1 {
 				t.Fatal("committed attempt did not remain durable after simulated confirmation loss")
 			}
-			attempt, err = newIntegrationRegistrar(t, db).StartOrdinary(context.Background(), instance.ID)
+			attempt, err = newIntegrationRegistrar(t, db).StartInstance(context.Background(), instance.ID)
 			if err != nil || attempt != nil {
 				t.Fatalf("later registration resent an unconfirmed old attempt: attempt=%v error=%v", attempt, err)
 			}

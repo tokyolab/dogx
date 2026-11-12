@@ -26,8 +26,13 @@ func TestJobExecutorHostProcess(t *testing.T) {
 		t.Skip("System execution host is started by the end-to-end test")
 	}
 	err := run(context.Background(), file, func(dependencies *svc.ServiceContext, registry *jobexecutor.Registry) error {
-		return registry.Register("system.e2e.persist", &systemExecutionProcessor{
+		if err := registry.Register("system.e2e.persist", &systemExecutionProcessor{
 			database: dependencies.DB, invocations: make(map[int64]int64),
+		}); err != nil {
+			return err
+		}
+		return registry.RegisterSharding("system.e2e.sharded", &systemShardedExecutionProcessor{
+			records: &systemExecutionProcessor{database: dependencies.DB, invocations: make(map[int64]int64)},
 		})
 	})
 	if err != nil {

@@ -331,7 +331,7 @@ Job／Instance／Task 三者中仅 Job 采用逻辑删除，不给 Instance／Ta
 
 某个分片重试耗尽或没有配置重试后最终失败，不立即停止其他分片。等待所有分片以及已配置的 Post 最终结束后，平台汇总时只要存在最终失败分片，Instance 即判为失败，不判为“部分成功”；已成功分片保留成功状态。某次尝试失败、后续重试成功，不属于最终失败。未配置 Post 时，平台直接根据分片最终结果结束本轮，不额外创建收尾 Task。创建 Post、生成新分片或登记新尝试仍需父为 RUNNING 且未到截止；已经具备本轮完整最终结果的终态收尾不受这一新工作授权限制，按[终态竞争](#terminal-order)处理。
 
-准备成功且工作项为合法空数组时，按零分片生成完成推进：有 Post 则在父状态和截止允许时创建唯一 PostTask 并按统一重试规则执行，没有 Post 且已持久化零分片生成完成事实则可按结果结束。非法或缺失结果不按空数组放行；语义及范围见[状态与生命周期](task-model.md#lifecycle)。
+准备成功状态与显式空清单 `[]` 原子保存后，本身就是零分片完成事实，不额外保存生成标志。有 Post 则在父状态和截止允许时创建唯一 PostTask 并按统一重试规则执行；没有 Post 则父仍 RUNNING 时可按完整结果结束，包括平台检查晚于截止的情况。非法或缺失结果不按空数组放行；语义及范围见[状态与生命周期](task-model.md#lifecycle)。
 
 部分或全部分片最终失败，仍在父运行且未到期时进入已配置的业务收尾，例如查询本轮业务记录、生成报告；不能因为失败比例达到全部就跳过 Post。准备最终失败是例外，不生成分片、不运行 Post。Post 只接收公共输入与分片汇总统计，不接收分片执行明细或框架提供的查询能力；业务所需明细从自己的业务存储取得。PostProcess 不是 Reduce，也不是任何失败场景都必定执行的 `finally`。其成功不能改写已有分片的最终失败，且仍受整轮剩余时间约束。准备和收尾同样可能因重试重复产生副作用，业务方必须保证幂等。
 
@@ -343,7 +343,7 @@ Job／Instance／Task 三者中仅 Job 采用逻辑删除，不给 Instance／Ta
 
 正常完成的摘要与原因按本轮最终事实保存：普通 Task 结束和 PreTask 最终失败直接结束时，复制对应 Task 的最终摘要，合法空串也原样保存；分片流程保存分片总数、成功数、最终失败数及适用 Post 结果的汇总，不拼接全部子摘要。正常执行失败使用统一原因，不按失败回报先后选择某条 Task 原因；具体机器码字符串仍待字典确定，详细诊断继续由 Task 和日志承载。
 
-状态集合与主转换见[任务模型](task-model.md#lifecycle)，终态竞争按[本章规则](#terminal-order)处理。正常完成条件 UPDATE、摘要／结束时间及自动超时衔接已在[数据契约](data-contracts.md#instance-completion-contract)确认；生成封口字段、完整查询 SQL／索引、通信细节及实现验证继续闭合，终止后的正常流程不得因收尾而复活或延长预算。
+状态集合与主转换见[任务模型](task-model.md#lifecycle)，终态竞争按[本章规则](#terminal-order)处理。正常完成条件 UPDATE、摘要／结束时间及自动超时衔接已在[数据契约](data-contracts.md#instance-completion-contract)确认；[整组生成协议](execution.md#atomic-shard-generation)已确认完整性依据，[查询与索引](data-contracts.md#sharded-query-contract)及[组件交接](execution.md#sharded-component-handoff)已于 2026-11-09 通过，具体实现及执行计划、故障与性能验证仍待完成。终止后的正常流程不得因收尾而复活或延长预算。
 
 ## 4.7 整轮执行超时 {#instance-timeout}
 
@@ -355,7 +355,7 @@ Job／Instance／Task 三者中仅 Job 采用逻辑删除，不给 Instance／Ta
 
 计时从“首次有效开始准备／执行”开始，Instance 创建后等待开始调度的时间不计入。开始后，准备、Task 生成、派发、分片执行、重试等待和业务收尾共用同一预算；平台等待和故障恢复不暂停或延长截止时间。没有准备处理器的普通任务也从开始推进本轮执行时计时，不延后到某个 Task 实际运行才开始。截止限制新工作授权和业务执行；已具备完整最终结果的 Instance 只差平台终态收尾时，允许截止后按结果结束，不因汇总延迟自动改判超时。
 
-例如配置 30 分钟，10:00 创建 Instance，10:02 开始准备，截止时间即为 10:32。Task 重试、推进节点变化和故障恢复等待都不延长截止时间。普通任务已确认先取得本地派发容量，再将首次开始、截止时间、RUNNING 状态、该轮唯一普通 Task 及首次执行信息在同一短事务中保存，见[普通任务主路径](execution.md#ordinary-flow)；没有派发容量时保持 WAITING，不开始计时。具体 SQL 及分片准备的首次推进仍在对应设计中落实，不依赖整轮负责人或本地计时器保存。
+例如配置 30 分钟，10:00 创建 Instance，10:02 开始准备，截止时间即为 10:32。Task 重试、推进节点变化和故障恢复等待都不延长截止时间。普通任务已确认先取得本地派发容量，再将首次开始、截止时间、RUNNING 状态、该轮唯一普通 Task 及首次执行信息在同一短事务中保存，见[普通任务主路径](execution.md#ordinary-flow)；没有派发容量时保持 WAITING，不开始计时。[Pre 首次启动](execution.md#sharded-start-dispatch)已于 2026-11-06 确认同样将父首次开始和唯一 Pre 的首次登记合并提交；具体 SQL 与实现仍待落实，不依赖整轮负责人或本地计时器保存。
 
 整轮超时先保存 **STOPPING＋超时原因**，全部已存在子 Task 进入终态后，Instance 最终保存失败。STOPPING 与人工停止共用，不增加独立超时状态。停止决定保存后：
 
@@ -394,13 +394,13 @@ Job／Instance／Task 三者中仅 Job 采用逻辑删除，不给 Instance／Ta
 
 例如，全部必需 Task／Post 结果已保存，但平台终态推进因数据库故障延后；恢复时父仍 RUNNING，可以按结果成功或失败结束，不重新执行业务。也明确接受截止后才保存的当前有效结果赶在超时 STOPPING 决定前完成收尾；不按执行器自报的结束时间重建严格墙钟裁决，更不能覆盖已保存的停止决定或终态。
 
-这一调整不增加业务时间：生成新分片、创建 Post、首次或重试尝试登记仍须在必要的短事务保护下校验父状态和原 `deadline_at`，到期禁止新增工作。Post 已完成只差父终态时可以收尾；Post 尚未创建则不能借完成检查在截止后启动。普通首次开始计时沿用[首次 SQL](data-contracts.md#ordinary-start-sql)，普通重试登记继续[锁后取数据库时间且不重置截止](data-contracts.md#ordinary-retry-registration)。[新工作授权与终态协调](execution.md#authorization-terminal)、[正常完成与自动超时衔接](data-contracts.md#instance-completion-contract)及[停止超时协议](data-contracts.md#instance-termination-sql)均按已通过规则落实；[普通完成读取](data-contracts.md#ordinary-completion-query)及[稳定结束原因](data-contracts.md#execution-end-reasons)已通过；具体生成封口字段、完整分片事实查询 SQL／索引和竞态验证继续细化，不在本节另定参数。
+这一调整不增加业务时间：生成新分片、创建 Post、首次或重试尝试登记仍须在必要的短事务保护下校验父状态和原 `deadline_at`，到期禁止新增工作。Post 已完成只差父终态时可以收尾；Post 尚未创建则不能借完成检查在截止后启动。普通首次开始计时沿用[首次 SQL](data-contracts.md#ordinary-start-sql)，普通重试登记继续[锁后取数据库时间且不重置截止](data-contracts.md#ordinary-retry-registration)。[新工作授权与终态协调](execution.md#authorization-terminal)、[正常完成与自动超时衔接](data-contracts.md#instance-completion-contract)及[停止超时协议](data-contracts.md#instance-termination-sql)均按已通过规则落实；[普通完成读取](data-contracts.md#ordinary-completion-query)及[稳定结束原因](data-contracts.md#execution-end-reasons)已通过；生成完整性依照已批准整组事务及显式零清单判断，完整分片事实查询 SQL／索引和竞态验证继续细化，不在本节另定参数。
 
 [远端通知查询与容量](execution.md#cancel-notification-capacity)已另行通过：新的停止决定明确提交后交接一次本地通知；子取消批次、两分钟恢复或仅见旧决定的重复请求不重新开启通知。地址来自本轮所有状态的已保存绑定，按组和地址去重。父先终态不丢弃已接纳通知，其仍使用接纳起的原 60 秒总预算；查询失败、容量不足、超时和宕机可能丢失通知，不影响数据库取消，期限不是业务强制退出保证。
 
 ### 终止后的子任务收敛 {#task-convergence}
 
-父 STOPPING 决定先阻止后续正常推进，各子 Task 通过[统一有界批量条件更新](data-contracts.md#instance-termination-sql)收敛：不按任务类型分支，普通一条也按一批处理；已有成功、失败或取消不变，尚未结束的 Task 取消。不为停止补建尚未生成的分片或 Post。所有实际插入 Task 的批次必须在同一个父行短事务中校验状态并写入，不能只在生成开始时检查一次。
+父 STOPPING 决定先阻止后续正常推进，各子 Task 通过[统一有界批量条件更新](data-contracts.md#instance-termination-sql)收敛：不按任务类型分支，普通一条也按一批处理；已有成功、失败或取消不变，尚未结束的 Task 取消。不为停止补建尚未生成的分片或 Post。所有实际插入新 Task 的动作必须在父行短事务中校验状态并写入；分片采用一轮整组原子生成，不能在事务外检查后无保护插入。
 
 有效结果回报与 Task 取消仍可能竞争。取消先落库时，迟到成功不能把该 Task 改回成功；有效终态结果先落库时保留结果。失败、BUSY 或未知结算可以与 STOPPING 交错，使未终态子 Task 短暂进入或留在等待重试，记账修正也可交错完成；这不授予新尝试，不改变冻结原因，也不能启动正常 Post。结果处理不统一锁父，结果事务提交后才通知父检查。分批取消与取消 RPC 均在最初保存停止决定的事务之外独立进行；每个子取消批次另开短事务，先按父主键 `FOR UPDATE NOWAIT`，成功并复核 STOPPING 后才读取本批子 Task；抢不到父行锁则退出本次处理、不立即重排。远端 RPC 不进入任何数据库事务，详见[取消竞争与容量](execution.md#stopping-processing)。
 
@@ -420,7 +420,7 @@ Job／Instance／Task 三者中仅 Job 采用逻辑删除，不给 Instance／Ta
 | 已定 etcd 接入、任期生命周期与恢复查询的实现 | 触发模块实现前；官方选主、15 秒租约初值、通知键与权限、发布反馈、I/O 预算及恢复规则已通过。任期清理、批量装载与确认、1024／32／3 秒初值继续有效；Job 恢复采用每次从头限量查询，单批 1024、查询超时 5 秒，不分页或保留跨分钟游标，不重选运行规则 |
 | 本轮执行配置的批量读取与 RPC 传递、未来结构变更的兼容行为 | 对应执行契约实现前；本批字段、JSON v1 显式成员及整轮沿用已确认，RPC 消息表达按[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)执行，源文件生成与适配仍待实现验证 |
 | 已定触发事务、五索引、单批恢复、跳过日志和 Job 逻辑删除的实现验证及历史清理衔接 | 所有触发入口实现前；Job 锁后分语句查询、两个部分唯一索引、身份结构 CHECK 和历史冲突处理已确认，不重选手动参数比较、阻塞协调与进度原子提交规则；管理启停及编辑的具体 SQL 仍须落实 |
-| 完整完成事实查询及其余推进 SQL、既定协议的实现验证 | 正常完成事实分支、条件 UPDATE、摘要／结束时间及自动超时衔接已通过；普通完成读取和[稳定结束原因](data-contracts.md#execution-end-reasons)已通过；生成封口字段、完整分片查询 SQL／索引及竞态验证待落实，新工作授权保留必要短事务和原截止检查 |
+| 完整完成事实查询及其余推进 SQL、既定协议的实现验证 | 正常完成事实分支、条件 UPDATE、摘要／结束时间及自动超时衔接已通过；普通完成读取和[稳定结束原因](data-contracts.md#execution-end-reasons)已通过；整组生成完整性已确认，完整分片查询 SQL／索引及竞态验证待落实，新工作授权保留必要短事务和原截止检查 |
 | 已定尝试记账、绑定缺失观察、已绑定等待、BUSY 原子返还及提交结果不明恢复的具体实现 | 派发和恢复模块实现前；[派发时间预算、30 秒观察及 BUSY 延期／保存初值](execution.md#dispatch-time-budgets)已定，不重选故障规则；无绑定扫描周期、处理容量及实现仍待落实 |
 | 普通／分片处理器接口、空数组的协议校验及平台分片统计查询 | 对应处理器接入、推进及管理查询模块实现前；[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)已确定缺失与显式空数组的表达，待生成、校验实现和查询验证，不重新决定已通过的执行路径 |
 

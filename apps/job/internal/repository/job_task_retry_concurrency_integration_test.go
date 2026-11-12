@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestOrdinaryRetryRegistrationRechecksConcurrentTaskChanges(t *testing.T) {
+func TestOrdinaryAttemptRegistrationRechecksConcurrentTaskChanges(t *testing.T) {
 	db, job := resultRepositoryFixture(t)
 	now := retryRepositoryTime(t, db)
 	for _, change := range []struct {
@@ -79,7 +79,7 @@ func TestOrdinaryRetryRegistrationRechecksConcurrentTaskChanges(t *testing.T) {
 							return err
 						}
 						pidReady <- pid
-						registered, err = repo.RegisterOrdinaryRetry(ctx, RetryRegistration{
+						registered, err = repo.RegisterAttempt(ctx, AttemptRegistration{TaskType: model.TaskTypeOrdinary, ExpectedStatus: model.TaskRetryWaiting,
 							TaskID: task.ID, InstanceID: instance.ID, ExpectedAttemptNo: 1, MaxAttempts: 4, RegisteredAt: registeredAt,
 						})
 						return err

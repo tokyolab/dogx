@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
+	"github.com/tokyolab/dogx/pkg/jobexecutor"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -36,7 +37,7 @@ func newSaverFixture(t *testing.T, options ...Option) *saverFixture {
 		repo: &saverTaskRepositoryStub{applied: true, dataValid: true,
 			target: &repository.TaskResultTarget{TaskID: 31, InstanceID: 11, JobID: 21, ExecutorGroupID: 41,
 				AttemptNo: 2, TaskType: model.TaskTypeOrdinary, Status: model.TaskRunning, UsedAttempts: 2,
-				ExecutionConfig: json.RawMessage(`{"schema_version":1,"execution_mode":1,"max_retries":3,"retry_interval_seconds":10}`)}},
+				ExecutionConfig: json.RawMessage(`{"schema_version":1,"execution_mode":1,"post_enabled":false,"max_retries":3,"retry_interval_seconds":10}`)}},
 	}
 	opts := append([]Option{WithInstanceHint(func(id int64) { f.hints = append(f.hints, id) })}, options...)
 	var err error
@@ -168,7 +169,7 @@ func TestSaverDisqualifiesKnownInvalidTargetsBeforeBadSnapshot(t *testing.T) {
 	}
 }
 
-func TestSaverRetainsUnknownStateAndUnsupportedStages(t *testing.T) {
+func TestSaverRetainsUnknownStateAndTaskTypes(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		change func(*repository.TaskResultTarget)
@@ -176,9 +177,6 @@ func TestSaverRetainsUnknownStateAndUnsupportedStages(t *testing.T) {
 	}{
 		{"zero state", func(v *repository.TaskResultTarget) { v.Status = 0 }, ErrInvalidStoredState},
 		{"unknown state", func(v *repository.TaskResultTarget) { v.Status = 99 }, ErrInvalidStoredState},
-		{"prepare", func(v *repository.TaskResultTarget) { v.TaskType = model.TaskTypePrepare }, ErrUnsupportedTaskType},
-		{"shard", func(v *repository.TaskResultTarget) { v.TaskType = model.TaskTypeShard }, ErrUnsupportedTaskType},
-		{"post", func(v *repository.TaskResultTarget) { v.TaskType = model.TaskTypePost }, ErrUnsupportedTaskType},
 		{"unknown type", func(v *repository.TaskResultTarget) { v.TaskType = 0 }, ErrUnsupportedTaskType},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -194,8 +192,8 @@ func TestSaverRetainsUnknownStateAndUnsupportedStages(t *testing.T) {
 
 func TestSaverParsesOnlyNecessaryConfiguration(t *testing.T) {
 	for _, config := range []string{
-		`{"schema_version":1,"execution_mode":1}`,
-		`{"schema_version":1,"execution_mode":1,"max_retries":"bad","retry_interval_seconds":null,"params":{},"processor_name":42}`,
+		`{"schema_version":1,"execution_mode":1,"post_enabled":false}`,
+		`{"schema_version":1,"execution_mode":1,"post_enabled":false,"max_retries":"bad","retry_interval_seconds":null,"params":{},"processor_name":42}`,
 	} {
 		f := newSaverFixture(t)
 		f.repo.target.ExecutionConfig = json.RawMessage(config)
@@ -208,13 +206,150 @@ func TestSaverParsesOnlyNecessaryConfiguration(t *testing.T) {
 			t.Fatalf("failure accepted broken retry policy: result = %+v, error = %v", result, err)
 		}
 	}
-	for _, config := range []string{"{", "null", "[]", `{}`, `{"schema_version":2,"execution_mode":1}`, `{"schema_version":1,"execution_mode":2}`} {
+	for _, config := range []string{"{", "null", "[]", `{}`, `{"schema_version":2,"execution_mode":1,"post_enabled":false}`, `{"schema_version":1,"execution_mode":2}`} {
 		f := newSaverFixture(t)
 		f.repo.target.ExecutionConfig = json.RawMessage(config)
 		if result, err := f.saver.Save(context.Background(), f.report); !errors.Is(err, ErrInvalidExecutionConfig) || result != (SaveResult{}) || len(f.repo.writes) != 0 || len(f.hints) != 0 {
 			t.Fatalf("required broken snapshot: result = %+v, error = %v", result, err)
 		}
 	}
+}
+
+func TestSaverValidatesFrozenStageContract(t *testing.T) {
+	for _, stage := range []model.TaskType{model.TaskTypeOrdinary, model.TaskTypePrepare, model.TaskTypeShard, model.TaskTypePost} {
+		for _, scenario := range []struct {
+			name string
+			mode int
+			post string
+		}{
+			{"normal", 1, "false"}, {"normal with post", 1, "true"},
+			{"sharded", 2, "false"}, {"sharded with post", 2, "true"},
+			{"unknown mode", 3, "false"}, {"missing post", 2, ""},
+			{"null post", 2, "null"}, {"invalid post", 2, `"false"`},
+		} {
+			t.Run(fmt.Sprintf("stage_%d/%s", stage, scenario.name), func(t *testing.T) {
+				f := newSaverFixture(t)
+				f.repo.target.TaskType = stage
+				config := fmt.Sprintf(`{"schema_version":1,"execution_mode":%d`, scenario.mode)
+				if scenario.post != "" {
+					config += `,"post_enabled":` + scenario.post
+				}
+				f.repo.target.ExecutionConfig = json.RawMessage(config + `}`)
+				if stage == model.TaskTypePrepare {
+					f.report.PreparedItems = []json.RawMessage{}
+				}
+				valid := (stage == model.TaskTypeOrdinary && scenario.mode == 1 && scenario.post == "false") ||
+					(stage != model.TaskTypeOrdinary && scenario.mode == 2 &&
+						(scenario.post == "true" || (stage != model.TaskTypePost && scenario.post == "false")))
+				result, err := f.saver.Save(context.Background(), f.report)
+				if valid {
+					if err != nil || !result.Applied || len(f.repo.writes) != 1 {
+						t.Fatalf("valid stage rejected: result=%+v err=%v", result, err)
+					}
+				} else if !errors.Is(err, ErrInvalidExecutionConfig) || result != (SaveResult{}) || len(f.repo.writes) != 0 || len(f.hints) != 0 {
+					t.Fatalf("invalid frozen stage released: result=%+v err=%v", result, err)
+				}
+			})
+		}
+	}
+}
+
+func TestSaverPreparationOutputIsOneCompleteArray(t *testing.T) {
+	for _, items := range [][]json.RawMessage{
+		{}, {json.RawMessage(`null`), json.RawMessage(`{"id":9007199254740993}`), json.RawMessage(`[1,"two"]`)},
+		preparedItems(jobexecutor.MaxPreparedItems),
+	} {
+		f := newSaverFixture(t)
+		setSaverStage(f, model.TaskTypePrepare)
+		f.report.PreparedItems = items
+		want, err := json.Marshal(items)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := f.saver.Save(context.Background(), f.report)
+		if err != nil || !result.Applied || len(f.repo.writes) != 1 || len(f.repo.probes) != 0 {
+			t.Fatalf("preparation output: result=%+v err=%v", result, err)
+		}
+		if write := f.repo.writes[0]; write.Status != model.TaskSucceeded || !bytes.Equal(write.Data, want) {
+			t.Fatalf("success and the complete array were not saved together: %+v", write)
+		}
+	}
+}
+
+func TestSaverRejectsInvalidPreparationWithoutCreatingFailure(t *testing.T) {
+	for _, scenario := range []struct {
+		name  string
+		items []json.RawMessage
+		data  json.RawMessage
+	}{
+		{"missing list", nil, nil}, {"too many items", preparedItems(jobexecutor.MaxPreparedItems + 1), nil},
+		{"missing element", []json.RawMessage{nil}, nil}, {"invalid JSON", []json.RawMessage{json.RawMessage(`{`)}, nil},
+		{"invalid Unicode", []json.RawMessage{{'"', 0xff, '"'}}, nil},
+		{"both output fields", []json.RawMessage{}, json.RawMessage(`null`)},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			f := newSaverFixture(t)
+			setSaverStage(f, model.TaskTypePrepare)
+			f.report.PreparedItems, f.report.Data = scenario.items, scenario.data
+			result, err := f.saver.Save(context.Background(), f.report)
+			if err != nil || result.Applied || result.Reason != "invalid_output" || len(f.repo.writes) != 0 || len(f.repo.probes) != 0 || len(f.hints) != 0 {
+				t.Fatalf("invalid preparation became a task outcome: result=%+v err=%v", result, err)
+			}
+		})
+	}
+	for _, stage := range []model.TaskType{model.TaskTypeShard, model.TaskTypePost} {
+		f := newSaverFixture(t)
+		setSaverStage(f, stage)
+		f.report.PreparedItems = []json.RawMessage{}
+		if result, err := f.saver.Save(context.Background(), f.report); err != nil || result.Reason != "invalid_output" || len(f.repo.writes) != 0 {
+			t.Fatalf("stage %d accepted preparation output: result=%+v err=%v", stage, result, err)
+		}
+	}
+}
+
+func TestSaverAllStageFailuresIgnoreOversizedAndInvalidPartialOutput(t *testing.T) {
+	for _, stage := range []model.TaskType{model.TaskTypeOrdinary, model.TaskTypePrepare, model.TaskTypeShard, model.TaskTypePost} {
+		f := newSaverFixture(t)
+		setSaverStage(f, stage)
+		f.report.Outcome = OutcomeFailure
+		f.report.Data = json.RawMessage{0xff}
+		f.report.PreparedItems = make([]json.RawMessage, jobexecutor.MaxPreparedItems+1)
+		if result, err := f.saver.Save(context.Background(), f.report); err != nil || !result.Applied || len(f.repo.writes) != 1 ||
+			f.repo.writes[0].Status != model.TaskRetryWaiting || f.repo.writes[0].Data != nil || len(f.repo.probes) != 0 {
+			t.Fatalf("stage %d failure depended on partial output: result=%+v err=%v", stage, result, err)
+		}
+	}
+}
+
+func TestSaverPreparationExceptionProbesTheWholeSerializedArray(t *testing.T) {
+	f := newSaverFixture(t)
+	setSaverStage(f, model.TaskTypePrepare)
+	f.report.PreparedItems = []json.RawMessage{json.RawMessage(`1`), json.RawMessage(`"\u0000"`)}
+	f.repo.applied, f.repo.dataValid, f.repo.saveErr = false, false, &pgconn.PgError{Code: "22P05"}
+	result, err := f.saver.Save(context.Background(), f.report)
+	if err != nil || result.Reason != "invalid_output" || len(f.repo.probes) != 1 || len(f.repo.writes) != 1 || len(f.hints) != 0 {
+		t.Fatalf("preparation validation: result=%+v err=%v", result, err)
+	}
+	if !bytes.Equal(f.repo.probes[0], f.repo.writes[0].Data) || string(f.repo.probes[0]) != `[1,"\u0000"]` {
+		t.Fatalf("probe did not validate the saved array: %q", f.repo.probes[0])
+	}
+}
+
+func setSaverStage(f *saverFixture, stage model.TaskType) {
+	f.repo.target.TaskType = stage
+	mode := model.ExecutionModeNormal
+	if stage != model.TaskTypeOrdinary {
+		mode = model.ExecutionModeSharded
+	}
+	f.repo.target.ExecutionConfig = json.RawMessage(fmt.Sprintf(`{"schema_version":1,"execution_mode":%d,"post_enabled":%t,"max_retries":3,"retry_interval_seconds":10}`, mode, stage == model.TaskTypePost))
+}
+
+func preparedItems(count int) []json.RawMessage {
+	items := make([]json.RawMessage, count)
+	for index := range items {
+		items[index] = json.RawMessage(fmt.Sprintf(`{"id":%d}`, index))
+	}
+	return items
 }
 
 func TestSaverFailureIgnoresOutputsAndUsesRemainingOpportunities(t *testing.T) {
@@ -229,7 +364,7 @@ func TestSaverFailureIgnoresOutputsAndUsesRemainingOpportunities(t *testing.T) {
 		f.report.Outcome, f.report.Summary = OutcomeFailure, "business failed"
 		f.report.Data, f.report.PreparedItems = json.RawMessage("invalid unused JSON"), []json.RawMessage{json.RawMessage("{")}
 		f.repo.target.UsedAttempts = tc.used
-		f.repo.target.ExecutionConfig = json.RawMessage(fmt.Sprintf(`{"schema_version":1,"execution_mode":1,"max_retries":%d,"retry_interval_seconds":10}`, tc.retries))
+		f.repo.target.ExecutionConfig = json.RawMessage(fmt.Sprintf(`{"schema_version":1,"execution_mode":1,"post_enabled":false,"max_retries":%d,"retry_interval_seconds":10}`, tc.retries))
 		before := *f.repo.target
 		result, err := f.saver.Save(context.Background(), f.report)
 		if err != nil || !result.Applied || len(f.repo.writes) != 1 || len(f.repo.probes) != 0 || len(f.hints) != 1 {
@@ -250,7 +385,7 @@ func TestSaverFailureIgnoresOutputsAndUsesRemainingOpportunities(t *testing.T) {
 	} {
 		f := newSaverFixture(t)
 		f.report.Outcome = OutcomeFailure
-		f.repo.target.ExecutionConfig = json.RawMessage(`{"schema_version":1,"execution_mode":1,` + policy + `}`)
+		f.repo.target.ExecutionConfig = json.RawMessage(`{"schema_version":1,"execution_mode":1,"post_enabled":false,` + policy + `}`)
 		if result, err := f.saver.Save(context.Background(), f.report); !errors.Is(err, ErrInvalidExecutionConfig) || result != (SaveResult{}) || len(f.repo.writes) != 0 || len(f.hints) != 0 {
 			t.Fatalf("invalid retry policy: result = %+v, error = %v", result, err)
 		}
@@ -447,7 +582,7 @@ type saverTaskRepositoryStub struct {
 	applied, dataValid         bool
 	readIDs                    []int64
 	writes                     []repository.TaskResultWrite
-	probes                     []model.TaskResultData
+	probes                     []model.TaskData
 	onFind, onSave, onProbe    func(context.Context)
 }
 
@@ -455,8 +590,44 @@ func (*saverTaskRepositoryStub) ListByInstance(context.Context, int64, int64, in
 	panic("unexpected ListByInstance")
 }
 
-func (*saverTaskRepositoryStub) InsertOrdinary(context.Context, int64, time.Time) (int64, error) {
+func (*saverTaskRepositoryStub) InsertInitial(context.Context, int64, model.TaskType, time.Time) (int64, error) {
 	panic("result saving must not register another attempt")
+}
+
+func (*saverTaskRepositoryStub) FindPreparation(context.Context, int64) (*repository.PreparationTask, error) {
+	panic("result saving must not read a preparation stage")
+}
+
+func (*saverTaskRepositoryStub) FindPreparationResult(context.Context, int64) (*repository.PreparationResult, error) {
+	panic("result saving must not read another stage's output")
+}
+
+func (*saverTaskRepositoryStub) HasShards(context.Context, int64) (bool, error) {
+	panic("result saving must not inspect generated shards")
+}
+
+func (*saverTaskRepositoryStub) InsertShards(context.Context, int64, []model.TaskData, time.Time) error {
+	panic("result saving must not generate shards")
+}
+
+func (*saverTaskRepositoryStub) FindStages(context.Context, int64) (*repository.StageFacts, error) {
+	panic("result saving must not check stage completion")
+}
+
+func (*saverTaskRepositoryStub) HasUnfinishedShards(context.Context, int64) (bool, error) {
+	panic("result saving must not inspect unfinished shards")
+}
+
+func (*saverTaskRepositoryStub) CountShards(context.Context, int64) (repository.ShardCounts, error) {
+	panic("result saving must not aggregate shards")
+}
+
+func (*saverTaskRepositoryStub) FindPost(context.Context, int64) (*repository.StageTask, error) {
+	panic("result saving must not look up Post")
+}
+
+func (*saverTaskRepositoryStub) InsertPost(context.Context, int64, repository.ShardCounts, time.Time) (int64, error) {
+	panic("result saving must not create Post")
 }
 
 func (*saverTaskRepositoryStub) FindUnboundTargets(context.Context, []int64) ([]repository.UnboundTarget, error) {
@@ -478,15 +649,19 @@ func (*saverTaskRepositoryStub) ListUnboundCandidates(context.Context, time.Time
 	panic("result saving must not scan unbound candidates")
 }
 
-func (*saverTaskRepositoryStub) SettleOrdinaryUnknown(context.Context, repository.UnknownSettlement) (*repository.SettledTask, error) {
-	panic("unexpected SettleOrdinaryUnknown")
+func (*saverTaskRepositoryStub) SettleUnknown(context.Context, repository.UnknownSettlement) (*repository.SettledTask, error) {
+	panic("unexpected SettleUnknown")
 }
 
-func (*saverTaskRepositoryStub) ListRetryCandidates(context.Context, time.Time, *repository.RetryCursor, int) ([]repository.RetryCandidate, error) {
-	panic("result saving must not scan retry candidates")
+func (*saverTaskRepositoryStub) ListDispatchCandidates(context.Context, time.Time, *repository.DispatchCursor, int) ([]repository.DispatchCandidate, error) {
+	panic("result saving must not scan dispatch candidates")
 }
 
-func (*saverTaskRepositoryStub) RegisterOrdinaryRetry(context.Context, repository.RetryRegistration) (*repository.RegisteredTask, error) {
+func (*saverTaskRepositoryStub) ListInstanceDispatchCandidates(context.Context, int64, time.Time, int) ([]repository.DispatchCandidate, error) {
+	panic("result saving must not scan dispatch candidates")
+}
+
+func (*saverTaskRepositoryStub) RegisterAttempt(context.Context, repository.AttemptRegistration) (*repository.RegisteredTask, error) {
 	panic("result saving must not register another attempt")
 }
 
@@ -518,8 +693,8 @@ func (s *saverTaskRepositoryStub) SaveResult(ctx context.Context, write reposito
 	return s.applied, s.saveErr
 }
 
-func (s *saverTaskRepositoryStub) CheckResultData(ctx context.Context, data model.TaskResultData) (bool, error) {
-	s.probes = append(s.probes, append(model.TaskResultData(nil), data...))
+func (s *saverTaskRepositoryStub) CheckResultData(ctx context.Context, data model.TaskData) (bool, error) {
+	s.probes = append(s.probes, append(model.TaskData(nil), data...))
 	if s.onProbe != nil {
 		s.onProbe(ctx)
 	}

@@ -187,9 +187,15 @@ func TestDispatchValidatesWireAndCapabilityBeforeAdmission(t *testing.T) {
 		{"wrong processor kind", func(r *protocol.DispatchTaskRequest) { r.ProcessorName = "sharding" }, protocol.DispatchRejected},
 		{"missing prepare", func(r *protocol.DispatchTaskRequest) { r.Input = &protocol.DispatchTaskRequest_Prepare{} }, subcode.InvalidRequest},
 		{"missing shard", func(r *protocol.DispatchTaskRequest) { r.Input = &protocol.DispatchTaskRequest_Shard{} }, subcode.InvalidRequest},
+		{"missing shard item", func(r *protocol.DispatchTaskRequest) {
+			r.Input = &protocol.DispatchTaskRequest_Shard{Shard: &protocol.ShardInput{}}
+		}, subcode.InvalidRequest},
+		{"empty shard item", func(r *protocol.DispatchTaskRequest) {
+			r.Input = &protocol.DispatchTaskRequest_Shard{Shard: &protocol.ShardInput{Item: []byte{}}}
+		}, subcode.InvalidRequest},
 		{"missing post", func(r *protocol.DispatchTaskRequest) { r.Input = &protocol.DispatchTaskRequest_Post{} }, subcode.InvalidRequest},
 		{"invalid item", func(r *protocol.DispatchTaskRequest) {
-			r.Input = &protocol.DispatchTaskRequest_Shard{Shard: &protocol.ShardInput{Items: [][]byte{[]byte("{")}}}
+			r.Input = &protocol.DispatchTaskRequest_Shard{Shard: &protocol.ShardInput{Item: []byte("{")}}
 		}, subcode.InvalidRequest},
 		{"prepare needs post", func(r *protocol.DispatchTaskRequest) {
 			r.ProcessorName = "sharding"
@@ -247,14 +253,14 @@ func TestDispatchNativeStagesAndJSONOwnership(t *testing.T) {
 	if _, err := adapter.DispatchTask(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
-	items := [][]byte{[]byte("9007199254740993"), []byte(`"\u0000"`)}
-	req.Input = &protocol.DispatchTaskRequest_Shard{Shard: &protocol.ShardInput{Items: items}}
+	const value = `[9007199254740993,"\u0000"]`
+	item := []byte(value)
+	req.Input = &protocol.DispatchTaskRequest_Shard{Shard: &protocol.ShardInput{Item: item}}
 	if _, err := adapter.DispatchTask(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
-	items[0][0] = '1'
-	items[1] = []byte("false")
-	if string(runtime.invocations[1].Items[0]) != "9007199254740993" || string(runtime.invocations[1].Items[1]) != `"\u0000"` {
+	item[0] = '1'
+	if string(runtime.invocations[1].Item) != value {
 		t.Fatal("admission did not receive independent, lossless JSON")
 	}
 	req.Input = &protocol.DispatchTaskRequest_Post{Post: &protocol.PostInput{Total: math.MaxInt64, Succeeded: math.MaxInt64 - 1, Failed: 1}}
@@ -263,6 +269,24 @@ func TestDispatchNativeStagesAndJSONOwnership(t *testing.T) {
 	}
 	if runtime.invocations[0].Stage != StagePrepare || runtime.invocations[1].Stage != StageShard || runtime.invocations[2].Stage != StagePost || runtime.invocations[2].Failed != 1 {
 		t.Fatal("stage conversion changed the invocation")
+	}
+}
+
+func TestDispatchPreservesOneArbitraryJSONValue(t *testing.T) {
+	for _, value := range []string{`null`, `true`, `"text"`, `9007199254740993`, `{"id":9007199254740993}`, `[[1,2],{"ids":[3,4]},null]`} {
+		t.Run(value, func(t *testing.T) {
+			runtime := &adapterAdmissionStub{accepted: true}
+			adapter := newTestRPCAdapter(t, runtime)
+			req := validAdapterDispatch()
+			req.ProcessorName = "sharding"
+			req.Input = &protocol.DispatchTaskRequest_Shard{Shard: &protocol.ShardInput{Item: []byte(value)}}
+			if _, err := adapter.DispatchTask(context.Background(), req); err != nil {
+				t.Fatal(err)
+			}
+			if len(runtime.invocations) != 1 || runtime.invocations[0].Stage != StageShard || string(runtime.invocations[0].Item) != value {
+				t.Fatal("dispatch changed the single shard value or added an array wrapper")
+			}
+		})
 	}
 }
 

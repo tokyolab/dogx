@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // These synthetic identities are isolated from deployed executor credentials.
@@ -252,6 +253,71 @@ func TestReceiverJSONPresencePrecisionAndOwnership(t *testing.T) {
 			test.check(t, acceptor.reports[0])
 			if acceptor.reports[0].GroupID != 41 || acceptor.reports[0].ExecutorInstanceID != receiverTestID || acceptor.reports[0].AttemptNo != 4 {
 				t.Fatal("trusted or execution identities changed")
+			}
+		})
+	}
+}
+
+func TestReceiverPreparedItemLimitAfterWireRoundTrip(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		count   int
+		outcome protocol.TaskOutcome
+		reject  bool
+	}{
+		{"zero shards", 0, protocol.TaskOutcome_SUCCESS, false},
+		{"maximum shards", 500, protocol.TaskOutcome_SUCCESS, false},
+		{"too many shards", 501, protocol.TaskOutcome_SUCCESS, true},
+		{"failed output is ignored", 501, protocol.TaskOutcome_FAILURE, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			items := make([][]byte, test.count)
+			for index := range items {
+				items[index] = []byte(`{"id":9007199254740993,"value":null}`)
+			}
+			req := validReceiverRequest()
+			req.Outcome = test.outcome
+			req.Output = &protocol.ReportTaskResultRequest_PreparedItems{
+				PreparedItems: &protocol.PreparedItems{Items: items},
+			}
+			encoded, err := proto.Marshal(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var decoded protocol.ReportTaskResultRequest
+			if err := proto.Unmarshal(encoded, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			acceptor := &receiverAcceptorStub{accepted: true}
+			receiver := testReceiver(t, &receiverAuthStub{groupID: 41}, acceptor)
+			_, err = bizerror.UnaryServerInterceptor(context.Background(), &decoded, &grpc.UnaryServerInfo{},
+				func(ctx context.Context, request any) (any, error) {
+					return receiver.ReportTaskResult(ctx, request.(*protocol.ReportTaskResultRequest))
+				})
+			if test.reject {
+				reason, ok := bizerror.SubcodeFromStatus(status.Convert(err))
+				if !ok || reason != subcode.InvalidRequest || len(acceptor.reports) != 0 {
+					t.Fatalf("oversized output admitted: reports=%d, error=%v", len(acceptor.reports), err)
+				}
+				return
+			}
+			if err != nil || len(acceptor.reports) != 1 {
+				t.Fatalf("valid result not admitted: reports=%d, error=%v", len(acceptor.reports), err)
+			}
+			report := acceptor.reports[0]
+			if test.outcome == protocol.TaskOutcome_FAILURE {
+				if report.Outcome != taskresult.OutcomeFailure || report.PreparedItems != nil || report.Data != nil {
+					t.Fatal("failed result adopted unused preparation output")
+				}
+				return
+			}
+			if report.Outcome != taskresult.OutcomeSuccess || report.PreparedItems == nil || len(report.PreparedItems) != test.count {
+				t.Fatal("successful preparation lost its collection or outcome")
+			}
+			for _, item := range report.PreparedItems {
+				if string(item) != `{"id":9007199254740993,"value":null}` {
+					t.Fatal("prepared JSON value changed during transport")
+				}
 			}
 		})
 	}

@@ -47,9 +47,9 @@ const (
 )
 
 // Invocation is a validated, credential-free attempt offered to the runtime.
-// Input and DeadlineAt are frozen for the Instance. Items belongs only to a
+// Input and DeadlineAt are frozen for the Instance. Item belongs only to a
 // shard stage; the three counts belong only to Post. The adapter owns a copy of
-// every item, so admitted work may retain it after the RPC has returned.
+// Item, so admitted work may retain it after the RPC has returned.
 type Invocation struct {
 	Input
 	AttemptNo     int64
@@ -57,7 +57,7 @@ type Invocation struct {
 	DeadlineAt    time.Time
 	RequiredPost  bool
 	Stage         Stage
-	Items         []json.RawMessage
+	Item          json.RawMessage
 	Total         int64
 	Succeeded     int64
 	Failed        int64
@@ -210,13 +210,10 @@ func (s *RPCAdapter) invocation(req *protocol.DispatchTaskRequest) (Invocation, 
 			return Invocation{}, invalidExecutionRequest("shard input is required")
 		}
 		invocation.Stage = StageShard
-		invocation.Items = make([]json.RawMessage, len(input.Shard.Items))
-		for index, item := range input.Shard.Items {
-			if !json.Valid(item) {
-				return Invocation{}, invalidExecutionRequest("shard item must contain valid JSON")
-			}
-			invocation.Items[index] = append(json.RawMessage(nil), item...)
+		if !json.Valid(input.Shard.Item) {
+			return Invocation{}, invalidExecutionRequest("shard item must contain valid JSON")
 		}
+		invocation.Item = append(json.RawMessage(nil), input.Shard.Item...)
 	case *protocol.DispatchTaskRequest_Post:
 		if input == nil || input.Post == nil {
 			return Invocation{}, invalidExecutionRequest("post input is required")

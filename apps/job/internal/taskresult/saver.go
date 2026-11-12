@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
+	"github.com/tokyolab/dogx/pkg/jobexecutor"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -28,8 +29,8 @@ var (
 	// ErrInvalidExecutionConfig requires repairing the frozen platform snapshot;
 	// the current Job must not replace it, and the report must be retained.
 	ErrInvalidExecutionConfig = errors.New("invalid task result execution configuration")
-	// ErrUnsupportedTaskType preserves reports for stages this saver cannot yet
-	// process. It must not be translated into successful ordinary-task persistence.
+	// ErrUnsupportedTaskType identifies an unknown persisted stage. It is a
+	// platform invariant failure and requires retaining the report.
 	ErrUnsupportedTaskType = errors.New("task result type is not supported by this saver")
 )
 
@@ -42,7 +43,7 @@ type SaveResult struct {
 	Reason  string
 }
 
-// Saver validates and independently persists one ordinary Task result at a time.
+// Saver validates and independently persists one Task result at a time.
 // It has no queue, retry loop or goroutine. Use a non-transaction repository: its
 // SaveResult must confirm the conditional write's own commit before returning.
 // The host owns the repository and its database, and must retain reports whenever
@@ -92,6 +93,10 @@ func NewSaver(tasks repository.JobTaskRepository, options ...Option) (*Saver, er
 // original identities and trusted GroupID. The caller supplies a worker Context,
 // not the already-completed inbound RPC's Context, and must not mutate the report's
 // slices until the call returns. Failed business work ignores Data and PreparedItems.
+// Successful Prepare results require an explicit list of at most
+// jobexecutor.MaxPreparedItems valid JSON values. The complete list and success
+// are saved in the same write; other stages accept only optional Data. Invalid
+// output never becomes business failure, and a result never modifies fixed input.
 //
 // A nil error means applied, obsolete, or independently invalid; inspect Applied
 // and Reason to distinguish them. All errors require retaining this same report,
@@ -139,17 +144,24 @@ func (s *Saver) Save(ctx context.Context, report Report) (SaveResult, error) {
 	if target.ExecutorInstanceID != nil && *target.ExecutorInstanceID != identity {
 		return s.finished(target.InstanceID, false, "executor_mismatch"), nil
 	}
-	if target.TaskType != model.TaskTypeOrdinary {
+	switch target.TaskType {
+	case model.TaskTypeOrdinary, model.TaskTypePrepare, model.TaskTypeShard, model.TaskTypePost:
+	default:
 		return SaveResult{}, ErrUnsupportedTaskType
 	}
-	if !utf8.ValidString(report.Summary) || strings.ContainsRune(report.Summary, 0) ||
-		(report.Outcome == OutcomeSuccess && (report.PreparedItems != nil ||
-			(report.Data != nil && (!utf8.Valid(report.Data) || !json.Valid(report.Data))))) {
+	if !utf8.ValidString(report.Summary) || strings.ContainsRune(report.Summary, 0) {
 		return discardResult(ctx, report, "invalid_output"), nil
 	}
 	write, err := resultWrite(target, report, identity)
 	if err != nil {
 		return SaveResult{}, err
+	}
+	if report.Outcome == OutcomeSuccess {
+		var valid bool
+		write.Data, valid = successfulOutput(target.TaskType, report)
+		if !valid {
+			return discardResult(ctx, report, "invalid_output"), nil
+		}
 	}
 	applied, err := s.tasks.SaveResult(ctx, write)
 	if err != nil {
@@ -158,9 +170,9 @@ func (s *Saver) Save(ctx context.Context, report Report) (SaveResult, error) {
 		// already left its transaction. Probe only the actual successful Data,
 		// using the remaining budget and the database's own JSONB input rules.
 		var pgErr *pgconn.PgError
-		if !applied && ctx.Err() == nil && report.Outcome == OutcomeSuccess && report.Data != nil &&
+		if !applied && ctx.Err() == nil && report.Outcome == OutcomeSuccess && write.Data != nil &&
 			errors.As(err, &pgErr) && strings.HasPrefix(pgErr.Code, "22") {
-			valid, validationErr := s.tasks.CheckResultData(ctx, model.TaskResultData(report.Data))
+			valid, validationErr := s.tasks.CheckResultData(ctx, write.Data)
 			if validationErr == nil && !valid {
 				return discardResult(ctx, report, "invalid_output"), nil
 			}
@@ -197,19 +209,36 @@ func resultWrite(target *repository.TaskResultTarget, report Report, identity uu
 	var config struct {
 		SchemaVersion int32               `json:"schema_version"`
 		ExecutionMode model.ExecutionMode `json:"execution_mode"`
+		PostEnabled   *bool               `json:"post_enabled"`
 		MaxRetries    json.RawMessage     `json:"max_retries"`
 		RetryInterval json.RawMessage     `json:"retry_interval_seconds"`
 	}
 	if err := json.Unmarshal(target.ExecutionConfig, &config); err != nil {
 		return repository.TaskResultWrite{}, fmt.Errorf("%w: %w", ErrInvalidExecutionConfig, err)
 	}
-	if config.SchemaVersion != 1 || config.ExecutionMode != model.ExecutionModeNormal {
+	if config.SchemaVersion != 1 || config.PostEnabled == nil {
 		return repository.TaskResultWrite{}, ErrInvalidExecutionConfig
+	}
+	switch target.TaskType {
+	case model.TaskTypeOrdinary:
+		if config.ExecutionMode != model.ExecutionModeNormal || *config.PostEnabled {
+			return repository.TaskResultWrite{}, ErrInvalidExecutionConfig
+		}
+	case model.TaskTypePrepare, model.TaskTypeShard:
+		if config.ExecutionMode != model.ExecutionModeSharded {
+			return repository.TaskResultWrite{}, ErrInvalidExecutionConfig
+		}
+	case model.TaskTypePost:
+		if config.ExecutionMode != model.ExecutionModeSharded || !*config.PostEnabled {
+			return repository.TaskResultWrite{}, ErrInvalidExecutionConfig
+		}
+	default:
+		return repository.TaskResultWrite{}, ErrUnsupportedTaskType
 	}
 	write := repository.TaskResultWrite{TaskID: report.TaskID, InstanceID: report.InstanceID,
 		AttemptNo: report.AttemptNo, ExecutorInstanceID: identity, Summary: report.Summary}
 	if report.Outcome == OutcomeSuccess {
-		write.Status, write.Data = model.TaskSucceeded, model.TaskResultData(report.Data)
+		write.Status = model.TaskSucceeded
 		return write, nil
 	}
 	var maxRetries, interval *int32
@@ -228,6 +257,25 @@ func resultWrite(target *repository.TaskResultTarget, report Report, identity uu
 		write.Status = model.TaskFailed
 	}
 	return write, nil
+}
+
+func successfulOutput(taskType model.TaskType, report Report) (model.TaskData, bool) {
+	if taskType != model.TaskTypePrepare {
+		if report.PreparedItems != nil || (report.Data != nil && (!utf8.Valid(report.Data) || !json.Valid(report.Data))) {
+			return nil, false
+		}
+		return model.TaskData(report.Data), true
+	}
+	if report.Data != nil || report.PreparedItems == nil || len(report.PreparedItems) > jobexecutor.MaxPreparedItems {
+		return nil, false
+	}
+	for _, item := range report.PreparedItems {
+		if !utf8.Valid(item) || !json.Valid(item) {
+			return nil, false
+		}
+	}
+	data, err := json.Marshal(report.PreparedItems)
+	return model.TaskData(data), err == nil
 }
 
 func nilTaskRepository(tasks repository.JobTaskRepository) bool {

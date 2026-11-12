@@ -8,6 +8,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 )
 
@@ -17,9 +18,9 @@ func TestDispatcherRetryPreservesCandidateAndUsesSharedResponseSaving(t *testing
 			synctest.Test(t, func(t *testing.T) {
 				attempt := dispatcherAttempt()
 				attempt.AttemptNo = 8
-				candidate := repository.RetryCandidate{TaskID: attempt.TaskID, InstanceID: attempt.InstanceID,
+				candidate := repository.DispatchCandidate{TaskType: model.TaskTypeOrdinary, Status: model.TaskRetryWaiting, TaskID: attempt.TaskID, InstanceID: attempt.InstanceID,
 					AttemptNo: 7, NextDispatchAt: attempt.RegisteredAt.Add(-time.Second)}
-				registrar := &dispatcherRegistrarStub{retryCall: func(ctx context.Context, got repository.RetryCandidate) (*RegisteredAttempt, error) {
+				registrar := &dispatcherRegistrarStub{retryCall: func(ctx context.Context, got repository.DispatchCandidate) (*RegisteredAttempt, error) {
 					if got != candidate {
 						t.Fatal("dispatcher replaced the original retry candidate")
 					}
@@ -47,7 +48,7 @@ func TestDispatcherRetryPreservesCandidateAndUsesSharedResponseSaving(t *testing
 					}
 					hints++
 				}))
-				got, err := d.DispatchRetry(context.Background(), candidate)
+				got, err := d.DispatchTask(context.Background(), candidate)
 				if err != nil || got != (DispatchResult{Registered: true, Outcome: outcome, Applied: true}) {
 					t.Fatalf("retry dispatch=%+v err=%v", got, err)
 				}
@@ -75,7 +76,7 @@ func TestDispatcherRetryPreservesCandidateAndUsesSharedResponseSaving(t *testing
 
 func TestDispatcherRetryNeverSendsWithoutCommitConfirmation(t *testing.T) {
 	attempt := dispatcherAttempt()
-	candidate := repository.RetryCandidate{TaskID: attempt.TaskID, InstanceID: attempt.InstanceID, AttemptNo: 1}
+	candidate := repository.DispatchCandidate{TaskType: model.TaskTypeOrdinary, Status: model.TaskRetryWaiting, TaskID: attempt.TaskID, InstanceID: attempt.InstanceID, AttemptNo: 1}
 	commitUnknown := errors.New("synthetic retry commit acknowledgement lost")
 	for _, test := range []struct {
 		name    string
@@ -87,12 +88,12 @@ func TestDispatcherRetryNeverSendsWithoutCommitConfirmation(t *testing.T) {
 		{"unknown commit", &attempt, commitUnknown},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			registrar := &dispatcherRegistrarStub{retryCall: func(context.Context, repository.RetryCandidate) (*RegisteredAttempt, error) {
+			registrar := &dispatcherRegistrarStub{retryCall: func(context.Context, repository.DispatchCandidate) (*RegisteredAttempt, error) {
 				return test.attempt, test.err
 			}}
 			sender, store := &dispatcherSenderStub{}, &dispatcherStoreStub{}
 			d := testDispatcher(t, registrar, sender, store)
-			if got, err := d.DispatchRetry(context.Background(), candidate); got != (DispatchResult{}) || !errors.Is(err, test.err) {
+			if got, err := d.DispatchTask(context.Background(), candidate); got != (DispatchResult{}) || !errors.Is(err, test.err) {
 				t.Fatalf("unconfirmed retry dispatch=%+v err=%v", got, err)
 			}
 			if sender.calls.Load() != 0 || len(store.snapshot()) != 0 {
@@ -105,16 +106,16 @@ func TestDispatcherRetryNeverSendsWithoutCommitConfirmation(t *testing.T) {
 func TestDispatcherRetryRejectsInvalidAndCanceledCandidatesBeforeRegistration(t *testing.T) {
 	registrar, sender, store := &dispatcherRegistrarStub{}, &dispatcherSenderStub{}, &dispatcherStoreStub{}
 	d := testDispatcher(t, registrar, sender, store)
-	for _, candidate := range []repository.RetryCandidate{
+	for _, candidate := range []repository.DispatchCandidate{
 		{TaskID: 0, InstanceID: 22, AttemptNo: 1}, {TaskID: 44, InstanceID: -1, AttemptNo: 1}, {TaskID: 44, InstanceID: 22, AttemptNo: 0},
 	} {
-		if got, err := d.DispatchRetry(context.Background(), candidate); got != (DispatchResult{}) || err == nil {
+		if got, err := d.DispatchTask(context.Background(), candidate); got != (DispatchResult{}) || err == nil {
 			t.Fatalf("invalid retry dispatch=%+v err=%v", got, err)
 		}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if got, err := d.DispatchRetry(ctx, repository.RetryCandidate{TaskID: 44, InstanceID: 22, AttemptNo: 1}); got != (DispatchResult{}) || !errors.Is(err, context.Canceled) {
+	if got, err := d.DispatchTask(ctx, repository.DispatchCandidate{TaskType: model.TaskTypeOrdinary, Status: model.TaskRetryWaiting, TaskID: 44, InstanceID: 22, AttemptNo: 1}); got != (DispatchResult{}) || !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled retry dispatch=%+v err=%v", got, err)
 	}
 	if registrar.calls.Load() != 0 || registrar.retryCalls.Load() != 0 || sender.calls.Load() != 0 || len(store.snapshot()) != 0 {
@@ -125,14 +126,14 @@ func TestDispatcherRetryRejectsInvalidAndCanceledCandidatesBeforeRegistration(t 
 func TestDispatcherRetryDoesNotSendAfterCommittedRegistrationExhaustsBudget(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		attempt := dispatcherAttempt()
-		candidate := repository.RetryCandidate{TaskID: attempt.TaskID, InstanceID: attempt.InstanceID, AttemptNo: 1}
-		registrar := &dispatcherRegistrarStub{retryCall: func(ctx context.Context, _ repository.RetryCandidate) (*RegisteredAttempt, error) {
+		candidate := repository.DispatchCandidate{TaskType: model.TaskTypeOrdinary, Status: model.TaskRetryWaiting, TaskID: attempt.TaskID, InstanceID: attempt.InstanceID, AttemptNo: 1}
+		registrar := &dispatcherRegistrarStub{retryCall: func(ctx context.Context, _ repository.DispatchCandidate) (*RegisteredAttempt, error) {
 			<-ctx.Done()
 			return &attempt, nil
 		}}
 		sender, store := &dispatcherSenderStub{}, &dispatcherStoreStub{}
 		d := testDispatcher(t, registrar, sender, store)
-		if got, err := d.DispatchRetry(context.Background(), candidate); got != (DispatchResult{Registered: true}) || !errors.Is(err, context.DeadlineExceeded) {
+		if got, err := d.DispatchTask(context.Background(), candidate); got != (DispatchResult{Registered: true}) || !errors.Is(err, context.DeadlineExceeded) {
 			t.Fatalf("late committed retry dispatch=%+v err=%v", got, err)
 		}
 		if sender.calls.Load() != 0 || len(store.snapshot()) != 0 {

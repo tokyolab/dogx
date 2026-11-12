@@ -9,6 +9,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 )
 
@@ -90,12 +91,12 @@ func TestRuntimeRegistrationDuringSlowFourthPageRestoresSharedBudget(t *testing.
 	})
 }
 
-func runtimeWithSlowFourthPage(t *testing.T, registrar ordinaryRegistrar, failure bool) (*Runtime, *runtimeSourceStub, *runtimeTaskStoreStub) {
+func runtimeWithSlowFourthPage(t *testing.T, registrar attemptRegistrar, failure bool) (*Runtime, *runtimeSourceStub, *runtimeTaskStoreStub) {
 	t.Helper()
 	source := runtimeFullPages(4096)
 	retryCalls := 0
 	tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{},
-		list: func(_ context.Context, now time.Time, cursor *repository.RetryCursor, limit int) ([]repository.RetryCandidate, error) {
+		list: func(_ context.Context, now time.Time, cursor *repository.DispatchCursor, limit int) ([]repository.DispatchCandidate, error) {
 			retryCalls++
 			if retryCalls == 2 {
 				time.Sleep(2 * time.Second)
@@ -107,10 +108,10 @@ func runtimeWithSlowFourthPage(t *testing.T, registrar ordinaryRegistrar, failur
 			if cursor != nil {
 				lastID = cursor.TaskID
 			}
-			rows := make([]repository.RetryCandidate, limit)
+			rows := make([]repository.DispatchCandidate, limit)
 			for index := range rows {
 				id := lastID + int64(index) + 1
-				rows[index] = repository.RetryCandidate{TaskID: id, InstanceID: 10000 + id, AttemptNo: 1,
+				rows[index] = repository.DispatchCandidate{TaskType: model.TaskTypeOrdinary, Status: model.TaskRetryWaiting, TaskID: id, InstanceID: 10000 + id, AttemptNo: 1,
 					NextDispatchAt: now.Add(-time.Second)}
 			}
 			return rows, nil

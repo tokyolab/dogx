@@ -19,7 +19,7 @@ import (
 func resultWriteFixture() TaskResultWrite {
 	return TaskResultWrite{TaskID: 1, InstanceID: 2, AttemptNo: 1,
 		ExecutorInstanceID: uuid.MustParse("11111111-1111-4111-8111-111111111111"),
-		Status:             model.TaskSucceeded, Data: model.TaskResultData(`null`), Summary: "done"}
+		Status:             model.TaskSucceeded, Data: model.TaskData(`null`), Summary: "done"}
 }
 
 func TestTaskResultRepositoryRejectsInvalidInputs(t *testing.T) {
@@ -118,7 +118,7 @@ func TestTaskResultDataProbeRequiresDefiniteAnswer(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			valid, err := repo.CheckResultData(context.Background(), model.TaskResultData(`"\u0000"`))
+			valid, err := repo.CheckResultData(context.Background(), model.TaskData(`"\u0000"`))
 			if valid != scenario.want || (err != nil) != scenario.fail || (scenario.err != nil && !errors.Is(err, scenario.err)) {
 				t.Fatalf("probe: valid=%v err=%v", valid, err)
 			}

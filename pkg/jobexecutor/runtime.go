@@ -161,8 +161,8 @@ func (r *Runtime) Start() error {
 // Accept atomically deduplicates and admits validated work without waiting for
 // queue space. Active duplicates win over stopping, expiry and a cancelled RPC.
 // False with nil error means definitely full; no work was admitted. The caller
-// must not mutate Invocation.Items concurrently with this call; accepted items
-// are copied. Business execution never inherits ctx or its deadline.
+// must not mutate Invocation.Item concurrently with this call; an accepted item
+// is copied. Business execution never inherits ctx or its deadline.
 func (r *Runtime) Accept(ctx context.Context, invocation Invocation) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -185,13 +185,7 @@ func (r *Runtime) Accept(ctx context.Context, invocation Invocation) (bool, erro
 	if err := r.validateInvocation(invocation); err != nil {
 		return false, err
 	}
-	if invocation.Items != nil {
-		items := make([]json.RawMessage, len(invocation.Items))
-		for index, item := range invocation.Items {
-			items[index] = append(json.RawMessage(nil), item...)
-		}
-		invocation.Items = items
-	}
+	invocation.Item = append(json.RawMessage(nil), invocation.Item...)
 	work := &activity{invocation: invocation}
 	select {
 	case r.queue <- work:
@@ -365,7 +359,7 @@ func (r *Runtime) invoke(ctx context.Context, in Invocation) (report executionRe
 		result.Summary = prepared.Summary
 	case StageShard:
 		processor, _ := r.registry.LookupSharding(in.ProcessorName)
-		result, err = processor.ShardingProcess(ctx, ShardInput{Input: in.Input, Items: in.Items})
+		result, err = processor.ShardingProcess(ctx, ShardInput{Input: in.Input, Item: in.Item})
 	case StagePost:
 		processor, _ := r.registry.LookupSharding(in.ProcessorName)
 		result, err = processor.(PostProcessor).PostProcess(ctx, PostInput{

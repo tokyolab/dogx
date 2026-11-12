@@ -5,6 +5,7 @@ package taskrecovery_test
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -192,8 +193,9 @@ func TestUnknownSettlementCannotAuthorizeRetryAfterConcurrentParentStop(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	attempt, err := registrar.RetryOrdinary(context.Background(), repository.RetryCandidate{
-		TaskID: task.ID, InstanceID: parent.ID, AttemptNo: task.AttemptNo, NextDispatchAt: *task.NextDispatchAt,
+	attempt, err := registrar.RegisterTask(context.Background(), repository.DispatchCandidate{
+		TaskID: task.ID, InstanceID: parent.ID, TaskType: task.TaskType, Status: task.Status,
+		AttemptNo: task.AttemptNo, NextDispatchAt: *task.NextDispatchAt,
 	})
 	if err != nil || attempt != nil {
 		t.Fatalf("stopping parent granted retry: attempt=%+v err=%v", attempt, err)
@@ -204,6 +206,95 @@ func TestUnknownSettlementCannotAuthorizeRetryAfterConcurrentParentStop(t *testi
 	}
 	if stored.Status != model.InstanceStopping || !stored.DeadlineAt.Equal(*parent.DeadlineAt) {
 		t.Fatal("child settlement or retry registration restored the stopped parent")
+	}
+}
+
+func TestUnknownSettlementCoversAllStagesWithoutChangingFixedInput(t *testing.T) {
+	db, _ := testutil.OpenMigratedPostgres(t)
+	instances, tasks := recoveryRepositories(t, db)
+	for _, stage := range []model.TaskType{model.TaskTypeOrdinary, model.TaskTypePrepare, model.TaskTypeShard, model.TaskTypePost} {
+		for _, retries := range []int32{0, 1} {
+			t.Run(fmt.Sprintf("stage_%d/retries_%d", stage, retries), func(t *testing.T) {
+				parent, original := recoveryFixture(t, db, instances, retries)
+				if stage != model.TaskTypeOrdinary {
+					parent.ExecutionConfig.ExecutionMode = model.ExecutionModeSharded
+				}
+				parent.ExecutionConfig.PostEnabled = stage == model.TaskTypePost
+				if err := db.Model(&model.JobInstance{}).Where("id = ?", parent.ID).Update("execution_config", parent.ExecutionConfig).Error; err != nil {
+					t.Fatal(err)
+				}
+				var input model.TaskData
+				if stage == model.TaskTypeShard || stage == model.TaskTypePost {
+					input = model.TaskData(`{"fixed_id":9007199254740993}`)
+				}
+				if err := db.Model(&model.JobTask{}).Where("id = ?", original.ID).Updates(map[string]any{
+					"task_type": stage, "input_data": input,
+				}).Error; err != nil {
+					t.Fatal(err)
+				}
+				if err := db.First(&original, original.ID).Error; err != nil {
+					t.Fatal(err)
+				}
+				var hints []int64
+				settler, err := taskrecovery.NewSettler(instances, tasks, taskrecovery.WithInstanceHint(func(id int64) { hints = append(hints, id) }))
+				if err != nil {
+					t.Fatal(err)
+				}
+				candidates := []repository.UnboundCandidate{recoveryCandidate(original)}
+				result, err := settler.SettleBatch(context.Background(), candidates)
+				if err != nil || result != (taskrecovery.BatchResult{Processed: 1, Applied: 1}) || !reflect.DeepEqual(hints, []int64{parent.ID}) {
+					t.Fatalf("stage settlement: result=%+v err=%v hints=%v", result, err, hints)
+				}
+				var stored model.JobTask
+				if err := db.First(&stored, original.ID).Error; err != nil {
+					t.Fatal(err)
+				}
+				want := model.TaskFailed
+				if retries > 0 {
+					want = model.TaskRetryWaiting
+				}
+				if stored.Status != want ||
+					stored.TaskType != stage || stored.AttemptNo != original.AttemptNo || stored.UsedAttempts != original.UsedAttempts ||
+					!reflect.DeepEqual(stored.InputData, original.InputData) || !reflect.DeepEqual(stored.StartedAt, original.StartedAt) ||
+					!reflect.DeepEqual(stored.AttemptRegisteredAt, original.AttemptRegisteredAt) || stored.ExecutorInstanceID != nil || stored.ExecutorAddress != nil {
+					t.Fatalf("settlement changed fixed facts or invented business failure: %+v", stored)
+				}
+				if retries == 0 && (stored.EndReason == nil || *stored.EndReason != model.EndReasonResultUnknown || stored.FinishedAt == nil || stored.NextDispatchAt != nil) {
+					t.Fatal("exhausted unknown result lost its terminal reason")
+				}
+				if retries > 0 && (stored.EndReason != nil || stored.FinishedAt != nil || stored.NextDispatchAt == nil) {
+					t.Fatal("retry-waiting unknown result gained terminal facts")
+				}
+				if repeated, err := settler.SettleBatch(context.Background(), candidates); err != nil || repeated != (taskrecovery.BatchResult{Processed: 1}) || len(hints) != 1 {
+					t.Fatalf("repeated settlement: result=%+v err=%v", repeated, err)
+				}
+				identity := uuid.New()
+				if applied, err := tasks.BindExecutor(context.Background(), repository.ExecutorBinding{
+					TaskID: stored.ID, InstanceID: parent.ID, AttemptNo: stored.AttemptNo,
+					ExecutorInstanceID: identity, ExecutorAddress: "127.0.0.1:19001",
+				}); err != nil || applied {
+					t.Fatalf("late stage ACK reopened settlement: applied=%v err=%v", applied, err)
+				}
+				saver, err := taskresult.NewSaver(tasks)
+				if err != nil {
+					t.Fatal(err)
+				}
+				late, err := saver.Save(context.Background(), taskresult.Report{
+					GroupID: parent.ExecutorGroupID, JobID: parent.JobID, InstanceID: parent.ID,
+					TaskID: stored.ID, AttemptNo: stored.AttemptNo, ExecutorInstanceID: identity.String(), Outcome: taskresult.OutcomeSuccess,
+				})
+				if err != nil || late.Applied || late.Reason != "task_closed" {
+					t.Fatalf("late stage result reopened settlement: result=%+v err=%v", late, err)
+				}
+				var unchanged model.JobTask
+				if err := db.First(&unchanged, stored.ID).Error; err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(unchanged, stored) {
+					t.Fatal("late stage acknowledgement or result changed settled facts")
+				}
+			})
+		}
 	}
 }
 

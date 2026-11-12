@@ -19,7 +19,8 @@ var errCheckPanicked = errors.New("instance checker panicked")
 // Check must support concurrent calls for different IDs and return only after its
 // database work and cleanup actually finish. Only OutcomeTerminal with a nil
 // error confirms that pending follow-up hints may be discarded. A zero-row write,
-// cancellation, or error does not establish a terminal parent or a rollback.
+// cancellation, stage creation, or error does not establish a terminal parent or
+// a rollback. OutcomeAdvanced retains follow-up hints just like incomplete facts.
 // Queue supplies the complete processing budget; Check must not restart it for
 // individual operations. The host owns the checker's shared dependencies.
 type checker interface {

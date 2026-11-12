@@ -287,6 +287,48 @@ go test -tags=integration,e2e -run '^TestJobProcessesRecoverAfterEtcdRestartEndT
 
 执行器骤停专项真实等待生产 4 分钟开始年龄门槛，仅把可部署扫描间隔设为 1 秒，不改写执行时间或直接触发检查；最终核对父子超时终态及原尝试／绑定。etcd 专项保持原 Job／System 进程存活，使用原数据和原地址重启 etcd，核对三类服务注册及实际选主使用新租约，再执行一条新 Task。Unix 实际运行与负载仍须分别取证；本场景不提供非对称分区或 etcd 数据丢失的证据。本机专项结果及最终检查状态统一见[本机收尾记录](../design/scheduler/ordinary-readiness-review.md#ordinary-local-checkpoint)，不以专项通过代替普通模块整体验收。
 
+分片跨进程验收复用上述 Job、迁移 CLI、System 测试执行器及隔离 PostgreSQL／Redis／etcd；System 测试执行器必须从当前源码重新构建，以注册额外的分片处理器：
+
+```sh
+go test -tags=integration,e2e -run '^TestJobSharded(Execution|SchedulerCrash|ManualStop)EndToEnd$' -count=1 -timeout=4m ./apps/system/e2e
+```
+
+该命令包含正常 Pre → 分片 → Post、单片重试、Post 重试、A 已派发并绑定后宕机由 B 接收真实业务结果，以及人工停止五个场景。测试只通过公开 RPC 观察 Job 记录，业务输入、实际调用次数及阶段先后由隔离 System 业务表核实；不修改 Job 状态来代替正常执行。停止场景分别验证数据库终态与健康网络下的业务取消，不把远端取消成功写成无条件保证。
+
+Job 域另验证结果已保存但本地推进提示丢失的进程接续：
+
+```sh
+DOGX_E2E_JOB_RPC_BINARY=/tmp/dogx-bin/job-rpc \
+go test -tags=integration,e2e -run '^TestJobShardedStageProcessRecoveryEndToEnd$' -count=1 -timeout=3m ./apps/job/rpc/internal/execution
+```
+
+该测试通过单个父行锁阻挡 A 的后续阶段，确认有效结果已提交后 kill A，再由 B 当选后的原恢复路径接续分片生成、Post 创建或正常结束。夹具预置超过四分钟的旧 Instance，结果由协议样本提交；它不运行业务处理器，也不证明真实等待四分钟或非对称网络分区。父锁跨 RPC／进程退出只用于故障注入，生产事务不采用此模式。相同逻辑的精确四分钟边界、停止竞争和迟到结果另在真实 PostgreSQL integration 测试中验证，实际结论见[分片阶段记录](../design/scheduler/sharded-readiness-review.md)。
+
+分片查询与负载验收另见[已确认条件和实际记录](../design/scheduler/sharded-load-validation.md)。查询计划用例随 integration 执行；机器相关的检查预算和跨进程负载使用额外的 `load` 标签，不加入日常 CI 的性能门槛。
+
+```sh
+go test -tags=integration -run '^TestDispatchCandidatePlansAcrossHistoryAndParentFiltering$' -count=1 -v ./apps/job/internal/repository
+go test -tags=integration,load -run '^Test(ShardedGenerationFitsSharedCheckBudget|MixedInstanceCheckQueuePreservesProgressUnderShardLoad)$' -count=1 -v ./apps/job/internal/instancecheck
+```
+
+完整分片负载采用两个调度与两个执行器，需重新构建带资源采样的测试宿主。准备上述隔离依赖及环境变量后，在 Windows 仓库根目录串行执行：
+
+```powershell
+$env:GOMAXPROCS = '2'
+$env:DOGX_E2E_JOB_RPC_BINARY = Join-Path (Get-Location) 'bin/windows-tests/e2e-job-rpc.exe'
+$env:DOGX_E2E_JOB_MIGRATE_BINARY = Join-Path (Get-Location) 'bin/windows-tests/e2e-job-migrate.exe'
+$env:DOGX_E2E_SYSTEM_EXECUTOR_BINARY = Join-Path (Get-Location) 'bin/windows-tests/e2e-system-executor.test.exe'
+go build -p 2 -o $env:DOGX_E2E_JOB_MIGRATE_BINARY ./apps/job/cmd/migrate
+go test -p 2 -c '-tags=integration,e2e,load' -o $env:DOGX_E2E_JOB_RPC_BINARY ./apps/job/rpc
+go test -p 2 -c '-tags=integration,e2e,load' -o $env:DOGX_E2E_SYSTEM_EXECUTOR_BINARY ./apps/system/rpc
+$env:DOGX_LOAD_RESOURCES = '1'
+$env:DOGX_LOAD_REPORT = Join-Path (Get-Location) 'bin/test-tools/sharded-load-report.json'
+$testRunner = 'pwsh -NoProfile -File "' + (Resolve-Path 'scripts/test-exec-windows.ps1').Path + '"'
+go test -p 2 -exec $testRunner '-tags=integration,e2e,load' -run '^TestJobShardedLoadEndToEnd$' -count=1 -timeout=12m -v ./apps/system/e2e
+```
+
+每条构建成功后再继续，完整结果须结合负载断言、报告和最终退出码判断。Windows 的两项组件命令也使用固定包装器；恢复其他 E2E 前重新按原命令构建生产 Job 程序及不带 `load` 的 System 测试宿主，并清除 `DOGX_LOAD_RESOURCES`。负载采样只有测试宿主启用，生产入口和配置不变。
+
 端到端命令没有为子进程采集覆盖率；不能把这些通过结论计入 `coverage/integration.txt` 或推算 patch 覆盖率。
 
 Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通单元测试，用于发现开发环境和生产环境之间的跨平台问题。

@@ -93,13 +93,13 @@ func TestTaskResultRepositoryPersistsEachOutcomeWithOneClock(t *testing.T) {
 	for _, scenario := range []struct {
 		name   string
 		status model.TaskStatus
-		data   model.TaskResultData
+		data   model.TaskData
 	}{
 		{"success without data", model.TaskSucceeded, nil},
-		{"success JSON null", model.TaskSucceeded, model.TaskResultData(`null`)},
-		{"success large integer", model.TaskSucceeded, model.TaskResultData(`9007199254740993`)},
-		{"retry ignores malformed data", model.TaskRetryWaiting, model.TaskResultData(`{`)},
-		{"final failure ignores data", model.TaskFailed, model.TaskResultData(`{"ignored":true}`)},
+		{"success JSON null", model.TaskSucceeded, model.TaskData(`null`)},
+		{"success large integer", model.TaskSucceeded, model.TaskData(`9007199254740993`)},
+		{"retry ignores malformed data", model.TaskRetryWaiting, model.TaskData(`{`)},
+		{"final failure ignores data", model.TaskFailed, model.TaskData(`{"ignored":true}`)},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			instance, task := createResultTask(t, db, job)
@@ -107,7 +107,7 @@ func TestTaskResultRepositoryPersistsEachOutcomeWithOneClock(t *testing.T) {
 			// an empty summary and SQL NULL, rather than omitted as Go zero values.
 			oldTime := task.CreatedAt
 			if err := db.Model(&model.JobTask{}).Where("id = ?", task.ID).Updates(map[string]any{
-				"result_data": model.TaskResultData(`{"old":true}`), "result_summary": "old summary",
+				"result_data": model.TaskData(`{"old":true}`), "result_summary": "old summary",
 				"next_dispatch_at": oldTime, "finished_at": oldTime, "end_reason": "old reason",
 			}).Error; err != nil {
 				t.Fatal(err)
@@ -170,6 +170,50 @@ func TestTaskResultRepositoryPersistsEachOutcomeWithOneClock(t *testing.T) {
 			}
 			if duplicate := readRepositoryTask(t, db, task.ID); !reflect.DeepEqual(after, duplicate) {
 				t.Fatal("duplicate result changed committed facts")
+			}
+		})
+	}
+}
+
+func TestTaskResultRepositoryPreservesFixedStageInput(t *testing.T) {
+	db, job := resultRepositoryFixture(t)
+	repo, err := NewJobTaskRepository(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, stage := range []struct {
+		name  string
+		kind  model.TaskType
+		input model.TaskData
+	}{
+		{"shard", model.TaskTypeShard, model.TaskData(`{"fixed":9007199254740993}`)},
+		{"post", model.TaskTypePost, model.TaskData(`{"total":3,"succeeded":2,"failed":1}`)},
+	} {
+		t.Run(stage.name, func(t *testing.T) {
+			for _, status := range []model.TaskStatus{model.TaskSucceeded, model.TaskRetryWaiting, model.TaskFailed} {
+				instance, task := createResultTask(t, db, job)
+				instance.ExecutionConfig.ExecutionMode = model.ExecutionModeSharded
+				instance.ExecutionConfig.PostEnabled = true
+				if err := db.Model(&model.JobInstance{}).Where("id = ?", instance.ID).Update("execution_config", instance.ExecutionConfig).Error; err != nil {
+					t.Fatal(err)
+				}
+				if err := db.Model(&model.JobTask{}).Where("id = ?", task.ID).Updates(map[string]any{
+					"task_type": stage.kind, "input_data": stage.input,
+				}).Error; err != nil {
+					t.Fatal(err)
+				}
+				before := readRepositoryTask(t, db, task.ID)
+				write := resultWriteFixture()
+				write.TaskID, write.InstanceID, write.Status = task.ID, instance.ID, status
+				write.Data = model.TaskData(`{"output":true}`)
+				write.RetryIntervalSeconds = 10
+				if applied, err := repo.SaveResult(context.Background(), write); err != nil || !applied {
+					t.Fatalf("save stage result: status=%d applied=%v err=%v", status, applied, err)
+				}
+				stored := readRepositoryTask(t, db, task.ID)
+				if stored.Status != status || !reflect.DeepEqual(stored.InputData, before.InputData) {
+					t.Fatalf("result changed fixed input: status=%d input=%s", stored.Status, stored.InputData)
+				}
 			}
 		})
 	}
@@ -248,14 +292,14 @@ func TestTaskResultDataProbeChecksPostgresRepresentationAndKeepsErrors(t *testin
 		{`null`, true}, {`9007199254740993`, true}, {`"ordinary text"`, true},
 		{`"\u0000"`, false}, {`"\ud800"`, false}, {`1e1000000`, false}, {`{`, false},
 	} {
-		valid, err := repo.CheckResultData(context.Background(), model.TaskResultData(scenario.data))
+		valid, err := repo.CheckResultData(context.Background(), model.TaskData(scenario.data))
 		if err != nil || valid != scenario.want {
 			t.Fatalf("JSONB probe: data=%q valid=%v err=%v", scenario.data, valid, err)
 		}
 	}
 	instance, task := createResultTask(t, db, job)
 	write := resultWriteFixture()
-	write.TaskID, write.InstanceID, write.Data = task.ID, instance.ID, model.TaskResultData(`"\u0000"`)
+	write.TaskID, write.InstanceID, write.Data = task.ID, instance.ID, model.TaskData(`"\u0000"`)
 	if !json.Valid(write.Data) {
 		t.Fatal("fixture must be syntactically valid JSON")
 	}
@@ -269,7 +313,7 @@ func TestTaskResultDataProbeChecksPostgresRepresentationAndKeepsErrors(t *testin
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if valid, err := repo.CheckResultData(ctx, model.TaskResultData(`null`)); valid || !errors.Is(err, context.Canceled) {
+	if valid, err := repo.CheckResultData(ctx, model.TaskData(`null`)); valid || !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled probe: valid=%v err=%v", valid, err)
 	}
 	if target, err := repo.FindResultTarget(ctx, task.ID); target != nil || !errors.Is(err, context.Canceled) {

@@ -17,14 +17,14 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func TestOrdinaryRetryRegistrationKeepsFirstStartAndSummary(t *testing.T) {
+func TestOrdinaryAttemptRegistrationKeepsFirstStartAndSummary(t *testing.T) {
 	db, job := resultRepositoryFixture(t)
 	now := retryRepositoryTime(t, db)
 	instance, task := createRetryRepositoryTask(t, db, job, now.Add(-time.Second), now)
 	identity, address := uuid.New(), "127.0.0.1:9001"
 	if err := db.Model(&model.JobTask{}).Where("id = ?", task.ID).Updates(map[string]any{
 		"attempt_no": 7, "used_attempts": 3, "executor_instance_id": identity, "executor_address": address,
-		"result_data": model.TaskResultData(`{"old":true}`), "result_summary": "last failure",
+		"result_data": model.TaskData(`{"old":true}`), "result_summary": "last failure",
 		"finished_at": now.Add(-time.Minute), "end_reason": model.EndReasonExecutionFailed,
 	}).Error; err != nil {
 		t.Fatal(err)
@@ -37,7 +37,7 @@ func TestOrdinaryRetryRegistrationKeepsFirstStartAndSummary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	registered, err := repo.RegisterOrdinaryRetry(context.Background(), RetryRegistration{
+	registered, err := repo.RegisterAttempt(context.Background(), AttemptRegistration{TaskType: model.TaskTypeOrdinary, ExpectedStatus: model.TaskRetryWaiting,
 		TaskID: task.ID, InstanceID: instance.ID, ExpectedAttemptNo: 7, MaxAttempts: 4, RegisteredAt: registeredAt,
 	})
 	if err != nil || registered == nil || registered.TaskID != task.ID || registered.InstanceID != instance.ID ||
@@ -69,18 +69,18 @@ func TestOrdinaryRetryRegistrationKeepsFirstStartAndSummary(t *testing.T) {
 	}
 }
 
-func TestOrdinaryRetryRegistrationZeroRowsPreserveOriginalFacts(t *testing.T) {
+func TestOrdinaryAttemptRegistrationZeroRowsPreserveOriginalFacts(t *testing.T) {
 	db, job := resultRepositoryFixture(t)
 	now := retryRepositoryTime(t, db)
 	for _, scenario := range []struct {
 		name   string
 		fields map[string]any
-		change func(*RetryRegistration)
+		change func(*AttemptRegistration)
 	}{
-		{name: "missing task", change: func(w *RetryRegistration) { w.TaskID += 100000 }},
-		{name: "wrong parent", change: func(w *RetryRegistration) { w.InstanceID += 100000 }},
-		{name: "old attempt", change: func(w *RetryRegistration) { w.ExpectedAttemptNo = 2 }},
-		{name: "nonordinary", fields: map[string]any{"task_type": model.TaskTypeShard}},
+		{name: "missing task", change: func(w *AttemptRegistration) { w.TaskID += 100000 }},
+		{name: "wrong parent", change: func(w *AttemptRegistration) { w.InstanceID += 100000 }},
+		{name: "old attempt", change: func(w *AttemptRegistration) { w.ExpectedAttemptNo = 2 }},
+		{name: "changed stage", fields: map[string]any{"task_type": model.TaskTypeShard}},
 		{name: "running", fields: map[string]any{"status": model.TaskRunning}},
 		{name: "succeeded", fields: map[string]any{"status": model.TaskSucceeded}},
 		{name: "canceled", fields: map[string]any{"status": model.TaskCanceled}},
@@ -103,11 +103,11 @@ func TestOrdinaryRetryRegistrationZeroRowsPreserveOriginalFacts(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			write := RetryRegistration{TaskID: task.ID, InstanceID: instance.ID, ExpectedAttemptNo: 1, MaxAttempts: 4, RegisteredAt: registeredAt}
+			write := AttemptRegistration{TaskType: model.TaskTypeOrdinary, ExpectedStatus: model.TaskRetryWaiting, TaskID: task.ID, InstanceID: instance.ID, ExpectedAttemptNo: 1, MaxAttempts: 4, RegisteredAt: registeredAt}
 			if scenario.change != nil {
 				scenario.change(&write)
 			}
-			if registered, err := repo.RegisterOrdinaryRetry(context.Background(), write); registered != nil || err != nil || counter.count != 1 {
+			if registered, err := repo.RegisterAttempt(context.Background(), write); registered != nil || err != nil || counter.count != 1 {
 				t.Fatalf("ineligible retry: %+v err=%v queries=%d", registered, err, counter.count)
 			}
 			if err := tx.Commit().Error; err != nil {
@@ -120,7 +120,7 @@ func TestOrdinaryRetryRegistrationZeroRowsPreserveOriginalFacts(t *testing.T) {
 	}
 }
 
-func TestOrdinaryRetryCandidateDoesNotSkipAnotherClosedAttempt(t *testing.T) {
+func TestOrdinaryDispatchCandidateDoesNotSkipAnotherClosedAttempt(t *testing.T) {
 	db, job := resultRepositoryFixture(t)
 	now := retryRepositoryTime(t, db)
 	instance, task := createRetryRepositoryTask(t, db, job, now.Add(-time.Second), now)
@@ -132,7 +132,7 @@ func TestOrdinaryRetryCandidateDoesNotSkipAnotherClosedAttempt(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		registered, err := repo.RegisterOrdinaryRetry(context.Background(), RetryRegistration{
+		registered, err := repo.RegisterAttempt(context.Background(), AttemptRegistration{TaskType: model.TaskTypeOrdinary, ExpectedStatus: model.TaskRetryWaiting,
 			TaskID: task.ID, InstanceID: instance.ID, ExpectedAttemptNo: expected, MaxAttempts: 4, RegisteredAt: registeredAt,
 		})
 		if err != nil {
@@ -186,7 +186,7 @@ func TestOrdinaryRetryReusesRefundedBudgetWithoutReusingAttempt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	registered, err := repo.RegisterOrdinaryRetry(context.Background(), RetryRegistration{
+	registered, err := repo.RegisterAttempt(context.Background(), AttemptRegistration{TaskType: model.TaskTypeOrdinary, ExpectedStatus: model.TaskRetryWaiting,
 		TaskID: task.ID, InstanceID: instance.ID, ExpectedAttemptNo: 1, MaxAttempts: 1, RegisteredAt: registeredAt,
 	})
 	if err != nil || registered == nil || registered.AttemptNo != 2 || registered.UsedAttempts != 1 {
@@ -225,7 +225,7 @@ func TestOrdinaryRetryRollbackAndIntegerOverflow(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			registered, err := repo.RegisterOrdinaryRetry(context.Background(), RetryRegistration{
+			registered, err := repo.RegisterAttempt(context.Background(), AttemptRegistration{TaskType: model.TaskTypeOrdinary, ExpectedStatus: model.TaskRetryWaiting,
 				TaskID: task.ID, InstanceID: instance.ID, ExpectedAttemptNo: scenario.attempt, MaxAttempts: scenario.max, RegisteredAt: registeredAt,
 			})
 			if scenario.overflow {

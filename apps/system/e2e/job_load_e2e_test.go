@@ -367,6 +367,11 @@ func writeJobLoadReport(t testing.TB, report *jobLoadReport, processes []*runnin
 	t.Helper()
 	report.Resources = parseJobLoadResources(processes)
 	report.WorkloadPassed = report.WorkloadPassed && !t.Failed()
+	writeJobLoadJSON(t, report)
+}
+
+func writeJobLoadJSON(t testing.TB, report any) {
+	t.Helper()
 	file := strings.TrimSpace(os.Getenv("DOGX_LOAD_REPORT"))
 	if file == "" {
 		return
@@ -398,12 +403,15 @@ func parseJobLoadResources(processes []*runningProcess) map[string][]jobLoadReso
 	return resources
 }
 
-func assertJobLoadResourceWindow(t testing.TB, report *jobLoadReport) {
+func assertJobLoadResourceWindow(t testing.TB, report *jobLoadReport, processNames ...string) {
 	t.Helper()
 	// Two sampling intervals allow normal ticker jitter while still requiring
 	// measurements from the idle tail, not just old samples from process startup.
 	tailStart := report.CompletedAt.Add(-2 * time.Duration(report.SampleIntervalMilliseconds) * time.Millisecond)
-	for _, name := range []string{"job-load-a", "job-load-b", "system-load"} {
+	if len(processNames) == 0 {
+		processNames = []string{"job-load-a", "job-load-b", "system-load"}
+	}
+	for _, name := range processNames {
 		var beforeFirstWave, atTail bool
 		for _, sample := range report.Resources[name] {
 			if sample.At.IsZero() || sample.Goroutines <= 0 || sample.HeapAllocBytes == 0 || sample.HeapSysBytes == 0 {

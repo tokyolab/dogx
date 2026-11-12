@@ -167,6 +167,7 @@ func TestQueueAllUnconfirmedOutcomesPreserveAnAdmittedFollowup(t *testing.T) {
 		{"not ready", OutcomeNotReady, nil},
 		{"stopping", OutcomeStopping, nil},
 		{"zero row", OutcomeNotApplied, nil},
+		{"stage advanced", OutcomeAdvanced, nil},
 		{"technical error", OutcomeSkipped, uncertain},
 		{"terminal with error", OutcomeTerminal, uncertain},
 	} {
@@ -226,6 +227,7 @@ func TestQueueNoNewHintDoesNotLoopAfterErrorOrNonterminalReturn(t *testing.T) {
 	}{
 		{OutcomeNotReady, nil},
 		{OutcomeNotApplied, nil},
+		{OutcomeAdvanced, nil},
 		{OutcomeSkipped, errors.New("synthetic database failure")},
 	} {
 		synctest.Test(t, func(t *testing.T) {

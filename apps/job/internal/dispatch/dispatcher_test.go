@@ -25,7 +25,7 @@ func TestDispatcherRejectsNilDependenciesWithoutStartingWork(t *testing.T) {
 	var nilStore *dispatcherStoreStub
 	for _, test := range []struct {
 		name      string
-		registrar ordinaryRegistrar
+		registrar attemptRegistrar
 		sender    Sender
 		store     responseStore
 	}{
@@ -74,7 +74,7 @@ func TestDispatcherDoesNotSendWithoutConfirmedRegistration(t *testing.T) {
 			}}
 			sender, store := &dispatcherSenderStub{}, &dispatcherStoreStub{}
 			d := testDispatcher(t, registrar, sender, store)
-			got, err := d.DispatchOrdinary(context.Background(), attempt.InstanceID)
+			got, err := d.DispatchInstance(context.Background(), attempt.InstanceID)
 			if !errors.Is(err, test.err) || got != (DispatchResult{}) {
 				t.Fatalf("unconfirmed registration: result=%+v error=%v", got, err)
 			}
@@ -88,12 +88,12 @@ func TestDispatcherDoesNotSendWithoutConfirmedRegistration(t *testing.T) {
 func TestDispatcherRejectsInvalidOrAlreadyCanceledCallsBeforeRegistration(t *testing.T) {
 	registrar, sender, store := &dispatcherRegistrarStub{}, &dispatcherSenderStub{}, &dispatcherStoreStub{}
 	d := testDispatcher(t, registrar, sender, store)
-	if result, err := d.DispatchOrdinary(context.Background(), 0); err == nil || result.Registered {
+	if result, err := d.DispatchInstance(context.Background(), 0); err == nil || result.Registered {
 		t.Fatal("invalid candidate started registration")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if result, err := d.DispatchOrdinary(ctx, 22); !errors.Is(err, context.Canceled) || result.Registered {
+	if result, err := d.DispatchInstance(ctx, 22); !errors.Is(err, context.Canceled) || result.Registered {
 		t.Fatalf("canceled dispatch: result=%+v error=%v", result, err)
 	}
 	if registrar.calls.Load() != 0 || sender.calls.Load() != 0 || len(store.snapshot()) != 0 {
@@ -138,7 +138,7 @@ func TestDispatcherRetriesOriginalEvidenceWithIndependentSaveContext(t *testing.
 					hints.Add(1)
 				}))
 				started := time.Now()
-				result, err := d.DispatchOrdinary(context.Background(), attempt.InstanceID)
+				result, err := d.DispatchInstance(context.Background(), attempt.InstanceID)
 				if err != nil || result != (DispatchResult{Registered: true, Outcome: outcome, Applied: true}) {
 					t.Fatalf("saved response: result=%+v error=%v", result, err)
 				}
@@ -180,7 +180,7 @@ func TestDispatcherZeroRowEndsCommitUncertaintyWithoutInventingSuccess(t *testin
 				}}
 				var hints atomic.Int32
 				d := testDispatcher(t, dispatcherCommittedRegistrar(attempt), sender, store, WithInstanceHint(func(int64) { hints.Add(1) }))
-				got, err := d.DispatchOrdinary(context.Background(), attempt.InstanceID)
+				got, err := d.DispatchInstance(context.Background(), attempt.InstanceID)
 				if err != nil || got != (DispatchResult{Registered: true, Outcome: outcome}) {
 					t.Fatalf("zero-row response: result=%+v error=%v", got, err)
 				}
@@ -216,7 +216,7 @@ func TestDispatcherDoesNotRetryKnownResponseWriteErrors(t *testing.T) {
 				var hints atomic.Int32
 				d := testDispatcher(t, dispatcherCommittedRegistrar(attempt), sender, store,
 					WithInstanceHint(func(int64) { hints.Add(1) }))
-				got, err := d.DispatchOrdinary(context.Background(), attempt.InstanceID)
+				got, err := d.DispatchInstance(context.Background(), attempt.InstanceID)
 				if !errors.Is(err, test.err) || !errors.Is(err, test.sentinel) ||
 					got != (DispatchResult{Registered: true, Outcome: OutcomeRejected}) {
 					t.Fatalf("permanent write failure: result=%+v error=%v", got, err)
@@ -239,7 +239,7 @@ func TestDispatcherSenderErrorsOverrideAnyAccompanyingEvidence(t *testing.T) {
 			}}
 			store := &dispatcherStoreStub{}
 			d := testDispatcher(t, dispatcherCommittedRegistrar(attempt), sender, store)
-			got, err := d.DispatchOrdinary(context.Background(), attempt.InstanceID)
+			got, err := d.DispatchInstance(context.Background(), attempt.InstanceID)
 			if !errors.Is(err, failure) || got != (DispatchResult{Registered: true}) {
 				t.Fatalf("uncertain response: result=%+v error=%v", got, err)
 			}
@@ -258,7 +258,7 @@ func TestDispatcherUnknownOrInvalidOutcomeDoesNotWrite(t *testing.T) {
 		}}
 		store := &dispatcherStoreStub{}
 		d := testDispatcher(t, dispatcherCommittedRegistrar(attempt), sender, store)
-		got, err := d.DispatchOrdinary(context.Background(), attempt.InstanceID)
+		got, err := d.DispatchInstance(context.Background(), attempt.InstanceID)
 		if got != (DispatchResult{Registered: true}) || (err == nil) != (outcome == OutcomeUnknown) {
 			t.Fatalf("unknown outcome: result=%+v error=%v", got, err)
 		}
@@ -283,7 +283,7 @@ func TestDispatcherExhaustedRegistrationBudgetDoesNotSendCommittedAttempt(t *tes
 		}}
 		sender, store := &dispatcherSenderStub{}, &dispatcherStoreStub{}
 		d := testDispatcher(t, registrar, sender, store)
-		got, err := d.DispatchOrdinary(context.Background(), attempt.InstanceID)
+		got, err := d.DispatchInstance(context.Background(), attempt.InstanceID)
 		if !errors.Is(err, context.DeadlineExceeded) || got != (DispatchResult{Registered: true}) {
 			t.Fatalf("late registration: result=%+v error=%v", got, err)
 		}
@@ -305,7 +305,7 @@ func TestDispatcherWriteTimeoutsUseFiniteRetriesWithoutAnotherSend(t *testing.T)
 		}}
 		d := testDispatcher(t, dispatcherCommittedRegistrar(attempt), sender, store)
 		started := time.Now()
-		got, err := d.DispatchOrdinary(context.Background(), attempt.InstanceID)
+		got, err := d.DispatchInstance(context.Background(), attempt.InstanceID)
 		if !errors.Is(err, context.DeadlineExceeded) || got != (DispatchResult{Registered: true, Outcome: OutcomeAccepted}) {
 			t.Fatalf("save timeouts: result=%+v error=%v", got, err)
 		}
@@ -336,7 +336,7 @@ func TestDispatcherClientPreparationUsesTotalBudgetBeforeRPCBudget(t *testing.T)
 		}}
 		store := &dispatcherStoreStub{}
 		d := testDispatcher(t, dispatcherCommittedRegistrar(attempt), sender, store)
-		got, err := d.DispatchOrdinary(context.Background(), attempt.InstanceID)
+		got, err := d.DispatchInstance(context.Background(), attempt.InstanceID)
 		if err != nil || got != (DispatchResult{Registered: true, Outcome: OutcomeAccepted, Applied: true}) {
 			t.Fatalf("prepared dispatch: result=%+v error=%v", got, err)
 		}
@@ -366,7 +366,7 @@ func TestDispatcherSavingUsesRemainingHostBudget(t *testing.T) {
 		var hints atomic.Int32
 		d := testDispatcher(t, dispatcherCommittedRegistrar(attempt), sender, store, WithInstanceHint(func(int64) { hints.Add(1) }))
 		started := time.Now()
-		got, err := d.DispatchOrdinary(ctx, attempt.InstanceID)
+		got, err := d.DispatchInstance(ctx, attempt.InstanceID)
 		if !errors.Is(err, context.DeadlineExceeded) || got != (DispatchResult{Registered: true, Outcome: OutcomeBusy}) {
 			t.Fatalf("host deadline: result=%+v error=%v", got, err)
 		}
@@ -391,7 +391,7 @@ func TestDispatcherSavePhaseExpiresWithoutHidingLateDependencyReturn(t *testing.
 		}}
 		d := testDispatcher(t, dispatcherCommittedRegistrar(attempt), sender, store)
 		started := time.Now()
-		got, err := d.DispatchOrdinary(context.Background(), attempt.InstanceID)
+		got, err := d.DispatchInstance(context.Background(), attempt.InstanceID)
 		if !errors.Is(err, failure) || !errors.Is(err, context.DeadlineExceeded) || got.Applied {
 			t.Fatalf("expired save phase: result=%+v error=%v", got, err)
 		}
@@ -418,7 +418,7 @@ func TestDispatcherCancellationWaitsForStartedWriteToActuallyExit(t *testing.T) 
 		}}
 		d := testDispatcher(t, dispatcherCommittedRegistrar(attempt), sender, store)
 		done := make(chan error, 1)
-		go func() { _, err := d.DispatchOrdinary(ctx, attempt.InstanceID); done <- err }()
+		go func() { _, err := d.DispatchInstance(ctx, attempt.InstanceID); done <- err }()
 		synctest.Wait()
 		if len(store.snapshot()) != 1 {
 			t.Fatal("response write did not start")
@@ -440,7 +440,7 @@ func TestDispatcherCancellationWaitsForStartedWriteToActuallyExit(t *testing.T) 
 	})
 }
 
-func testDispatcher(t *testing.T, registrar ordinaryRegistrar, sender Sender, store responseStore, options ...Option) *Dispatcher {
+func testDispatcher(t *testing.T, registrar attemptRegistrar, sender Sender, store responseStore, options ...Option) *Dispatcher {
 	t.Helper()
 	d, err := NewDispatcher(registrar, sender, store, options...)
 	if err != nil {
@@ -452,7 +452,7 @@ func testDispatcher(t *testing.T, registrar ordinaryRegistrar, sender Sender, st
 func dispatcherAttempt() RegisteredAttempt {
 	now := time.Now()
 	return RegisteredAttempt{
-		JobID: 11, InstanceID: 22, ExecutorGroupID: 33, TaskID: 44, AttemptNo: 1,
+		JobID: 11, InstanceID: 22, ExecutorGroupID: 33, TaskID: 44, TaskType: model.TaskTypeOrdinary, AttemptNo: 1,
 		RegisteredAt: now, DeadlineAt: now.Add(15 * time.Minute),
 		ExecutionConfig: model.ExecutionConfig{
 			SchemaVersion: 1, ExecutionMode: model.ExecutionModeNormal, ProcessorName: "test.processor",
@@ -510,10 +510,10 @@ type dispatcherRegistrarStub struct {
 	calls      atomic.Int32
 	call       func(context.Context, int64) (*RegisteredAttempt, error)
 	retryCalls atomic.Int32
-	retryCall  func(context.Context, repository.RetryCandidate) (*RegisteredAttempt, error)
+	retryCall  func(context.Context, repository.DispatchCandidate) (*RegisteredAttempt, error)
 }
 
-func (s *dispatcherRegistrarStub) RetryOrdinary(ctx context.Context, candidate repository.RetryCandidate) (*RegisteredAttempt, error) {
+func (s *dispatcherRegistrarStub) RegisterTask(ctx context.Context, candidate repository.DispatchCandidate) (*RegisteredAttempt, error) {
 	s.retryCalls.Add(1)
 	if s.retryCall == nil {
 		return nil, nil
@@ -521,7 +521,7 @@ func (s *dispatcherRegistrarStub) RetryOrdinary(ctx context.Context, candidate r
 	return s.retryCall(ctx, candidate)
 }
 
-func (s *dispatcherRegistrarStub) StartOrdinary(ctx context.Context, id int64) (*RegisteredAttempt, error) {
+func (s *dispatcherRegistrarStub) StartInstance(ctx context.Context, id int64) (*RegisteredAttempt, error) {
 	s.calls.Add(1)
 	if s.call == nil {
 		return nil, nil

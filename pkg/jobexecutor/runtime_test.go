@@ -551,8 +551,8 @@ func TestRuntimeRoutesStagesAndPreservesOutput(t *testing.T) {
 			},
 			shard: func(_ context.Context, input ShardInput) (Result, error) {
 				checkInput(input.Input, StageShard)
-				if !reflect.DeepEqual(input.Items, []json.RawMessage{json.RawMessage(preciseJSON), json.RawMessage("null")}) {
-					t.Errorf("shard items changed: %q", input.Items)
+				if string(input.Item) != preciseJSON {
+					t.Errorf("shard item changed: %q", input.Item)
 				}
 				return Result{Data: json.RawMessage("null"), Summary: "shard complete"}, nil
 			},
@@ -583,7 +583,7 @@ func TestRuntimeRoutesStagesAndPreservesOutput(t *testing.T) {
 				invocation.RequiredPost = true
 			}
 			if stage == StageShard {
-				invocation.Items = []json.RawMessage{json.RawMessage(preciseJSON), json.RawMessage("null")}
+				invocation.Item = json.RawMessage(preciseJSON)
 			}
 			if stage == StagePost {
 				invocation.Total, invocation.Succeeded, invocation.Failed = 3, 2, 1
@@ -620,6 +620,46 @@ func TestRuntimeRoutesStagesAndPreservesOutput(t *testing.T) {
 			t.Fatalf("processor calls = %v", called)
 		}
 	})
+}
+
+func TestRuntimeOwnsQueuedShardInput(t *testing.T) {
+	for _, value := range []string{`null`, `9007199254740993`, `{"id":9007199254740993}`, `[[1,2],{"ids":[3,4]},null]`} {
+		t.Run(value, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				started, release := make(chan struct{}), make(chan struct{})
+				registry := runtimeRegistryForTest(t, func(context.Context, Input) (Result, error) {
+					close(started)
+					<-release
+					return Result{}, nil
+				})
+				var received string
+				if err := registry.RegisterSharding("sharding", &runtimeShardingStub{
+					shard: func(_ context.Context, input ShardInput) (Result, error) {
+						received = string(input.Item)
+						return Result{}, nil
+					},
+				}); err != nil {
+					t.Fatal(err)
+				}
+				runtime := newRuntimeForTest(t, registry, &runtimeReportClientStub{}, RuntimeConfig{Concurrency: 1})
+				if err := runtime.Start(); err != nil {
+					t.Fatal(err)
+				}
+				acceptRuntimeTask(t, runtime, runtimeInvocation(1))
+				<-started
+				invocation := runtimeInvocation(2)
+				invocation.Stage, invocation.ProcessorName = StageShard, "sharding"
+				invocation.Item = json.RawMessage(value)
+				acceptRuntimeTask(t, runtime, invocation)
+				invocation.Item[0] = '!'
+				close(release)
+				finishRuntime(t, runtime)
+				if received != value {
+					t.Fatalf("queued shard received %q, want original single value %q", received, value)
+				}
+			})
+		})
+	}
 }
 
 func TestRuntimeFailuresIgnorePartialOutputAndPanicDoesNotLoseWorker(t *testing.T) {
@@ -682,6 +722,9 @@ func TestRuntimeFailuresIgnorePartialOutputAndPanicDoesNotLoseWorker(t *testing.
 					}
 					invocation := runtimeInvocation(1)
 					invocation.Stage = stage
+					if stage == StageShard {
+						invocation.Item = json.RawMessage(`null`)
+					}
 					if stage != StageOrdinary {
 						invocation.ProcessorName = "sharding"
 						invocation.RequiredPost = stage == StagePost

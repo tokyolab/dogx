@@ -42,7 +42,7 @@ func TestTaskDispatchRepositoryPersistsOutcomesAndDuplicateIsNoop(t *testing.T) 
 			// number must not replace UsedAttempts when deciding retry eligibility.
 			if err := db.Model(&model.JobTask{}).Where("id = ?", task.ID).Updates(map[string]any{
 				"attempt_no": 99, "used_attempts": scenario.used,
-				"result_data": model.TaskResultData(`{"old":true}`), "result_summary": "old summary",
+				"result_data": model.TaskData(`{"old":true}`), "result_summary": "old summary",
 				"next_dispatch_at": task.CreatedAt, "finished_at": task.CreatedAt, "end_reason": "old reason",
 			}).Error; err != nil {
 				t.Fatal(err)
@@ -107,9 +107,7 @@ func TestTaskDispatchRepositoryRechecksIdentityWithoutParentRestrictions(t *test
 			{name: "wrong instance", wrongInstance: true},
 			{name: "new attempt", fields: map[string]any{"attempt_no": 2}},
 			{name: "no opportunity", fields: map[string]any{"used_attempts": 0}},
-			{name: "prepare", fields: map[string]any{"task_type": model.TaskTypePrepare}},
-			{name: "shard", fields: map[string]any{"task_type": model.TaskTypeShard}},
-			{name: "post", fields: map[string]any{"task_type": model.TaskTypePost}},
+			{name: "unknown type", fields: map[string]any{"task_type": model.TaskType(99)}},
 			{name: "retry waiting", fields: map[string]any{"status": model.TaskRetryWaiting}},
 			{name: "succeeded", fields: map[string]any{"status": model.TaskSucceeded}},
 			{name: "canceled", fields: map[string]any{"status": model.TaskCanceled}},

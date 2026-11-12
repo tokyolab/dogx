@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"sync"
@@ -84,7 +85,6 @@ func TestSettlerExcludesObsoleteFactsBeforeDecodingSnapshots(t *testing.T) {
 		{"missing", func(f *settlementFixture) { f.targets = nil }, 0},
 		{"changed relation", func(f *settlementFixture) { f.targets[0].InstanceID++ }, 0},
 		{"new attempt", func(f *settlementFixture) { f.targets[0].AttemptNo++ }, 0},
-		{"other task type", func(f *settlementFixture) { f.targets[0].TaskType = model.TaskTypeShard }, 0},
 		{"task already closed", func(f *settlementFixture) { f.targets[0].Status = model.TaskSucceeded }, 0},
 		{"identity binding only", func(f *settlementFixture) { value := uuid.New(); f.targets[0].ExecutorInstanceID = &value }, 0},
 		{"address binding only", func(f *settlementFixture) { value := "127.0.0.1:12345"; f.targets[0].ExecutorAddress = &value }, 0},
@@ -121,14 +121,14 @@ func TestSettlerExcludesObsoleteFactsBeforeDecodingSnapshots(t *testing.T) {
 
 func TestSettlerRequiredSnapshotFailuresStopBeforeTheAffectedCandidate(t *testing.T) {
 	for _, snapshot := range []string{
-		`{`, `null`, `{}`, `{"schema_version":2,"execution_mode":1}`, `{"schema_version":1,"execution_mode":0}`,
-		`{"schema_version":1,"execution_mode":1,"retry_interval_seconds":10}`,
-		`{"schema_version":1,"execution_mode":1,"max_retries":null,"retry_interval_seconds":10}`,
-		`{"schema_version":1,"execution_mode":1,"max_retries":-1,"retry_interval_seconds":10}`,
-		`{"schema_version":1,"execution_mode":1,"max_retries":2147483648,"retry_interval_seconds":10}`,
-		`{"schema_version":1,"execution_mode":1,"max_retries":0}`,
-		`{"schema_version":1,"execution_mode":1,"max_retries":0,"retry_interval_seconds":0}`,
-		`{"schema_version":1,"execution_mode":1,"max_retries":0,"retry_interval_seconds":1.5}`,
+		`{`, `null`, `{}`, `{"schema_version":2,"execution_mode":1,"post_enabled":false}`, `{"schema_version":1,"execution_mode":0}`,
+		`{"schema_version":1,"execution_mode":1,"post_enabled":false,"retry_interval_seconds":10}`,
+		`{"schema_version":1,"execution_mode":1,"post_enabled":false,"max_retries":null,"retry_interval_seconds":10}`,
+		`{"schema_version":1,"execution_mode":1,"post_enabled":false,"max_retries":-1,"retry_interval_seconds":10}`,
+		`{"schema_version":1,"execution_mode":1,"post_enabled":false,"max_retries":2147483648,"retry_interval_seconds":10}`,
+		`{"schema_version":1,"execution_mode":1,"post_enabled":false,"max_retries":0}`,
+		`{"schema_version":1,"execution_mode":1,"post_enabled":false,"max_retries":0,"retry_interval_seconds":0}`,
+		`{"schema_version":1,"execution_mode":1,"post_enabled":false,"max_retries":0,"retry_interval_seconds":1.5}`,
 	} {
 		f := newSettlementFixture(t, 3)
 		f.targets[1].ExecutionConfig = json.RawMessage(snapshot)
@@ -139,11 +139,11 @@ func TestSettlerRequiredSnapshotFailuresStopBeforeTheAffectedCandidate(t *testin
 	}
 	f := newSettlementFixture(t, 1)
 	f.targets[0].ExecutionConfig = json.RawMessage(`{"schema_version":1,"execution_mode":2,"max_retries":"unused"}`)
-	if result, err := f.settler.SettleBatch(context.Background(), f.candidates); err != nil || result != (BatchResult{Processed: 1}) || len(f.store.writes) != 0 {
-		t.Fatalf("known sharded snapshot=%+v err=%v", result, err)
+	if result, err := f.settler.SettleBatch(context.Background(), f.candidates); !errors.Is(err, ErrInvalidConfig) || result != (BatchResult{}) || len(f.store.writes) != 0 {
+		t.Fatalf("mismatched sharded snapshot=%+v err=%v", result, err)
 	}
 	f = newSettlementFixture(t, 1)
-	f.targets[0].ExecutionConfig = json.RawMessage(`{"schema_version":1,"execution_mode":1,"max_retries":2147483647,"retry_interval_seconds":10,"params":{"ignored":true}}`)
+	f.targets[0].ExecutionConfig = json.RawMessage(`{"schema_version":1,"execution_mode":1,"post_enabled":false,"max_retries":2147483647,"retry_interval_seconds":10,"params":{"ignored":true}}`)
 	if result, err := f.settler.SettleBatch(context.Background(), f.candidates); err != nil || result.Applied != 1 || f.store.writes[0].MaxAttempts != int64(math.MaxInt32)+1 {
 		t.Fatalf("widened budget batch=%+v err=%v", result, err)
 	}
@@ -177,6 +177,41 @@ func TestSettlerReadFailuresAndMalformedProjectionsHaveNoProcessedPrefix(t *test
 				t.Fatalf("failed read batch=%+v err=%v", result, err)
 			}
 		})
+	}
+}
+
+func TestSettlerAllStagesRequireTheirFrozenModeAndPostContract(t *testing.T) {
+	for _, stage := range []model.TaskType{model.TaskTypeOrdinary, model.TaskTypePrepare, model.TaskTypeShard, model.TaskTypePost} {
+		for _, scenario := range []struct {
+			name string
+			mode int
+			post string
+		}{
+			{"normal", 1, "false"}, {"normal with post", 1, "true"},
+			{"sharded", 2, "false"}, {"sharded with post", 2, "true"},
+			{"missing post", 2, ""}, {"null post", 2, "null"}, {"wrong post type", 2, `"false"`},
+		} {
+			t.Run(fmt.Sprintf("stage_%d/%s", stage, scenario.name), func(t *testing.T) {
+				f := newSettlementFixture(t, 1)
+				f.targets[0].TaskType = stage
+				config := fmt.Sprintf(`{"schema_version":1,"execution_mode":%d,"max_retries":3,"retry_interval_seconds":10`, scenario.mode)
+				if scenario.post != "" {
+					config += `,"post_enabled":` + scenario.post
+				}
+				f.targets[0].ExecutionConfig = json.RawMessage(config + `}`)
+				valid := (stage == model.TaskTypeOrdinary && scenario.mode == 1 && scenario.post == "false") ||
+					(stage != model.TaskTypeOrdinary && scenario.mode == 2 &&
+						(scenario.post == "true" || (stage != model.TaskTypePost && scenario.post == "false")))
+				result, err := f.settler.SettleBatch(context.Background(), f.candidates)
+				if valid {
+					if err != nil || result != (BatchResult{Processed: 1, Applied: 1}) || len(f.store.writes) != 1 {
+						t.Fatalf("stage settlement: result=%+v err=%v", result, err)
+					}
+				} else if !errors.Is(err, ErrInvalidConfig) || result != (BatchResult{}) || len(f.store.writes) != 0 || len(f.hints) != 0 {
+					t.Fatalf("invalid stage advanced: result=%+v err=%v", result, err)
+				}
+			})
+		}
 	}
 }
 
@@ -369,7 +404,7 @@ func newSettlementFixture(t *testing.T, count int, options ...Option) *settlemen
 		f.candidates = append(f.candidates, repository.UnboundCandidate{TaskID: id, InstanceID: 100 + id, AttemptNo: 7, AttemptRegisteredAt: f.now.Add(-time.Minute)})
 		f.targets = append(f.targets, repository.UnboundTarget{TaskID: id, InstanceID: 100 + id, AttemptNo: 7, TaskType: model.TaskTypeOrdinary,
 			Status: model.TaskRunning, AttemptRegisteredAt: &registered, InstanceStatus: model.InstanceRunning, StartedAt: &started, DeadlineAt: &deadline,
-			ExecutionConfig: json.RawMessage(`{"schema_version":1,"execution_mode":1,"max_retries":3,"retry_interval_seconds":10}`)})
+			ExecutionConfig: json.RawMessage(`{"schema_version":1,"execution_mode":1,"post_enabled":false,"max_retries":3,"retry_interval_seconds":10}`)})
 	}
 	f.clock = &settlementClockStub{read: func(context.Context) (time.Time, error) { return f.now, nil }}
 	f.store = &settlementStoreStub{read: func(context.Context, []int64) ([]repository.UnboundTarget, error) {
@@ -417,7 +452,7 @@ func (s *settlementStoreStub) FindUnboundTargets(ctx context.Context, ids []int6
 	return s.read(ctx, ids)
 }
 
-func (s *settlementStoreStub) SettleOrdinaryUnknown(ctx context.Context, write repository.UnknownSettlement) (*repository.SettledTask, error) {
+func (s *settlementStoreStub) SettleUnknown(ctx context.Context, write repository.UnknownSettlement) (*repository.SettledTask, error) {
 	s.writing = true
 	defer func() { s.writing = false }()
 	s.writes = append(s.writes, write)

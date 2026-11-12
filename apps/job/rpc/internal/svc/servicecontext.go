@@ -85,8 +85,8 @@ type ServiceContext struct {
 // NewServiceContext validates configuration, opens independent connections, and
 // loads the complete executor-group snapshot before starting the election and
 // periodic group refresh loops. It does not wait for leadership. Result admission
-// and its real consumers are ready before return. Ordinary first dispatch,
-// retry supply, unbound observation and parent completion run on every node
+// and its real consumers are ready before return. First dispatch, shard/Post
+// progression, due Task supply, unbound observation and parent completion run on every node
 // independently of election. Manual stopping and cancellation notifications are
 // process-owned. Leader discovery resumes old RUNNING rounds and persisted stopping decisions;
 // process-owned checks coordinate normal completion and automatic timeout.
@@ -214,8 +214,21 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Stage creation and result persistence point back into each other's queues.
+	// Assemble both directions before starting any producer or check consumer;
+	// callbacks must only enqueue hints after the originating commit is confirmed.
+	hintTasks := func(id int64) { result.Dispatch.HintTasks(id) }
+	generator, err := instancecheck.NewGenerator(transactions, hintTasks)
+	if err != nil {
+		return nil, err
+	}
+	postCreator, err := instancecheck.NewPostCreator(transactions, hintTasks)
+	if err != nil {
+		return nil, err
+	}
 	checker, err := instancecheck.NewChecker(instances, instancecheck.WithStopping(stopper,
-		result.afterInstanceStopped, func(id int64) { result.Stops.Hint(id) }))
+		result.afterInstanceStopped, func(id int64) { result.Stops.Hint(id) }),
+		instancecheck.WithSharding(tasks, generator, postCreator))
 	if err != nil {
 		return nil, err
 	}
@@ -224,9 +237,6 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize instance checks: %w", err)
-	}
-	if err := result.InstanceChecks.Start(); err != nil {
-		return nil, err
 	}
 	runningRecovery, err := instancecheck.NewRecovery(instances, result.InstanceChecks, instancecheck.RecoveryConfig{
 		PageSize: c.InstanceRecovery.PageSize, RunTimeout: c.InstanceRecovery.RunTimeout,
@@ -285,6 +295,9 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		return nil, err
 	}
 	if err := result.CancelNotifications.Start(); err != nil {
+		return nil, err
+	}
+	if err := result.InstanceChecks.Start(); err != nil {
 		return nil, err
 	}
 	if err := result.Dispatch.Start(); err != nil {

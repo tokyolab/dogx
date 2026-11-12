@@ -177,7 +177,7 @@ func TestStopCancellationUsesBoundedBatchesAndPreservesTerminalRows(t *testing.T
 					identity, address, summary, oldReason := uuid.New(), "127.0.0.1:19001", "previous summary", "previous reason"
 					task := model.JobTask{InstanceID: parent.ID, TaskType: kind, Status: state, AttemptNo: 7, UsedAttempts: 3,
 						AttemptRegisteredAt: &registered, StartedAt: &started, NextDispatchAt: &next, FinishedAt: &finished,
-						ExecutorInstanceID: &identity, ExecutorAddress: &address, ResultData: model.TaskResultData(`{"old":true}`),
+						ExecutorInstanceID: &identity, ExecutorAddress: &address, ResultData: model.TaskData(`{"old":true}`),
 						ResultSummary: &summary, EndReason: &oldReason, CreatedAt: started, UpdatedAt: registered}
 					if err := db.Create(&task).Error; err != nil {
 						t.Fatal(err)
@@ -460,7 +460,7 @@ func TestCanceledTaskRejectsOldBindingBusyRejectionAndResult(t *testing.T) {
 	}
 	if changed, err := tasks.SaveResult(context.Background(), TaskResultWrite{TaskID: task.ID, InstanceID: parent.ID,
 		AttemptNo: task.AttemptNo, ExecutorInstanceID: binding.ExecutorInstanceID, Status: model.TaskSucceeded,
-		Data: model.TaskResultData(`{"late":true}`), Summary: "late success"}); changed || err != nil {
+		Data: model.TaskData(`{"late":true}`), Summary: "late success"}); changed || err != nil {
 		t.Fatalf("late result changed canceled Task: changed=%v err=%v", changed, err)
 	}
 	if !reflect.DeepEqual(before, readRepositoryTask(t, db, task.ID)) {

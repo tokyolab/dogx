@@ -27,7 +27,7 @@ func TestTaskRepositoryBindingRechecksConcurrentUpdates(t *testing.T) {
 		name   string
 		fields map[string]any
 	}{
-		{"state", map[string]any{"status": model.TaskSucceeded, "end_reason": "success", "result_data": model.TaskResultData(`{"done":true}`)}},
+		{"state", map[string]any{"status": model.TaskSucceeded, "end_reason": "success", "result_data": model.TaskData(`{"done":true}`)}},
 		{"attempt", map[string]any{"attempt_no": 2, "used_attempts": 2}},
 		{"binding", map[string]any{"executor_instance_id": otherIdentity, "executor_address": "127.0.0.1:9091"}},
 	} {

@@ -17,6 +17,7 @@ import (
 	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 	"github.com/tokyolab/dogx/apps/job/internal/testutil"
+	"github.com/tokyolab/dogx/pkg/jobexecutor"
 	"gorm.io/gorm"
 )
 
@@ -108,7 +109,7 @@ func TestSaverPreservesJSONOutputSemantics(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fixture := newSaverIntegrationFixture(t, db, func(_ *model.JobInstance, task *model.JobTask) {
-				task.ResultData = model.TaskResultData(`{"previous":true}`)
+				task.ResultData = model.TaskData(`{"previous":true}`)
 			})
 			report := fixture.report
 			report.Data, report.Summary = tc.data, ""
@@ -122,6 +123,134 @@ func TestSaverPreservesJSONOutputSemantics(t *testing.T) {
 			}
 			if stored.ResultSummary == nil || *stored.ResultSummary != "" {
 				t.Fatal("successful empty summary retained an earlier result description")
+			}
+		})
+	}
+}
+
+func TestSaverPersistsEveryStageWithoutChangingFixedInput(t *testing.T) {
+	db, _ := testutil.OpenMigratedPostgres(t)
+	for _, stage := range []model.TaskType{model.TaskTypePrepare, model.TaskTypeShard, model.TaskTypePost} {
+		for _, outcome := range []struct {
+			name    string
+			outcome Outcome
+			used    int32
+			want    model.TaskStatus
+		}{
+			{"success", OutcomeSuccess, 1, model.TaskSucceeded},
+			{"retry", OutcomeFailure, 1, model.TaskRetryWaiting},
+			{"exhausted", OutcomeFailure, 3, model.TaskFailed},
+		} {
+			t.Run(fmt.Sprintf("stage_%d/%s", stage, outcome.name), func(t *testing.T) {
+				fixture := newSaverIntegrationFixture(t, db, func(instance *model.JobInstance, task *model.JobTask) {
+					instance.ExecutionConfig.ExecutionMode = model.ExecutionModeSharded
+					instance.ExecutionConfig.PostEnabled = stage == model.TaskTypePost
+					task.TaskType, task.UsedAttempts = stage, outcome.used
+					if stage == model.TaskTypeShard || stage == model.TaskTypePost {
+						task.InputData = model.TaskData(`{"fixed_id":9007199254740993}`)
+					}
+				})
+				report := fixture.report
+				report.Outcome = outcome.outcome
+				if stage == model.TaskTypePrepare {
+					report.Data, report.PreparedItems = nil, []json.RawMessage{json.RawMessage(`null`), json.RawMessage(`{"id":9007199254740993}`)}
+				}
+				if outcome.outcome == OutcomeFailure {
+					report.Data, report.PreparedItems = json.RawMessage{0xff}, make([]json.RawMessage, jobexecutor.MaxPreparedItems+1)
+				}
+				saver := integrationSaver(t, db)
+				result, err := saver.Save(context.Background(), report)
+				if err != nil || !result.Applied {
+					t.Fatalf("stage result: result=%+v err=%v", result, err)
+				}
+				stored := loadSaverTask(t, db, fixture.task.ID)
+				if stored.Status != outcome.want || !reflect.DeepEqual(stored.InputData, fixture.task.InputData) ||
+					stored.TaskType != stage || stored.AttemptNo != fixture.task.AttemptNo || stored.UsedAttempts != fixture.task.UsedAttempts {
+					t.Fatalf("stage result changed fixed task facts: %+v", stored)
+				}
+				if outcome.outcome == OutcomeFailure && stored.ResultData != nil {
+					t.Fatal("business failure retained invalid partial output")
+				}
+				if stage == model.TaskTypePrepare && outcome.outcome == OutcomeSuccess {
+					var items []json.RawMessage
+					if err := json.Unmarshal(stored.ResultData, &items); err != nil || len(items) != 2 || string(items[0]) != "null" {
+						t.Fatalf("preparation output changed JSON precision or array shape: %s err=%v", stored.ResultData, err)
+					}
+					var item struct {
+						ID int64 `json:"id"`
+					}
+					if err := json.Unmarshal(items[1], &item); err != nil || item.ID != 9007199254740993 {
+						t.Fatalf("preparation output lost integer precision: %s err=%v", items[1], err)
+					}
+				}
+				// Repeated and contrary outcomes cannot overwrite the saved attempt.
+				report.Outcome, report.Data, report.PreparedItems = OutcomeSuccess, json.RawMessage(`{"changed":true}`), nil
+				if result, err := saver.Save(context.Background(), report); err != nil || result.Applied || result.Reason != "task_closed" {
+					t.Fatalf("duplicate stage result: result=%+v err=%v", result, err)
+				}
+				if got := loadSaverTask(t, db, fixture.task.ID); !reflect.DeepEqual(got, stored) {
+					t.Fatal("duplicate stage result changed stored facts")
+				}
+				if outcome.want == model.TaskRetryWaiting {
+					if err := db.Model(&model.JobTask{}).Where("id = ?", stored.ID).Updates(map[string]any{
+						"status": model.TaskRunning, "attempt_no": stored.AttemptNo + 1, "used_attempts": stored.UsedAttempts + 1,
+						"next_dispatch_at": nil, "result_data": nil, "finished_at": nil, "end_reason": nil,
+					}).Error; err != nil {
+						t.Fatal(err)
+					}
+					newAttempt := loadSaverTask(t, db, stored.ID)
+					if result, err := saver.Save(context.Background(), report); err != nil || result.Applied || result.Reason != "stale_attempt" {
+						t.Fatalf("old stage result: result=%+v err=%v", result, err)
+					}
+					if got := loadSaverTask(t, db, stored.ID); !reflect.DeepEqual(got, newAttempt) || !reflect.DeepEqual(got.InputData, fixture.task.InputData) {
+						t.Fatal("old result changed a new attempt or fixed input")
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestSaverPreparationOutputBoundariesInPostgres(t *testing.T) {
+	db, _ := testutil.OpenMigratedPostgres(t)
+	for _, scenario := range []struct {
+		name  string
+		items []json.RawMessage
+		valid bool
+	}{
+		{"empty", []json.RawMessage{}, true}, {"limit", preparedItems(jobexecutor.MaxPreparedItems), true},
+		{"JSON null element", []json.RawMessage{json.RawMessage(`null`)}, true},
+		{"missing", nil, false}, {"over limit", preparedItems(jobexecutor.MaxPreparedItems + 1), false},
+		{"invalid JSON", []json.RawMessage{json.RawMessage(`{`)}, false},
+		{"invalid UTF8", []json.RawMessage{{'"', 0xff, '"'}}, false},
+		{"NUL character", []json.RawMessage{json.RawMessage(`"\u0000"`)}, false},
+		{"unpaired surrogate", []json.RawMessage{json.RawMessage(`"\ud800"`)}, false},
+		{"numeric overflow", []json.RawMessage{json.RawMessage(`1e1000000`)}, false},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			fixture := newSaverIntegrationFixture(t, db, func(instance *model.JobInstance, task *model.JobTask) {
+				instance.ExecutionConfig.ExecutionMode = model.ExecutionModeSharded
+				task.TaskType = model.TaskTypePrepare
+			})
+			report := fixture.report
+			report.Data, report.PreparedItems = nil, scenario.items
+			result, err := integrationSaver(t, db).Save(context.Background(), report)
+			if err != nil || result.Applied != scenario.valid {
+				t.Fatalf("preparation storage: result=%+v err=%v", result, err)
+			}
+			stored := loadSaverTask(t, db, fixture.task.ID)
+			if !scenario.valid {
+				if result.Reason != "invalid_output" || !reflect.DeepEqual(stored, fixture.task) {
+					t.Fatal("invalid preparation was converted to a stored outcome")
+				}
+				return
+			}
+			var items []json.RawMessage
+			if err := json.Unmarshal(stored.ResultData, &items); err != nil || items == nil || len(items) != len(scenario.items) || stored.Status != model.TaskSucceeded {
+				t.Fatalf("preparation success did not persist a complete array: %s err=%v", stored.ResultData, err)
+			}
+			if len(items) == 0 && string(stored.ResultData) != "[]" {
+				t.Fatal("empty preparation was not persisted as an explicit empty array")
 			}
 		})
 	}
@@ -375,6 +504,18 @@ END $$`).Error; err != nil {
 			}
 			if got := loadSaverTask(t, db, fixture.task.ID); !reflect.DeepEqual(got, fixture.task) {
 				t.Fatal("failed result update changed persisted Task facts")
+			}
+			prepared := newSaverIntegrationFixture(t, db, func(instance *model.JobInstance, task *model.JobTask) {
+				instance.ExecutionConfig.ExecutionMode = model.ExecutionModeSharded
+				task.TaskType = model.TaskTypePrepare
+			})
+			prepared.report.Data, prepared.report.PreparedItems = nil, []json.RawMessage{json.RawMessage(`{"id":1}`)}
+			result, err = integrationSaver(t, db).Save(context.Background(), prepared.report)
+			if !errors.As(err, &pgErr) || pgErr.Code != code || result != (SaveResult{}) {
+				t.Fatalf("valid preparation was discarded on storage failure: result=%+v err=%v", result, err)
+			}
+			if got := loadSaverTask(t, db, prepared.task.ID); !reflect.DeepEqual(got, prepared.task) {
+				t.Fatal("failed preparation write changed persisted Task facts")
 			}
 		})
 	}

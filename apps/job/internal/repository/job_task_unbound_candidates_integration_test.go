@@ -35,7 +35,7 @@ func TestUnboundCandidatesKeepFixedCutoffAndOriginalCursor(t *testing.T) {
 	_, boundary := createUnboundCandidateTask(t, db, job, now, cutoff)
 	_, later := createUnboundCandidateTask(t, db, job, now, cutoff.Add(time.Microsecond))
 	if err := db.Model(&model.JobTask{}).Where("id = ?", first.ID).Updates(map[string]any{
-		"attempt_no": 7, "result_data": model.TaskResultData(`{"old":true}`), "result_summary": "previous attempt",
+		"attempt_no": 7, "result_data": model.TaskData(`{"old":true}`), "result_summary": "previous attempt",
 	}).Error; err != nil {
 		t.Fatal(err)
 	}

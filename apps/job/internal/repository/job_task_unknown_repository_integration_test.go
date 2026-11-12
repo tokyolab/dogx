@@ -30,7 +30,7 @@ func TestUnboundTargetsUseOneBoundedJoinWithoutEligibilityFiltering(t *testing.T
 	if err := db.Model(&model.JobTask{}).Where("id = ?", first.ID).Updates(map[string]any{
 		"task_type": model.TaskTypeShard, "status": model.TaskCanceled,
 		"attempt_no": 9, "executor_instance_id": identity, "executor_address": address,
-		"attempt_registered_at": nil, "result_data": model.TaskResultData(`{"private":"output"}`), "result_summary": "last attempt",
+		"attempt_registered_at": nil, "result_data": model.TaskData(`{"private":"output"}`), "result_summary": "last attempt",
 	}).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -85,6 +85,7 @@ func TestUnboundTargetsUseOneBoundedJoinWithoutEligibilityFiltering(t *testing.T
 	want := map[string]json.RawMessage{
 		"schema_version": json.RawMessage("1"), "execution_mode": json.RawMessage("1"),
 		"max_retries": json.RawMessage("3"), "retry_interval_seconds": json.RawMessage("10"),
+		"post_enabled": json.RawMessage("true"),
 	}
 	if !reflect.DeepEqual(projected, want) || len(rows[1].ExecutionConfig) > 200 {
 		t.Fatal("unbound target returned business parameters or changed required snapshot fields")
@@ -136,6 +137,7 @@ func TestUnboundTargetsPreserveRequiredJSONTypes(t *testing.T) {
 		{"string", `"snapshot"`, `null`},
 		{"number", `42`, `null`},
 		{"boolean", `true`, `null`},
+		{"Post flag retains its type", `{"post_enabled":"true"}`, `{"schema_version":null,"execution_mode":null,"max_retries":null,"retry_interval_seconds":null,"post_enabled":"true"}`},
 		{"missing fields", `{}`, `{"schema_version":null,"execution_mode":null,"max_retries":null,"retry_interval_seconds":null}`},
 		{"explicit null", `{"schema_version":1,"execution_mode":1,"max_retries":null,"retry_interval_seconds":null}`,
 			`{"schema_version":1,"execution_mode":1,"max_retries":null,"retry_interval_seconds":null}`},
@@ -166,6 +168,11 @@ func TestUnboundTargetsPreserveRequiredJSONTypes(t *testing.T) {
 			if err := wantDecoder.Decode(&want); err != nil {
 				t.Fatal(err)
 			}
+			if projected, ok := want.(map[string]any); ok {
+				if _, exists := projected["post_enabled"]; !exists {
+					projected["post_enabled"] = nil
+				}
+			}
 			if !reflect.DeepEqual(got, want) {
 				t.Fatal("projection coerced a required field or repaired invalid configuration")
 			}
@@ -192,7 +199,7 @@ func TestOrdinaryUnknownSettlementChangesOnlyResultAndStateFacts(t *testing.T) {
 			registeredAt := processedAt.Add(-30 * time.Second)
 			if err := db.Model(&model.JobTask{}).Where("id = ?", task.ID).Updates(map[string]any{
 				"attempt_no": 7, "used_attempts": scenario.used, "attempt_registered_at": registeredAt,
-				"next_dispatch_at": processedAt.Add(-time.Hour), "result_data": model.TaskResultData(`{"old":true}`),
+				"next_dispatch_at": processedAt.Add(-time.Hour), "result_data": model.TaskData(`{"old":true}`),
 				"result_summary": "old failure", "finished_at": processedAt.Add(-time.Hour), "end_reason": model.EndReasonExecutionFailed,
 			}).Error; err != nil {
 				t.Fatal(err)
@@ -205,7 +212,7 @@ func TestOrdinaryUnknownSettlementChangesOnlyResultAndStateFacts(t *testing.T) {
 			}
 			write := UnknownSettlement{TaskID: task.ID, InstanceID: instance.ID, ExpectedAttemptNo: 7, MaxAttempts: scenario.max,
 				ProcessedAt: processedAt, ObservationCutoff: registeredAt, RetryAt: processedAt.Add(10 * time.Second)}
-			settled, err := repo.SettleOrdinaryUnknown(context.Background(), write)
+			settled, err := repo.SettleUnknown(context.Background(), write)
 			if err != nil || settled == nil || *settled != (SettledTask{TaskID: task.ID, InstanceID: instance.ID, AttemptNo: 7, Status: scenario.want}) {
 				t.Fatalf("unknown-result branch: settled=%+v err=%v", settled, err)
 			}
@@ -233,7 +240,7 @@ func TestOrdinaryUnknownSettlementChangesOnlyResultAndStateFacts(t *testing.T) {
 			}
 			later := write
 			later.ProcessedAt, later.ObservationCutoff, later.RetryAt = write.ProcessedAt.Add(time.Second), write.ObservationCutoff.Add(time.Second), write.RetryAt.Add(time.Second)
-			if replay, err := repo.SettleOrdinaryUnknown(context.Background(), later); replay != nil || err != nil || !reflect.DeepEqual(after, readRepositoryTask(t, db, task.ID)) {
+			if replay, err := repo.SettleUnknown(context.Background(), later); replay != nil || err != nil || !reflect.DeepEqual(after, readRepositoryTask(t, db, task.ID)) {
 				t.Fatalf("duplicate settlement refreshed the original outcome: replay=%+v err=%v", replay, err)
 			}
 		})
@@ -252,7 +259,7 @@ func TestOrdinaryUnknownSettlementZeroRowsPreserveStoredFacts(t *testing.T) {
 		{name: "missing Task", change: func(w *UnknownSettlement) { w.TaskID += 100000 }},
 		{name: "wrong parent", change: func(w *UnknownSettlement) { w.InstanceID += 100000 }},
 		{name: "old attempt", change: func(w *UnknownSettlement) { w.ExpectedAttemptNo++ }},
-		{name: "not ordinary", fields: map[string]any{"task_type": model.TaskTypeShard}},
+		{name: "unknown type", fields: map[string]any{"task_type": model.TaskType(99)}},
 		{name: "waiting", fields: map[string]any{"status": model.TaskWaiting}},
 		{name: "retry waiting", fields: map[string]any{"status": model.TaskRetryWaiting}},
 		{name: "succeeded", fields: map[string]any{"status": model.TaskSucceeded}},
@@ -285,7 +292,7 @@ func TestOrdinaryUnknownSettlementZeroRowsPreserveStoredFacts(t *testing.T) {
 			if scenario.change != nil {
 				scenario.change(&write)
 			}
-			if settled, err := repo.SettleOrdinaryUnknown(context.Background(), write); settled != nil || err != nil || counter.count != 1 {
+			if settled, err := repo.SettleUnknown(context.Background(), write); settled != nil || err != nil || counter.count != 1 {
 				t.Fatalf("ineligible settlement: settled=%+v err=%v queries=%d", settled, err, counter.count)
 			}
 			if !reflect.DeepEqual(before, readRepositoryTask(t, db, task.ID)) {

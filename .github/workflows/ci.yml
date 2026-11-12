@@ -204,6 +204,20 @@ jobs:
           DOGX_E2E_JOB_RPC_BINARY: ${{ runner.temp }}/dogx-bin/job-rpc
         run: go test -tags=integration,e2e -run '^TestJobResultAcknowledgementProcessRecoveryEndToEnd$' -count=1 -timeout=3m ./apps/job/rpc/internal/execution
 
+      - name: Test sharded execution, retries and scheduler replacement
+        env:
+          DOGX_TEST_ETCD_BINARY: ${{ runner.temp }}/dogx-etcd/etcd
+          DOGX_E2E_JOB_RPC_BINARY: ${{ runner.temp }}/dogx-bin/job-rpc
+          DOGX_E2E_JOB_MIGRATE_BINARY: ${{ runner.temp }}/dogx-bin/job-migrate
+          DOGX_E2E_SYSTEM_EXECUTOR_BINARY: ${{ runner.temp }}/dogx-bin/system-executor.test
+        run: go test -tags=integration,e2e -run '^TestJobSharded(Execution|SchedulerCrash|ManualStop)EndToEnd$' -count=1 -timeout=4m ./apps/system/e2e
+
+      - name: Test sharded stage recovery after a scheduler crash
+        env:
+          DOGX_TEST_ETCD_BINARY: ${{ runner.temp }}/dogx-etcd/etcd
+          DOGX_E2E_JOB_RPC_BINARY: ${{ runner.temp }}/dogx-bin/job-rpc
+        run: go test -tags=integration,e2e -run '^TestJobShardedStageProcessRecoveryEndToEnd$' -count=1 -timeout=3m ./apps/job/rpc/internal/execution
+
       - name: Test executor crash through the recovery age gate
         env:
           DOGX_TEST_ETCD_BINARY: ${{ runner.temp }}/dogx-etcd/etcd

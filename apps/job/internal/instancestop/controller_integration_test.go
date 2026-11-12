@@ -45,7 +45,7 @@ func TestManualStopKeepsDecisionSeparateFromBoundedConvergence(t *testing.T) {
 		row := model.JobTask{InstanceID: parent.ID, TaskType: entry.kind, Status: entry.status,
 			AttemptNo: int64(index + 1), UsedAttempts: 1, StartedAt: parent.StartedAt, AttemptRegisteredAt: parent.StartedAt,
 			NextDispatchAt: parent.StartedAt, ExecutorInstanceID: &identity, ExecutorAddress: &address,
-			ResultData: model.TaskResultData(`{"old":true}`), ResultSummary: &summary,
+			ResultData: model.TaskData(`{"old":true}`), ResultSummary: &summary,
 			CreatedAt: *parent.StartedAt, UpdatedAt: *parent.StartedAt}
 		if entry.status >= model.TaskSucceeded {
 			reason := model.EndReasonExecutionFailed
@@ -150,7 +150,7 @@ func TestWaitingStopDoesNotCreateTasksOrStartTheClock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if registered, err := registrar.StartOrdinary(context.Background(), parent.ID); err != nil || registered != nil {
+	if registered, err := registrar.StartInstance(context.Background(), parent.ID); err != nil || registered != nil {
 		t.Fatalf("stopping parent authorized a first Task: %+v %v", registered, err)
 	}
 	if batch, err := controller.ProcessBatch(context.Background(), parent.ID); err != nil || !batch.Completed || batch.Canceled != 0 {
@@ -263,7 +263,7 @@ func TestStopBatchRechecksChildAfterResultTransactionCommitOrRollback(t *testing
 				t.Fatal(err)
 			}
 			if err := tx.Model(&model.JobTask{}).Where("id = ?", child.ID).Updates(map[string]any{
-				"status": model.TaskSucceeded, "result_data": model.TaskResultData(`{"winner":true}`),
+				"status": model.TaskSucceeded, "result_data": model.TaskData(`{"winner":true}`),
 				"result_summary": "business completed", "end_reason": model.EndReasonSuccess,
 				"finished_at": gorm.Expr("clock_timestamp()"),
 			}).Error; err != nil {

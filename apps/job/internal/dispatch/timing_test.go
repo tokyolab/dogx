@@ -28,7 +28,7 @@ func TestDispatcherDeploymentTimingReachesWorkAndBusyWrite(t *testing.T) {
 		}}
 		store := &dispatcherStoreStub{}
 		d := testDispatcher(t, registrar, sender, store, WithDispatchTiming(7*time.Second, 10*time.Second))
-		result, err := d.DispatchOrdinary(context.Background(), 11)
+		result, err := d.DispatchInstance(context.Background(), 11)
 		if err != nil || !result.Applied {
 			t.Fatalf("dispatch result=%+v err=%v", result, err)
 		}

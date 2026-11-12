@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tokyolab/dogx/apps/job/internal/taskresult"
 	"github.com/tokyolab/dogx/pkg/bizerror"
+	"github.com/tokyolab/dogx/pkg/jobexecutor"
 	"github.com/tokyolab/dogx/pkg/jobexecutor/protocol"
 	"github.com/tokyolab/dogx/pkg/subcode"
 	"google.golang.org/grpc/codes"
@@ -154,6 +155,9 @@ func parseResult(req *protocol.ReportTaskResultRequest, groupID int64) (taskresu
 	case *protocol.ReportTaskResultRequest_PreparedItems:
 		if output == nil || output.PreparedItems == nil {
 			return invalid("prepared result items are required")
+		}
+		if len(output.PreparedItems.Items) > jobexecutor.MaxPreparedItems {
+			return invalid("prepared result exceeds the shard limit")
 		}
 		report.PreparedItems = make([]json.RawMessage, len(output.PreparedItems.Items))
 		for index, item := range output.PreparedItems.Items {

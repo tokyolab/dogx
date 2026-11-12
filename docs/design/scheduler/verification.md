@@ -1,8 +1,8 @@
 # 8 验证与交付
 
-本章将设计边界转为可检查的交付依据。触发闭环的[历史 CI](progress.md#trigger-ci-verification)不代表当前代码。普通阶段 1～5 核心开发及阶段 6 适用范围验收已完成；生产实现 `7f9d32e` 的 Linux race、Windows、真实依赖集成及全部 E2E 已通过，实际覆盖率见[CI 记录](ordinary-readiness-review.md#ordinary-ci-success)。本机[代表性负载](ordinary-load-validation.md)、原普通执行 E2E 回归及本轮 lint 通过，当前测试／文档增量可提交，尚无该增量的新 CI，详见[收尾记录](ordinary-readiness-review.md#ordinary-load-closeout)。已批准的 info 日志临时覆盖限制保持；普通验收完成不代表完整第一版发布。下列清单包含普通、分片及运维能力，后两类的未实施项目仍按后续范围推进。
+本章将设计边界转为可检查的交付依据。触发闭环的[历史 CI](progress.md#trigger-ci-verification)不代表当前代码。普通六阶段的适用范围验收已完成，后续测试／文档提交 `5b07ec0` 的 [CI 42173750198](https://github.com/tokyolab/dogx/actions/runs/42173750198) 已全部成功；生产实现 `7f9d32e` 的覆盖率证据仍见[此前 CI 记录](ordinary-readiness-review.md#ordinary-ci-success)，本机负载见[代表性负载](ordinary-load-validation.md)。2026-11-11 的分片[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)输入基础和[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)执行组件已完成本机验证；[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)的 Post、整轮完成和生产检查接线已通过本机专项；[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)的本机故障及跨节点验收已完成；阶段 5 的本机查询、代表性负载及必要回归已完成，达到本机可提交节点，实际范围见[查询与负载记录](sharded-load-validation.md)；开发顺序与交付边界见[开发顺序](sharded-readiness-review.md#sharded-implementation-order)。本轮没有远端 CI，不得用普通历史结果替代。已批准的 info 日志临时覆盖限制保持，普通验收完成不代表完整第一版发布。下列清单包含普通、分片及运维能力，未实施项目继续按后续范围推进。
 
-阶段 6 当前已验证范围与余项：
+普通阶段 6 的历史验证范围与余项（本轮分片增量以前述阶段记录为准）：
 
 | 验收项 | 当前证据及限制 |
 | --- | --- |
@@ -19,7 +19,7 @@
 | etcd 恢复与当前检查 | 原 Job／System 在 etcd 停止 18 秒及原数据重启期间存活，三类发现与实际 Leader 获得新租约，同 ClusterID，原执行器执行新 Task 一次。补强场景通过 42.59s；最终 System E2E 排除四分钟专项后通过 90.490s，全仓普通测试通过；全仓双标签 vet／lint 等最终检查均通过，见[最新记录](ordinary-readiness-review.md#ordinary-local-checkpoint) |
 | 日志与 CI | 既有 Token 日志检查证据保留；`7f9d32e` 的 CI 42158366847 全部成功，包含执行器骤停及 etcd 恢复专项；Linux 普通测试启用 race，integration 与独立 E2E 未启用 race。已批准的 info 日志临时覆盖限制继续保留，详见[最新 CI 记录](ordinary-readiness-review.md#ordinary-ci-success) |
 | 代表性负载与受影响回归 | 两个 Job 进程、一个 System 执行器，500 条启用规则、每 30 秒 100 条同秒到期，五轮共 500 个父／子／业务记录成功，400 条未来规则零触发，事前延迟门槛通过；最终包 186.916s、测试退出码 0。重建原生产／测试宿主后的普通执行 E2E 通过，8.123s；四个受影响包三标签 lint 通过、0 issues。资源口径、测试断言修正及清理限制见[负载记录](ordinary-load-validation.md) |
-| 当前提交节点与余项 | 普通阶段 6 适用范围验收完成；本轮新增测试／文档可提交，尚未提交且无新 CI，提交后仍须验证该增量。生产实现的远端证据仍对应 `7f9d32e`；commit／push 前继续按规范检查敏感内容与提交信息。分片、Post 完整推进及 System 生产处理器仍未实施 |
+| 当前提交节点与余项 | 普通阶段 6 适用范围及后续测试／文档提交已有上述历史 CI；本轮分片阶段 1／2 已完成本机验证，阶段 3 已通过本机专项，均尚无对应 CI，不能据此前结果宣称本轮完整可交付。[阶段 4 本机故障与跨节点验证](sharded-readiness-review.md#sharded-stage4-progress)已完成；阶段 5 的本机查询、代表性负载及必要回归已完成，见[查询与负载记录](sharded-load-validation.md)；尚未提交或推送，远端 CI 待取得；System 生产处理器不在本轮范围，commit／push 前继续检查敏感内容与提交信息 |
 
 ## 8.1 验证原则
 
@@ -29,42 +29,43 @@
 
 ## 8.2 行为与故障检查清单
 
-| 场景 | 必须验证的设计边界 | 实施前仍需明确 |
+| 场景 | 必须验证的设计边界 | 实施与验证状态 |
 | --- | --- | --- |
-| 正常普通任务与分片任务 | 普通单 Task；分片必需 Pre、可选 Post；从触发到记录、回报和终态形成闭环 | 处理器接口、持久化协议、测试业务处理器 |
-| 普通 Instance 首次开始与重复推进 | 无派发容量时保持 WAITING 且不计时；锁后数据库当前时间形成开始和截止，与 RUNNING、唯一普通 Task 及首次执行信息同事务保存，实际新建且明确提交后才派发；重复推进不重复建 Task、不重设计时或重发同次尝试 | 公共字段、单例约束及[首次创建 SQL](data-contracts.md#ordinary-start-sql)已定；多节点竞争与提交交界故障测试尚未实现验证 |
+| 正常普通任务与分片任务 | 普通单 Task；分片必需 Pre、可选 Post；从触发到记录、回报和终态形成闭环 | 普通适用范围已验收；分片阶段 1／2 的输入及组件已本机验证，阶段 3 的 Post／整轮完成／生产接线已通过本机专项，[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)本机故障及跨节点验证已完成，本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)，远端 CI 待取得 |
+| 普通 Instance 首次开始与重复推进 | 无派发容量时保持 WAITING 且不计时；锁后数据库当前时间形成开始和截止，与 RUNNING、唯一普通 Task 及首次执行信息同事务保存，实际新建且明确提交后才派发；重复推进不重复建 Task、不重设计时或重发同次尝试 | 公共字段、单例约束及[首次创建 SQL](data-contracts.md#ordinary-start-sql)已实现并纳入普通验收；当前分片增量继续保留普通回归，不将历史故障覆盖扩大为新分片证据 |
+| 分片 Instance 首次开始与 Pre 派发 | 取得实际派发处理能力后，父主键 NOWAIT 事务同时开始父 Instance、创建唯一执行中 Pre 并登记首次尝试，确认提交后发送；重复推进不补建、不重发 | Pre 首次启动、父锁和提交后派发组件已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证；生产阶段选择已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，[专项清单](#sharded-start-dispatch-checks)仍保留完整验收要求 |
 | Leader 切换与配置竞争 | 每任期独立取消与串行配置加载；残留触发按最新 Job 判断，接受合法在途提交，不按旧快照重复创建 | 已定任期、加载与容量协议的实现、自动唯一约束及进度 SQL |
 | 自动触发过载与依赖失败 | 三种自动来源共用有界 Job ID 队列及固定工作协程；队满可观测且不改进度，恢复每分钟从头限量读取，不保证候选严格公平，失败不自循环 | 已定容量与超时的实现、单批恢复及指标 |
 | 错失与同 Job 重叠 | 相对旧进度固定 5 秒容忍，5 秒内多轮也只创建一轮并推进未来；各创建入口共用 Job 单行短事务，补执行也受集群阻塞策略约束；历史身份冲突保留旧轮、推进当前进度；跳过仅服务日志 | 已定触发事务、五索引和跳过日志的实现验证、统一 Cron 计算实现及历史清理衔接 |
-| 准备成功后生成中断 | 恢复平台生成，不重跑已成功准备；不派发未完成生成的分片集合 | 生成执行权、分批写入、封口与恢复协议 |
-| 分片等路径的 Task 保存后尚未登记尝试 | 数据库待处理事实可被其他节点接续；按本地容量登记，不依赖原节点存活；普通首次创建已合并执行信息，不人为增加该中间提交状态 | 已定公共登记字段的 SQL、分片生成字段及恢复检查覆盖范围 |
-| 尝试登记后尚未发送或发送情况不明 | 已提交登记占用机会，不能免费重发；无绑定及结果时按有限观察与条件结算处理，零重试可能尚未执行业务就失败 | [派发时间预算](execution.md#dispatch-time-budgets)及普通条件写入已定；提交交界、预算耗尽与观察结算的实现验证 |
-| RPC 接收确认丢失 | 无绑定及结果时有限观察，条件结算后才按预算重试，接受业务可能重复，不另加通信层执行额度 | 普通未知结算 SQL、30 秒观察初值及[独立扫描结算初值](#unbound-recovery-query-checks)已定；并发及故障实现验证 |
+| 准备成功后生成中断 | 恢复平台生成，不重跑已成功准备；一轮最多 500 个分片，全部分片在一个事务中保存，不派发未确认提交的集合 | 整组原子生成、回滚、NOWAIT 和提交确认丢失注入已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证；生产接线已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，保存后真实进程宕机接续见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，[专项清单](#atomic-shard-generation-checks)仍保留完整验收要求，不将提交确认丢失注入称为真实断网 |
+| 分片 Task 保存后尚未登记尝试 | 分片以 WAITING、尝试编号及已用次数均为 0 保存；正常提示和既有供给补查按共享能力接续首次登记，不依赖原生成节点存活；普通及 Pre 首次创建仍合并首次登记 | 输入及索引基础见阶段 1；统一候选、首次登记和派发提示组件已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证。阶段 3 的检查接线已通过本机专项，本机故障与跨节点覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)；本机查询成本证据见[查询与负载记录](sharded-load-validation.md)，[专项清单](#sharded-query-handoff-checks)仍保留完整要求 |
+| 尝试登记后尚未发送或发送情况不明 | 已提交登记占用机会，不能免费重发；无绑定及结果时按有限观察与条件结算处理，零重试可能尚未执行业务就失败 | 普通已有验证基础；四阶段条件登记、未知结算及旧尝试保护见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)，本机分片进程故障的实际覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，不扩大为任意故障组合均已验证 |
+| RPC 接收确认丢失 | 无绑定及结果时有限观察，条件结算后才按预算重试，接受业务可能重复，不另加通信层执行额度 | 普通未知结算和独立扫描已有验证基础，四阶段结算增量见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)；本机跨节点通信与真实进程宕机的覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，不表示所有 ACK 丢失或网络分区组合均已验证 |
 | 重复、乱序及旧尝试回报 | 成功入队只确认接收；后台旧结果不覆盖新结果，重复回报不重复推进，单条保存明确提交后才提示阶段推进 | 单条确认、重传、校验及错误契约 |
-| 密集回报与生成完成通知 | 本地唯一 Instance 集合默认 512、检查并发 8、单次处理 2 秒；首提示起 100 毫秒合并，处理中新事件保留下一轮检查，结束与登记协调防漏；待执行、执行中、等待重试都属于未结束分片 | [检查安排与初值](#instance-check-defaults-checks)及 [RUNNING 扫描交接](#instance-recheck-query-checks)已通过，具体实现、状态查询 SQL／索引及故障与性能验证仍待完成 |
-| 多节点同时创建 PostTask | 单行短事务复核和已定单例部分唯一索引保证每轮至多一条 PostTask | 已定索引的迁移、并发测试与创建事务实现 |
-| 部分失败和收尾失败 | 分片最终失败不立即停止其他分片；全部分片失败也仍在父状态及截止允许时执行已配置 Post，Post 成功不能抹除分片失败 | [完成判定、父条件更新与摘要](data-contracts.md#instance-completion-contract)已通过；生成封口及完整分片查询、实现验证待完成 |
-| 收尾成功后终态更新失败 | 只恢复平台推进，不重跑已成功 Post；父仍 RUNNING 且结果完整时允许在截止后按结果结束 | [完成条件更新及恢复边界](data-contracts.md#instance-completion-contract)已通过，[专项验收](#instance-completion-checks)尚未实现验证 |
+| 密集结果回报与恢复检查提示 | 本地唯一 Instance 集合默认 512、检查并发 8、单次处理 2 秒；首提示起 100 毫秒合并，处理中新事件保留下一轮检查；结果提交提示检查，阶段创建提交提示派发，不因非空生成成功额外自发完成检查 | 有界派发提示、持续提示与读取失败退避等组件用例见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)；完整 Checker／双向提示装配已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载证据见[查询与负载记录](sharded-load-validation.md)，不表示完整性能清单全部通过 |
+| 多节点同时创建 PostTask | 父锁外取得稳定统计，父主键 NOWAIT 短事务只复核授权、检查已有 Post 并保存唯一待执行 Post 及固定统计输入；锁竞争失败退出，不在父锁内重新聚合分片 | 输入列迁移已在阶段 1 验证；固定统计和唯一 Post 创建已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，创建与停止竞争、宕机接续见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)；[专项清单](#post-creation-checks)仍保留完整要求，本机查询与代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md) |
+| 部分失败和收尾失败 | 分片最终失败不立即停止其他分片；全部分片失败也仍在父状态及截止允许时执行已配置 Post，Post 成功不能抹除分片失败 | Pre／分片结果保存组件已在阶段 2 验证；完整分片统计、Post 创建及最终结论已通过阶段 3 本机专项，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md) |
+| 收尾成功后终态更新失败 | 只恢复平台推进，不重跑已成功 Post；父仍 RUNNING 且结果完整时允许在截止后按结果结束 | 父正常完成条件更新已有普通验证基础；完整分片／Post 判定已通过阶段 3 本机专项，保存成功 Post 后真实进程宕机接续见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，[专项清单](#instance-completion-checks)继续保留完整要求 |
 | 停止／超时与派发、回报竞争 | 先持久化 STOPPING 和停止原因，阻止新工作；子 Task 分批结束后才保存父终态，取消 RPC 独立尽力处理，不等待业务实际退出 | [停止决定、统一收敛与最终结束](data-contracts.md#instance-termination-sql)及完成／超时衔接已通过，核心实现及实际范围见[停止核心记录](ordinary-readiness-review.md#ordinary-stop-core-progress)，完整[专项验收](#instance-termination-sql-checks)继续按阶段落实 |
 | Instance／Task 本地集合满、节点退出或提交后通知丢失 | 既有有界检查补齐未推进和未派发工作，不另建全表汇总扫描 | 对应推进模块的退避、公平轮转及扫描进度 |
-| BUSY、执行器变慢或失联 | 明确未接单的 BUSY 原子返还一次机会并延期，遵守最早可派发时间；已绑定无结果不因失联提前重派 | [普通 BUSY 条件写入](data-contracts.md#ordinary-busy-settlement)、5 秒上下浮动 20% 的延期及有限保存预算已定；其他类型推进、剩余两端容量及实现验证待完成 |
+| BUSY、执行器变慢或失联 | 明确未接单的 BUSY 原子返还一次机会并延期，遵守最早可派发时间；已绑定无结果不因失联提前重派 | 四阶段 BUSY 返还、重试和输入保留已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证；完整分片推进已通过阶段 3 本机专项，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md) |
 
 上述故障应覆盖准备、业务分片和收尾，不只验证普通业务 Task。停止测试应使用配合取消和不配合取消的处理器，验证平台声明的“尽力取消”与实际副作用边界。
 
 ### 处理器契约验收 {#processor-contract-checks}
 
-以下对应[已通过的接口分工、数据语义与共同执行约束](data-contracts.md#processor-contract)，是后续实现要求，不表示执行组件或测试已完成。Post 只接收公共输入和分片汇总统计，不提供分片明细或查询接口；完整执行通信按[已通过的报文与装配契约](data-contracts.md#execution-rpc-contract)及[专项验收](#execution-rpc-checks)落实。
+以下对应[已通过的接口分工、数据语义与共同执行约束](data-contracts.md#processor-contract)，保留完整验收要求。公共执行组件已有普通验证基础，单份分片输入、清单边界及四阶段派发／保存的本机验证见[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)和[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)；完整推进已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)，下表不是全部通过的清单。Post 只接收公共输入和分片汇总统计，不提供分片明细或查询接口；完整执行通信按[已通过的报文与装配契约](data-contracts.md#execution-rpc-contract)及[专项验收](#execution-rpc-checks)落实。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
 | 普通、分片与可选收尾注册 | 普通不要求空 Pre／Post；分片必须有准备和分片执行，一个名称定位一个处理器；运行期注册表固定，重复或无效注册不能静默覆盖 |
 | 配置与处理器能力不匹配 | 要求 Post 却未实现时明确拒绝，不能静默跳过；处理器有 Post 但本轮未配置时不调用，管理保存不远程探测 |
-| Job 编辑及分片输入 | 使用本轮参数，Job 参数与当前分片工作项子数组分开；一次分片可处理多个元素，不改成一元素一 Task |
+| Job 编辑及分片输入 | 使用本轮参数，Job 参数与当前 Task 对应的单份分片内容分开；Pre 清单每个元素对应一个逻辑分片 Task，元素内部可包含多条业务数据，平台不再二次分组 |
 | 准备返回空、缺失或非法结果 | 显式空数组允许零分片，nil／缺失或非法工作项不得当空数组；结果编码与解码不抹平两者差异 |
 | 通用成功、错误及业务数据 | 零值 Result 与 nil error 允许成功；非 nil error 不采用业务 Data，Pre 失败不采用部分数组；失败原因仍进入平台执行记录，不作为明细传给 Post |
 | JSON 数据与摘要 | 工作项和已提供的业务 Data 校验有效 JSON，摘要独立；不将数据当过程日志，不因数据类型选择关闭已有报文保护 |
 | Post 适用模式与时点 | 普通任务不创建 Post；分片全部最终结束且本轮仍允许推进时运行已配置 Post，再由平台确定 Instance 终态；准备失败、停止或超时不承诺调用 Post |
-| Post 公共信息与统计 | 公共 TaskID 指当前 PostTask，Params 沿用本轮快照；Total／Succeeded／Failed 只统计业务分片，不包含 Pre／Post，不当成业务行数，不提供 Instance 最终状态；合法零分片提供零计数 |
+| Post 公共信息与统计 | 公共 TaskID 指当前 PostTask，Params 沿用本轮快照；Total／Succeeded／Failed 只统计业务分片，不包含 Pre／Post，不当成业务行数，不提供 Instance 最终状态；合法零分片提供零计数。三个计数随 Post 创建固定保存于 `input_data`，首次、重试及换节点均读取原值 |
 | Post 业务记录与数据边界 | 不提供分片 TaskID／Status／Data／Summary／失败原因明细、结果集合、访问器或查询 RPC；业务按自己的批次关联读取业务存储，调度服务不代查业务表，Post 不直接查询调度表 |
 | Post 业务结果与平台状态 | Post 可生成报告或更新业务批次，不直接改调度表；Post 成功不抹除分片最终失败，业务报告不能仅凭 Task 计数推导行级处理情况 |
 | 并发与跨进程阶段 | 同一处理器可被并发调用；Pre、分片、Post 及重试可分布到不同进程，不依赖对象成员共享本轮状态 |
@@ -72,9 +73,135 @@
 | 派发响应、取消与业务并发 | 接单 RPC 返回不取消业务 Context，调用沿用本轮截止；发出取消信号不等于业务退出或处理能力空闲，不为继续接单创建无界替补执行 |
 | 业务 error 与当前调用 panic | 普通失败返回 error；当前调用 panic 记录错误和堆栈、按失败处理，不声称可恢复其他 goroutine 的 panic 或所有进程故障 |
 
+### 业务显式分片与输入存储验收 {#explicit-shard-contract-checks}
+
+以下对应 2026-11-06 已通过的[业务显式分片契约](task-model.md#explicit-shard-contract)：Pre 返回最终分片清单，每个元素对应一个逻辑分片 Task。本节保留完整验收要求。公共 Go／Proto 已改为单份载荷，`input_data JSONB`、500 上限及输入保护已在[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)验证；Pre 清单保存、原子生成和固定输入派发已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证。Post 和完整生产推进已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)；不把组件结果扩大为整张清单通过。后续已通过的清单保存、整轮最多 500 个分片及单事务生成按[原子生成验收](#atomic-shard-generation-checks)落实，不再预留跨事务分批、生成游标或额外完成标记。
+
+| 场景 | 必须验证的边界 |
+| --- | --- |
+| JSON 标量、对象、数组、范围及引用 | 业务可返回不同形式的有效 JSON 分片描述；平台不要求元素为 ID 或对象，不展开范围、不访问引用中的业务数据，也不拆开或合并元素内容 |
+| 嵌套数组 | `[[101,102],[201,202]]` 生成两个 Task，分别收到 `[101,102]` 和 `[201,202]`；内层数组只表示业务数据，不表示优先级、阶段或下级任务 |
+| 分片清单与 Task 对应 | N 个有效元素对应 N 个逻辑分片 Task；每个 Task 只收到其对应元素，重试仍使用原 Task，不因执行次数增加而多创建分片 |
+| 内容相同的多个元素 | 不按内容去重，相同内容出现在不同清单位置时仍生成不同 Task；元素顺序用于稳定对应输入，不承诺各 Task 按清单顺序执行 |
+| 空清单、缺失及准备失败 | 外层显式空数组按零分片及可选 Post 规则推进；nil／缺失或非法清单不冒充零分片；Pre 失败时不采用部分清单。单个元素中的 JSON `null` 不得与外层清单缺失混淆 |
+| JSON 编码、传输与持久化 | Pre 清单由 `[]json.RawMessage` 表达，单 Task 携带一个 JSON 值，执行协议使用 `bytes`，数据库使用 JSONB；对象、嵌套数组和大整数在写入、读取及业务解码后保持 JSON 值语义，不经 `float64` 中转。允许 JSONB 规范化空格及对象字段顺序，不要求持久化前后字节完全相同；不混淆 SQL NULL、缺失与显式 JSON `null` |
+| 输入与执行结果分离 | 分片的 `input_data` 保存单份业务输入，Post 的同名字段保存平台生成的固定统计，`result_data` 保存各自执行输出；结果保存及重试状态转换不得覆盖输入，重试和换节点继续使用原内容 |
+| 准备结果交接与数据库边界 | 业务从 Pre 返回清单，由执行组件通过既有结果回报交给调度端；执行器不连接调度数据库。内存接纳 ACK 不代表准备结果已持久化，确认成功保存后才能据此生成 Task |
+| 完整生成与中断恢复 | 分片完整生成且确认提交后才开放派发；生成中断后依据已保存清单及当前数据库事实恢复，不重跑已经成功保存的 Pre，不因重复推进、提交确认不明或进程切换重复创建分片；按[原子生成验收](#atomic-shard-generation-checks)落实故障测试 |
+| 节点数量与 Job 配置变化 | 已确认清单不随执行器增减、派发目标或后续 Job 编辑而重新拆分／合并，不增加平台按单片最小／最大工作项数或节点数量重算分片的路径 |
+| 公共接口与协议修订 | Go 分片输入、Proto 源文件、生成结果、适配器及测试统一表达单份载荷，不保留长度恒为 1 的旧子数组包装或两种语义；直接修改当前开发版本，不增加中间态兼容分支 |
+| 固定阶段与 Post | 保持 Pre → 一层分片 → 可选 Post；分片不创建下级任务。Post 继续只接收公共输入和分片统计，业务自行读取业务记录，不增加结果归约、优先级或明细查询能力 |
+
+### 准备清单保存与分片原子生成验收 {#atomic-shard-generation-checks}
+
+以下对应已通过的[准备清单保存、原子生成与恢复](execution.md#atomic-shard-generation)及[分片生成存储契约](data-contracts.md#shard-generation-storage-contract)。公共类型、协议适配及输入列迁移的证据见[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)；整组生成、父 NOWAIT、回滚、JSONB 拒绝、提交确认丢失注入和真实 RPC／持久化组件联测见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)。阶段 2 测试显式调用生成操作；完整 Checker／生产提示装配已在[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)通过本机真实 svc 宿主专项，不将阶段 3 宿主测试扩大为独立进程故障验收；保存后真实进程宕机接续另见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)。下表仍是完整验收要求，本机查询与代表性负载的实测范围见[查询与负载记录](sharded-load-validation.md)，未覆盖项继续保留。事务原子性、NOWAIT 竞争、提交交界及查询计划使用真实 PostgreSQL 验证，不增加专用恢复扫描或提前固定 Go 内部组织。
+
+| 场景 | 必须验证的边界 |
+| --- | --- |
+| 有效 Pre 成功结果保存 | 按既有归属、尝试及执行器身份条件，将准备 Task 成功状态、完整清单 `result_data` 和结果字段原子保存；不能先保存成功再补清单，也不能只凭回报入队 ACK 或内存结果开始生成 |
+| Pre 失败、旧尝试或已取消 | 失败不采用部分清单；旧尝试、身份冲突及取消先落库时，原成功结果不能覆盖已有事实。生成只能使用数据库中已确认的有效成功清单，取消的 Pre 不创建分片 |
+| 分片数量边界 | 每个 Instance 的业务分片最多 500 个，Pre／Post 不计入；500 个合法元素可以生成，501 个必须拒绝，不截取前 500 个、不自动合并或拆成多轮，不把上限解释为一次数据库写入或单次派发的批量 |
+| 非法成功输出与回报错误分类 | 缺失、非法 JSON、不可保存为 JSONB 或超限的清单不能冒充合法成功／零分片；沿用[结果错误分类](#result-error-classification-checks)。确认永久无效后释放该结果不等于自动把 Task 写为 FAILED；未保存有效结果的 Task 仍依既有不确定性结算或整轮超时处理，不增加隐式失败转换 |
+| 元素一一对应与重复内容 | 合法清单 N 项生成 N 条分片 Task，各自 `input_data` 保存对应 JSON 值；两个相同元素仍是两个 Task，不用内容哈希去重，不要求增加 `shard_index` 才能区分业务工作 |
+| 单事务生成中途失败 | 所有分片的插入属于同一个数据库事务；任何插入失败或明确回滚均不留下部分已提交分片，不改为跨事务分批保存、断点续写或逐条单独提交。事务内不发派发 RPC |
+| 两个节点同时生成 | 按 Instance 主键取得 `FOR UPDATE NOWAIT`，未取得即结束本次竞争，不等锁、不继续事务内子 Task 读写；取得锁后重新核验父状态、截止及已生成事实，不能用锁外检查代替。后到者在锁内查到已有分片后退出，最终只有一套分片 |
+| 父状态与数据库截止授权 | 插入前在同一父行事务中确认 RUNNING 并读取数据库当前时间；STOPPING、父终态或截止已到均不创建新分片，不以候选查询时的旧状态／时间授权，不重置整轮期限 |
+| 非空清单的完整生成依据 | 在全部分片同事务插入、活跃轮次 Task 禁止删除及生成入口统一受父锁约束的前提下，已存在分片即表示整套已提交；没有分片才允许按固定清单生成，不增加生成计数、游标、权威 phase 或完成标记。不把任意空查询当作零分片 |
+| 非空清单的重复推进 | 已生成集合保持不变，不因再次通知、重试、执行器上下线或 Job 编辑追加、删除、替换输入或重算数量；Task 已执行、成功、失败或取消都不能成为重新生成的理由 |
+| 明确空清单 | 已成功保存的 Pre 及 `result_data=[]` 本身构成合法零分片事实，不插入分片，也不另写零分片完成标记；未配置 Post 且父仍 RUNNING 时可按完整结果成功结束，即使检查已过截止。配置 Post 时仍遵守其创建／授权截止，不能因零分片跳过 Post |
+| 提交成功但确认丢失 | 不根据超时、连接中断或调用方取消宣称回滚，也不按内存清单直接重插或派发；重新进入父行协议并读取持久化事实。实际已提交时识别现有整套分片，实际未提交时才重新生成；两种故障都不得形成重复或部分集合 |
+| 保存清单后宕机或生成提示丢失 | 既有本地检查与 Instance 低频复核读取成功 Pre 后恢复平台生成；不重跑 Pre、不依赖原节点内存，不新增 Task 全表扫描、生成 owner 或专用可靠队列。恢复时已到期则不补建新分片 |
+| 生成提交后宕机或派发提示丢失 | 已保存分片仍可被既有派发供给发现和登记；不重新生成、不重跑 Pre，不把已保存但尚未派发判为生成失败。未确认提交前不能发布新工作 |
+| 生成与停止竞争 | STOPPING 先提交时不生成；生成先提交时停止处理只收敛这一套已保存 Task，父终态仍等待现有子终态，不补建分片或 Post 再取消。任务输入和已成功保存的准备输出不得被停止改写 |
+| 输入、输出及清理 | Pre 的完整清单作为其执行输出保留，生成完成后不清空；分片 `input_data` 与自身 `result_data` 分开，重试及结果保存不覆盖输入。活跃 Instance 的 Pre 输出和分片记录不得被清理，后续历史清理仍遵守统一保留规则 |
+
+### Pre 首次启动与分片首次派发验收 {#sharded-start-dispatch-checks}
+
+以下对应已通过的[Pre 首次启动与分片首次派发](execution.md#sharded-start-dispatch)及[字段、事务和供给契约](data-contracts.md#sharded-start-dispatch-contract)。Pre 首次启动、统一候选及首次／重试登记、阶段发送、BUSY 和旧尝试保护的组件实现及本机测试已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)完成；完整生产阶段选择和提示接线已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)。下表保留完整验收要求，与[原子生成验收](#atomic-shard-generation-checks)分别验证“生成一套分片”和“登记可以实际发送的尝试”，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)。复用已有派发、ACK、BUSY、回报、重试及停止协议，不增加阶段专用队列、并发或默认值，不提前固定 Go 并发实现。
+
+| 场景 | 必须验证的边界 |
+| --- | --- |
+| 分片 Instance 尚无实际派发处理能力 | 即使已发现候选或已入等待队列，父仍 WAITING，不创建 Pre，不写开始／截止时间，不占用执行机会；释放处理能力后再推进，不把候选接纳当作启动 |
+| Pre 首次有效启动 | 按父主键取得 NOWAIT 锁后复核 WAITING 和分片模式，使用 Instance 冻结配置及锁后数据库当前时间；同事务保存父 RUNNING、开始及截止，创建唯一 PreTask，并保存 RUNNING、`attempt_no=1`、`used_attempts=1`、首次及当前登记时间。Pre 与父首次时间一致，不先提交待执行 Pre 再另开首次登记事务 |
+| 首次事务确认提交与真实发送 | 只有本次确实完成启动且确认提交才派发 Pre；读取到已有 RUNNING 父、无操作事务正常返回或仅取得 Task ID 均不能发送。使用本轮冻结配置，不因 Job 后续编辑改变参数、目标、重试或整轮时长 |
+| 两节点同时启动同一分片 Instance | 父主键 NOWAIT 和既有单例唯一约束保证只有一个 Pre；未取得锁即退出本次竞争，不等待、不立即重排、不占机会或发送；后到者不得补建 Pre 或重发已登记尝试 |
+| 首次启动回滚、唯一冲突或异常已有 Pre | 明确回滚时父保持 WAITING，无部分开始时间或新 Pre 残留；不把唯一冲突、父状态异常或预存子记录解释为本次成功，不通过改为普通 Task、删除重建或补发修复。后续只按实际持久化状态处理 |
+| Pre 首次提交结果不明或提交后发送前宕机 | 不假定回滚，不凭数据库里存在执行中 Pre 补发同次尝试；实际已提交时仍占首次机会，按既有无绑定观察及结果规则接续；实际未提交且父仍 WAITING 时，后续可重新正常启动 |
+| 原子生成后的分片初始记录 | 全部分片为 WAITING，`attempt_no=0`、`used_attempts=0`，`started_at` 和 `attempt_registered_at` 为空，`next_dispatch_at` 使用本次生成的数据库时间；执行器身份／地址及执行结果、结束字段为空，`input_data` 为固定单份输入。生成不代表任何分片已经执行业务或消耗机会 |
+| 分片首次登记 | 取得本次实际派发处理能力后，在父主键 NOWAIT 事务内核验 RUNNING、锁后数据库时间未到截止，以及原候选仍为本轮分片、WAITING、`attempt_no=0`、`used_attempts=0` 且已到最早派发时间；条件保存 RUNNING、编号和次数均为 1、首次及当前登记时间，并清空 `next_dispatch_at`，输入不变；确认提交后才发送 |
+| 旧候选、取消或其他节点先登记 | 条件登记不匹配就不发送，不以读取到的最新编号替换原候选后再登记；父状态与子条件共同阻止重复授权，不能因父锁终于取得便假定子候选仍有效 |
+| 已到截止、停止先提交或父已结束 | Pre 尚未开始时按父允许状态裁决；已开始轮次的分片登记必须拒绝新的授权，不重置父开始／截止，也不把登记拒绝直接当作父已经超时终结。已登记 RPC 在途仍沿用尽力取消边界 |
+| 分片首次明确 BUSY 后再派发 | `(attempt_no, used_attempts)` 从 `(1,1)` 条件返还到 `(1,0)`，延期后下一次登记为 `(2,1)`；不恢复为从未登记的 `(0,0)`，重复 BUSY 不多返还，第一次 `started_at` 保持 |
+| Pre 或分片业务重试 | 沿用原 Task、本轮冻结重试配置和剩余机会；新尝试增加编号、更新当前登记时间，保留首次时间与输入，不重建 Pre／分片，不重置父整轮期限。业务失败、未知结算及明确拒绝继续采用各自既定分支 |
+| 一轮有 500 个待执行分片但本次处理能力有限 | 整套生成可以一次提交，首次尝试只为本次能够处理发送的有限候选按 Instance 分组登记；其余保持 WAITING 及 0／0，不把全 500 个预先置为执行中，不以候选队列可容纳数量代替实际处理能力 |
+| 组内登记与跨节点竞争 | 本节点同一 Instance 仍只进行一个登记事务，登记量受本次可处理发送量约束；父 NOWAIT 竞争失败时跳过本次 Instance 组并处理其他轮次，不对组内每条候选立即重复争锁。事务退出后释放本地登记限制，不持有到 RPC 完成 |
+| 待执行分片进入派发供给 | 待执行分片与 Post 合入统一到期 Task 查询，与 WAITING Instance 构成两类供给来源，共享候选容量、处理并发、Instance 轮转和补查周期；首次与重试仍保留原类型、状态和尝试编号，不能混同登记语义，不新增第三类扫描、阶段专用队列或独立首次 Task 游标，详见[本轮专项](#sharded-query-handoff-checks) |
+| 生成后的本地提示及丢失恢复 | 确认整套生成提交后立即提示本节点有限补充派发，不等待周期；提示丢失、队满或生成节点退出时，既有供给补查能够发现数据库中尚未登记的分片，不要求重跑 Pre 或重新生成，不等到整轮超时才能发现 |
+| ACK、快速结果与派发异常 | Pre／分片共用已有执行器绑定、结果先于 ACK、迟到绑定、BUSY、明确拒绝、无绑定不确定性及回报保存规则；不新建阶段专用次数、二次确认或免费重发，不因新增首次登记分支改变普通任务契约 |
+| 实际事务、候选查询与普通路径回归 | 使用真实 PostgreSQL 验证唯一 Pre、父子原子启动、首次分片条件登记、NOWAIT、回滚及提交交界；验证待执行分片查询的有界读取、实际计划和父停止／截止过滤边界，不因当前 Job 停用屏蔽旧轮次。与普通首次启动、公共重试、绑定及结果处理一起回归，不能只靠模拟返回值或文档 SQL 宣称共享路径无回归 |
+
+### Post 创建、固定统计与首次派发验收 {#post-creation-checks}
+
+以下对应 2026-11-09 已通过的 [Post 创建与派发](execution.md#post-creation)及[Post 输入契约](data-contracts.md#post-input)。输入列已在[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)落地，Post 的通用候选、登记、发送和结果保存已纳入[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)组件验证；固定统计、唯一 Post 创建和整轮完成已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)。下表仍是完整验收要求，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)。父 NOWAIT 是对 Post 创建单独批准的规则，不由此前派发登记范围自动外推。统计读取、单例约束、事务交界和恢复候选需要真实 PostgreSQL 验证；不新增阶段专用队列、扫描周期、父计数或生成标记。
+
+| 场景 | 必须验证的边界 |
+| --- | --- |
+| 非空清单尚未生成，或分片仍待执行、执行中、等待重试 | 不创建 Post；不能仅凭当前没有活动分片、部分成功／失败或回报已入队判断完成。先确认整组原子生成完成，所有业务分片均成功或最终失败后，才取得稳定统计 |
+| 父锁外读取稳定完成事实和统计 | 分片集合固定、终态不可逆且活跃 Task 不清理时，在父锁外取得 Total／Succeeded／Failed；不为每条结果更新父计数，不持父行锁扫描或重新聚合整轮 Task。父锁内只复核授权、检查已有 Post 并插入唯一记录 |
+| 全成功、部分失败或全部失败 | 分别形成如 `{"total":10,"succeeded":10,"failed":0}`、`{"total":10,"succeeded":9,"failed":1}`、`{"total":10,"succeeded":0,"failed":10}` 的固定输入；只统计业务分片，已配置且仍获授权时三种情况均创建 Post，不把全部失败误判为无需收尾 |
+| 成功 Pre 明确保存 `[]` | 以已保存的显式空清单确认零分片，统计三项均为 0；已配置 Post 仍需创建及执行，不以空查询或缺失清单代替零分片证据 |
+| 模式、配置、准备失败及停止限制 | 仅分片模式且本轮冻结配置启用 Post 才创建；普通模式、不配置 Post、Pre 最终失败、父 STOPPING／终态或已到原截止时不补建；不因当前 Job 编辑改变本轮配置 |
+| 两节点同时创建，或父锁被其他事务持有 | 按 Instance 主键等值取得 `FOR UPDATE NOWAIT`；锁不可用则回滚并退出本次竞争，不等待、不忙重抢，也不据此宣称另一节点已完成。取得锁后复核父 RUNNING、冻结配置和锁后数据库时间，并检查已有 Post |
+| 后到节点或重复创建提示 | 已有 Post 时退出，不覆盖其固定统计、状态或次数；既有 `(instance_id, task_type)` 单例部分唯一索引覆盖类型 4，保证最多一个 Post。唯一冲突或无操作返回不能当作本次成功插入 |
+| Post 创建时没有派发处理能力 | 创建不等待派发能力；保存 `task_type=4`、WAITING、`attempt_no=0`、`used_attempts=0`，`started_at`／`attempt_registered_at` 为空，`next_dispatch_at` 使用创建事务数据库时间；`input_data` 保存固定统计，结果与绑定字段尚未形成，不提前消耗机会 |
+| 创建明确提交后提示派发 | 才提示本节点有限补充，不在创建事务里发送 RPC；候选接纳不等于已经登记或开始业务。Post 与待执行分片共用既有候选容量、Instance 轮转、补查周期及处理并发，不新建 Post 专用供给 |
+| Post 首次登记 | 取得实际发送处理能力后，在父 NOWAIT 事务内核验 RUNNING、原截止及原 Post 候选仍 WAITING、0／0 且到期；条件更新为 RUNNING、1／1，保存首次及当前登记时间，清空 `next_dispatch_at`，保留固定输入，确认提交后才调用 `PostProcess` |
+| Post 重试、BUSY 延期或换执行节点 | 继续使用同一 Post 和已保存统计，不重新聚合、不重跑 Pre／分片，也不把 BUSY 后 1／0 恢复成初始 0／0；保留首次时间，按既有规则登记新编号，公共参数仍来自 Instance 快照 |
+| Post 回报和输入分离 | 业务输出只保存到 `result_data`，结果保存、重复回报及状态转换不能覆盖 `input_data`；Post 不接收分片结果集合或明细查询能力，业务记录仍由业务自行查询 |
+| 创建提交后提示丢失、队满或节点退出 | 共享供给能重新发现待执行 Post，按原记录完成首次登记；不依赖创建节点内存，不只查询待执行分片，不重新创建 Post 或等到整轮超时才发现 |
+| 创建回滚或提交确认不明 | 明确回滚不留下半条 Post／固定输入；提交不明重入既定父行协议核实已有记录。已存在待执行 Post 可由共享供给接续，已登记 Post 不得仅凭记录存在补发原尝试；登记不明及发送前宕机继续遵守既有观察和结算规则 |
+| 锁外统计后停止或到期，或创建后首次派发前停止 | 创建锁内及登记锁内分别检查父授权和锁后数据库时间，拒绝新的工作，不延长原截止；创建先提交时停止收敛既有 Post。登记先提交的 RPC 仍可能在途，沿用尽力取消，不承诺物理发送与停止绝对隔离 |
+| Post 缺失、未结束、最终成功或最终失败 | 已配置但缺失／未结束时不能直接正常结束父；Post 最终结果参与 Instance 结论，成功不抹除任何分片最终失败；仍可重试的 Post 失败只更新原 Post，最终失败不再重试。已有完整结果的平台终态推进不重跑业务 |
+
+验收同时覆盖普通路径回归及待执行分片、待执行 Post 共用供给的实际查询计划。Post 本节此前只确定创建与输入边界；2026-11-09 后续批准的查询、索引及组件交接另按[专项验收](#sharded-query-handoff-checks)落实，不将设计记录当作功能通过证据，也不提前固定 Go 并发结构。
+
+### 分片查询、索引与组件交接验收 {#sharded-query-handoff-checks}
+
+以下对应 2026-11-09 已通过的[分片查询与存储契约](data-contracts.md#sharded-query-contract)、[统一可派发查询](data-contracts.md#dispatch-recovery-query)及[组件交接](execution.md#sharded-component-handoff)。本轮明确扩大原检查范围：允许现有检查处理者在共享 2 秒总预算内完成一次整组生成事务，补齐此前尚未确定的生成交接归属。输入列和索引替换已在[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)验证；统一查询、首次／重试登记、生成操作及有界派发提示已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证。最小阶段读取、Post 创建、父最终判定和生产双向提示装配已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)。以下仍是完整验收要求，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机实际查询成本与代表性负载已验证，覆盖及限制见[查询与负载记录](sharded-load-validation.md)，不用局部功能通过替代后续验收。
+
+| 场景 | 必须验证的边界 |
+| --- | --- |
+| 输入列迁移与四类 Task | 新增 `input_data JSONB`，允许 SQL NULL 且无默认值；普通／Pre 无此输入，分片保存业务单个 JSON 值，Post 保存平台固定统计。不增加兼容回填或用默认空对象／空数组掩盖输入缺失 |
+| SQL NULL、JSON `null` 和外层空清单 | 明确区分 SQL NULL 的缺失输入、单片合法 JSON `null` 及 Pre 的显式 `[]`；写入、扫描、协议转换和业务解码不能相互转换，JSON 数字不经 `float64` 中转 |
+| 统一到期 Task 候选 | 同一查询纳入 `status=3` 的到期重试，以及 `status=1` 且类型为分片／Post、0／0、首次和当前登记时间为空的首次候选；同时要求 `next_dispatch_at <= scan_now`、父 RUNNING 且 `deadline_at > scan_now`。普通／Pre 不增加 WAITING 子阶段，不把 BUSY 后的 1／0 当作首次 |
+| 候选投影及登记条件 | 只返回 Task ID、Instance ID、原类型、原状态、原 `attempt_no` 和 `next_dispatch_at`；不带完整配置、输入或结果。授权时保留这组原始身份和状态，并按首次／重试分支重新条件登记；不能换用读回的新状态、类型或编号来让旧候选继续成功 |
+| 两类补查来源及分页 | 供给仅保留 WAITING Instance 与统一到期 Task 两类查询来源；前者固定 ID 上界，后者固定本趟数据库时间上界，分别维护自己的临时分页位置。待执行与重试共用到期 Task 的 `(next_dispatch_at, id)` 游标，不新增第三类扫描或独立首次 Task 游标 |
+| 到期 Task 首屏、续页、同时间与迟提交 | 首屏没有伪造的起始游标；续页采用 `(next_dispatch_at, id) > (:cursor_time, :cursor_id)`，按相同顺序有界读取。后续新趟重新覆盖迟提交、此前跳过和仍合格记录，游标不成为永久消费水位；不使用 OFFSET 或随机排序 |
+| 候选容量和无进展退避 | 两类来源共用既有候选容量、Instance 轮转和读取额度；页只读取可接纳余量，分页不跨过尚未接纳的记录。首次与重试均只有明确登记提交才算有效进展，不一次把一轮 500 项塞入等待缓冲，也不提前登记全部 Task |
+| 到期索引迁移及谓词 | 用 `idx_job_task_dispatch_due ON job_task(next_dispatch_at, id) WHERE status IN (1, 3)` 替换原 `idx_job_task_retry_due`；核对旧索引不重复保留，新索引同时覆盖首次待执行和等待重试的键集顺序。父状态及截止仍由 JOIN 过滤，不能宣称该 Task 索引已排除所有不合格父 |
+| 大量历史记录、父已停止／到期及不同候选密度 | 用真实 PostgreSQL 检查首屏／续页的参数化执行计划、排序、访问行数、父 JOIN 过滤和耗时；覆盖索引中大量 Task 因父状态／截止被排除的情况。LIMIT 只限制返回数，不等于最多访问相同数量的记录；不要求小表或任意数据分布必须走索引 |
+| 状态频繁变化及索引代价 | 记录 Task 进入／离开待派发状态、派发时间变化带来的索引维护、WAL 和实际写入成本；比较读取收益与共享数据库压力，不把部分索引或存在性查询本身视为性能已经达标 |
+| 阶段读取发现已有业务分片 | 先按所属 Instance 读取当前阶段所需的最少事实；已有任一分片即采用整组原子提交事实，不再为每次检查加载、解码成功 Pre 的完整清单，不读分片业务结果正文 |
+| 尚无分片且 Pre 已成功 | 只在需要区分未生成与显式零分片时读取已保存的完整 Pre 清单；非空清单进入既定生成协议，锁内仍重新核验父授权及是否已存在分片。缺失／非法清单不能当作 `[]`，读取失败不能当作结果未齐或据此超时 |
+| 分片仍待执行、执行中或等待重试 | 先用指定 Instance 下未结束分片的 EXISTS 检查；发现任一项即未齐，不每次都聚合整轮统计、不逐条结果更新父计数。存在性查询仍须验证真实执行计划，不等于无读取成本 |
+| EXISTS 无未结束项，随后读取最终统计 | 聚合仍核验总数、成功数、最终失败数及异常状态，不能仅凭 EXISTS 为假宣称全部完成；CANCELED 或未知状态不得被遗漏后误算成功／失败。只有固定完整集合全部为成功或最终失败，才把稳定统计用于 Post 输入或父完成摘要 |
+| 普通与分片完成读取共存 | 普通路径保留其最小父／单子读取；分片按阶段读取 Pre、必要分片事实及可选 Post，不为形式统一让普通任务也扫描多阶段数据，不把已有普通测试扩大为分片已验证 |
+| 一次检查生成、创建 Post 或正常完成 | 使用原检查总预算，最多执行一次阶段数据库动作：一笔事务原子插入最多 500 个分片、插入唯一 Post，或完成父 Instance。没有跨事务循环续写，不在本次处理者中持续推进后续业务阶段，不新建生成队列、处理池或专用扫描 |
+| 单次动作包含连接等待和提交确认 | 原 2 秒从检查开始计入必要读取、JSON 处理、连接等待、阶段事务及提交；各步骤不重新获得预算。到期取消不证明回滚、释锁或连接释放，实际调用收尾前不释放检查处理能力；不把预算当作两秒必定完成的保证 |
+| 500 个分片及接近已有报文边界的载荷 | 在普通完成、其他分片检查和结果保存混合负载下，测生成事务时长、检查排队与尾延迟、连接等待及超时率。反复因预算不足回滚属于推进停滞，不能用更多立即重试掩盖，也不能为了通过测试擅自拆成跨事务生成 |
+| 显式零分片没有后续分片事件 | 读取 `[]` 不需要生成事务，当前有限检查可直接创建已配置 Post，或按完整结果结束无 Post 的父；仍只进行一次阶段写入，不等待不会出现的分片回报，Post 创建依然受原截止授权 |
+| 两种提交后派发提示 | WAITING Instance 提示用于首次启动普通／Pre；RUNNING Instance 的新增 Task 提示只驱动指定父下待派发工作的有界补充。不能把后者调用成 WAITING 父启动，不扫描全 Task、不绕过共享候选容量，提示本身不授权发送 |
+| 分片／Post 创建确认提交 | 才向共享派发组件提示，并结束本次阶段创建处理；不持事务等待派发能力或 RPC，不在结果保存处理者内同步生成。执行结果提交仍提示原 Instance 检查组件，职责不合并为一条长事务 |
+| 提示丢失、队满或创建节点退出 | 已保存待执行 Task 由统一到期候选找回；尚未生成或未完成的平台阶段由既有 RUNNING 低频复核进入同一 Checker。两条恢复职责不相互替代，不重跑已成功 Pre／分片／Post，不新建 owner 或可靠提示表 |
+| 阶段创建或登记提交不明 | 创建不明按原父行协议读取持久化事实再判断，不能直接重插；已登记尝试不凭记录存在补发。查询、锁竞争及技术错误不能冒充可超时的结果未齐，不立即自重排，父已停止或终态不能重新授权 |
+| 普通专用限制与共享异常路径 | 逐处扩展登记、发送输入装配、结果保存、重试、BUSY／明确拒绝、绑定缺失结算和父检查中的普通类型限制；保留各阶段输出校验与固定输入，不能只放开首次派发。对普通、Pre、分片及 Post 分别验证快速结果、迟到 ACK、旧尝试回报、停止交错及机会预算 |
+| 宿主装配与停机交接 | 现有 svc 只装配阶段读写和两种提示，相关消费者就绪后才接纳；沿用原共享数据库、连接和停机宽限。检查提交后提示被关闭不回滚已提交工作，恢复仍能接续，不增加第二套阶段生命周期 |
+
+本专项沿用既有部署初值，不新增并发或批量数值，不提前固定 Go 并发结构。文档和锚点检查只能验证记录一致性，不能替代上述真实数据库、故障与混合负载验收。
+
 ### 派发请求与接收 ACK 验收 {#dispatch-acceptance-checks}
 
-以下对应[已通过的派发接单契约](data-contracts.md#dispatch-acceptance)，是后续实现和测试要求，不表示已完成验证。
+以下对应[已通过的派发接单契约](data-contracts.md#dispatch-acceptance)，保留完整验收要求。普通链路按既有验收记录，四阶段发送及响应保存增量按[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)的实际范围判断；完整分片生产链路、系统性故障及负载不因组件通过而自动完成。
 
 | 场景 | 预期边界 |
 | --- | --- |
@@ -92,7 +219,7 @@
 
 ### 完整执行通信与装配验收 {#execution-rpc-checks}
 
-以下对应[已通过的完整执行通信契约](data-contracts.md#execution-rpc-contract)，补充现有派发、回报、取消、认证及进程生命周期验收；这是后续实现要求，不表示已生成协议、编写执行组件或运行测试。本项不重新选择已批准的配置、队列、并发和重试初值，也不提前固定 Go 并发原语。
+以下对应[已通过的完整执行通信契约](data-contracts.md#execution-rpc-contract)，补充现有派发、回报、取消、认证及进程生命周期验收；公共协议及执行组件已有普通验证基础，单份分片协议的重新生成见[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)，Pre／分片真实 RPC 与持久化组件联测见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)。完整分片生产接线已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，分片本机进程故障与跨节点覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)；以下仍是验收要求，不将组件联测写成完整进程验收。本项不重新选择已批准的配置、队列、并发和重试初值，也不提前固定 Go 并发原语。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -106,7 +233,7 @@
 | 凭据日志保护 | 覆盖三个方法的正常、慢调用、拒绝、超时及异常路径；客户端和服务端原生日志、自有日志与诊断均不输出 Token 或完整敏感请求。组认证失败的响应与日志也不能回显凭据 |
 | 派发公共身份与输入 | JobID、InstanceID、TaskID、当前尝试标识使用 `int64`，处理器名称和 Params 沿用本轮输入；截止时间使用绝对 `Timestamp` 并验证有效性，不因编码、排队、派发或重试重置本轮期限 |
 | 派发阶段与能力 | `oneof` 明确选择 ordinary／prepare／shard／post，不再发送同义 `task_type`；缺失或当前接收端无法识别的阶段拒绝。`required_post` 与阶段、处理器能力保持一致，普通任务不启用 Post，不能静默跳过本轮要求的能力 |
-| 分片输入与 Post 统计 | 分片只携带本 Task 的工作项子数组，Post 只携带已定公共输入及 Total／Succeeded／Failed；统计非负且总数与成功、失败数一致，合法零分片提供零计数，不扩展为分片明细或查询能力 |
+| 分片输入与 Post 统计 | 分片只携带 Pre 清单中对应本 Task 的单个 JSON 元素，元素自身可以是数组；不再传平台组合后的子数组。Post 只携带已定公共输入及 Total／Succeeded／Failed，统计非负且总数与成功、失败数一致，合法零分片提供零计数，不扩展为分片明细或查询能力。单份载荷修订和固定输入发送已按[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)／[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证；Post 创建统计已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，完整验收要求见[业务显式分片验收](#explicit-shard-contract-checks) |
 | 接纳 ACK 与进程身份 | accepted 仅在成功接纳后返回，带本次进程启动生成且生命周期内不变的标准带连字符 UUIDv4；空值或非法身份不作为有效接纳证据。调度端地址取同一次派发调用的实际 Peer，不用回报来源地址、响应自报地址或共享代理地址替代 |
 | BUSY 与含糊响应 | 只有专用 BUSY 响应才表示本次未接单、未入队、未执行的满载拒绝；不能由通用 gRPC 错误码推断 BUSY。缺失、未知或无效响应不默认 accepted，不据此免费返还机会或立即重派 |
 | 回报身份、结论与摘要 | 单条回报携带已定工作、尝试及进程身份，明确 success／failure 并独立携带摘要；缺失或未知结论不默认成功。重传保持同一尝试及原结果，不增加回报 ID、批量确认或二次确认 |
@@ -119,11 +246,11 @@
 | 停服完成信号与等待关系 | 装配使用真正的停止完成信号等待自有资源收尾，不把 `Stop` 调用返回、Server.Start 返回或 RPC 停服等同全部内部工作退出；停机回调不能等待被自身阻塞的 Start 返回，不依赖 ServiceGroup 添加顺序表达释放依赖 |
 | 跨平台退出与骤停 | 分别验证 Windows 与 Unix 的宿主退出、共享预算及资源收尾，不把某个平台的原生钩子行为推广到另一个平台；骤停仍可能丢失内存结果，不承诺执行 defer、送达取消或完成落库 |
 
-[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)已单独通过，按[专项验收](#dispatch-rejection-checks)验证当前尝试的结束、预算和有限保存；[派发与取消错误映射](data-contracts.md#dispatch-cancel-errors)也已通过，按[映射验收](#dispatch-cancel-error-checks)落实。完整报文及结算规则通过不等于执行模块具备全部开工条件或已获编码授权。
+[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)已单独通过，按[专项验收](#dispatch-rejection-checks)验证当前尝试的结束、预算和有限保存；[派发与取消错误映射](data-contracts.md#dispatch-cancel-errors)也已通过，按[映射验收](#dispatch-cancel-error-checks)落实。规则批准与实际交付分开记录；当前增量的实现及测试范围见上述分片阶段记录，不以协议通过推导全部运行验收完成。
 
 ### 非 BUSY 明确拒绝结算验收 {#dispatch-rejection-checks}
 
-以下对应 2026-10-30 已通过的[明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)，适用于普通、准备、分片和收尾 Task 的当前尝试；这是后续实现要求，不表示生成、编码或故障测试已完成。具体错误映射按[已通过的派发与取消契约](data-contracts.md#dispatch-cancel-errors)落实；其他阶段的生成与推进事务仍按各自评审范围处理。
+以下对应 2026-10-30 已通过的[明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)，适用于普通、准备、分片和收尾 Task 的当前尝试；普通链路已有验证基础，四阶段明确拒绝写入及尝试保护已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证；以下保留完整验收要求，阶段创建已通过阶段 3 本机专项，本机进程故障与跨节点的实际覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)。具体错误映射按[已通过的派发与取消契约](data-contracts.md#dispatch-cancel-errors)落实；其他阶段的生成与推进事务仍按各自评审范围处理。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -148,7 +275,7 @@
 
 ### 派发与取消错误映射验收 {#dispatch-cancel-error-checks}
 
-以下对应 2026-10-30 已通过的[派发拒绝与取消响应错误映射](data-contracts.md#dispatch-cancel-errors)。本项落实已定结算与有限通知规则，不增加错误框架、数字业务码、队列或执行机会；尚未创建协议文件或运行测试，不因映射通过扩大其他阶段生成及执行模块的实现授权。
+以下对应 2026-10-30 已通过的[派发拒绝与取消响应错误映射](data-contracts.md#dispatch-cancel-errors)。本项落实已定结算与有限通知规则，不增加错误框架、数字业务码、队列或执行机会；协议和测试的实际范围以普通及分片阶段记录为准，不因映射通过扩大其他阶段生成及执行模块的实现授权。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -175,7 +302,7 @@
 
 ### 持久化交接与最小组依赖验收 {#trigger-handoff-checks}
 
-以下对应已通过的[持久化交接](data-contracts.md#trigger-durable-handoff)与[正式最小组依赖](data-contracts.md#executor-group-lifecycle)，是后续实现的验收要求，不是已运行的功能测试。
+以下对应已通过的[持久化交接](data-contracts.md#trigger-durable-handoff)与[正式最小组依赖](data-contracts.md#executor-group-lifecycle)，保留完整验收要求，实际实现与测试证据按本章开头及各阶段记录判断。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -214,7 +341,7 @@
 
 ### Job 配置通知与核对验收 {#job-config-sync-checks}
 
-以下对应已确认的 [etcd 通知与每分钟核对](behavior.md#trigger-sync)及[配置加载与重载流程](execution.md#job-config-reload)，是待实现的验证要求。
+以下对应已确认的 [etcd 通知与每分钟核对](behavior.md#trigger-sync)及[配置加载与重载流程](execution.md#job-config-reload)，保留验收要求，实际验证范围见本章开头及对应阶段记录。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -294,7 +421,7 @@
 
 ### 首轮计划初始化验收 {#first-trigger-checks}
 
-以下对应已通过的[首轮计划初始化规则](behavior.md#first-trigger-initialization)，是待实现验证的场景，不表示触发恢复协议已完成或测试已运行。
+以下对应已通过的[首轮计划初始化规则](behavior.md#first-trigger-initialization)，保留验收场景，触发恢复的实际验证范围见[历史验收记录](trigger-readiness-review.md)，不据本表宣称本轮增量已验证。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -309,7 +436,7 @@
 
 ### 编辑与重新启用验收 {#job-edit-enable-checks}
 
-以下对应[仅停用可编辑及启用重算规则](behavior.md#job-edit-enable)，是待实现的验证要求，不是已经运行的测试。
+以下对应[仅停用可编辑及启用重算规则](behavior.md#job-edit-enable)，保留验收要求，实际验证范围以[触发验收记录](trigger-readiness-review.md)及对应 CI 为准。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -349,7 +476,7 @@
 
 ### 字符串字段类型与容量验收 {#string-field-type-checks}
 
-对应[字段重设计](data-contracts.md#string-field-types)，是后续实现的验证要求，不表示调度表已经建立。
+对应[字段重设计](data-contracts.md#string-field-types)，保留字段验收要求，已落地的迁移与验证范围以对应阶段记录为准。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -434,7 +561,7 @@
 
 ### 本轮执行配置验收 {#instance-execution-config-checks}
 
-以下对应已通过的 [Instance 执行配置规则](behavior.md#instance-execution-config)，是待实现的验证要求，不是已运行的测试。
+以下对应已通过的 [Instance 执行配置规则](behavior.md#instance-execution-config)，保留验收要求，已实施及验证范围以对应阶段记录为准。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -455,7 +582,7 @@
 
 ### 触发字段契约验收 {#trigger-field-checks}
 
-以下对应[已通过字段契约](data-contracts.md#trigger-field-draft)，是待实现验证，不是数据库测试结果。
+以下对应[已通过字段契约](data-contracts.md#trigger-field-draft)，保留验收要求，数据库测试结果以对应阶段记录为准。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -474,7 +601,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 触发事务与索引验收 {#trigger-persistence-checks}
 
-以下对应[已确认的触发事务与五个索引](data-contracts.md#trigger-transaction-proposal)，使用真实 PostgreSQL 验证；当前尚未执行。
+以下对应[已确认的触发事务与五个索引](data-contracts.md#trigger-transaction-proposal)，保留真实 PostgreSQL 验收要求；实际覆盖范围见[触发验收记录](trigger-readiness-review.md)。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -492,7 +619,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 触发记账与低频恢复验收 {#trigger-recovery-checks}
 
-以下场景对应已确认的[同 Job 短事务](execution.md#trigger-accounting)和 [Leader 低频恢复](behavior.md#trigger-recovery)，是待实现的验证要求，不是已运行的测试。
+以下场景对应已确认的[同 Job 短事务](execution.md#trigger-accounting)和 [Leader 低频恢复](behavior.md#trigger-recovery)，保留验收要求，已实施及验证范围以对应阶段记录为准。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -523,7 +650,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 自动跳过触发留痕验收 {#trigger-skip-record-checks}
 
-以下对应已确认的[跳过留痕](data-contracts.md#trigger-skip-record-proposal)，是待实现测试，不是服务日志已经通过验证。
+以下对应已确认的[跳过留痕](data-contracts.md#trigger-skip-record-proposal)，保留日志验收要求，实际覆盖范围以[触发验收记录](trigger-readiness-review.md)为准。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -537,7 +664,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### Job 触发时间来源验收 {#trigger-clock-checks}
 
-以下对应已确认的[Job 触发时间来源](behavior.md#trigger-clock)，是待实现的测试要求，不是已运行的功能测试。
+以下对应已确认的[Job 触发时间来源](behavior.md#trigger-clock)，保留测试要求，实际覆盖范围以[触发验收记录](trigger-readiness-review.md)为准。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -552,7 +679,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 时钟与时区运维验收 {#clock-operations-checks}
 
-以下对应[已定运维边界](operations.md#scheduler-timezone)，包含部署检查和待实现的功能测试要求，不是已经执行的结果。
+以下对应[已定运维边界](operations.md#scheduler-timezone)，保留部署检查和功能测试要求，测试证据不代替实际部署核对。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -587,7 +714,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### Cron 异常处理验收 {#cron-error-checks}
 
-以下对应[简化异常处理](behavior.md#cron-errors)，是待实现的测试要求，不是已运行的功能测试。
+以下对应[简化异常处理](behavior.md#cron-errors)，保留测试要求，实际覆盖范围以[触发验收记录](trigger-readiness-review.md)为准。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -625,7 +752,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 手动触发验收 {#manual-trigger-checks}
 
-以下对应已通过的[手动触发规则](behavior.md#manual-trigger)及[手动创建与请求去重](execution.md#manual-trigger-accounting)，是待实现的验证场景。
+以下对应已通过的[手动触发规则](behavior.md#manual-trigger)及[手动创建与请求去重](execution.md#manual-trigger-accounting)，保留验收场景，实际验证范围以对应阶段记录为准。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -671,7 +798,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | --- | --- |
 | 普通任务成功、最终失败 | 只存在一个普通 Task，不生成 Pre 或 Post；平台按有效结果结束 Instance |
 | 分片成功／失败且未配置 Post | 等待分片完整生成并全部最终结束，直接由平台汇总；存在最终失败则 Instance 失败，不创建空 Post |
-| 合法空数组，配置或未配置 Post | 明确的零分片生成完成事实触发推进，不凭空查询结束；有 Post 则仍须在父允许且未到期时创建／授权唯一 PostTask，无 Post 且父仍 RUNNING 时允许按完整结果成功结束，不因平台收尾跨截止改判超时 |
+| 合法空数组，配置或未配置 Post | 已成功保存的 Pre 及显式空清单构成零分片事实，不另写完成标记，也不凭空查询结束；有 Post 则仍须在父允许且未到期时创建／授权唯一 PostTask，无 Post 且父仍 RUNNING 时允许按完整结果成功结束，不因平台收尾跨截止改判超时 |
 | 缺失或非法准备结果 | 不按合法空数组成功，不据此生成成功本轮；校验应答按后续契约验证 |
 | 准备最终失败 | 不生成业务分片，不执行正常 Post，Instance 失败 |
 | 分片或 Post 尚可重试 | Task 为等待重试，Instance 仍运行中；不能提前汇总为最终失败或创建下一阶段 |
@@ -687,13 +814,13 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | 停止中遇到阻塞丢弃、Job／组删除或历史清理 | STOPPING 纳入活跃判断和相应部分索引，仍阻挡新轮和删除，不清理恢复依据；执行资格必须明确检查允许状态，不能以“未终态”直接授权 |
 | 运行状态、执行阶段及重复恢复 | 状态与阶段分别表达，不把准备／分片／收尾混入 Instance 状态，不新增权威 phase 枚举；生成事实及 Task 可恢复，成功／失败／取消不回退，页面布局及具体展示方式另行设计 |
 
-涉及截止边界的用例须分别验证新授权限制和已有结果收尾，不能继续沿用“过期必判超时”的旧预期，也不能只靠本地定时器触发时刻判断。自动跳过按[留痕验收](#trigger-skip-record-checks)检查；无可用执行器的事件分类仍按后续协议补充。明确 BUSY 的分类及返还规则、[普通条件更新 SQL](data-contracts.md#ordinary-busy-settlement)已经确认，响应编码、其他类型和实现验证仍待完成。已绑定无结果的失联执行等待整轮终止，不从节点离线推导提前重派。
+涉及截止边界的用例须分别验证新授权限制和已有结果收尾，不能继续沿用“过期必判超时”的旧预期，也不能只靠本地定时器触发时刻判断。自动跳过按[留痕验收](#trigger-skip-record-checks)检查；无可用执行器的事件分类仍按后续协议补充。明确 BUSY 的分类及返还规则、[普通条件更新 SQL](data-contracts.md#ordinary-busy-settlement)已经确认，响应编码及四阶段 BUSY 写入的增量验证见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)，完整分片推进已通过阶段 3 本机专项，本机故障与跨节点的实际覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)。已绑定无结果的失联执行等待整轮终止，不从节点离线推导提前重派。
 
 ### 普通完成读取、异常分类与结束原因验收 {#ordinary-completion-query-checks}
 
-2026-11-05 普通完成读取、条件写入、本地提示合并、最小查询及真实组件链路已验证，实际范围见[阶段 3 记录](ordinary-readiness-review.md#ordinary-completion-progress)。普通停止／超时竞争已有[阶段 5 专项验证](ordinary-readiness-review.md#ordinary-timeout-recovery-progress)，下方清单仍包含分片及阶段 6 负载验收，不将部分实现标为全部通过。
+2026-11-05 普通完成读取、条件写入、本地提示合并、最小查询及真实组件链路已验证，实际范围见[普通阶段 3 记录](ordinary-readiness-review.md#ordinary-completion-progress)。普通停止／超时竞争及阶段 6 负载已有各自验收证据；分片阶段完成与生产接线已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)；下方清单仍保留完整要求，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)，不将本机专项扩大为全部通过。
 
-以下对应 2026-11-02 已通过的[普通完成查询](data-contracts.md#ordinary-completion-query)及[稳定结束原因](data-contracts.md#execution-end-reasons)，是后续实施要求，尚未运行。实际投影、可空映射、索引使用及条件更新竞争须用真实 PostgreSQL 验证；不以文档 SQL 代替执行计划或功能证据。
+以下对应 2026-11-02 已通过的[普通完成查询](data-contracts.md#ordinary-completion-query)及[稳定结束原因](data-contracts.md#execution-end-reasons)，保留验收要求；普通路径的实际验证见上述历史记录。投影、可空映射、索引使用及条件更新竞争以真实 PostgreSQL 证据为准，不以文档 SQL 代替执行计划或功能证据，也不将普通结果当作本轮分片证据。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -716,7 +843,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### Instance 完成与超时判定验收 {#instance-completion-checks}
 
-以下对应已通过的[阶段完成条件、父条件更新、摘要及超时衔接](data-contracts.md#instance-completion-contract)，保留完整验收要求；普通完成与停止／超时竞争已验证，见[最新记录](ordinary-readiness-review.md#ordinary-timeout-recovery-progress)，分片及完整进程验收仍待后续。阶段判定可由单元测试覆盖；条件 UPDATE、事务提交及正常完成、自动超时和人工停止的竞争使用真实 PostgreSQL 验证。生成封口字段及完整分片查询 SQL 仍待对应设计，不以本节批准替代这些协议。
+以下对应已通过的[阶段完成条件、父条件更新、摘要及超时衔接](data-contracts.md#instance-completion-contract)，保留完整验收要求。普通完成与停止／超时竞争见[历史记录](ordinary-readiness-review.md#ordinary-timeout-recovery-progress)；分片原子生成见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)，最小阶段查询、Post 创建、父最终判定和生产接线见[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)。本机故障与跨节点验证已完成，独立进程证据及限制见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，不以组件及 svc 宿主测试替代；本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)。阶段判定可由单元测试覆盖；条件 UPDATE、事务提交及正常完成、自动超时和人工停止的竞争使用真实 PostgreSQL 验证。[原子生成事实](data-contracts.md#shard-generation-storage-contract)不新增封口字段，完整要求继续按[分片查询专项](#sharded-query-handoff-checks)验收。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -727,11 +854,11 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | 所有分片最终成功或存在最终失败，且未配置 Post | 前者成功，后者失败；不创建空 Post，不把一次尝试失败但后来成功计为最终失败 |
 | 部分或全部分片最终失败，且配置了 Post | 仍须按原截止授权和执行已配置 Post；Post 缺失、未完成或尚可重试时不得直接结束，Post 成功也不抹除分片最终失败 |
 | 分片均成功但 Post 最终失败，或分片与 Post 均最终失败 | Instance 均失败；结束原因按稳定规则确定，双重失败不随回报或检查顺序改变 |
-| 合法零分片并明确保存生成完成事实 | 未配置 Post 时可成功结束；已配置 Post 时仍要求其最终结果，不能因分片计数为零跳过 Post |
+| 成功 Pre 明确保存空清单 | 本身构成零分片事实，不另写生成完成标记；未配置 Post 时可成功结束，已配置 Post 时仍要求其最终结果，不能因分片计数为零跳过 Post |
 | 完整结果截止前保存，父收尾延迟至截止后 | 父仍运行时可按结果结束，不因平台推进故障重跑已完成业务 |
 | 有效最终结果截止后才保存，父仍 RUNNING | 允许该结果参与正常结束；明确不承诺严格按截止时刻裁决成功失败 |
 | 父锁外读取完成事实和必要统计 | 先读取本轮阶段所需的最少事实；分片集合封口后固定、Task 最终状态不可逆，活跃 Instance 的子记录不被历史清理删除，不用提高事务隔离级别保证判定 |
-| 分片未完整生成、生成记录缺失或查询碰巧没有 Task | 空查询不构成完成证据；不得把未确认的完整性当作合法零分片 |
+| Pre 未成功保存、非空清单尚未生成或查询碰巧没有 Task | 空查询不构成完成证据；非空清单在原子生成提交前没有可见分片，不能把尚未生成误判为合法零分片 |
 | 子 Task 已取消 | 不把取消当作成功或最终业务失败；父 STOPPING 则保留停止决定并收敛，父终态则退出；同快照父 RUNNING 且普通子 CANCELED 需诊断异常、允许原截止超时，不用子取消结果复活父实例 |
 | 截止后 Post 尚未创建／授权，或重试候选尚待登记 | 不创建或授权新业务；只允许已经齐备结果的平台收尾，不延长原截止 |
 | 正常完成条件写入 | 按 `id` 和 `status=2` 更新为成功 `3` 或失败 `4`，状态、原因、摘要、结束时间及审计字段一起保存；不附加当前时间早于截止的条件，保留开始、截止及快照 |
@@ -751,11 +878,11 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | 结果齐备后父更新失败，或完成已提交但确认丢失 | 恢复平台终态，不重跑普通 Task、Pre、分片或 Post；父已终态则保留，父仍运行且事实完整时重新条件竞争 |
 | 长尾业务忽略取消或本地中断 | 平台终态不证明业务退出，实际退出前不虚假释放执行槽位；不新增时间轮或固定 500ms 宽限 |
 
-本轮已批准上述完成判定、父条件写入、摘要及超时衔接，不代表实现或测试已完成。生成封口字段、完整分片查询 SQL、查询索引和执行计划仍待对应设计；检查组件的合并、容量、并发及处理超时按下方[专项验收](#instance-check-defaults-checks)执行，[原因码名称](data-contracts.md#execution-end-reasons)已定，摘要模板和其他未闭合参数按各自契约落实，不在此新增摘要长度限制或宣称执行模块已经交付。运行状态与执行阶段分开理解，具体页面展示另行设计，不据此新增 phase 枚举或固定拼接显示方案。
+上述完成判定、父条件写入、摘要及超时衔接按实际阶段记录区分设计与验证结论。分片原子生成已在阶段 2 验证；阶段查询、Post、父完成和四条生产查询的索引专项已在[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)通过本机验证，不能据此宣称系统性故障或正式负载验收通过。检查组件的合并、容量、并发及处理超时继续按下方[专项验收](#instance-check-defaults-checks)执行；[原因码名称](data-contracts.md#execution-end-reasons)和摘要采用各自契约，不在此新增摘要长度限制。运行状态与执行阶段分开理解，具体页面展示另行设计，不据此新增 phase 枚举或固定拼接显示方案。
 
 ### Instance 检查合并、并发与处理时间验收 {#instance-check-defaults-checks}
 
-以下对应已通过的[Instance 检查安排与初值](execution.md#instance-check-defaults)，是待实现的验收要求，尚未运行这些测试。通知合并、时间安排及并发交界应使用可控时间和故障点验证；数据库条件更新、超时及提交交界使用真实 PostgreSQL 验证。检查采用既有阶段和终态协议，不另建状态机，也不预定 Go 容器、通道或协程结构。
+以下对应已通过的[Instance 检查安排与初值](execution.md#instance-check-defaults)，并纳入 2026-11-09 [阶段动作交接专项](#sharded-query-handoff-checks)对检查职责的修订。普通组件已有历史验证，分片 Checker、处理中后续提示和生产双向提示装配已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)；下表仍是完整验收要求，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机混合检查及代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)。通知合并、时间安排及并发交界使用可控时间和故障点验证；数据库条件更新、超时及提交交界使用真实 PostgreSQL 验证。检查采用既有阶段和终态协议，不另建状态机，也不预定 Go 容器、通道或协程结构。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -777,24 +904,26 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | 检查排队很久、连接池紧张或数据库操作较慢 | 2 秒从实际开始检查起计算，包含等待数据库连接、必要读取、有限写入及提交，不计入此前排队或合并等待；各操作不得重新获得完整 2 秒，停机时还受共享剩余宽限限制 |
 | 发出提示的入站 RPC 已返回或被取消 | 已接纳检查使用组件生命周期及独立处理 Context，不复用已返回的请求 Context；仍受自身 2 秒处理预算和进程共享停机宽限约束 |
 | 2 秒到期，但数据库调用或事务清理尚未实际结束 | 发出 Context 取消不证明操作停止、回滚或连接释放；必要收尾未结束前不提前归还在途检查能力，不允许另一次同 ID 检查与其重叠，也不把提交不明视为成功或确定回滚 |
-| 一次检查发现准备完成、分片完成或整轮到期 | 仅读取推进所需事实并执行既定有限推进；不在本次检查内生成整轮分片、等待业务完成、执行派发 RPC 或完成整轮 STOPPING 子取消。后续工作按既有组件及授权协议交接，不扩大单次检查职责 |
-| 正常结果、生成完成通知与 Leader 复核同时提示同一 ID | 复用本节点同一检查组件和本地合并协议，不由派发或结果保存处理者同步执行检查；跨节点仍可能重复检查，数据库条件写入继续裁决，不宣称全局只检查一次或正常来源绝对优先 |
+| 一次检查发现准备完成、分片完成或整轮到期 | 读取最少事实，在原共享总预算内最多进行一次阶段数据库动作：原子生成最多 500 个分片、创建 Post，或正常完成父；明确零分片直接进入适用后续动作，不等待不存在的分片事件。生成／Post 提交后只提示派发，不循环续写、不等待业务或 RPC，不完成整轮 STOPPING 子取消；到期仍按既有完成优先及停止决定协议处理。本轮明确修订原“检查内不生成整轮分片”的职责边界 |
+| 正常结果、派发授权发现父已到期的提示与 Leader 复核同时到达同一 ID | 复用本节点同一检查组件和本地合并协议，不由派发或结果保存处理者同步执行检查；生成提交只提示派发，不自发重复检查。跨节点仍可能重复检查，数据库条件写入继续裁决，不宣称全局只检查一次或正常来源绝对优先 |
 | 提示放弃、进程退出或检查结束后没有后续正常事件 | 由既定 RUNNING Instance 低频复核补查，不重跑已成功业务，不新增专用扫描、持久化检查队列或全局检查锁；复核仍服从已有开始时间门槛及终态规则 |
 
 性能验证分别统计合并等待、排队、在途 ID 数、合并次数、处理中新提示触发的再次检查、满载新提示放弃、数据库读取及写入、连接等待和完成推进延迟。需覆盖单 Instance 密集回报、多 Instance 稀疏回报及跨节点回报，不把本地合并宣称为消除全部重复查询。Leader 的 1 秒单次查询、5 秒周期扫描交接预算及恢复补给水位按下方 [RUNNING 专项](#instance-recheck-query-checks)验证；不把已接纳条目的队尾轮转当作未接纳候选的严格公平或恢复时限保证。
 
 ### Task 公共字段与单例约束验收 {#task-field-checks}
 
-以下对应[已确认字段与唯一索引](data-contracts.md#task-field-contract)，是后续实现及真实 PostgreSQL 测试的要求，不表示已建表或测试通过。
+以下对应[已确认字段与唯一索引](data-contracts.md#task-field-contract)，保留完整验收要求。基础表和单例约束已有普通验证；本轮输入列、候选索引替换及数据映射见[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)，分片和 Post 写入事实见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)与[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)，不将字段落地等同于系统性故障或负载验收完成。
 
 | 场景 | 预期结果 |
 | --- | --- |
 | 核对 Model、迁移与字段注释 | 表名 `job_task`，字段类型、四类编码及六态编码与契约一致；审计时间不用于观察、重试或超时，不增加软删除、物理外键、负责人、租约或 Attempt 历史表 |
 | 普通首次创建 | 同一启动事务插入执行中 Task，`attempt_no=1`、`used_attempts=1`，保存首次与当前登记时间；不先提交待执行 Task 再另开登记事务 |
+| Pre 首次创建与分片首次登记 | Pre 与父首次启动原子保存 RUNNING、1／1 及两项登记时间；业务分片生成时为 WAITING、0／0、登记时间为空，按[首次派发专项](#sharded-start-dispatch-checks)取得发送处理能力后才登记为 RUNNING、1／1 |
+| Post 创建与首次登记 | Post 创建为 WAITING、0／0、登记时间为空，`next_dispatch_at` 使用创建事务数据库时间，`input_data` 固定保存三个分片计数；按[Post 专项](#post-creation-checks)取得实际派发处理能力后才登记为 RUNNING、1／1，不在创建时占机会 |
 | 首次派发明确 BUSY，随后再派发 | 两个数依次为 `(1,1)`、`(1,0)`、`(2,1)`；只返还已用次数，不复用旧执行编号；重复 BUSY 不多返还 |
 | 旧尝试已结算为等待重试，但下一编号尚未生成 | 即使 `attempt_no` 相同，迟到结果仍因旧状态不允许而拒绝，不能以没有独立关闭字段为由复活 |
 | 同一 Instance 并发创建普通、准备或收尾 Task | 各类型分别至多一条；已有终态记录仍参与唯一约束，重试更新原 Task，不能另插同类型记录 |
-| 同一 Instance 存在多个分片 | 单例部分唯一索引不覆盖类型 3，不把分片误限为一条；分片编号与防重仍须另行设计 |
+| 同一 Instance 存在多个分片 | 单例部分唯一索引不覆盖类型 3，不把分片误限为一条；整套生成防重使用已定父主键 NOWAIT、锁内存在性检查及单事务插入，不增加 `shard_index` 或逐片生成身份 |
 | Task 类型与 Instance 模式不匹配 | 父行事务逻辑拒绝；不能以满足单例唯一索引作为模式校验通过 |
 | 执行器重启或同一进程接多次任务 | 每次进程启动生成新的 UUIDv4，同一进程复用自身身份；不与组 Token 混用，取消仍不校验预期进程 ID |
 | IPv4／IPv6 绑定地址 | `host:port` 表达可供定向连接，IPv6 格式正确；遵守 VARCHAR(255) 边界，不静默截断 |
@@ -804,7 +933,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | 执行中或终态，含明确 BUSY 后的状态切换 | `next_dispatch_at` 只在待执行／等待重试时表达下次派发时间；执行中及终态为空 |
 | 多 Task 装配执行输入 | 公共参数、处理器、组、重试配置及整轮截止来自 Instance 及本轮快照，批量读取或 JOIN，不复制当前 Job 配置、不逐 Task 补查 |
 
-普通结果覆盖摘要、重试登记保留最近说明、未知结算更新平台诊断，以及父正常完成摘要的规则已定；[普通完成读取](data-contracts.md#ordinary-completion-query)及[稳定结束原因](data-contracts.md#execution-end-reasons)已通过；完整迁移、执行计划验证及分片字段仍须落实，不由本清单提前确定。
+普通结果覆盖摘要、重试登记保留最近说明、未知结算更新平台诊断，以及父正常完成摘要的规则已定；[普通完成读取](data-contracts.md#ordinary-completion-query)及[稳定结束原因](data-contracts.md#execution-end-reasons)已通过。分片输入存储、原子生成、Pre／分片首次登记，以及 Post 固定输入、创建和首次登记已按各自契约确定，迁移、完整查询和执行计划仍须实施验证，不将设计批准等同字段与运行链路已经交付。
 
 ### 普通 Task 首次创建 SQL 验收 {#ordinary-start-sql-checks}
 
@@ -937,7 +1066,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 普通 Task BUSY 条件返还验收 {#ordinary-busy-settlement-checks}
 
-以下对应[普通 BUSY 条件返还与延期](data-contracts.md#ordinary-busy-settlement)，是待实现清单，不是已运行结论。条件更新、提交交界及竞争使用真实 PostgreSQL 验证，接口层另验证专用 BUSY 的未接纳语义。
+以下对应[普通 BUSY 条件返还与延期](data-contracts.md#ordinary-busy-settlement)，保留验收要求。普通路径已有验证基础，四阶段返还、延期、条件保护及输入保留的增量证据见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)。条件更新、提交交界及竞争使用真实 PostgreSQL 验证，接口层另验证专用 BUSY 的未接纳语义；本机专项不替代后续系统性故障与负载验收。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -1007,11 +1136,11 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 本地派发与尝试登记验收 {#dispatch-registration-checks}
 
-以下对应已通过的发送前登记与记账规则，是待实现验证的清单，不表示完整执行协议或测试已完成。
+以下对应已通过的发送前登记与记账规则，保留完整验收要求。普通登记已有验证基础；Pre 首次启动、待执行分片／Post 登记和各阶段重试的组件验证见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)。完整生产推进已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)。
 
 | 场景 | 预期结果 |
 | --- | --- |
-| 完整生成后暂不运行恢复扫描 | 生成节点利用已知 Task 直接启动本地派发，不等待全节点扫描发现新工作 |
+| 完整生成后暂不运行恢复扫描 | 生成节点立即提示既有派发供给按共享能力补充候选，不等待周期发现；不直接登记全部分片，实际发送仍须首次登记及确认提交 |
 | 本地无槽位或整轮分片多于容量 | 不提前登记全部积压，不因本地排队消耗执行机会；容量释放后有界补充 |
 | 有界队列与固定派发工作协程 | 分别限制排队积压及消费并发；取出后才条件登记，不在入队时登记，也不在取出后无限启动 goroutine |
 | 使用默认派发配置或覆盖配置 | 每调度进程默认 64 个长期工作协程，覆盖发送前数据库处理及接单 RPC 等待；可由部署配置调整，不影响 Instance 创建并发 32，不把执行器业务或结果上报并发改成 64 |
@@ -1031,11 +1160,11 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | 恢复发现 Task 已执行中 | 不直接抢过来重发，先按确认、结果不明或失联协议处理当前尝试 |
 | 登记与 Instance 停止／截止竞争 | 登记保留单 Instance 主键行锁和锁内当前时间判定，拒绝 STOPPING、终态或已到期的新授权；不能以“非终态”作为许可，完成条件 UPDATE 仍参与父行协调，不把“登记拒绝”解释为直接判父超时 |
 
-派发并发以 64 为部署初值，实施后比较 32、64、128 等档位，观察数据库连接、父 NOWAIT 冲突、子行等待、接单延迟、队列积压、有效派发吞吐及 BUSY 比例；这些是压测档位，不是已确认的性能结果或队列大小。测试同时保持触发创建并发和执行器容量边界清晰，不能仅增加派发工作协程就宣称系统整体吞吐提高。已通过的本地合并、争锁退出及补查错峰见[竞争验收](#dispatch-contention-checks)，候选容量、分页和退避按[供给专项](#dispatch-supply-checks)验证；补充份额不替代尚未确定的登记事务批量。
+派发并发以 64 为部署初值，实施后比较 32、64、128 等档位，观察数据库连接、父 NOWAIT 冲突、子行等待、接单延迟、队列积压、有效派发吞吐及 BUSY 比例；这些是压测档位，不是已确认的性能结果或队列大小。测试同时保持触发创建并发和执行器容量边界清晰，不能仅增加派发工作协程就宣称系统整体吞吐提高。已通过的本地合并、争锁退出及补查错峰见[竞争验收](#dispatch-contention-checks)，候选容量、分页和退避按[供给专项](#dispatch-supply-checks)验证；Pre 首次启动及分片首次登记按[专项验收](#sharded-start-dispatch-checks)落实，分片登记量服从本次实际派发处理能力，不能直接套用候选补充份额。
 
 ### 排队、并发与满载处理验收 {#capacity-model-checks}
 
-以下对应 2026-10-28 已通过并修订的[排队、并发与满载处理](execution.md#capacity-model)、[执行器处理流程](execution.md#executor-processing-flow)及[业务处理初值](execution.md#executor-business-defaults)，仅记录待实现的行为和资源验证要求。执行器采用有界业务等待队列、有限业务处理并发、有界结果保留及独立的有限发送并发；验收不规定具体 Go 并发原语或内部类型。业务处理并发默认 32、等待队列默认 128，均为每个执行器进程的部署参数；调度端候选数值见[供给专项](#dispatch-supply-checks)，执行器结果保留与发送初值见[回报默认值](execution.md#reporting-defaults)，不同阶段的参数不互相替代。
+以下对应 2026-10-28 已通过并修订的[排队、并发与满载处理](execution.md#capacity-model)、[执行器处理流程](execution.md#executor-processing-flow)及[业务处理初值](execution.md#executor-business-defaults)，保留行为和资源验证要求，实际覆盖范围以普通及分片阶段记录为准。执行器采用有界业务等待队列、有限业务处理并发、有界结果保留及独立的有限发送并发；验收不规定具体 Go 并发原语或内部类型。业务处理并发默认 32、等待队列默认 128，均为每个执行器进程的部署参数；调度端候选数值见[供给专项](#dispatch-supply-checks)，执行器结果保留与发送初值见[回报默认值](execution.md#reporting-defaults)，不同阶段的参数不互相替代。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1063,7 +1192,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 派发候选合并与跨节点竞争验收 {#dispatch-contention-checks}
 
-以下对应[派发竞争处理](execution.md#dispatch-contention)，于 2026-10-26 通过，尚未实现或执行测试。修订范围是普通 Instance 首次开始，以及普通、准备、分片、收尾等所有类型已有 Task 的新尝试登记；只将这些派发父主键短事务的等待式 `FOR UPDATE` 改为 `FOR UPDATE NOWAIT`，不据此修改停止决定、分片生成批次或 Post 创建事务。分片生成封口及具体登记 SQL 仍按各自设计闭合。
+以下对应[派发竞争处理](execution.md#dispatch-contention)，保留完整验收要求。2026-10-26 的批准范围是普通 Instance 首次开始，以及普通、准备、分片、收尾等所有类型已有 Task 的新尝试登记；只将这些派发父主键短事务的等待式 `FOR UPDATE` 改为 `FOR UPDATE NOWAIT`，不据此修改停止决定、分片生成或 Post 创建事务。普通路径已有验证基础，Pre 启动、分片／Post 登记和随后单独批准的原子生成 NOWAIT 已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证。2026-11-09 另行批准的 Post 创建 NOWAIT 已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，不改写此前批准范围；对应[原子生成](#atomic-shard-generation-checks)、[首次派发](#sharded-start-dispatch-checks)和[Post 创建](#post-creation-checks)清单继续保留，本机跨节点故障覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1084,22 +1213,23 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 专项压测须同时覆盖单节点、多节点相同候选页、同轮大批候选、不同轮并行、父短事务延迟、慢接单 RPC 和子行更新竞争，记录重复候选读取、合并次数、父 NOWAIT 冲突、成功登记／无效登记次数、数据库往返与连接占用、子行等待、有效派发吞吐及尾延迟。抖动、不同起点和快速退出只降低部分竞争成本，不消除跨节点重复读取，也不构成性能必胜或无饥饿保证。
 
-[排队、并发与满载处理](execution.md#capacity-model)已明确共享派发不切来源固定份额、Instance 小批轮转和按可用等待位置持续补充；[派发供给初值](execution.md#dispatch-supply-defaults)进一步批准候选总量、补查间隔与抖动、页大小、轮转份额及无进展退避，按下节专项验证。登记事务批量和其余队列长度、并发数仍待落实，不套用 STOPPING 的扫描、取消或通知参数，不把本清单当作全部参数定稿或实际测试。
+[排队、并发与满载处理](execution.md#capacity-model)已明确共享派发不切来源固定份额、Instance 小批轮转和按可用等待位置持续补充；[派发供给初值](execution.md#dispatch-supply-defaults)进一步批准候选总量、补查间隔与抖动、页大小、轮转份额及无进展退避，按下节专项验证。分片及 Post 首次登记量受本次实际派发处理能力约束，分别见[分片专项](#sharded-start-dispatch-checks)和[Post 专项](#post-creation-checks)，本轮未设定新的登记批量数值，也不套用 STOPPING 的扫描、取消或通知参数；具体实现和性能仍须验证。
 
 ### 派发缓冲、分页与扫描退避验收 {#dispatch-supply-checks}
 
-以下对应 2026-10-28 已通过的[派发供给初值](execution.md#dispatch-supply-defaults)与[候选分页](data-contracts.md#dispatch-candidate-pagination)，保留完整验收要求。普通首次与到期重试的共享供给、临时分页、容量及退避已有实现与专项测试，实际覆盖见[阶段 4 记录](ordinary-readiness-review.md#ordinary-retry-progress)；分片、完整恢复及正式负载验收仍待完成，不将功能或执行计划验证当作性能达标。具体 Go 并发原语和内部组织未由该项批准冻结，分片生成封口和登记批量仍按后续契约落实；发送／ACK 时间采用另行通过的[派发时间预算](execution.md#dispatch-time-budgets)。
+以下对应 2026-10-28 已通过的[派发供给初值](execution.md#dispatch-supply-defaults)与[候选分页](data-contracts.md#dispatch-candidate-pagination)，保留完整验收要求。普通首次与到期重试的共享供给、临时分页、容量及退避见[历史阶段 4 记录](ordinary-readiness-review.md#ordinary-retry-progress)；分片／Post 统一到期查询、有界本地提示、读取失败退避、持续提示及共享轮转已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证，生产阶段交接已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)。本机恢复与跨节点故障验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)，不将功能或执行计划验证当作性能达标。具体 Go 并发原语和内部组织未由该项批准冻结；分片原子生成按[生成专项](#atomic-shard-generation-checks)、Pre 启动及分片首次登记按[派发专项](#sharded-start-dispatch-checks)、Post 创建和首次登记按[Post 专项](#post-creation-checks)落实；待执行分片、待执行 Post 与到期重试合入同一到期 Task 查询，和 WAITING Instance 保持两类补查来源，不新增一套容量或补查初值。发送／ACK 时间采用另行通过的[派发时间预算](execution.md#dispatch-time-budgets)。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
 | 默认配置与部署覆盖 | 派发并发沿用 64，等待候选总量初值 256，空闲补查间隔初值 1 秒；三者可由部署配置调整。单页最多 128、轮转最多 8 项、抖动上下 20% 及无进展最多 4 页采用集中默认值，不误设为执行器容量或 Job 配置 |
 | 临时查询页、本地提示及排队候选并存 | 所有等待候选计入同一 256 总量，已查出但尚未交接的记录不能成为额外积压；处理中的工作另受 64 并发限制，不只统计某一队列长度 |
 | 剩余候选容量小于 128 或已经满 | 查询最多读取可接纳的余量，满时暂停补充；不额外预取整页并无限等待交接，不提前登记或占执行机会 |
-| Instance 创建或分片生成确认提交 | 本节点及时补充派发，不等待一秒补查；正常来源和数据库发现来源共用容量，不按来源切固定预留份额 |
+| Instance 创建、分片生成或 Post 创建确认提交 | 本节点及时补充派发，不等待一秒补查；正常来源和数据库发现来源共用容量，不按来源切固定预留份额 |
+| 待执行分片、待执行 Post 与待开始 Instance、到期重试同时存在 | WAITING Instance 与统一到期 Task 两类查询来源共享原候选容量、Instance 轮转及补查周期；待执行分片和 Post 合入后者，领取处理时才登记首次尝试，不创建第三类扫描、阶段队列或独立首次 Task 游标，不扩充总量或抢先登记全部已创建 Task |
 | 单个 Instance 持续积压，或同时出现多个 Instance | 每次先补充最多 8 项后让其他已发现 Instance 获得补充机会；只有一轮有工作时可继续使用空闲容量，不把 8 当作登记事务批量、固定并发上限或强制等待点 |
 | 多节点空闲补查与工作处理结束 | 各节点独立采用 1 秒上下 20% 的补查间隔，不固定同步；有候选、有能力时持续处理，不在每批结束后强制等待周期，不将空闲间隔解释成完成时限 |
 | WAITING 多页读取期间不断新增记录 | 每趟固定 ID 上界，按 ID 临时分页，新增记录不持续扩大原趟；查询不取得执行权或开始整轮计时 |
-| 重试时间相同、跨页及扫描期间有新重试到期 | 每趟固定数据库时间上界，按 `(next_dispatch_at, id)` 续扫；相同时间的记录依靠 ID 区分，后来到期的工作由后续新趟覆盖；候选保留原尝试编号 |
+| 首次待执行与重试时间相同、跨页及扫描期间有新 Task 到期 | 统一到期 Task 每趟固定数据库时间上界，共用 `(next_dispatch_at, id)` 续扫位置；相同时间依靠 ID 区分，后来到期的工作由后续新趟覆盖；候选保留原类型、状态和尝试编号，不分出独立首次游标 |
 | 部分页接纳、合并或按竞争规则跳过 | 游标只越过已接纳、已合并或允许跳过的候选，不能因改变本地处理顺序越过尚未接纳的记录；容量恢复后从保留的位置继续 |
 | 较小 ID 迟提交或本趟跳过候选 | 下一趟重新从头覆盖，临时游标不成为永久消费水位；本趟争锁失败不回到第一页，不借新页或旧提示立即重抢同一 Instance |
 | 连续查询但所有候选均未产生有效登记进展 | 最多连续读 4 页便暂停，等待下一次约一秒的补查机会；初值下最多返回 512 条候选，入队、锁竞争失败、候选失效及提交结果不明均不能刷新读取额度 |
@@ -1140,21 +1270,22 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | BUSY 延期到期、重复保存或整轮即将截止 | 由既有约一秒补查发现，重新通过父行授权后登记新尝试；不混用业务失败默认 10 秒重试，不新增 BUSY 次数状态、队列或扫描器，重复条件写入不刷新已生效延期，也不延长整轮期限 |
 | 健康负载、慢接单及数据库故障对照 | 记录连接等待、登记／提交耗时、ACK 延迟、绑定保存成功率、阶段和总预算耗尽、工作协程实际占用及未知结算数量，验证预算关系；不把配置超时等同于资源已硬释放或已实测吞吐 |
 
-本节只落实派发确认链路的时间与失败处理。无绑定扫描与逐条结算按[已批准安排](execution.md#unbound-recovery-defaults)执行，完整分片协议仍待闭合；执行器参数按[业务处理初值](execution.md#executor-business-defaults)及[回报默认值](execution.md#reporting-defaults)验收，RUNNING／STOPPING 低频恢复、结果保留及业务重试语义不因派发初值改变。
+本节只落实派发确认链路的时间与失败处理。无绑定扫描与逐条结算按[已批准安排](execution.md#unbound-recovery-defaults)执行，分片协议已确定，阶段 1／2 已完成上述适用范围的本机验证，完整阶段推进已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)；执行器参数按[业务处理初值](execution.md#executor-business-defaults)及[回报默认值](execution.md#reporting-defaults)验收，RUNNING／STOPPING 低频恢复、结果保留及业务重试语义不因派发初值改变。
 
 ### 可派发候选查询验收 {#dispatch-recovery-query-checks}
 
-以下对应[已通过的候选查询与索引](data-contracts.md#dispatch-recovery-query)，是完整验收清单。WAITING 与公共到期重试查询、适用索引及普通共享派发供给已实现，真实 PostgreSQL 的分页、过滤和执行计划验证范围见[阶段 4 记录](ordinary-readiness-review.md#ordinary-retry-progress)。公共查询不按类型过滤不代表分片登记及推进已实现；其他恢复、跨节点故障和正式负载验收仍待对应阶段完成，不将局部覆盖视为本表全部通过。
+以下对应[已通过的候选查询与索引](data-contracts.md#dispatch-recovery-query)，是完整验收清单。WAITING 与公共到期重试查询、适用索引及普通共享派发供给已实现，真实 PostgreSQL 的分页、过滤和执行计划验证范围见[阶段 4 记录](ordinary-readiness-review.md#ordinary-retry-progress)。2026-11-09 已批准将待执行分片、待执行 Post 和重试合入统一到期 Task 查询，替换到期索引并保持两类查询来源，见[本轮专项](#sharded-query-handoff-checks)；索引替换已在[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)验证，查询扩展、首次登记和有界提示供给已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证；完整 Checker 与生产接线已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，不能把阶段 3 本机专项通过当作完整分片故障与负载验收。本机恢复与跨节点故障另见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机查询与代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)，不将局部覆盖视为本表全部通过。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
 | 待开始 Instance 查询 | 只返回当前 WAITING 的 ID，按 ID 有界读取；查询不改变状态，不取得执行权，不提前启动整轮计时 |
 | 较小 Instance ID 晚于较大 ID 提交 | 按已批准的固定上界与临时分页规则读取，下一趟从头覆盖迟提交记录；具体轮转与退避按[供给专项](#dispatch-supply-checks)验收 |
-| 到期与未到期重试混合 | 只返回等待重试且最早派发时间不晚于本趟数据库时间上界的 Task，按时间及 ID 排序和续扫；返回 Task ID、Instance ID、原尝试编号及分页时间，不加载整份参数或结果 |
+| 到期与未到期首次／重试候选混合 | 统一查询只返回满足首次分片／Post 或等待重试条件，且最早派发时间不晚于本趟数据库时间上界的 Task；按时间及 ID 排序和续扫，返回 Task ID、Instance ID、原类型、原状态、原尝试编号及分页时间，不加载整份参数、输入或结果 |
+| 已保存分片或 Post 尚未首次登记 | 待执行分片和 Post 均以 WAITING、0／0 及已到期的 `next_dispatch_at` 进入有界候选；与重试共用查询及游标但保留首次状态语义，真实父授权和子条件仍由登记事务复核。创建提示丢失或节点退出后仍可经同一供给机制发现，不能遗漏类型 4，不新增独立扫描周期 |
 | 父已 STOPPING、已终态、已到截止或查询后发生变化 | 候选查询关联排除已观察到的不合格父；查询后状态变化仍由派发授权事务拦截，查询结果不成为派发许可 |
 | 当前 Job 停用或配置发生变化 | 不因当前 Job 启停和配置屏蔽旧轮次；真实处理继续使用 Instance 固定的本轮配置 |
-| 普通与其他类型进入等待重试 | 公共重试查询不按类型拆分；普通首次仍直接创建执行中 Task，不能误记为等待重试或待执行的首次创建流程 |
-| 多节点读到同一候选、候选入队后尝试已变化 | 允许重复读取，保持原候选编号；后续条件登记和提交确认决定发送，不用当前编号替换旧编号继续登记 |
+| 普通与其他类型进入等待重试 | 公共重试查询不按类型拆分；普通和 Pre 首次均在父启动事务中直接创建执行中 Task，不能误记为待执行分片／Post 或等待重试；分片和 Post 首次登记后的 BUSY 延期也不能回到 0／0 初始分支 |
+| 多节点读到同一候选、候选入队后尝试已变化 | 允许重复读取，保持原候选类型、状态和编号；后续条件登记和提交确认决定发送，不用当前值替换原候选继续登记 |
 | 大量历史 Task、等待重试积压及 STOPPING 父下待取消子 Task | 验证部分索引匹配、排序与 JOIN 的实际执行计划、读取量和查询耗时；不把 LIMIT 返回数等同于实际访问条数，也不要求小表必走索引 |
 | 派发队列满或无可用容量 | 停止补充，未接纳工作仍留在数据库；不提前登记、修改时间或消耗机会，不无限创建等待入队协程 |
 
@@ -1192,13 +1323,13 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | 正常派发、绑定、结束与重试持续发生 | 验证精确索引的写入、WAL、HOT 适用变化及旧版本清理负担；正常任务也经过索引，不能仅以异常候选少推断成本低 |
 | 大量正常已绑定执行与少量未绑定候选混合 | 验证候选索引、父关联过滤和排序计划；结合长任务及重试积压测量扫描收益，不将 LIMIT 返回数当作访问行数上限 |
 
-性能和故障验证分别记录各节点候选扫描量、短批读取次数、有效结算与零行、行锁及连接等待、单条技术失败、运行预算耗尽和跨运行续扫进度。10 秒等待与 30 秒观察都不是结算完成 SLA；多节点随机等待不保证消除冲突，失败项要等后续新一趟覆盖，持续故障或积压可能延长恢复。以上为待实现验收要求，不据默认数值宣称已证明吞吐或恢复时限。
+性能和故障验证分别记录各节点候选扫描量、短批读取次数、有效结算与零行、行锁及连接等待、单条技术失败、运行预算耗尽和跨运行续扫进度。10 秒等待与 30 秒观察都不是结算完成 SLA；多节点随机等待不保证消除冲突，失败项要等后续新一趟覆盖，持续故障或积压可能延长恢复。以上保留完整验收要求，不据默认数值或局部功能测试宣称已证明吞吐或恢复时限。
 
 <a id="instance-due-recovery-query-checks"></a>
 
 ### RUNNING Instance 统一复核验收 {#instance-recheck-query-checks}
 
-以下对应 2026-10-22 已通过的[统一候选查询与索引](data-contracts.md#instance-recheck-query)、[扫描生命周期](execution.md#instance-recheck-direction)，以及 [RUNNING 扫描预算与交接水位](execution.md#instance-recheck-defaults)。2026-11-05 普通模式查询、游标、半容量交接、预算、共用周期、真实 PostgreSQL 索引计划及 etcd 生产宿主接任已有专项验证，范围见[实施记录](ordinary-readiness-review.md#ordinary-timeout-recovery-progress)。分片阶段推进、完整进程与正式负载测试仍待后续，下表不表示全部通过。RUNNING 在水位或满载时于剩余预算内等待空间，不改变 STOPPING 独立扫描和队满结束规则。
+以下对应 2026-10-22 已通过的[统一候选查询与索引](data-contracts.md#instance-recheck-query)、[扫描生命周期](execution.md#instance-recheck-direction)，以及 [RUNNING 扫描预算与交接水位](execution.md#instance-recheck-defaults)。2026-11-05 普通模式查询、游标、半容量交接、预算、共用周期、真实 PostgreSQL 索引计划及 etcd 生产宿主接任已有专项验证，范围见[实施记录](ordinary-readiness-review.md#ordinary-timeout-recovery-progress)。分片阶段推进及 svc 接线已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)；本机进程／跨节点故障验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)，下表不表示全部通过。RUNNING 在水位或满载时于剩余预算内等待空间，不改变 STOPPING 独立扫描和队满结束规则。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1226,7 +1357,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | Leader 切换、扫描预算到期或扫描 Context 取消时已有检查接纳 | 旧 Leader 停止发现和新交接，切主时丢弃临时游标；已接纳检查使用组件生命周期及自己的 2 秒处理预算，不被扫描 Context 取消。新 Leader 从头扫描，重复检查仍依既有条件写入防重 |
 | 非 Leader 正常结果提交与 Leader 复核同一 Instance | 提交节点立即提示本地 checker，不等待 Leader 或转发内部 RPC；本地合并及跨节点数据库协议继续生效，不保证正常路径绝对先执行 |
 | 入队后父已正常完成或进入 STOPPING | 检查保持已保存终态或停止决定，不覆盖原原因，不根据旧候选直接判超时 |
-| 未到期且 Pre／分片已满足后续阶段条件 | 复用原生成／Post 授权协议，不重跑已完成业务；分片未封口或配置的 Post 缺失不误判整轮完成，合法零分片须有生成完成事实 |
+| 未到期且 Pre／分片已满足后续阶段条件 | 复用原生成／Post 授权协议，不重跑已完成业务；非空清单尚未原子生成或配置的 Post 缺失不误判整轮完成，合法零分片以成功 Pre 的显式空清单为依据，不另写完成标记 |
 | 候选扫描时未到期，实际检查时已过截止 | 重新读取数据库时间；完整结果先正常结束，否则按原超时协议处理，不使用旧扫描时间授权新工作 |
 | 截止已到且完整最终结果已齐 | 尝试按结果正常结束；正常完成与并发终止仍按已有条件写入裁决，不将技术失败或零行转换为超时 |
 | 明确结果未齐且父已到期 | 进入原父单行短事务，锁后重新取数据库时间并核验父；不创建新尝试、分片或 Post，不延长原截止，父锁内不重扫全轮 Task |
@@ -1289,7 +1420,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 恢复资源分工验收 {#recovery-resource-checks}
 
-以下对应[已通过的资源归属](execution.md#recovery-resources)，是后续实现与压测要求，尚未运行。RUNNING 和 STOPPING 的候选发现分别按各自专项验收；WAITING 与到期重试的缓冲、分页及退避按[派发供给专项](#dispatch-supply-checks)验证。Instance 检查的合并、512／8／2 秒初值及处理中后续提示按[检查专项](#instance-check-defaults-checks)执行；Leader RUNNING 的 1 秒查询、5 秒周期预算及半容量恢复水位按[统一复核专项](#instance-recheck-query-checks)验证。其他未闭合类别的 SQL／索引、周期、批量和处理参数仍待设计，不将 RUNNING 的拥塞等待外推 STOPPING，也不承诺来源严格公平或恢复时限。
+以下对应[已通过的资源归属](execution.md#recovery-resources)，保留完整验收要求。普通实现已有历史验证；本轮统一 Task 供给见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)，分片阶段检查及宿主接线见[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机查询与代表性负载已按确认范围通过，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)。RUNNING 和 STOPPING 的候选发现分别按各自专项验收；待开始 Instance 与统一到期 Task 两类来源共用原派发供给；待执行分片／Post 和到期重试共用后者的查询与游标，缓冲、分页及退避按[供给专项](#dispatch-supply-checks)、[首次分片派发专项](#sharded-start-dispatch-checks)与[Post 专项](#post-creation-checks)验证。Instance 检查的合并、512／8／2 秒初值及处理中后续提示按[检查专项](#instance-check-defaults-checks)执行；Leader RUNNING 的 1 秒查询、5 秒周期预算及半容量恢复水位按[统一复核专项](#instance-recheck-query-checks)验证。其他类别的 SQL／索引及处理规则按各自范围验收，不将 RUNNING 的拥塞等待外推 STOPPING，也不承诺来源严格公平或恢复时限。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1303,7 +1434,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 新授权与整轮终止验收 {#authorization-terminal-checks}
 
-以下是[已通过协调规则](execution.md#authorization-terminal)的待实现验收要求，不是已经运行的并发测试。
+以下是[已通过协调规则](execution.md#authorization-terminal)的完整验收要求；普通并发测试与本轮分片专项分别按各自阶段记录判断，不将已有局部覆盖扩大为全部通过。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1319,11 +1450,11 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | 停止决定事务、数据库取消与取消 RPC | 所有 Task 类型共用有界批量取消；子批次及 RPC 均在停止决定事务之外，RPC 不在数据库事务内；父最终结束等待子数据库终态，不等待业务退出 |
 | 稀疏单 Task Instance 与同轮大批派发 | 分别测父行检查与 NOWAIT 冲突次数、子行等待、事务时长及吞吐；不把批量减少往返等同于消除逐轮协调成本 |
 
-普通首次开始计时及写入按[已定 SQL](data-contracts.md#ordinary-start-sql)和[专项验收](#ordinary-start-sql-checks)执行；停止路径按[STOPPING 协议](data-contracts.md#instance-termination-sql)和[专项验收](#instance-termination-sql-checks)落实。正常完成及超时前置判定衔接已通过，按[完成判定验收](#instance-completion-checks)实施；其他类型登记、批次大小和恢复查询索引继续设计，提交结果不明按下面已通过规则验收。
+普通首次开始计时及写入按[已定 SQL](data-contracts.md#ordinary-start-sql)和[专项验收](#ordinary-start-sql-checks)执行；Pre 首次开始与分片首次登记按[已通过专项](#sharded-start-dispatch-checks)落实，Post 创建和首次登记按[Post 专项](#post-creation-checks)落实，本轮未设定新的登记批量数值，不改变原派发处理能力。停止路径按[STOPPING 协议](data-contracts.md#instance-termination-sql)和[专项验收](#instance-termination-sql-checks)落实。正常完成及超时前置判定衔接已通过，按[完成判定验收](#instance-completion-checks)实施；Post 创建边界和固定输入已确定，查询、索引及组件交接按[本轮专项](#sharded-query-handoff-checks)实施验证，提交结果不明按下面已通过规则验收。
 
 ### 提交结果不明恢复验收 {#commit-unknown-checks}
 
-以下对应[已通过的提交不明恢复规则](execution.md#commit-unknown)，用于后续故障注入；当前未实施这些测试。ACK 绑定的有限重试另见[绑定 SQL 验收](#executor-binding-sql-checks)。
+以下对应[已通过的提交不明恢复规则](execution.md#commit-unknown)，保留完整故障注入要求。本轮分片生成及 Post 创建的提交交界已有[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)／[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)本机注入证据；测试通过事务适配模拟提交确认丢失，不等同于真实网络中断。[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)另验证结果已保存后强制结束真实进程、由另一节点接续持久化缺口；该证据不覆盖提交途中数据库断网。ACK 绑定的有限重试另见[绑定 SQL 验收](#executor-binding-sql-checks)。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1409,7 +1540,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
-| 同一 Instance 的 1,000 个 Task 分布在 5 个不同地址 | 按 Instance、本轮组及不同地址形成 5 个目标通知，正常无重试时为 5 次目标 RPC；不逐 Task 发送，不把重试算成新增目标，不向全组广播 |
+| 同一 Instance 的 500 个分片 Task 分布在 5 个不同地址 | 按 Instance、本轮组及不同地址形成 5 个目标通知，正常无重试时为 5 次目标 RPC；不逐 Task 发送，不把重试算成新增目标，不向全组广播 |
 | 新 STOPPING 决定已明确提交 | 分别尝试接纳数据库取消和通知工作；任一侧容量满或失败不阻止另一侧，不等待子 UPDATE、父 NOWAIT 竞争成功或父最终结束才提交通知 |
 | 停止决定未确认提交或仍结果不明 | 不凭本地意图发送取消；提交确认及重复操作交界可能造成通知重复，但不以无全局去重保证为由跳过停止依据核验 |
 | 子取消多批执行、Leader 每两分钟恢复及普通重复停止请求 | 不在每个子批次、周期恢复或仅看到既有停止决定时重新启动通知；恢复只接续数据库义务，不按周期重试已经结束或丢失的通知 |
@@ -1436,7 +1567,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | 地址页查询后出现迟到绑定、跨页期间有新地址或派发晚于取消到达 | 接受漏掉迟到目标及已授权业务晚到的窗口，特别是地址落在已推进游标之前；不增加绑定成功必补发、预期进程 ID 校验、长期取消缓存或可靠通知保证 |
 | 大轮次、多个小轮次、慢目标及正常派发／回报混合 | 测量地址页轮转、两类容量占用、排队至首次通知和最后目标结束延迟、目标握手／重试成本、SQL 计划及共享数据库和 CPU 压力；通知资源分开不等于硬隔离或固定完成 SLA |
 
-容量和超时均为部署初值；验收分别统计不同目标数、RPC 尝试数、成功确认、永久失败、预算耗尽和未接纳数，不能用五个目标最终全部确认作为一般保证。执行器响应只确认本机取消操作，不证明业务退出；数据库最终终态与通知送达仍是两件事。上述故障、容量及计划测试尚未运行，具体协议生成和运行组件按后续实施安排验证。
+容量和超时均为部署初值；验收分别统计不同目标数、RPC 尝试数、成功确认、永久失败、预算耗尽和未接纳数，不能用五个目标最终全部确认作为一般保证。执行器响应只确认本机取消操作，不证明业务退出；数据库最终终态与通知送达仍是两件事。普通协议和运行组件按[普通验收记录](ordinary-readiness-review.md)判断，本轮分片的本机故障与跨节点验证见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，本机代表性负载与停止竞争的实测范围见[查询与负载记录](sharded-load-validation.md)，其他容量场景继续按本表要求判断，不将普通结果扩大为上述清单全部通过。
 
 ### 异步结果上报与易失结果验收 {#result-report-checks}
 
@@ -1483,7 +1614,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 结果回报错误分类与无效结果验收 {#result-error-classification-checks}
 
-以下对应 2026-10-30 已通过的[结果回报错误分类与无效结果处理](data-contracts.md#result-error-classification)，仅覆盖结果回报入口、执行器重传和调度端后台保存，不将这些错误映射外推到派发或取消。以下为待实现的协议、故障及数据库验收清单，尚未运行，不以文档记录表示错误分类或 JSONB 边界已经验证。
+以下对应 2026-10-30 已通过的[结果回报错误分类与无效结果处理](data-contracts.md#result-error-classification)，仅覆盖结果回报入口、执行器重传和调度端后台保存，不将这些错误映射外推到派发或取消。以下保留完整验收要求。普通结果处理已有验证基础；Pre 完整清单的成功保存、500 上限、JSONB 异常诊断和四阶段结果处理的本机证据见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)。完整阶段推进已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，本机进程故障与跨节点覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，不将已验证的组件范围扩大为本表全部通过。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1544,7 +1675,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 整轮超时默认值验收 {#timeout-default-checks}
 
-以下对应已通过的[900 秒默认值](data-contracts.md#timeout-default-proposal)，是待实现验证的要求。管理输入和快照属于本批契约；真实计时、重试和终态推进随执行模块验收，不以文档检查代替功能测试。
+以下对应已通过的[900 秒默认值](data-contracts.md#timeout-default-proposal)，保留完整验收要求。管理输入和快照属于本批契约；真实计时、重试和终态推进随执行模块验收，不以文档检查代替功能测试。
 
 | 场景 | 预期结果 |
 | --- | --- |
@@ -1607,7 +1738,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 #### Token 日志保护检查 {#token-log-checks}
 
-以下验证[Token 日志保护](operations.md#token-log-protection)，尚未执行。使用可辨识的测试 Token 检查捕获日志，不使用真实部署凭据。
+以下保留[Token 日志保护](operations.md#token-log-protection)的验收要求；已有普通路径证据见本章开头及[普通验收记录](ordinary-readiness-review.md)，不自动覆盖本轮分片新增路径。使用可辨识的测试 Token 检查捕获日志，不使用真实部署凭据。
 
 | 场景 | 必须验证的行为 |
 | --- | --- |
@@ -1617,7 +1748,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 最小组接入、执行管理与发布边界验收 {#minimal-management-checks}
 
-以下对应 2026-11-02 通过的[正式组字段与四个管理入口](data-contracts.md#executor-group-management-contract)、[执行查询／停止契约](data-contracts.md#execution-management-contract)及[普通开发验收与完整执行发布边界](progress.md#ordinary-integration-contract)。本节仅记录后续实施要求，尚未运行测试或执行迁移；已有组引用、缓存、日志保护及停止协议的验收继续有效。
+以下对应 2026-11-02 通过的[正式组字段与四个管理入口](data-contracts.md#executor-group-management-contract)、[执行查询／停止契约](data-contracts.md#execution-management-contract)及[普通开发验收与完整执行发布边界](progress.md#ordinary-integration-contract)。本节保留完整验收要求；已实施迁移、管理入口和普通执行查询／停止的实际范围见[普通验收记录](ordinary-readiness-review.md)，已有组引用、缓存、日志保护及停止协议的证据继续有效，不将本表视为完整发布通过清单。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1644,7 +1775,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 组身份与发现标识检查 {#group-identity-checks}
 
-以下验证[组身份与发现标识](operations.md#group-identity)的设计，完整组管理和执行器接入尚未实现。
+以下保留[组身份与发现标识](operations.md#group-identity)的验收要求；组管理和执行器接入的已有实现及测试范围见[普通验收记录](ordinary-readiness-review.md)，生产业务处理器和实际部署仍按各自范围验收。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1686,7 +1817,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 以下验证已通过的[能力就绪](operations.md#startup-readiness)和[进程有限善后](operations.md#process-shutdown)，不是现有代码或测试已满足的声明。默认 30 秒是每个进程共用的可配置停机预算，不是业务完成保证。
 
-结果 Queue 已实现关闭接纳、共享期限 Drain 与实际退出 Wait，Job 宿主和独立结果入口已接线；本轮实际验证见[生产接线记录](ordinary-readiness-review.md#ordinary-result-wiring-progress)。System 执行器退出与完整执行进程验收仍未完成；初始化 I/O 并非全部接受宿主 Context，不能将宿主限制等待等同于立即中断初始化。
+结果 Queue 已实现关闭接纳、共享期限 Drain 与实际退出 Wait，Job 宿主和独立结果入口已接线；普通生产接线见[历史记录](ordinary-readiness-review.md#ordinary-result-wiring-progress)，System 执行器退出和进程专项的实际范围见本章开头及[普通最终验收](ordinary-readiness-review.md#ordinary-local-checkpoint)。本轮分片的阶段接线已通过本机专项，本机进程故障与跨节点覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)；初始化 I/O 并非全部接受宿主 Context，不能将宿主限制等待等同于立即中断初始化。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1728,7 +1859,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 基准场景与负载形态
 
-采用[第 1 章已确认基线](scope.md#quality-baseline)：500 条启用规则、其中 100 条同秒到期、单个 Instance 的 1,000 个业务分片，以及 100 个 Instance 各 10 个业务分片。这些是待执行的基准场景，不是已取得的成绩；各场景分别验证，不将数字相乘组成一项叠加承诺，也不据此设置产品最大值。
+采用[第 1 章已确认基线](scope.md#quality-baseline)：500 条启用规则、其中 100 条同秒到期、单个 Instance 的 500 个业务分片，以及 100 个 Instance 各 10 个业务分片。2026-11-06 已按整轮最多 500 个业务分片的生成契约修订原单轮 1,000 分片基线；不改写已有普通任务负载实测记录。其中单轮 500 片与 100 个 Instance 各 10 片混合普通任务，已于 2026-11-12 在两个调度进程、两个执行器下各完成三轮并通过已确认门槛，近上限报文和停止竞争也已验证，证据见[查询与代表性负载](sharded-load-validation.md)；下表其他负载形态仍逐项判断，不将短时基准扩大为全部性能验收；各场景分别验证，不将数字相乘组成一项叠加承诺，也不由测试基线推导规则数、Instance 数等其他产品上限。每轮 500 个业务分片的上限来自独立批准的生成契约。
 
 | 负载形态 | 重点观察 |
 | --- | --- |
@@ -1799,4 +1930,4 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 第一版交付以已通过范围和验收标准为准：功能链路完成，多节点及重要故障场景通过，容量边界有可复现结果，业务接入和运维说明与实现一致，未解决限制明确列出。 普通闭环的独立验收不构成执行能力单独正式发布，完整执行能力须待分片完成后发布，仍须满足其他适用交付条件。
 
-公开说明书需区分已确认设计、已实现能力和已验证结果。当前触发模块已交付，普通 Task 模块进入详细设计；完整业务执行、分片、管理运维和整体验收尚未完成，不宣称第一版分布式调度能力已经全部可用。
+公开说明书需区分已确认设计、已实现能力和已验证结果。当前触发模块及普通六阶段适用范围已完成验收；分片阶段 1／2 已完成本机验证，阶段 3 已通过本机专项，[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)本机故障与跨节点验收已完成，阶段 5 的本机查询、代表性负载及必要回归已完成，实际范围见[查询与负载记录](sharded-load-validation.md)；本轮尚未提交或推送，远端 CI 仍待取得。管理页面、历史清理、System 生产处理器及其他发布余项继续按各自范围推进，不宣称第一版分布式调度能力已经全部可用。

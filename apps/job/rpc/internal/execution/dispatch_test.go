@@ -279,10 +279,101 @@ func newTestSender(t *testing.T, provider ExecutorProvider) *Sender {
 }
 
 func senderAttempt() dispatch.RegisteredAttempt {
-	return dispatch.RegisteredAttempt{JobID: 11, InstanceID: 22, ExecutorGroupID: 41, TaskID: 33, AttemptNo: 2,
+	return dispatch.RegisteredAttempt{JobID: 11, InstanceID: 22, ExecutorGroupID: 41, TaskID: 33, TaskType: model.TaskTypeOrdinary, AttemptNo: 2,
 		ExecutionConfig: model.ExecutionConfig{SchemaVersion: 1, ExecutionMode: model.ExecutionModeNormal,
+			TimeoutSeconds: 900, RetryIntervalSeconds: 10,
 			ProcessorName: "test.frozen", Params: "synthetic-private-frozen-input"},
 		RegisteredAt: time.Now(), DeadlineAt: time.Now().Add(time.Hour)}
+}
+
+func TestDispatchRequestUsesFrozenStageInput(t *testing.T) {
+	for _, taskType := range []model.TaskType{model.TaskTypePrepare, model.TaskTypeShard, model.TaskTypePost} {
+		attempt := senderAttempt()
+		attempt.TaskType = taskType
+		attempt.ExecutionConfig.ExecutionMode, attempt.ExecutionConfig.PostEnabled = model.ExecutionModeSharded, true
+		switch taskType {
+		case model.TaskTypeShard:
+			attempt.InputData = model.TaskData(`{"id":9007199254740993,"items":[1,2]}`)
+		case model.TaskTypePost:
+			attempt.InputData = model.TaskData(`{"total":5,"succeeded":3,"failed":2}`)
+		}
+		request, err := dispatchRequest(attempt)
+		if err != nil || request == nil || !request.RequiredPost || request.GetOrdinary() != nil || request.Params != attempt.ExecutionConfig.Params || !request.DeadlineAt.AsTime().Equal(attempt.DeadlineAt) {
+			t.Fatalf("stage %d request=%+v err=%v", taskType, request, err)
+		}
+		switch taskType {
+		case model.TaskTypePrepare:
+			if request.GetPrepare() == nil {
+				t.Fatal("preparation branch was omitted")
+			}
+		case model.TaskTypeShard:
+			if request.GetShard() == nil || string(request.GetShard().Item) != string(attempt.InputData) {
+				t.Fatal("shard item was decoded, wrapped or replaced")
+			}
+			attempt.InputData[0] = ' '
+			if request.GetShard().Item[0] != '{' {
+				t.Fatal("request aliases the registration's input bytes")
+			}
+		case model.TaskTypePost:
+			post := request.GetPost()
+			if post == nil || post.Total != 5 || post.Succeeded != 3 || post.Failed != 2 {
+				t.Fatalf("frozen Post statistics changed: %+v", post)
+			}
+		}
+	}
+}
+
+func TestDispatchRequestRejectsMissingOrInconsistentPostStatistics(t *testing.T) {
+	for _, input := range []model.TaskData{nil, {}, []byte(`null`), []byte(`[]`), []byte(`{}`),
+		[]byte(`{"total":0,"succeeded":0}`), []byte(`{"total":null,"succeeded":0,"failed":0}`),
+		[]byte(`{"total":1,"succeeded":-1,"failed":2}`), []byte(`{"total":1,"succeeded":0,"failed":0}`),
+		[]byte(`{"total":1.5,"succeeded":1,"failed":0}`),
+		[]byte(`{"total":9223372036854775807,"succeeded":9223372036854775807,"failed":1}`)} {
+		attempt := senderAttempt()
+		attempt.TaskType, attempt.InputData = model.TaskTypePost, input
+		attempt.ExecutionConfig.ExecutionMode, attempt.ExecutionConfig.PostEnabled = model.ExecutionModeSharded, true
+		if request, err := dispatchRequest(attempt); request != nil || err == nil {
+			t.Fatalf("invalid Post statistics accepted: request=%+v error=%v", request, err)
+		}
+	}
+	for _, input := range []model.TaskData{[]byte(`{"total":0,"succeeded":0,"failed":0}`),
+		[]byte(`{"total":9223372036854775807,"succeeded":9223372036854775807,"failed":0}`)} {
+		if _, err := decodePostInput(input); err != nil {
+			t.Fatalf("valid counts rejected: %v", err)
+		}
+	}
+}
+
+func TestDispatchRequestRejectsInvalidStageAndShardedSnapshot(t *testing.T) {
+	for _, change := range []func(*dispatch.RegisteredAttempt){
+		func(a *dispatch.RegisteredAttempt) { a.TaskType = 0 },
+		func(a *dispatch.RegisteredAttempt) { a.TaskType = model.TaskTypeOrdinary },
+		func(a *dispatch.RegisteredAttempt) { a.InputData = nil },
+		func(a *dispatch.RegisteredAttempt) { a.InputData = model.TaskData(``) },
+		func(a *dispatch.RegisteredAttempt) { a.InputData = model.TaskData(`{`) },
+		func(a *dispatch.RegisteredAttempt) { a.ExecutionConfig.TimeoutSeconds = 0 },
+		func(a *dispatch.RegisteredAttempt) { a.ExecutionConfig.RetryIntervalSeconds = 0 },
+		func(a *dispatch.RegisteredAttempt) { a.ExecutionConfig.MaxRetries = -1 },
+		func(a *dispatch.RegisteredAttempt) { a.TaskType = model.TaskTypePrepare },
+		func(a *dispatch.RegisteredAttempt) {
+			a.TaskType = model.TaskTypePost
+			a.ExecutionConfig.PostEnabled = false
+		},
+	} {
+		attempt := senderAttempt()
+		attempt.TaskType, attempt.InputData = model.TaskTypeShard, model.TaskData(`null`)
+		attempt.ExecutionConfig.ExecutionMode, attempt.ExecutionConfig.PostEnabled = model.ExecutionModeSharded, true
+		change(&attempt)
+		if request, err := dispatchRequest(attempt); request != nil || err == nil {
+			t.Fatalf("invalid sharded request accepted: %+v, %v", request, err)
+		}
+	}
+	attempt := senderAttempt()
+	attempt.TaskType, attempt.InputData = model.TaskTypeShard, model.TaskData(`null`)
+	attempt.ExecutionConfig.ExecutionMode = model.ExecutionModeSharded
+	if request, err := dispatchRequest(attempt); err != nil || request.GetShard() == nil || string(request.GetShard().Item) != "null" || request.RequiredPost {
+		t.Fatalf("JSON-null shard without Post rejected: %+v, %v", request, err)
+	}
 }
 
 func senderTarget(client protocol.ExecutorClient) ExecutorTarget {

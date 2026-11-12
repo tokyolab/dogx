@@ -10,6 +10,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/tokyolab/dogx/apps/job/internal/model"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
 )
 
@@ -386,7 +387,7 @@ func TestRuntimeStopSkipsTakenCandidateBeforeRegistration(t *testing.T) {
 	r.registering[22] = waitingCandidate{sequence: 1, instanceID: 22}
 	r.Stop()
 	wrapper := runtimeRegistrar{runtime: r, registrar: registrar}
-	if attempt, err := wrapper.StartOrdinary(context.Background(), 22); err != nil || attempt != nil || registrar.calls.Load() != 0 {
+	if attempt, err := wrapper.StartInstance(context.Background(), 22); err != nil || attempt != nil || registrar.calls.Load() != 0 {
 		t.Fatal("a worker entered registration after stop won the admission race")
 	}
 }
@@ -534,7 +535,7 @@ func runtimeTestConfig() RuntimeConfig {
 		QueryTimeout: 2 * time.Second, TotalTimeout: 10 * time.Second, BusyDelay: 5 * time.Second}
 }
 
-func runtimeForTest(t *testing.T, source waitingSource, registrar ordinaryRegistrar, sender Sender, store responseStore, config RuntimeConfig) *Runtime {
+func runtimeForTest(t *testing.T, source waitingSource, registrar attemptRegistrar, sender Sender, store responseStore, config RuntimeConfig) *Runtime {
 	t.Helper()
 	tasks, ok := store.(runtimeTasks)
 	if !ok {
@@ -625,19 +626,20 @@ func (s *runtimeSourceStub) snapshot() []runtimeQueryCall {
 
 type runtimeRetryQuery struct {
 	scanNow time.Time
-	cursor  *repository.RetryCursor
+	cursor  *repository.DispatchCursor
 	limit   int
 }
 
 type runtimeTaskStoreStub struct {
 	responseStore
-	list    func(context.Context, time.Time, *repository.RetryCursor, int) ([]repository.RetryCandidate, error)
-	mu      sync.Mutex
-	queries []runtimeRetryQuery
+	list         func(context.Context, time.Time, *repository.DispatchCursor, int) ([]repository.DispatchCandidate, error)
+	listInstance func(context.Context, int64, time.Time, int) ([]repository.DispatchCandidate, error)
+	mu           sync.Mutex
+	queries      []runtimeRetryQuery
 }
 
-func (s *runtimeTaskStoreStub) ListRetryCandidates(ctx context.Context, now time.Time, cursor *repository.RetryCursor, limit int) ([]repository.RetryCandidate, error) {
-	var copied *repository.RetryCursor
+func (s *runtimeTaskStoreStub) ListDispatchCandidates(ctx context.Context, now time.Time, cursor *repository.DispatchCursor, limit int) ([]repository.DispatchCandidate, error) {
+	var copied *repository.DispatchCursor
 	if cursor != nil {
 		value := *cursor
 		copied = &value
@@ -657,6 +659,13 @@ func (s *runtimeTaskStoreStub) snapshot() []runtimeRetryQuery {
 	return append([]runtimeRetryQuery(nil), s.queries...)
 }
 
+func (s *runtimeTaskStoreStub) ListInstanceDispatchCandidates(ctx context.Context, id int64, now time.Time, limit int) ([]repository.DispatchCandidate, error) {
+	if s.listInstance != nil {
+		return s.listInstance(ctx, id, now, limit)
+	}
+	return nil, nil
+}
+
 func runtimeTotalPages(r *Runtime, source *runtimeSourceStub) int {
 	return len(source.snapshot()) + len(r.tasks.(*runtimeTaskStoreStub).snapshot())
 }
@@ -666,8 +675,8 @@ func TestRuntimeSharesFourPageBudgetAcrossBothCandidateSources(t *testing.T) {
 		scanNow := time.Now()
 		source := runtimeFullPages(4096)
 		source.databaseTime = func(context.Context) (time.Time, error) { return scanNow, nil }
-		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, now time.Time, cursor *repository.RetryCursor, limit int) ([]repository.RetryCandidate, error) {
-			return runtimeRetryPage(now.Add(-time.Second), cursor, limit), nil
+		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, now time.Time, cursor *repository.DispatchCursor, limit int) ([]repository.DispatchCandidate, error) {
+			return runtimeDispatchPage(now.Add(-time.Second), cursor, limit), nil
 		}}
 		config := runtimeTestConfig()
 		config.WaitingCapacity = 1024
@@ -686,17 +695,17 @@ func TestRuntimeSharesFourPageBudgetAcrossBothCandidateSources(t *testing.T) {
 func TestRuntimeRetryQueryReservationAndOriginalAttemptArePreserved(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		queryReturn, registrationReturn := make(chan struct{}), make(chan struct{})
-		var seen []repository.RetryCandidate
+		var seen []repository.DispatchCandidate
 		var mu sync.Mutex
-		original := repository.RetryCandidate{TaskID: 81, InstanceID: 19, AttemptNo: 7, NextDispatchAt: time.Now().Add(-time.Second)}
-		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, _ time.Time, _ *repository.RetryCursor, limit int) ([]repository.RetryCandidate, error) {
+		original := repository.DispatchCandidate{TaskType: model.TaskTypeOrdinary, Status: model.TaskRetryWaiting, TaskID: 81, InstanceID: 19, AttemptNo: 7, NextDispatchAt: time.Now().Add(-time.Second)}
+		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, _ time.Time, _ *repository.DispatchCursor, limit int) ([]repository.DispatchCandidate, error) {
 			if limit != 2 {
 				t.Errorf("retry query limit=%d, want remaining waiting capacity 2", limit)
 			}
 			<-queryReturn
-			return []repository.RetryCandidate{original}, nil
+			return []repository.DispatchCandidate{original}, nil
 		}}
-		registrar := &dispatcherRegistrarStub{retryCall: func(_ context.Context, candidate repository.RetryCandidate) (*RegisteredAttempt, error) {
+		registrar := &dispatcherRegistrarStub{retryCall: func(_ context.Context, candidate repository.DispatchCandidate) (*RegisteredAttempt, error) {
 			mu.Lock()
 			seen = append(seen, candidate)
 			mu.Unlock()
@@ -737,10 +746,10 @@ func TestRuntimeRetryQueryErrorKeepsItsDatabaseTimeAndCompositeCursor(t *testing
 		source := &runtimeSourceStub{databaseTime: func(context.Context) (time.Time, error) {
 			return initialTime.Add(time.Duration(clocks.Add(1)) * time.Hour), nil
 		}}
-		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, now time.Time, cursor *repository.RetryCursor, limit int) ([]repository.RetryCandidate, error) {
+		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, now time.Time, cursor *repository.DispatchCursor, limit int) ([]repository.DispatchCandidate, error) {
 			switch reads.Add(1) {
 			case 1:
-				return runtimeRetryPage(now.Add(-time.Second), cursor, limit), nil
+				return runtimeDispatchPage(now.Add(-time.Second), cursor, limit), nil
 			case 2:
 				return nil, errors.New("synthetic retry query failure")
 			default:
@@ -766,13 +775,13 @@ func TestRuntimeRetryQueryErrorKeepsItsDatabaseTimeAndCompositeCursor(t *testing
 	})
 }
 
-func TestRuntimeSameParentRetryRegistrationEndsBeforeItsRPC(t *testing.T) {
+func TestRuntimeSameParentAttemptRegistrationEndsBeforeItsRPC(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		registrationReturn, sendReturn := make(chan struct{}), make(chan struct{})
-		rows := runtimeRetryPage(time.Now().Add(-time.Second), nil, 2)
+		rows := runtimeDispatchPage(time.Now().Add(-time.Second), nil, 2)
 		rows[0].InstanceID, rows[1].InstanceID = 22, 22
 		var entered atomic.Int32
-		registrar := &dispatcherRegistrarStub{retryCall: func(_ context.Context, candidate repository.RetryCandidate) (*RegisteredAttempt, error) {
+		registrar := &dispatcherRegistrarStub{retryCall: func(_ context.Context, candidate repository.DispatchCandidate) (*RegisteredAttempt, error) {
 			if entered.Add(1) == 1 {
 				<-registrationReturn
 			}
@@ -781,7 +790,7 @@ func TestRuntimeSameParentRetryRegistrationEndsBeforeItsRPC(t *testing.T) {
 			return &attempt, nil
 		}}
 		sender := &dispatcherSenderStub{call: func(context.Context, RegisteredAttempt) (Response, error) { <-sendReturn; return Response{}, nil }}
-		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(context.Context, time.Time, *repository.RetryCursor, int) ([]repository.RetryCandidate, error) {
+		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(context.Context, time.Time, *repository.DispatchCursor, int) ([]repository.DispatchCandidate, error) {
 			return rows, nil
 		}}
 		r := runtimeForTest(t, &runtimeSourceStub{}, registrar, sender, tasks, runtimeTestConfig())
@@ -807,7 +816,7 @@ func TestRuntimeParentConflictSkipsFollowingPagesWhileOthersProgress(t *testing.
 	synctest.Test(t, func(t *testing.T) {
 		secondPage := make(chan struct{})
 		var pages, conflicts, others atomic.Int32
-		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, now time.Time, cursor *repository.RetryCursor, limit int) ([]repository.RetryCandidate, error) {
+		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, now time.Time, cursor *repository.DispatchCursor, limit int) ([]repository.DispatchCandidate, error) {
 			page := pages.Add(1)
 			if page > 2 {
 				return nil, nil
@@ -815,14 +824,14 @@ func TestRuntimeParentConflictSkipsFollowingPagesWhileOthersProgress(t *testing.
 			if page == 2 {
 				<-secondPage
 			}
-			rows := runtimeRetryPage(now.Add(-time.Second), cursor, limit)
+			rows := runtimeDispatchPage(now.Add(-time.Second), cursor, limit)
 			for i := range rows {
 				rows[i].InstanceID = 1
 			}
 			rows[len(rows)-1].InstanceID = int64(page) + 1
 			return rows, nil
 		}}
-		registrar := &dispatcherRegistrarStub{retryCall: func(_ context.Context, candidate repository.RetryCandidate) (*RegisteredAttempt, error) {
+		registrar := &dispatcherRegistrarStub{retryCall: func(_ context.Context, candidate repository.DispatchCandidate) (*RegisteredAttempt, error) {
 			if candidate.InstanceID == 1 {
 				conflicts.Add(1)
 				return nil, repository.ErrInstanceLocked
@@ -948,15 +957,15 @@ func TestRuntimeSaturatedConflictWindowKeepsInflightIdentitiesAndAuthorizedRPCs(
 	})
 }
 
-func runtimeRetryPage(at time.Time, cursor *repository.RetryCursor, limit int) []repository.RetryCandidate {
+func runtimeDispatchPage(at time.Time, cursor *repository.DispatchCursor, limit int) []repository.DispatchCandidate {
 	var first int64
 	if cursor != nil {
 		first = cursor.TaskID
 	}
-	rows := make([]repository.RetryCandidate, limit)
+	rows := make([]repository.DispatchCandidate, limit)
 	for index := range rows {
 		id := first + int64(index) + 1
-		rows[index] = repository.RetryCandidate{TaskID: id, InstanceID: id + 10000, AttemptNo: 7, NextDispatchAt: at}
+		rows[index] = repository.DispatchCandidate{TaskType: model.TaskTypeOrdinary, Status: model.TaskRetryWaiting, TaskID: id, InstanceID: id + 10000, AttemptNo: 7, NextDispatchAt: at}
 	}
 	return rows
 }
@@ -966,7 +975,7 @@ func TestRuntimeRetryIdentityIncludesTheObservedAttemptNumber(t *testing.T) {
 		sendReturn := make(chan struct{})
 		at := time.Now().Add(-10 * time.Second)
 		var pages atomic.Int32
-		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, _ time.Time, _ *repository.RetryCursor, limit int) ([]repository.RetryCandidate, error) {
+		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, _ time.Time, _ *repository.DispatchCursor, limit int) ([]repository.DispatchCandidate, error) {
 			page := pages.Add(1)
 			if page > 3 {
 				return nil, nil
@@ -978,11 +987,11 @@ func TestRuntimeRetryIdentityIncludesTheObservedAttemptNumber(t *testing.T) {
 			if page == 3 {
 				attempt = 8
 			}
-			return []repository.RetryCandidate{{TaskID: 11, InstanceID: 22, AttemptNo: attempt, NextDispatchAt: at.Add(time.Duration(page) * time.Second)}}, nil
+			return []repository.DispatchCandidate{{TaskType: model.TaskTypeOrdinary, Status: model.TaskRetryWaiting, TaskID: 11, InstanceID: 22, AttemptNo: attempt, NextDispatchAt: at.Add(time.Duration(page) * time.Second)}}, nil
 		}}
 		var mu sync.Mutex
 		var observed []int64
-		registrar := &dispatcherRegistrarStub{retryCall: func(_ context.Context, candidate repository.RetryCandidate) (*RegisteredAttempt, error) {
+		registrar := &dispatcherRegistrarStub{retryCall: func(_ context.Context, candidate repository.DispatchCandidate) (*RegisteredAttempt, error) {
 			mu.Lock()
 			observed = append(observed, candidate.AttemptNo)
 			mu.Unlock()
@@ -1012,11 +1021,11 @@ func TestRuntimeRetryIdentityIncludesTheObservedAttemptNumber(t *testing.T) {
 
 func TestRuntimeOffersAnotherDiscoveredParentAfterAtMostEightCandidates(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, now time.Time, cursor *repository.RetryCursor, limit int) ([]repository.RetryCandidate, error) {
+		tasks := &runtimeTaskStoreStub{responseStore: &dispatcherStoreStub{}, list: func(_ context.Context, now time.Time, cursor *repository.DispatchCursor, limit int) ([]repository.DispatchCandidate, error) {
 			if cursor != nil {
 				return nil, nil
 			}
-			rows := runtimeRetryPage(now.Add(-time.Second), nil, limit)
+			rows := runtimeDispatchPage(now.Add(-time.Second), nil, limit)
 			for index := range rows {
 				rows[index].InstanceID = 1
 				if index >= len(rows)-8 {
@@ -1027,7 +1036,7 @@ func TestRuntimeOffersAnotherDiscoveredParentAfterAtMostEightCandidates(t *testi
 		}}
 		var mu sync.Mutex
 		var parents []int64
-		registrar := &dispatcherRegistrarStub{retryCall: func(_ context.Context, candidate repository.RetryCandidate) (*RegisteredAttempt, error) {
+		registrar := &dispatcherRegistrarStub{retryCall: func(_ context.Context, candidate repository.DispatchCandidate) (*RegisteredAttempt, error) {
 			mu.Lock()
 			parents = append(parents, candidate.InstanceID)
 			mu.Unlock()
@@ -1076,7 +1085,7 @@ func TestRuntimeTakenRegistrationMayFinishAfterConflictSaturation(t *testing.T) 
 	r.blockParentLocked(33)
 	r.mu.Unlock()
 	wrapper := runtimeRegistrar{runtime: r, registrar: registrar}
-	if attempt, err := wrapper.StartOrdinary(context.Background(), 22); attempt != nil || !errors.Is(err, repository.ErrInstanceLocked) || registrar.calls.Load() != 1 {
+	if attempt, err := wrapper.StartInstance(context.Background(), 22); attempt != nil || !errors.Is(err, repository.ErrInstanceLocked) || registrar.calls.Load() != 1 {
 		t.Fatal("contention saturation discarded an already-taken registration")
 	}
 	r.mu.Lock()

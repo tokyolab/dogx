@@ -25,7 +25,7 @@ func TestTaskResultRepositoryRechecksAfterRowLockWait(t *testing.T) {
 		fields  map[string]any
 		accepts bool
 	}{
-		{"already succeeded", map[string]any{"status": model.TaskSucceeded, "result_data": model.TaskResultData(`{"first":true}`), "end_reason": model.EndReasonSuccess}, false},
+		{"already succeeded", map[string]any{"status": model.TaskSucceeded, "result_data": model.TaskData(`{"first":true}`), "end_reason": model.EndReasonSuccess}, false},
 		{"already canceled", map[string]any{"status": model.TaskCanceled, "end_reason": "manual_stop"}, false},
 		{"new attempt", map[string]any{"attempt_no": 2, "used_attempts": 2}, false},
 		{"other executor", map[string]any{"executor_instance_id": other, "executor_address": "127.0.0.1:9001"}, false},

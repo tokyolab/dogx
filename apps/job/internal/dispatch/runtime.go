@@ -16,7 +16,8 @@ const (
 	dispatchPageBudget  = 4
 	dispatchParentShare = 8
 	waitingScan         = 0
-	retryScan           = 1
+	taskScan            = 1
+	taskHintPage        = 2
 )
 
 var errScanPaused = errors.New("dispatch candidate scan paused for contention")
@@ -24,7 +25,7 @@ var errScanPaused = errors.New("dispatch candidate scan paused for contention")
 // waitingSource reads first-dispatch candidates and database time without claiming
 // work. MaxWaitingID returns zero for an empty set. ListWaitingIDs returns at most
 // limit ascending positive IDs strictly after cursor and at most upperID. Queries
-// do not filter by execution mode. DatabaseTime fixes a retry traversal's horizon;
+// do not filter by execution mode. DatabaseTime fixes a Task traversal's horizon;
 // registration must independently read time after acquiring its parent lock.
 // Methods honor ctx and return only after actual database work has ended.
 type waitingSource interface {
@@ -33,16 +34,18 @@ type waitingSource interface {
 	DatabaseTime(context.Context) (time.Time, error)
 }
 
-// runtimeTasks shares response persistence and retry discovery without owning the
-// connection. Retry queries return original attempt identities in ascending
+// runtimeTasks shares response persistence and due Task discovery without owning
+// the connection. Queries return original type, state and attempt identities in ascending
 // (NextDispatchAt, TaskID) order, after cursor and no later than scanNow. A nil
-// cursor starts a traversal. Queries neither claim work nor filter Task types.
+// cursor starts a traversal. Queries do not claim work; first waiting candidates
+// are restricted to shards/Post, while retries include every supported Task type.
 type runtimeTasks interface {
 	responseStore
-	ListRetryCandidates(context.Context, time.Time, *repository.RetryCursor, int) ([]repository.RetryCandidate, error)
+	ListDispatchCandidates(context.Context, time.Time, *repository.DispatchCursor, int) ([]repository.DispatchCandidate, error)
+	ListInstanceDispatchCandidates(context.Context, int64, time.Time, int) ([]repository.DispatchCandidate, error)
 }
 
-// RuntimeConfig bounds this process's shared first/retry dispatch supply. All
+// RuntimeConfig bounds this process's shared initial/due Task dispatch supply. All
 // values must be positive. WaitingCapacity includes query reservations, temporary
 // pages and hints; workers are separately bounded by Concurrency. ScanInterval is
 // the idle/no-progress interval before independent 20% jitter. QueryTimeout bounds
@@ -56,7 +59,7 @@ type RuntimeConfig struct {
 	BusyDelay       time.Duration
 }
 
-// Runtime supplies waiting Instances and due retry Tasks through one scanner,
+// Runtime supplies waiting Instances and due Tasks through one scanner,
 // one bounded waiting set and fixed workers. Candidate identity deduplication
 // lasts through the actual dispatch return; per-parent registration coordination
 // ends at the transaction return, before RPC or response persistence.
@@ -80,6 +83,9 @@ type Runtime struct {
 	completed      bool
 	waiting        int
 	reserved       int
+	activeHint     waitingCandidate
+	lastPageHint   bool
+	hintReadyAt    time.Time
 	pending        []waitingCandidate
 	owned          map[candidateKey]uint64
 	registering    map[int64]waitingCandidate
@@ -98,32 +104,37 @@ type Runtime struct {
 	drainErr       error
 }
 
-type candidateKey struct{ instanceID, taskID, attemptNo int64 }
+type candidateKey struct {
+	instanceID, taskID, attemptNo int64
+	taskHint                      bool
+}
 
 type waitingCandidate struct {
 	sequence       uint64
 	instanceID     int64
-	retry          repository.RetryCandidate
+	taskHint       bool
+	task           repository.DispatchCandidate
 	scanKind       int
 	scanGeneration uint64
 }
 
 func (c waitingCandidate) key() candidateKey {
-	if c.retry.TaskID != 0 {
-		return candidateKey{taskID: c.retry.TaskID, attemptNo: c.retry.AttemptNo}
+	if c.task.TaskID != 0 {
+		return candidateKey{taskID: c.task.TaskID, attemptNo: c.task.AttemptNo}
 	}
-	return candidateKey{instanceID: c.instanceID}
+	return candidateKey{instanceID: c.instanceID, taskHint: c.taskHint}
 }
 
 // candidateScan holds only one source's temporary traversal. A source reaching
 // its tail waits independently, so it cannot stop the other source's progress.
 type candidateScan struct {
-	upperID     int64
-	cursor      int64
-	scanNow     time.Time
-	retryCursor *repository.RetryCursor
-	generation  uint64
-	readyAt     time.Time
+	upperID    int64
+	cursor     int64
+	scanNow    time.Time
+	taskCursor *repository.DispatchCursor
+	generation uint64
+	readyAt    time.Time
+	hintID     int64
 }
 
 // runtimeRegistrar reports confirmed progress and releases the parent gate at
@@ -131,25 +142,25 @@ type candidateScan struct {
 // group briefly; it does not undo other already-authorized sends.
 type runtimeRegistrar struct {
 	runtime   *Runtime
-	registrar ordinaryRegistrar
+	registrar attemptRegistrar
 }
 
-func (r runtimeRegistrar) StartOrdinary(ctx context.Context, id int64) (attempt *RegisteredAttempt, err error) {
+func (r runtimeRegistrar) StartInstance(ctx context.Context, id int64) (attempt *RegisteredAttempt, err error) {
 	candidate, ok := r.runtime.registrationCandidate(id)
 	if !ok {
 		return nil, nil
 	}
 	defer func() { r.runtime.registrationFinished(candidate, attempt != nil && err == nil, err) }()
-	return r.registrar.StartOrdinary(ctx, id)
+	return r.registrar.StartInstance(ctx, id)
 }
 
-func (r runtimeRegistrar) RetryOrdinary(ctx context.Context, retry repository.RetryCandidate) (attempt *RegisteredAttempt, err error) {
+func (r runtimeRegistrar) RegisterTask(ctx context.Context, retry repository.DispatchCandidate) (attempt *RegisteredAttempt, err error) {
 	candidate, ok := r.runtime.registrationCandidate(retry.InstanceID)
 	if !ok {
 		return nil, nil
 	}
 	defer func() { r.runtime.registrationFinished(candidate, attempt != nil && err == nil, err) }()
-	return r.registrar.RetryOrdinary(ctx, retry)
+	return r.registrar.RegisterTask(ctx, retry)
 }
 
 func (r *Runtime) registrationCandidate(id int64) (waitingCandidate, bool) {
@@ -166,7 +177,7 @@ func (r *Runtime) registrationCandidate(id int64) (waitingCandidate, bool) {
 // host supplies shared repositories and owns their connections through Wait.
 // instanceHint optionally enqueues completion after confirmed response persistence;
 // it must be concurrent, nonblocking and must not perform completion inline.
-func NewRuntime(source waitingSource, registrar ordinaryRegistrar, sender Sender, tasks runtimeTasks, config RuntimeConfig, instanceHint func(int64)) (*Runtime, error) {
+func NewRuntime(source waitingSource, registrar attemptRegistrar, sender Sender, tasks runtimeTasks, config RuntimeConfig, instanceHint func(int64)) (*Runtime, error) {
 	if nilDependency(source) || nilDependency(registrar) || nilDependency(tasks) {
 		return nil, errors.New("dispatch runtime dependencies must not be nil")
 	}
@@ -211,15 +222,28 @@ func (r *Runtime) Start() error {
 // Hint immediately admits or merges one first-dispatch Instance. False means
 // invalid input, unavailable admission, a recent parent conflict or no waiting
 // space. It retains no caller Context and gives scanning no progress credit.
-// Retries are discovered from durable Task candidates, not inferred from a hint.
+// This hint never starts a Task belonging to an already-running Instance.
 func (r *Runtime) Hint(instanceID int64) bool {
+	return r.hint(instanceID, false)
+}
+
+// HintTasks requests one bounded due-Task page for a running Instance. It shares
+// waiting capacity, deduplication and the serial scanner with Hint and both durable
+// sources. It never fabricates candidates or grants dispatch permission. Lost hints
+// and remaining pages are covered by the global due-Task scan. False means invalid
+// input, unavailable admission, recent parent contention or no waiting space.
+func (r *Runtime) HintTasks(instanceID int64) bool {
+	return r.hint(instanceID, true)
+}
+
+func (r *Runtime) hint(instanceID int64, tasks bool) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if instanceID <= 0 || !r.started || r.stopping {
 		return false
 	}
 	r.expireConflictsLocked(time.Now())
-	key := candidateKey{instanceID: instanceID}
+	key := candidateKey{instanceID: instanceID, taskHint: tasks}
 	if _, ok := r.owned[key]; ok {
 		return true
 	}
@@ -230,7 +254,7 @@ func (r *Runtime) Hint(instanceID int64) bool {
 		return false
 	}
 	r.sequence++
-	candidate := waitingCandidate{sequence: r.sequence, instanceID: instanceID}
+	candidate := waitingCandidate{sequence: r.sequence, instanceID: instanceID, taskHint: tasks}
 	r.pending = append(r.pending, candidate)
 	r.owned[key] = candidate.sequence
 	r.waiting++
@@ -319,7 +343,16 @@ func (r *Runtime) scan() {
 		if !ok {
 			return
 		}
-		state := &scans[kind]
+		var hintState candidateScan
+		var state *candidateScan
+		if kind == taskHintPage {
+			r.mu.Lock()
+			hintState.hintID = r.activeHint.instanceID
+			r.mu.Unlock()
+			state = &hintState
+		} else {
+			state = &scans[kind]
+		}
 		page, end, err := r.readPage(kind, state, limit)
 		r.mu.Lock()
 		// Slow queries do not consume the idle interval itself. Start the
@@ -337,11 +370,24 @@ func (r *Runtime) scan() {
 			if r.scanCtx.Err() == nil {
 				logx.Error("dispatch candidate scan failed")
 			}
-			state.readyAt = time.Now().Add(r.scanDelay())
+			readyAt := time.Now().Add(r.scanDelay())
+			if kind == taskHintPage {
+				// Hint traversal state is temporary. Preserve failure backoff in
+				// the shared scanner even when database time failed before a page
+				// could be charged, so fresh hints cannot create a tight retry loop.
+				r.mu.Lock()
+				r.hintReadyAt = readyAt
+				r.mu.Unlock()
+			} else {
+				state.readyAt = readyAt
+			}
 			continue
 		}
 		if !r.admitPage(page, kind, state.generation) {
 			return
+		}
+		if kind == taskHintPage {
+			continue
 		}
 		// All original rows were admitted, merged or legitimately skipped before
 		// advancing. Local parent rotation cannot bypass an unaccepted SQL row.
@@ -350,7 +396,7 @@ func (r *Runtime) scan() {
 			if kind == waitingScan {
 				state.cursor = last.instanceID
 			} else {
-				state.retryCursor = &repository.RetryCursor{NextDispatchAt: last.retry.NextDispatchAt, TaskID: last.retry.TaskID}
+				state.taskCursor = &repository.DispatchCursor{NextDispatchAt: last.task.NextDispatchAt, TaskID: last.task.TaskID}
 			}
 		}
 		if end {
@@ -389,7 +435,48 @@ func (r *Runtime) nextPage(scans *[2]candidateScan, next *int) (int, int, bool) 
 		if r.conflictFull {
 			wakeAt = earlier(wakeAt, r.conflictUntil)
 		}
+		if r.hintReadyAt.After(now) {
+			wakeAt = earlier(wakeAt, r.hintReadyAt)
+		}
+		// A hint occupies the same waiting space as a candidate. Replace that
+		// slot with a page reservation before querying, even when admission is full.
+		// Alternate with ready durable pages so hint traffic cannot starve scans.
+		if r.pagesLeft > 0 && !r.conflictFull && !r.hintReadyAt.After(now) && (!r.lastPageHint || kind < 0) {
+			for index, candidate := range r.pending {
+				if !candidate.taskHint {
+					continue
+				}
+				r.activeHint = candidate
+				copy(r.pending[index:], r.pending[index+1:])
+				r.pending[len(r.pending)-1] = waitingCandidate{}
+				r.pending = r.pending[:len(r.pending)-1]
+				r.waiting--
+				r.reserved = min(dispatchPageLimit, r.config.WaitingCapacity-r.waiting)
+				r.waiting += r.reserved
+				r.lastPageHint = true
+				limit := r.reserved
+				r.mu.Unlock()
+				return taskHintPage, limit, true
+			}
+		}
+		if kind >= 0 && r.pagesLeft > 0 && !r.conflictFull && r.waiting == r.config.WaitingCapacity {
+			// Hints are optional acceleration, not durable work. When they fill
+			// all waiting space, discard one hint to reserve a durable page's
+			// turn instead of allowing a continuous hint stream to starve it.
+			for index, candidate := range r.pending {
+				if !candidate.taskHint {
+					continue
+				}
+				delete(r.owned, candidate.key())
+				copy(r.pending[index:], r.pending[index+1:])
+				r.pending[len(r.pending)-1] = waitingCandidate{}
+				r.pending = r.pending[:len(r.pending)-1]
+				r.waiting--
+				break
+			}
+		}
 		if kind >= 0 && r.pagesLeft > 0 && !r.conflictFull && r.waiting < r.config.WaitingCapacity {
+			r.lastPageHint = false
 			r.reserved = min(dispatchPageLimit, r.config.WaitingCapacity-r.waiting)
 			r.waiting += r.reserved
 			if scans[kind].generation == 0 {
@@ -461,7 +548,7 @@ func (r *Runtime) readPage(kind int, state *candidateScan, limit int) ([]waiting
 			return nil, false, err
 		}
 		if scanNow.IsZero() {
-			return nil, false, errors.New("retry scan database time is empty")
+			return nil, false, errors.New("dispatch scan database time is empty")
 		}
 		state.scanNow = scanNow
 	}
@@ -469,7 +556,13 @@ func (r *Runtime) readPage(kind int, state *candidateScan, limit int) ([]waiting
 		return nil, false, err
 	}
 	ctx, cancel := context.WithTimeout(r.scanCtx, r.config.QueryTimeout)
-	rows, err := r.tasks.ListRetryCandidates(ctx, state.scanNow, state.retryCursor, limit)
+	var rows []repository.DispatchCandidate
+	var err error
+	if kind == taskHintPage {
+		rows, err = r.tasks.ListInstanceDispatchCandidates(ctx, state.hintID, state.scanNow, limit)
+	} else {
+		rows, err = r.tasks.ListDispatchCandidates(ctx, state.scanNow, state.taskCursor, limit)
+	}
 	if err == nil {
 		err = ctx.Err()
 	}
@@ -477,12 +570,15 @@ func (r *Runtime) readPage(kind int, state *candidateScan, limit int) ([]waiting
 	if err != nil {
 		return nil, false, err
 	}
-	if !validRetryPage(rows, state.scanNow, state.retryCursor, limit) {
-		return nil, false, errors.New("retry query returned an invalid page")
+	if !validDispatchPage(rows, state.scanNow, state.taskCursor, limit) {
+		return nil, false, errors.New("dispatch query returned an invalid page")
 	}
 	page := make([]waitingCandidate, len(rows))
-	for index, retry := range rows {
-		page[index] = waitingCandidate{instanceID: retry.InstanceID, retry: retry}
+	for index, task := range rows {
+		if kind == taskHintPage && task.InstanceID != state.hintID {
+			return nil, false, errors.New("hint query returned another Instance's Task")
+		}
+		page[index] = waitingCandidate{instanceID: task.InstanceID, task: task}
 	}
 	return page, len(rows) < limit, nil
 }
@@ -509,6 +605,7 @@ func (r *Runtime) releasePage() {
 	defer r.mu.Unlock()
 	r.waiting -= r.reserved
 	r.reserved = 0
+	r.finishHintLocked()
 	r.notifyLocked()
 }
 
@@ -517,6 +614,7 @@ func (r *Runtime) admitPage(page []waitingCandidate, kind int, generation uint64
 	defer r.mu.Unlock()
 	r.waiting -= r.reserved
 	r.reserved = 0
+	r.finishHintLocked()
 	if r.stopping {
 		r.notifyLocked()
 		return false
@@ -590,6 +688,9 @@ func (r *Runtime) take() (waitingCandidate, bool) {
 		index := -1
 		if !r.conflictFull {
 			for position, candidate := range r.pending {
+				if candidate.taskHint {
+					continue
+				}
 				if _, busy := r.registering[candidate.instanceID]; busy {
 					continue
 				}
@@ -640,10 +741,10 @@ func (r *Runtime) dispatch(candidate waitingCandidate) {
 		}
 	}()
 	var err error
-	if candidate.retry.TaskID == 0 {
-		_, err = r.dispatcher.DispatchOrdinary(r.workCtx, candidate.instanceID)
+	if candidate.task.TaskID == 0 {
+		_, err = r.dispatcher.DispatchInstance(r.workCtx, candidate.instanceID)
 	} else {
-		_, err = r.dispatcher.DispatchRetry(r.workCtx, candidate.retry)
+		_, err = r.dispatcher.DispatchTask(r.workCtx, candidate.task)
 	}
 	if err != nil && !errors.Is(err, repository.ErrInstanceLocked) {
 		// Driver and remote causes may contain private data. Neither an error
@@ -662,7 +763,9 @@ func (r *Runtime) registrationFinished(candidate waitingCandidate, confirmed boo
 	if errors.Is(err, repository.ErrInstanceLocked) {
 		r.blockParentLocked(candidate.instanceID)
 	}
-	if confirmed && candidate.scanGeneration != 0 && candidate.scanGeneration == r.scanGeneration[candidate.scanKind] {
+	// Local hints have no durable traversal generation and cannot restore its
+	// budget. In particular, a taskHintPage is never an index into scanGeneration.
+	if confirmed && candidate.scanKind < len(r.scanGeneration) && candidate.scanGeneration != 0 && candidate.scanGeneration == r.scanGeneration[candidate.scanKind] {
 		r.pagesLeft, r.budgetResumeAt = dispatchPageBudget, time.Time{}
 	}
 	r.notifyLocked()
@@ -772,18 +875,25 @@ func validWaitingPage(ids []int64, cursor, upperID int64, limit int) bool {
 	return true
 }
 
-func validRetryPage(rows []repository.RetryCandidate, scanNow time.Time, cursor *repository.RetryCursor, limit int) bool {
+func validDispatchPage(rows []repository.DispatchCandidate, scanNow time.Time, cursor *repository.DispatchCursor, limit int) bool {
 	if len(rows) > limit {
 		return false
 	}
 	for _, row := range rows {
-		if row.TaskID <= 0 || row.InstanceID <= 0 || row.AttemptNo <= 0 || row.NextDispatchAt.IsZero() || row.NextDispatchAt.After(scanNow) {
+		if !validDispatchCandidate(row) || row.NextDispatchAt.IsZero() || row.NextDispatchAt.After(scanNow) {
 			return false
 		}
 		if cursor != nil && (row.NextDispatchAt.Before(cursor.NextDispatchAt) || (row.NextDispatchAt.Equal(cursor.NextDispatchAt) && row.TaskID <= cursor.TaskID)) {
 			return false
 		}
-		cursor = &repository.RetryCursor{NextDispatchAt: row.NextDispatchAt, TaskID: row.TaskID}
+		cursor = &repository.DispatchCursor{NextDispatchAt: row.NextDispatchAt, TaskID: row.TaskID}
 	}
 	return true
+}
+
+func (r *Runtime) finishHintLocked() {
+	if r.activeHint.instanceID != 0 {
+		delete(r.owned, r.activeHint.key())
+		r.activeHint = waitingCandidate{}
+	}
 }

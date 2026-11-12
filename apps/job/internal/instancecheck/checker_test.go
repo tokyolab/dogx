@@ -72,8 +72,8 @@ func TestCheckIncompleteAndAnomalousOrdinaryFacts(t *testing.T) {
 		t.Fatalf("missing ordinary Task: %d %v", got, err)
 	}
 	store.facts.ExecutionConfig = []byte(`{"schema_version":1,"execution_mode":2,"post_enabled":true}`)
-	if got, err := checker.Check(context.Background(), 1); err != nil || got != OutcomeSkipped {
-		t.Fatalf("sharded Instance was misclassified as ordinary corruption: %d %v", got, err)
+	if got, err := checker.Check(context.Background(), 1); err == nil || got != OutcomeSkipped {
+		t.Fatalf("missing sharding assembly was silently ignored: %d %v", got, err)
 	}
 }
 

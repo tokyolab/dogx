@@ -25,7 +25,7 @@ func TestUnknownSettlementRechecksAfterCompetingUpdate(t *testing.T) {
 		applies bool
 	}{
 		{"ACK binding", map[string]any{"executor_instance_id": binding.ExecutorInstanceID, "executor_address": binding.ExecutorAddress}, false},
-		{"business result", map[string]any{"status": model.TaskSucceeded, "result_data": model.TaskResultData(`{"saved":true}`), "result_summary": "completed", "finished_at": processedAt, "end_reason": model.EndReasonSuccess}, false},
+		{"business result", map[string]any{"status": model.TaskSucceeded, "result_data": model.TaskData(`{"saved":true}`), "result_summary": "completed", "finished_at": processedAt, "end_reason": model.EndReasonSuccess}, false},
 		{"BUSY", map[string]any{"status": model.TaskRetryWaiting, "used_attempts": 0, "next_dispatch_at": processedAt.Add(time.Minute), "result_summary": "executor is busy; task was not accepted"}, false},
 		{"other unknown retry", map[string]any{"status": model.TaskRetryWaiting, "next_dispatch_at": processedAt.Add(time.Minute), "result_summary": unknownResultSummary}, false},
 		{"other unknown failure", map[string]any{"status": model.TaskFailed, "used_attempts": 4, "finished_at": processedAt, "end_reason": model.EndReasonResultUnknown, "result_summary": unknownResultSummary}, false},
@@ -126,7 +126,7 @@ func TestUnknownSettlementClosesOriginalAttemptBeforeLateResponses(t *testing.T)
 				t.Fatal(err)
 			}
 			write := unknownConcurrencyWrite(task, retryRepositoryTime(t, db))
-			if settled, err := repo.SettleOrdinaryUnknown(context.Background(), write); settled == nil || err != nil {
+			if settled, err := repo.SettleUnknown(context.Background(), write); settled == nil || err != nil {
 				t.Fatalf("initial settlement: settled=%+v err=%v", settled, err)
 			}
 			closed := readRepositoryTask(t, db, task.ID)
@@ -151,7 +151,7 @@ func TestUnknownSettlementClosesOriginalAttemptBeforeLateResponses(t *testing.T)
 			write.ProcessedAt = write.ProcessedAt.Add(time.Minute)
 			write.ObservationCutoff = write.ObservationCutoff.Add(time.Minute)
 			write.RetryAt = write.RetryAt.Add(time.Minute)
-			if settled, err := repo.SettleOrdinaryUnknown(context.Background(), write); settled != nil || err != nil {
+			if settled, err := repo.SettleUnknown(context.Background(), write); settled != nil || err != nil {
 				t.Fatalf("duplicate settlement: settled=%+v err=%v", settled, err)
 			}
 			if after := readRepositoryTask(t, db, task.ID); !reflect.DeepEqual(closed, after) {
@@ -210,7 +210,7 @@ func TestUnknownSettlementPreservesStoppingAfterParentRead(t *testing.T) {
 				t.Fatal(err)
 			}
 			write := unknownConcurrencyWrite(task, processedAt)
-			settled, err := repo.SettleOrdinaryUnknown(ctx, write)
+			settled, err := repo.SettleUnknown(ctx, write)
 			if err != nil || settled == nil || counter.count != 1 || len(counter.statements) != 1 ||
 				!strings.HasPrefix(counter.statements[0], "UPDATE ") || strings.Contains(counter.statements[0], "job_instance") ||
 				strings.Contains(counter.statements[0], "FOR UPDATE") {
@@ -282,7 +282,7 @@ func startUnknownConcurrencyWrite(ctx context.Context, db *gorm.DB, write Unknow
 			if err != nil {
 				return err
 			}
-			response.settled, err = repo.SettleOrdinaryUnknown(ctx, write)
+			response.settled, err = repo.SettleUnknown(ctx, write)
 			response.statements = counter.count
 			response.onlyUpdate = len(counter.statements) == 1 && strings.HasPrefix(counter.statements[0], "UPDATE ") &&
 				!strings.Contains(counter.statements[0], "job_instance") && !strings.Contains(counter.statements[0], "FOR UPDATE")
