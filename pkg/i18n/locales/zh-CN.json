@@ -15,6 +15,10 @@
     "business_error": "业务处理失败"
   },
   "job": {
+    "task": {
+      "not_found": "执行任务不存在",
+      "data_too_large": "任务数据超过详情展示大小限制"
+    },
     "instance": {
       "not_found": "任务实例不存在"
     },

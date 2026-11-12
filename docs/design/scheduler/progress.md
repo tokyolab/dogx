@@ -2,15 +2,25 @@
 
 本页用于团队掌握设计与交付进度；系统本身的说明从[总览](index.md)开始。正文按主题维护，评审按依赖推进，避免把文档目录顺序机械地变成工作顺序。
 
-更新日期：2026-11-12。范围与总体架构、B1 状态语义和 B2 执行故障规则均已通过，作为各模块详细设计的共同输入。触发闭环已实现、提交并通过本地功能验证及已记录的 CI；普通 Task 主路径、处理器注册及同进程双 RPC Server 边界已通过。处理器接口分工、输入输出语义及共同执行约束已收口，普通任务仍不支持 Post；分片 Post 只接收公共输入和统计，业务明细由业务自行查询，不增加结果查询 RPC。派发接单、结果上报及取消处理与响应语义均已通过：结果首版采用单条异步上报，保留有限重传及落库后同节点按 Instance 合并完成检查，不做网络合批。取消按 Instance 向已知目标分别通知，不校验预期进程 ID；完成本机取消操作即回复，无匹配活动也成功，不等待业务退出，通信故障只有限重试同一目标。接入配置、组依赖及启动退出规则已收口；当前推进 Task 持久化与状态，Task 公共字段与单例唯一索引、[普通首次创建与重复推进 SQL](data-contracts.md#ordinary-start-sql)、[接单 ACK 绑定 SQL](data-contracts.md#executor-binding-sql)、[普通结果保存与状态转换](data-contracts.md#task-result-persistence)、[普通重试登记 SQL](data-contracts.md#ordinary-retry-registration)、[普通未知结算 SQL](data-contracts.md#ordinary-unknown-settlement)、[普通 BUSY 返还 SQL](data-contracts.md#ordinary-busy-settlement)及[停止超时与统一子取消 SQL](data-contracts.md#instance-termination-sql)已通过，派发工作协程默认每进程 64 个。[Instance 完成判定、父条件写入、摘要及超时衔接](data-contracts.md#instance-completion-contract)也已通过；[恢复资源分工](execution.md#recovery-resources)、[可派发候选查询及索引](data-contracts.md#dispatch-recovery-query)、[绑定缺失观察到期查询与索引](data-contracts.md#unbound-recovery-query)及[运行中 Instance 统一复核及查询索引](data-contracts.md#instance-recheck-query)已通过：Leader 每 2 分钟启动或续扫，筛选本趟数据库时间之前已开始超过 4 分钟的 RUNNING Instance，每页 256 条；阶段遗漏推进、正常结束及到期处理共用既有检查组件。[停止协议](data-contracts.md#instance-termination-sql)于 2026-10-23 修订通过：先持久化 `STOPPING = 6` 和停止原因，统一分批取消未结束 Task，确认全部子记录终态后再保存父终态；远端取消独立、尽力执行。STOPPING 候选由同一 Leader 每 2 分钟独立发现，不套用 4 分钟开始时间门槛，新 Leader 就绪后有界检查；使用既有后台恢复容量、独立预算和公平遍历。[STOPPING 取消竞争与容量](execution.md#stopping-processing)于 2026-10-26 收口：每批父主键 NOWAIT 后才查子 Task，竞争失败退出且不立即重排；已确定扫描、本地容量、子批及公平份额初值，不扩展到派发竞争。[远端取消通知](execution.md#cancel-notification-capacity)及[地址查询与索引](data-contracts.md#cancel-target-query)同日通过：按 Instance 向去重地址通知，不逐 Task；新停止决定确认提交后独立交接，不随子批或两分钟恢复重发，父终态不撤销已接纳通知。[派发候选合并与跨节点竞争](execution.md#dispatch-contention)同日单独通过：普通首次启动与已有 Task 新尝试登记改为父行 NOWAIT，本地合并重复候选、同 Instance 登记不自相竞争，失败跳过本次同组且不立即重排；补查独立抖动、已接纳候选分组后不同起点处理。[排队、并发与满载处理](execution.md#capacity-model)于 2026-10-28 通过：共享派发与 Instance 小批轮转保持；同日明确[执行器处理流程](execution.md#executor-processing-flow)：有界业务等待队列、有限业务并发、有界结果队列及独立有限回报并发，队满由交接等待向接单传递压力；按六条原则优先采用简单实现，不新增跨阶段统一配额，不提前固定 Go 并发原语。同日[派发候选容量、分页与退避](execution.md#dispatch-supply-defaults)另行通过：等待总量 256、查询最多 128、空闲补查 1 秒上下浮动 20%、每 Instance 先补 8 项、连续无有效登记进展最多 4 页，临时分页与本轮成功登记恢复预算规则已确认。同日另已通过[单次派发时间预算](execution.md#dispatch-time-budgets)：总处理 10 秒、登记事务 2 秒、接单 RPC 3 秒、响应保存阶段 4 秒，保存最多 3 次含首次、单次 1 秒及间隔 200 毫秒；无绑定观察 30 秒、BUSY 独立延期 5 秒上下浮动 20%，各阶段受剩余预算限制。同日通过[执行器回报安排与初值](execution.md#reporting-defaults)：回报组件默认保留 256 条结果，覆盖待首发、待重试和在途；最多 16 次 RPC 并发，单次调用结束即释放发送能力，退避继续保留原结果位置。按已到期的最早可发送时间选择，同时间稳定排序，不切首发／重试固定份额；单次 RPC 2 秒、最多 7 次应用层调用含首次，六次退避为 1／2／4／8／16／16 秒、各上下浮动 20%。256／16 为部署配置，其余为内部常量，47 秒是基准退避合计而非 TTL。同日通过[执行器业务处理初值](execution.md#executor-business-defaults)：每执行器进程默认业务处理并发 32、业务等待队列 128，均为可调整的部署配置。32 包含业务运行及业务已完成但结果尚未交接完的处理，128 只计尚未领取的等待任务、不含处理中；普通、准备、分片和收尾共用，不按 Job／Instance 叠加。2026-10-29 后续通过[调度端结果保存安排与初值](execution.md#scheduler-result-defaults)：每节点组件默认保留 512 条待首次处理、待重试和在途结果，保存并发 8，单条一次处理超时 2 秒，三项均可部署调整。每条关联查询 Task／Instance 归属、认证组及本轮冻结重试配置，再按原尝试、执行中状态及绑定身份条件 UPDATE、独立提交，不设整批总超时或超时拆批。一次处理结束即释放处理能力，退避保留原条目原位置；按已到期最早可处理时间及稳定同时间顺序选择，退避基准 1／2／4／8／16／30 秒、以后封顶 30 秒，各次上下浮动 20%，可恢复故障不按次数或 TTL 丢弃。[回报错误分类与无效结果处理](data-contracts.md#result-error-classification)已通过，[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)与[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)均已通过；[派发与取消错误码映射](data-contracts.md#dispatch-cancel-errors)已通过，Proto 已生成，SQL 和完整运行装配验证仍待完成；其余恢复参数、状态查询与分片协议继续闭合，结果无效判定和技术故障保留按[已定分类](data-contracts.md#result-error-classification)执行，不沿用 STOPPING 数值，阶段 1 已获授权开始实施。后续仍按“详细设计 → 评审 → 实现和测试”推进，不等待全系统细节全部完成。Task 默认额外执行重试 3 次、间隔 10 秒，整轮超时必须有限、不允许 `0`，新增表单预填 900 秒，API 必填。
+更新日期：2026-11-12。当前实施和验证结论见下方“当前工作”。
+
+> 历史设计与开工阶段汇总：范围与总体架构、B1 状态语义和 B2 执行故障规则均已通过，作为各模块详细设计的共同输入。触发闭环已实现、提交并通过本地功能验证及已记录的 CI；普通 Task 主路径、处理器注册及同进程双 RPC Server 边界已通过。处理器接口分工、输入输出语义及共同执行约束已收口，普通任务仍不支持 Post；分片 Post 只接收公共输入和统计，业务明细由业务自行查询，不增加结果查询 RPC。派发接单、结果上报及取消处理与响应语义均已通过：结果首版采用单条异步上报，保留有限重传及落库后同节点按 Instance 合并完成检查，不做网络合批。取消按 Instance 向已知目标分别通知，不校验预期进程 ID；完成本机取消操作即回复，无匹配活动也成功，不等待业务退出，通信故障只有限重试同一目标。接入配置、组依赖及启动退出规则已收口；当前推进 Task 持久化与状态，Task 公共字段与单例唯一索引、[普通首次创建与重复推进 SQL](data-contracts.md#ordinary-start-sql)、[接单 ACK 绑定 SQL](data-contracts.md#executor-binding-sql)、[普通结果保存与状态转换](data-contracts.md#task-result-persistence)、[普通重试登记 SQL](data-contracts.md#ordinary-retry-registration)、[普通未知结算 SQL](data-contracts.md#ordinary-unknown-settlement)、[普通 BUSY 返还 SQL](data-contracts.md#ordinary-busy-settlement)及[停止超时与统一子取消 SQL](data-contracts.md#instance-termination-sql)已通过，派发工作协程默认每进程 64 个。[Instance 完成判定、父条件写入、摘要及超时衔接](data-contracts.md#instance-completion-contract)也已通过；[恢复资源分工](execution.md#recovery-resources)、[可派发候选查询及索引](data-contracts.md#dispatch-recovery-query)、[绑定缺失观察到期查询与索引](data-contracts.md#unbound-recovery-query)及[运行中 Instance 统一复核及查询索引](data-contracts.md#instance-recheck-query)已通过：Leader 每 2 分钟启动或续扫，筛选本趟数据库时间之前已开始超过 4 分钟的 RUNNING Instance，每页 256 条；阶段遗漏推进、正常结束及到期处理共用既有检查组件。[停止协议](data-contracts.md#instance-termination-sql)于 2026-10-23 修订通过：先持久化 `STOPPING = 6` 和停止原因，统一分批取消未结束 Task，确认全部子记录终态后再保存父终态；远端取消独立、尽力执行。STOPPING 候选由同一 Leader 每 2 分钟独立发现，不套用 4 分钟开始时间门槛，新 Leader 就绪后有界检查；使用既有后台恢复容量、独立预算和公平遍历。[STOPPING 取消竞争与容量](execution.md#stopping-processing)于 2026-10-26 收口：每批父主键 NOWAIT 后才查子 Task，竞争失败退出且不立即重排；已确定扫描、本地容量、子批及公平份额初值，不扩展到派发竞争。[远端取消通知](execution.md#cancel-notification-capacity)及[地址查询与索引](data-contracts.md#cancel-target-query)同日通过：按 Instance 向去重地址通知，不逐 Task；新停止决定确认提交后独立交接，不随子批或两分钟恢复重发，父终态不撤销已接纳通知。[派发候选合并与跨节点竞争](execution.md#dispatch-contention)同日单独通过：普通首次启动与已有 Task 新尝试登记改为父行 NOWAIT，本地合并重复候选、同 Instance 登记不自相竞争，失败跳过本次同组且不立即重排；补查独立抖动、已接纳候选分组后不同起点处理。[排队、并发与满载处理](execution.md#capacity-model)于 2026-10-28 通过：共享派发与 Instance 小批轮转保持；同日明确[执行器处理流程](execution.md#executor-processing-flow)：有界业务等待队列、有限业务并发、有界结果队列及独立有限回报并发，队满由交接等待向接单传递压力；按六条原则优先采用简单实现，不新增跨阶段统一配额，不提前固定 Go 并发原语。同日[派发候选容量、分页与退避](execution.md#dispatch-supply-defaults)另行通过：等待总量 256、查询最多 128、空闲补查 1 秒上下浮动 20%、每 Instance 先补 8 项、连续无有效登记进展最多 4 页，临时分页与本轮成功登记恢复预算规则已确认。同日另已通过[单次派发时间预算](execution.md#dispatch-time-budgets)：总处理 10 秒、登记事务 2 秒、接单 RPC 3 秒、响应保存阶段 4 秒，保存最多 3 次含首次、单次 1 秒及间隔 200 毫秒；无绑定观察 30 秒、BUSY 独立延期 5 秒上下浮动 20%，各阶段受剩余预算限制。同日通过[执行器回报安排与初值](execution.md#reporting-defaults)：回报组件默认保留 256 条结果，覆盖待首发、待重试和在途；最多 16 次 RPC 并发，单次调用结束即释放发送能力，退避继续保留原结果位置。按已到期的最早可发送时间选择，同时间稳定排序，不切首发／重试固定份额；单次 RPC 2 秒、最多 7 次应用层调用含首次，六次退避为 1／2／4／8／16／16 秒、各上下浮动 20%。256／16 为部署配置，其余为内部常量，47 秒是基准退避合计而非 TTL。同日通过[执行器业务处理初值](execution.md#executor-business-defaults)：每执行器进程默认业务处理并发 32、业务等待队列 128，均为可调整的部署配置。32 包含业务运行及业务已完成但结果尚未交接完的处理，128 只计尚未领取的等待任务、不含处理中；普通、准备、分片和收尾共用，不按 Job／Instance 叠加。2026-10-29 后续通过[调度端结果保存安排与初值](execution.md#scheduler-result-defaults)：每节点组件默认保留 512 条待首次处理、待重试和在途结果，保存并发 8，单条一次处理超时 2 秒，三项均可部署调整。每条关联查询 Task／Instance 归属、认证组及本轮冻结重试配置，再按原尝试、执行中状态及绑定身份条件 UPDATE、独立提交，不设整批总超时或超时拆批。一次处理结束即释放处理能力，退避保留原条目原位置；按已到期最早可处理时间及稳定同时间顺序选择，退避基准 1／2／4／8／16／30 秒、以后封顶 30 秒，各次上下浮动 20%，可恢复故障不按次数或 TTL 丢弃。[回报错误分类与无效结果处理](data-contracts.md#result-error-classification)已通过，[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)与[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)均已通过；[派发与取消错误码映射](data-contracts.md#dispatch-cancel-errors)已通过，Proto 已生成，SQL 和完整运行装配验证仍待完成；其余恢复参数、状态查询与分片协议继续闭合，结果无效判定和技术故障保留按[已定分类](data-contracts.md#result-error-classification)执行，不沿用 STOPPING 数值，阶段 1 已获授权开始实施。后续仍按“详细设计 → 评审 → 实现和测试”推进，不等待全系统细节全部完成。Task 默认额外执行重试 3 次、间隔 10 秒，整轮超时必须有限、不允许 `0`，新增表单预填 900 秒，API 必填。
 
 ## 当前工作
 
-最近已推送节点：**普通阶段 6 适用范围验收完成，测试／文档提交 `5b07ec0` 的 [GitHub CI 42173750198](https://github.com/tokyolab/dogx/actions/runs/42173750198) 已完成且全部成功。** 本机五轮[代表性负载](ordinary-load-validation.md)、原普通执行 E2E 回归及 lint 证据见[收尾记录](ordinary-readiness-review.md#ordinary-load-closeout)。已批准的 [info 日志临时覆盖限制](ordinary-readiness-review.md#ordinary-shutdown-race-workaround)及上游跟踪继续保留；本结论不是完整第一版发布，也不覆盖尚未实施的分片生命周期。
+2026-11-12 管理模块：用户已批准管理范围并授权实施，一级菜单采用“定时任务”，与系统管理同级；二级为任务管理、执行记录及执行器组。页面、历史查询、Task 按需数据、菜单及接口登记已实现，本机验证与边界统一记录于[定时任务管理](management.md)。管理模块的远端 CI 结果需另行记录，不能引用下方分片 CI 证明本轮管理代码通过；历史清理、具体生产处理器及完整发布条件仍分别推进。
+
+最近已推送节点：**分片阶段 1～5 的实施与已确认范围验收完成，提交 `14897bd` 的 [GitHub CI 43139291006](https://github.com/tokyolab/dogx/actions/runs/43139291006) 已结束且全部成功。** 普通六阶段的适用范围验收及历史 CI 继续保留；本次分片的远端结果和四种覆盖率口径统一见[CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)，本机范围见[查询与负载记录](sharded-load-validation.md)。已批准的 [info 日志临时覆盖限制](ordinary-readiness-review.md#ordinary-shutdown-race-workaround)继续有效；管理页面、历史清理、具体生产处理器及其他第一版发布条件未因此完成。
 
 2026-11-04 修订：[产品版本兼容边界](../../development/database-migrations.md#release-compatibility)已确定；同一产品版本不为开发中间态编写兼容，仅在已有历史 Release、明确升级到后续版本且实际不兼容时允许必要兼容。此前旧组回填、分阶段升级及历史 NULL 例外撤销，组字段统一完整非空；该次规则修订本身不授予编码权限；后续已批准的开发安排及当前进度见下段。
 
-当前开发安排：[普通六阶段计划](ordinary-readiness-review.md#ordinary-implementation-order)的核心开发和适用范围验收已完成。2026-11-06 已批准[最终分片清单](task-model.md#explicit-shard-contract)及[单份 JSON 输入存储](data-contracts.md#shard-input-storage-contract)；同日后续批准[Pre 清单保存与整组原子生成](execution.md#atomic-shard-generation)及[Pre 首次启动与分片首次派发](execution.md#sharded-start-dispatch)。2026-11-09 又通过[Post 创建与固定输入及首次派发衔接](execution.md#post-creation)，同日后续通过[查询与索引](data-contracts.md#sharded-query-contract)及[组件交接](execution.md#sharded-component-handoff)：统一到期 Task 查询、复用阶段索引、一次检查最多一个阶段数据库动作及两种派发提示。[分片开工检查](sharded-readiness-review.md)未发现需要新增产品决策的阻塞，已列出开发顺序及本机／CI 验证边界。2026-11-11 已完成[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)的公共接口／Proto、输入列与索引迁移，以及[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)的 Pre 清单保存、整组生成与统一派发组件。[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)的完整阶段选择、Post 和生产提示，以及[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)的故障与跨节点验收均已通过本机验证。2026-11-12 已完成阶段 5 的本机统一查询计划、代表性负载和必要回归，达到本机可提交节点，实际覆盖及限制见[查询与负载记录](sharded-load-validation.md)。当前尚未提交或推送，远端 Linux／race 与 CI 覆盖率待推送后取得。
+当前开发安排：[普通六阶段计划](ordinary-readiness-review.md#ordinary-implementation-order)和[分片五阶段安排](sharded-readiness-review.md#sharded-implementation-order)的实施与已确认范围验收均已完成。分片阶段 1～4 已接通输入及迁移、Pre 清单保存和原子生成、统一派发、Post 与整轮完成，并验证故障和跨节点接续；阶段 5 已完成本机查询计划、两调度／两执行器代表性负载及必要回归。全部分片改动已于 2026-11-12 提交并推送，对应 CI 全成功，实际范围及限制见[CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)和[查询与负载记录](sharded-load-validation.md)。后续管理、运维与完整发布余项继续按各自范围评审，不把本轮验收扩展为完整第一版完成。
+
+### 分片提交与 CI 收尾（2026-11-12） {#sharded-ci-verification}
+
+提交 `14897bd43b8dbcda69023a55fef5bcee30fa4165` 已推送至 `main`，[CI 43139291006](https://github.com/tokyolab/dogx/actions/runs/43139291006) 的 Go lint、Windows tests、Linux fast checks、PostgreSQL／Redis／etcd integration 全部成功。对应 Codecov 合并项目为 91.69%、unit 为 79.36%、integration 为 91.68%、patch 为 95.49%，patch 超过 80% 门槛。数据遵循仓库排除规则；integration 包含普通测试和 integration 标签测试，E2E／负载未采集覆盖率。准确命中行、测试范围及限制统一见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)。
+
+下方阶段 1～5 记录保留各本机检查时点的事实，其中“未提交”“待 CI”不是当前状态。本次远端成功不改变既有负载边界、go-zero info 日志临时覆盖限制或其他第一版发布余项。
 
 ### 分片阶段 5 验收（2026-11-12） {#sharded-stage5-implementation}
 
@@ -144,7 +154,7 @@ Pre 首次启动、成功清单保存、整组生成和统一候选／尝试登�
 
 ### 当前实现状态
 
-普通阶段的适用范围验收已完成，后续测试／文档提交 `5b07ec0` 的 [CI 42173750198](https://github.com/tokyolab/dogx/actions/runs/42173750198) 已全部成功。分片已完成设计及[开工静态检查](sharded-readiness-review.md)，阶段 1 的输入协议与数据基础及本机验证已完成，实际结果见[阶段记录](sharded-readiness-review.md#sharded-stage1-progress)；完整分片生命周期尚未接通。
+普通阶段的适用范围验收及历史 CI 已完成。分片阶段 1～5 已接通完整生命周期并完成本机已确认范围验收，提交 `14897bd` 的 CI 全成功；最新范围、覆盖率与保留限制见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)。管理页面、历史清理、具体 System 生产处理器和其他完整发布余项继续保留。
 
 #### 普通负载收尾时的历史明细
 
@@ -298,7 +308,7 @@ Job 触发遗漏恢复查询采用单批限量、每分钟重读，原 Job 分�
 - 已通过：SQL 对照、HTTP／RPC 字段号与错误清单、十二类验收矩阵及实现顺序。
 - 已应用：本次实现范围、附件和 ADR 接入细则；规范、代码生成、迁移及 CI 衔接已在开工授权后落实，验证结果单独记录。
 
-触发模块已完成开工总审、实现及本地和 CI 功能验证。后续 Task 执行、分片生成和管理页面仍按原定模块顺序推进，不新增泛化的架构审批轮次。
+触发、普通 Task 和分片生命周期均已完成对应实施及已记录验证；管理页面、历史维护和其他完整发布余项继续按原定模块顺序推进，不新增泛化的架构审批轮次。
 
 **交付检查**确认实现是否达到本模块目标：代码完成，正常和故障测试通过，持久化交接可验证，设计及接入说明与实现一致。文档链接、渲染检查不能替代这些功能测试。
 
@@ -307,8 +317,8 @@ Job 触发遗漏恢复查询采用单批限量、每分钟重读，原 Job 分�
 | 批次 | 可验收的成果 | 开工前设计边界 |
 | --- | --- | --- |
 | 触发闭环，已提交并通过本地及 CI 验证 | 正确、可恢复地创建待开始 Instance | 上述三组设计均已通过；正式负载与过载验收单独推进 |
-| 普通 Task 执行闭环 | 从待开始 Instance 到普通 Task 的派发、执行、回报、终态及恢复 | Task 创建、首次开始、执行器接入和必要组认证、执行预算、RPC、容量及恢复协议 |
-| 分片执行闭环 | Pre、分片生成与执行、Post 及平台结束形成完整链路 | [最终分片清单](task-model.md#explicit-shard-contract)、[整组原子生成](execution.md#atomic-shard-generation)、Pre／分片首次登记及 Post 创建已通过；[查询与索引](data-contracts.md#sharded-query-contract)和[组件交接](execution.md#sharded-component-handoff)已于 2026-11-09 收口。下一步开工检查，具体迁移、仓储写入、运行实现及回归／性能验证尚未完成 |
+| 普通 Task 执行闭环，已完成适用范围验收 | 从待开始 Instance 到普通 Task 的派发、执行、回报、终态及恢复 | 六阶段实施及对应 CI 已完成，见[普通验收记录](ordinary-readiness-review.md#ordinary-load-closeout)；本次分片提交继续覆盖普通回归 |
+| 分片执行闭环，已完成已确认范围验收 | Pre、分片生成与执行、Post 及平台结束形成完整链路 | 五阶段实现、本机查询／代表性负载及提交 `14897bd` 的 CI 已完成，见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)；完整性能和第一版发布余项不在本轮结论内 |
 | 管理运维与整体验收 | 第一版管理、查询、历史维护、接入说明及故障和容量验证齐全 | 对应管理及清理契约、部署资源和量化验收条件 |
 
 这是实施顺序，不是减少第一版范围。管理与组接入中被前一批实际依赖的部分提前设计和交付，完整页面可后续完善；手动执行、停止、分片和历史维护仍按[第一版范围](scope.md)交付。每个模块重复“设计、评审、实现、测试”，已通过开工评审的模块即可编码验证，其他模块继续设计。普通闭环的开发验收与正式发布分开，完整执行能力待分片完成后正式发布，见[发布边界](#ordinary-integration-contract)。
@@ -320,12 +330,12 @@ Job 触发遗漏恢复查询采用单批限量、每分钟重读，原 Job 分�
 | 设计包 | 本包审查重点 | 当前状态 |
 | --- | --- | --- |
 | 主路径与职责 | 待开始 Instance 的推进入口、首次开始及唯一普通 Task、提交后派发、结果与 Instance 结束的职责 | 已通过；取得派发容量后，首次开始、首个普通 Task 与首次执行信息同事务保存，明确提交后直接派发 |
-| 执行器接入与调用契约 | 仓库内公共执行组件与业务处理器、必要组发现及认证、派发／上报／取消 RPC、接收与完成的边界 | [注册](architecture.md#processor-layout)、[双 Server](architecture.md#rpc-boundaries)、[处理器共同契约](data-contracts.md#processor-contract)、[派发接单语义](data-contracts.md#dispatch-acceptance)、[结果上报契约](data-contracts.md#result-report-contract)及[取消处理与响应](data-contracts.md#cancel-response-contract)已通过；Post 只提供公共输入与统计，不增加查询 RPC。接入配置、组依赖及启动退出规则已收口，第二组[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)已通过；[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)已通过，[派发与取消错误码映射](data-contracts.md#dispatch-cancel-errors)已通过，普通完成读取及结束原因字典已通过，最小接入／管理契约已通过，静态开工检查与六阶段开发安排已完成，阶段 1、2、3 进行中，Job 双 Server 与 System 内嵌执行器均已接线，本轮所列 System 验证已通过，完整执行闭环待完成 |
-| 持久化、故障与开工检查 | Task 字段及索引、事务和条件写入、两端排队与并发、恢复参数及公平性、实现分工与正常／故障测试映射 | 普通 Task 公共字段与单例唯一索引、首次创建与重复推进 SQL、接单 ACK 绑定 SQL、普通结果保存与状态转换、普通重试登记 SQL、普通未知结算 SQL、普通 BUSY 返还 SQL、停止超时与统一子取消 SQL、Instance 完成判定及父条件写入／摘要／超时衔接、恢复资源分工已通过；[普通完成读取](data-contracts.md#ordinary-completion-query)及[结束原因字典](data-contracts.md#execution-end-reasons)已通过；最小接入／管理契约已通过，静态开工检查与六阶段开发安排已完成，完整分片查询及其他类型推进留在后续模块 |
+| 执行器接入与调用契约 | 仓库内公共执行组件与业务处理器、必要组发现及认证、派发／上报／取消 RPC、接收与完成的边界 | [注册](architecture.md#processor-layout)、[双 Server](architecture.md#rpc-boundaries)、[处理器共同契约](data-contracts.md#processor-contract)、[派发接单语义](data-contracts.md#dispatch-acceptance)、[结果上报契约](data-contracts.md#result-report-contract)及[取消处理与响应](data-contracts.md#cancel-response-contract)已通过；Post 只提供公共输入与统计，不增加查询 RPC。接入配置、组依赖及启动退出规则已收口，第二组[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)已通过；[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)已通过，[派发与取消错误码映射](data-contracts.md#dispatch-cancel-errors)已通过，普通完成读取及结束原因字典已通过，最小接入／管理契约已通过，普通六阶段适用范围验收已完成，Job 双 Server 与 System 内嵌执行器、完整普通链路均已接通；分片扩展及当前远端结果见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout) |
+| 持久化、故障与开工检查 | Task 字段及索引、事务和条件写入、两端排队与并发、恢复参数及公平性、实现分工与正常／故障测试映射 | 普通 Task 公共字段与单例唯一索引、首次创建与重复推进 SQL、接单 ACK 绑定 SQL、普通结果保存与状态转换、普通重试登记 SQL、普通未知结算 SQL、普通 BUSY 返还 SQL、停止超时与统一子取消 SQL、Instance 完成判定及父条件写入／摘要／超时衔接、恢复资源分工已通过；[普通完成读取](data-contracts.md#ordinary-completion-query)及[结束原因字典](data-contracts.md#execution-end-reasons)已通过；最小接入／管理契约已通过，普通六阶段适用范围验收已完成；完整分片查询及四阶段推进已在后续[分片五阶段](sharded-readiness-review.md#sharded-implementation-order)实现验证 |
 
 以上是三类交付材料，不承诺三次对话即可完成。已通过的 B1／B2 是输入，不重复审批；新提案通过后才更新正文为已定规则。本模块适用契约与测试预期闭合并获开工授权后即可编码，不等待后续分片和完整管理页面设计完成；普通模块完成验收不等于单独正式发布，遵守下述完整执行发布边界。
 
-剩余评审按以下顺序推进，不另起架构路线：
+以下保留普通执行开工期间的历史评审顺序和当时状态，不作为当前未完成项；对应实现已随普通六阶段与分片五阶段完成，当前验证结论见[CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)。
 
 | 顺序 | 提案 | 所属设计组与边界 |
 | --- | --- | --- |
@@ -383,8 +393,8 @@ Job 触发遗漏恢复查询采用单批限量、每分钟重读，原 Job 分�
 | --- | --- | --- | --- |
 | 1 范围与架构收口 | 第 1、2 章为主；第 7、8 章提供维护与质量边界 | 不再存在改变系统组成或第一版承诺的重大未决选择，后续问题已有归属 | 已完成，A1～A3 及整体复核均通过 |
 | 2 核心详细设计 | 第 3 至 6 章；第 8 章同步补故障用例 | 各模块依赖的主路径、故障规则及跨模块契约闭合，相关 ADR 完成 | 进行中，B1、B2 规则已通过；其余按模块收口，不要求全系统细节完成才开工 |
-| 3 分模块设计与实现 | 第 6、7 章细化，按协议实现模块并验证 | 每批通过开工评审后编码测试，最终第一版模块交付齐全 | 首批触发已提交、本地及 CI 验证通过；普通执行六阶段开发安排已确认，阶段 1、2、3 进行中，Job 双 Server 与结果生产接线已落地，System 执行器及完整执行闭环待完成 |
-| 4 整体验收 | 第 8 章及实际验证报告、接入与运维交付物 | 满足已确认功能、故障恢复及负载与过载验收标准，队列、处理并发和满载行为可说明且无阻塞交付项 | 未开始 |
+| 3 分模块设计与实现 | 第 6、7 章细化，按协议实现模块并验证 | 每批通过开工评审后编码测试，最终第一版模块交付齐全 | 触发、普通及分片执行模块已实现，适用范围本机验收及对应 CI 通过；管理页面、历史清理和具体 System 生产处理器等其他模块仍待交付 |
+| 4 整体验收 | 第 8 章及实际验证报告、接入与运维交付物 | 满足已确认功能、故障恢复及负载与过载验收标准，队列、处理并发和满载行为可说明且无阻塞交付项 | 模块功能、故障及代表性负载已有分阶段证据；第一版整体验收尚未完成，完整性能清单及其他发布余项继续保留 |
 
 设计确认、实现完成与测试通过分别记录，不用一个完成百分比混合表示。阶段 2 与阶段 3 按模块衔接，不是全系统严格串行：本模块所需设计及相关架构前提通过后即可实现，其他模块继续设计。B1、B2 的已完成标记表示规则评审通过，不表示全部 SQL、接口和代码已经完成。
 

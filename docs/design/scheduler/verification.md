@@ -1,6 +1,6 @@
 # 8 验证与交付
 
-本章将设计边界转为可检查的交付依据。触发闭环的[历史 CI](progress.md#trigger-ci-verification)不代表当前代码。普通六阶段的适用范围验收已完成，后续测试／文档提交 `5b07ec0` 的 [CI 42173750198](https://github.com/tokyolab/dogx/actions/runs/42173750198) 已全部成功；生产实现 `7f9d32e` 的覆盖率证据仍见[此前 CI 记录](ordinary-readiness-review.md#ordinary-ci-success)，本机负载见[代表性负载](ordinary-load-validation.md)。2026-11-11 的分片[阶段 1](sharded-readiness-review.md#sharded-stage1-progress)输入基础和[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)执行组件已完成本机验证；[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)的 Post、整轮完成和生产检查接线已通过本机专项；[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)的本机故障及跨节点验收已完成；阶段 5 的本机查询、代表性负载及必要回归已完成，达到本机可提交节点，实际范围见[查询与负载记录](sharded-load-validation.md)；开发顺序与交付边界见[开发顺序](sharded-readiness-review.md#sharded-implementation-order)。本轮没有远端 CI，不得用普通历史结果替代。已批准的 info 日志临时覆盖限制保持，普通验收完成不代表完整第一版发布。下列清单包含普通、分片及运维能力，未实施项目继续按后续范围推进。
+本章将设计边界转为可检查的交付依据。触发闭环和普通六阶段的历史验证保留在对应记录；分片阶段 1～5 的实施与已确认范围本机验收已完成，查询、两调度／两执行器代表性负载和必要回归见[查询与负载记录](sharded-load-validation.md)。分片提交 `14897bd` 已推送，[CI 43139291006](https://github.com/tokyolab/dogx/actions/runs/43139291006) 四项任务全部成功；本次 Linux 普通测试 race、integration 和进程 E2E 的范围及覆盖率统一见[CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)。Codecov 合并项目为 91.69%、unit 为 79.36%、integration 为 91.68%、patch 为 95.49%，遵循仓库排除规则；integration 含普通测试，E2E／负载不贡献覆盖率。已批准的 info 日志临时覆盖限制继续保留。下列清单包括完整第一版功能和运维要求，不能因本次 CI 成功将尚未实施或未覆盖的项目标为完成。
 
 普通阶段 6 的历史验证范围与余项（本轮分片增量以前述阶段记录为准）：
 
@@ -19,7 +19,7 @@
 | etcd 恢复与当前检查 | 原 Job／System 在 etcd 停止 18 秒及原数据重启期间存活，三类发现与实际 Leader 获得新租约，同 ClusterID，原执行器执行新 Task 一次。补强场景通过 42.59s；最终 System E2E 排除四分钟专项后通过 90.490s，全仓普通测试通过；全仓双标签 vet／lint 等最终检查均通过，见[最新记录](ordinary-readiness-review.md#ordinary-local-checkpoint) |
 | 日志与 CI | 既有 Token 日志检查证据保留；`7f9d32e` 的 CI 42158366847 全部成功，包含执行器骤停及 etcd 恢复专项；Linux 普通测试启用 race，integration 与独立 E2E 未启用 race。已批准的 info 日志临时覆盖限制继续保留，详见[最新 CI 记录](ordinary-readiness-review.md#ordinary-ci-success) |
 | 代表性负载与受影响回归 | 两个 Job 进程、一个 System 执行器，500 条启用规则、每 30 秒 100 条同秒到期，五轮共 500 个父／子／业务记录成功，400 条未来规则零触发，事前延迟门槛通过；最终包 186.916s、测试退出码 0。重建原生产／测试宿主后的普通执行 E2E 通过，8.123s；四个受影响包三标签 lint 通过、0 issues。资源口径、测试断言修正及清理限制见[负载记录](ordinary-load-validation.md) |
-| 当前提交节点与余项 | 普通阶段 6 适用范围及后续测试／文档提交已有上述历史 CI；本轮分片阶段 1／2 已完成本机验证，阶段 3 已通过本机专项，均尚无对应 CI，不能据此前结果宣称本轮完整可交付。[阶段 4 本机故障与跨节点验证](sharded-readiness-review.md#sharded-stage4-progress)已完成；阶段 5 的本机查询、代表性负载及必要回归已完成，见[查询与负载记录](sharded-load-validation.md)；尚未提交或推送，远端 CI 待取得；System 生产处理器不在本轮范围，commit／push 前继续检查敏感内容与提交信息 |
+| 当前提交节点与余项 | 普通适用范围和分片五阶段已完成对应验收；分片提交 `14897bd` 的 [CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)记录本次四项成功及覆盖率。管理页面、历史清理、System 生产处理器和完整性能清单中的其他未覆盖项继续保留；未来 commit／push 仍须分别检查敏感内容与提交信息 |
 
 ## 8.1 验证原则
 
@@ -31,7 +31,7 @@
 
 | 场景 | 必须验证的设计边界 | 实施与验证状态 |
 | --- | --- | --- |
-| 正常普通任务与分片任务 | 普通单 Task；分片必需 Pre、可选 Post；从触发到记录、回报和终态形成闭环 | 普通适用范围已验收；分片阶段 1／2 的输入及组件已本机验证，阶段 3 的 Post／整轮完成／生产接线已通过本机专项，[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)本机故障及跨节点验证已完成，本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)，远端 CI 待取得 |
+| 正常普通任务与分片任务 | 普通单 Task；分片必需 Pre、可选 Post；从触发到记录、回报和终态形成闭环 | 普通适用范围与分片五阶段实施均已验收；本机功能、故障与跨节点、查询和代表性负载的实际范围见[阶段记录](sharded-readiness-review.md#sharded-implementation-order)及[负载记录](sharded-load-validation.md)，对应提交 `14897bd` 的 [CI](sharded-readiness-review.md#sharded-ci-closeout) 全成功；不扩展为全部第一版验收完成 |
 | 普通 Instance 首次开始与重复推进 | 无派发容量时保持 WAITING 且不计时；锁后数据库当前时间形成开始和截止，与 RUNNING、唯一普通 Task 及首次执行信息同事务保存，实际新建且明确提交后才派发；重复推进不重复建 Task、不重设计时或重发同次尝试 | 公共字段、单例约束及[首次创建 SQL](data-contracts.md#ordinary-start-sql)已实现并纳入普通验收；当前分片增量继续保留普通回归，不将历史故障覆盖扩大为新分片证据 |
 | 分片 Instance 首次开始与 Pre 派发 | 取得实际派发处理能力后，父主键 NOWAIT 事务同时开始父 Instance、创建唯一执行中 Pre 并登记首次尝试，确认提交后发送；重复推进不补建、不重发 | Pre 首次启动、父锁和提交后派发组件已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)验证；生产阶段选择已通过[阶段 3 本机专项](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点覆盖见[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)，[专项清单](#sharded-start-dispatch-checks)仍保留完整验收要求 |
 | Leader 切换与配置竞争 | 每任期独立取消与串行配置加载；残留触发按最新 Job 判断，接受合法在途提交，不按旧快照重复创建 | 已定任期、加载与容量协议的实现、自动唯一约束及进度 SQL |
@@ -1245,7 +1245,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 单次派发时间预算与确认失败验收 {#dispatch-time-budget-checks}
 
-以下对应 2026-10-28 已通过的[单次派发时间预算](execution.md#dispatch-time-budgets)及[运行配置](operations.md#dispatch-time-configuration)，并包含 2026-10-30 已通过的[明确拒绝响应保存](#dispatch-rejection-checks)适用范围。普通首次与重试派发、有限响应保存的当前实现与实际测试见[普通重试记录](ordinary-readiness-review.md#ordinary-retry-progress)；未知结算核心的操作预算、调用方截止与部分进展验证见[最新记录](ordinary-readiness-review.md#ordinary-unknown-progress)。无绑定观察扫描及生产接线已完成本轮实现，实际验证见[扫描记录](ordinary-readiness-review.md#ordinary-unbound-scan-progress)；完整进程故障和负载验收仍归阶段 6，本表继续保留全部要求。本节不指定新的 Go 并发原语、内部队列结构或具体配置字段，不把时间初值当作硬实时保证。
+以下对应 2026-10-28 已通过的[单次派发时间预算](execution.md#dispatch-time-budgets)及[运行配置](operations.md#dispatch-time-configuration)，并包含 2026-10-30 已通过的[明确拒绝响应保存](#dispatch-rejection-checks)适用范围。普通首次与重试派发、有限响应保存的当前实现与实际测试见[普通重试记录](ordinary-readiness-review.md#ordinary-retry-progress)；未知结算核心的操作预算、调用方截止与部分进展验证见[最新记录](ordinary-readiness-review.md#ordinary-unknown-progress)。无绑定观察扫描及生产接线已完成本轮实现，实际验证见[扫描记录](ordinary-readiness-review.md#ordinary-unbound-scan-progress)；完整进程故障和本机代表性负载已按普通六阶段及分片五阶段的确认范围验收，最新远端证据见[CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)；本表继续保留全部要求，不将这些结果扩大为完整性能清单通过。本节不指定新的 Go 并发原语、内部队列结构或具体配置字段，不把时间初值当作硬实时保证。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1536,7 +1536,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 ### 远端取消目标查询与通知容量验收 {#cancel-notification-checks}
 
-以下对应本轮已通过的[取消目标有界查询](data-contracts.md#cancel-target-query)及[远端通知容量与生命周期](execution.md#cancel-notification-capacity)。保留完整验收要求：单目标 Canceller 已实现、地址索引已在此前迁移中创建；地址枚举、独立有界 Notifier 及生产接线已完成，本轮查询、生命周期及真实链路验证见[停止运行链路记录](ordinary-readiness-review.md#ordinary-stop-runtime-progress)；完整 Main 进程故障与负载验收仍待后续，不把组件链路测试扩大为整体验收。通知和 STOPPING 数据库处理相互独立，不改变已通过的每批父主键 NOWAIT 协议。
+以下对应本轮已通过的[取消目标有界查询](data-contracts.md#cancel-target-query)及[远端通知容量与生命周期](execution.md#cancel-notification-capacity)。保留完整验收要求：单目标 Canceller 已实现、地址索引已在此前迁移中创建；地址枚举、独立有界 Notifier 及生产接线已完成，本轮查询、生命周期及真实链路验证见[停止运行链路记录](ordinary-readiness-review.md#ordinary-stop-runtime-progress)；后续完整 Main 进程故障、本机代表性负载和远端结果已记录在[普通阶段记录](ordinary-readiness-review.md#ordinary-load-closeout)及[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)，实际覆盖以对应证据为准，不把组件链路测试扩大为整体验收。通知和 STOPPING 数据库处理相互独立，不改变已通过的每批父主键 NOWAIT 协议。
 
 | 场景 | 必须验证的边界 |
 | --- | --- |
@@ -1671,7 +1671,7 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 | Drain 已超时，但 Save 忽略取消仍未返回 | Drain 可结束等待，Wait 仍不能宣称实际工作完成；保存并发不提前归还，不据 Drain 返回提前关闭仍被使用的依赖 |
 | 启动前停止、重复停止或停止后尝试重启 | Stop 可重复调用且不等待善后；启动前停止后不得开放接纳，停止后的队列不能重新启动 |
 
-512／8／2 秒已在 Queue、Saver 及 Job 的 ResultPersistence 配置落实，压测校准尚未完成；这些初值不是内存或吞吐保证。内部退避序列不进入 Job 页面。[错误映射及无效处理规则](data-contracts.md#result-error-classification)已通过，具体驱动行为、RPC 报文上限的配置核对和 Go 内部组织随实现验证，不新增独立锁等待超时或预读批量参数。已定进程退出规则见[生命周期检查](#process-lifecycle-checks)，默认 30 秒仍为整个进程共享的停机预算，不成为正常运行期结果保留 TTL；到期停止等待和新增保存，不为每条结果新开完整宽限。
+512／8／2 秒已在 Queue、Saver 及 Job 的 ResultPersistence 配置落实；普通与分片本机代表性负载、共享检查与结果保存竞争的实测见[负载记录](sharded-load-validation.md)，不表示所有部署规模的压测校准完成，这些初值也不是内存或吞吐保证。内部退避序列不进入 Job 页面。[错误映射及无效处理规则](data-contracts.md#result-error-classification)已通过，具体驱动行为、RPC 报文上限的配置核对和 Go 内部组织随实现验证，不新增独立锁等待超时或预读批量参数。已定进程退出规则见[生命周期检查](#process-lifecycle-checks)，默认 30 秒仍为整个进程共享的停机预算，不成为正常运行期结果保留 TTL；到期停止等待和新增保存，不为每条结果新开完整宽限。
 
 ### 整轮超时默认值验收 {#timeout-default-checks}
 
@@ -1930,4 +1930,4 @@ Job 逻辑删除按[专项验收](#job-deletion-checks)落实，超时初值按[
 
 第一版交付以已通过范围和验收标准为准：功能链路完成，多节点及重要故障场景通过，容量边界有可复现结果，业务接入和运维说明与实现一致，未解决限制明确列出。 普通闭环的独立验收不构成执行能力单独正式发布，完整执行能力须待分片完成后发布，仍须满足其他适用交付条件。
 
-公开说明书需区分已确认设计、已实现能力和已验证结果。当前触发模块及普通六阶段适用范围已完成验收；分片阶段 1／2 已完成本机验证，阶段 3 已通过本机专项，[阶段 4](sharded-readiness-review.md#sharded-stage4-progress)本机故障与跨节点验收已完成，阶段 5 的本机查询、代表性负载及必要回归已完成，实际范围见[查询与负载记录](sharded-load-validation.md)；本轮尚未提交或推送，远端 CI 仍待取得。管理页面、历史清理、System 生产处理器及其他发布余项继续按各自范围推进，不宣称第一版分布式调度能力已经全部可用。
+公开说明书需区分已确认设计、已实现能力和已验证结果。触发、普通六阶段及分片五阶段的实施与已确认范围验收均已完成；本机查询及代表性负载范围见[查询与负载记录](sharded-load-validation.md)，提交 `14897bd` 的 Linux race、integration、E2E 及覆盖率结论见[CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)。管理页面、历史清理、System 生产处理器及其他发布余项继续按各自范围推进，不宣称第一版分布式调度能力已经全部可用。

@@ -60,6 +60,14 @@ func (s *handlerJobRPCStub) PreviewJobCron(_ context.Context, in *jobclient.Prev
 
 var _ jobclient.Job = (*handlerJobRPCStub)(nil)
 
+func (*handlerJobRPCStub) ListInstances(context.Context, *jobclient.ListInstancesRequest, ...grpc.CallOption) (*jobclient.ListInstancesResponse, error) {
+	panic("unexpected execution query in Job-only test")
+}
+
+func (*handlerJobRPCStub) GetTask(context.Context, *jobclient.GetTaskRequest, ...grpc.CallOption) (*jobclient.GetTaskResponse, error) {
+	panic("unexpected execution query in Job-only test")
+}
+
 func (s *handlerJobRPCStub) CreateExecutorGroup(context.Context, *jobclient.CreateExecutorGroupRequest, ...grpc.CallOption) (*jobclient.CreateExecutorGroupResponse, error) {
 	panic("unexpected executor group RPC in Job-only test")
 }

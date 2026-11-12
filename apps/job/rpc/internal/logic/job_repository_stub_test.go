@@ -163,7 +163,7 @@ func managementContext(r *jobRepositoryStub) *svc.ServiceContext {
 	return &svc.ServiceContext{
 		JobRepo: r, GroupRepo: &groupRepositoryStub{r}, Clock: testNow,
 		Transactions: func(_ context.Context, fn func(repository.Repositories) error) error {
-			return fn(repository.Repositories{Jobs: r, Groups: &groupRepositoryStub{r}, Instances: r})
+			return fn(repository.Repositories{Jobs: r, Groups: &groupRepositoryStub{r}, Instances: &managementInstanceStub{r}})
 		},
 	}
 }
@@ -171,8 +171,16 @@ func managementContext(r *jobRepositoryStub) *svc.ServiceContext {
 var (
 	_ repository.JobDefinitionRepository = (*jobRepositoryStub)(nil)
 	_ repository.ExecutorGroupRepository = (*groupRepositoryStub)(nil)
-	_ repository.JobInstanceRepository   = (*jobRepositoryStub)(nil)
+	_ repository.JobInstanceRepository   = (*managementInstanceStub)(nil)
 )
+
+// managementInstanceStub shares the fixture's call ordering while keeping the
+// Instance list signature separate from Job management's List method.
+type managementInstanceStub struct{ *jobRepositoryStub }
+
+func (*managementInstanceStub) List(context.Context, repository.InstanceFilter) ([]repository.InstanceListItem, int64, error) {
+	panic("unexpected instance history query")
+}
 
 // groupRepositoryStub shares the fixture's call ordering and failures while
 // keeping group-specific CRUD signatures separate from the Job repository.

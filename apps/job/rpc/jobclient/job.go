@@ -30,7 +30,10 @@ type (
 	GetInstanceResponse         = job.GetInstanceResponse
 	GetJobRequest               = job.GetJobRequest
 	GetJobResponse              = job.GetJobResponse
+	GetTaskRequest              = job.GetTaskRequest
+	GetTaskResponse             = job.GetTaskResponse
 	InstanceInfo                = job.InstanceInfo
+	InstanceListItem            = job.InstanceListItem
 	JobInfo                     = job.JobInfo
 	JobInput                    = job.JobInput
 	JobListItem                 = job.JobListItem
@@ -38,10 +41,13 @@ type (
 	ListExecutorGroupsResponse  = job.ListExecutorGroupsResponse
 	ListInstanceTasksRequest    = job.ListInstanceTasksRequest
 	ListInstanceTasksResponse   = job.ListInstanceTasksResponse
+	ListInstancesRequest        = job.ListInstancesRequest
+	ListInstancesResponse       = job.ListInstancesResponse
 	ListJobsRequest             = job.ListJobsRequest
 	ListJobsResponse            = job.ListJobsResponse
 	PreviewJobCronRequest       = job.PreviewJobCronRequest
 	PreviewJobCronResponse      = job.PreviewJobCronResponse
+	ShardStatistics             = job.ShardStatistics
 	StopInstanceRequest         = job.StopInstanceRequest
 	StopInstanceResponse        = job.StopInstanceResponse
 	TaskListItem                = job.TaskListItem
@@ -64,8 +70,10 @@ type (
 		ListExecutorGroups(ctx context.Context, in *ListExecutorGroupsRequest, opts ...grpc.CallOption) (*ListExecutorGroupsResponse, error)
 		DeleteExecutorGroup(ctx context.Context, in *DeleteExecutorGroupRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 		GetInstance(ctx context.Context, in *GetInstanceRequest, opts ...grpc.CallOption) (*GetInstanceResponse, error)
+		ListInstances(ctx context.Context, in *ListInstancesRequest, opts ...grpc.CallOption) (*ListInstancesResponse, error)
 		StopInstance(ctx context.Context, in *StopInstanceRequest, opts ...grpc.CallOption) (*StopInstanceResponse, error)
 		ListInstanceTasks(ctx context.Context, in *ListInstanceTasksRequest, opts ...grpc.CallOption) (*ListInstanceTasksResponse, error)
+		GetTask(ctx context.Context, in *GetTaskRequest, opts ...grpc.CallOption) (*GetTaskResponse, error)
 	}
 
 	defaultJob struct {
@@ -144,6 +152,11 @@ func (m *defaultJob) GetInstance(ctx context.Context, in *GetInstanceRequest, op
 	return client.GetInstance(ctx, in, opts...)
 }
 
+func (m *defaultJob) ListInstances(ctx context.Context, in *ListInstancesRequest, opts ...grpc.CallOption) (*ListInstancesResponse, error) {
+	client := job.NewJobClient(m.cli.Conn())
+	return client.ListInstances(ctx, in, opts...)
+}
+
 func (m *defaultJob) StopInstance(ctx context.Context, in *StopInstanceRequest, opts ...grpc.CallOption) (*StopInstanceResponse, error) {
 	client := job.NewJobClient(m.cli.Conn())
 	return client.StopInstance(ctx, in, opts...)
@@ -152,4 +165,9 @@ func (m *defaultJob) StopInstance(ctx context.Context, in *StopInstanceRequest, 
 func (m *defaultJob) ListInstanceTasks(ctx context.Context, in *ListInstanceTasksRequest, opts ...grpc.CallOption) (*ListInstanceTasksResponse, error) {
 	client := job.NewJobClient(m.cli.Conn())
 	return client.ListInstanceTasks(ctx, in, opts...)
+}
+
+func (m *defaultJob) GetTask(ctx context.Context, in *GetTaskRequest, opts ...grpc.CallOption) (*GetTaskResponse, error) {
+	client := job.NewJobClient(m.cli.Conn())
+	return client.GetTask(ctx, in, opts...)
 }

@@ -154,6 +154,7 @@ func protectContent(register func(string)) {
 		job.Job_GetExecutorGroup_FullMethodName,
 		job.Job_GetInstance_FullMethodName,
 		job.Job_ListInstanceTasks_FullMethodName,
+		job.Job_GetTask_FullMethodName,
 	} {
 		register(method)
 	}

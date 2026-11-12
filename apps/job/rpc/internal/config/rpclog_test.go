@@ -15,7 +15,7 @@ func TestProtectServerContentPreservesStatisticsAndConfiguredMethods(t *testing.
 		conf.Middlewares.StatConf.IgnoreContentMethods = []string{"/example.Service/Existing", job.Job_CreateJob_FullMethodName}
 		ProtectServerContent(&conf)
 		ProtectServerContent(&conf)
-		want := []string{"/example.Service/Existing", job.Job_CreateJob_FullMethodName, job.Job_UpdateJob_FullMethodName, job.Job_GetJob_FullMethodName, job.Job_TriggerJob_FullMethodName, job.Job_GetExecutorGroup_FullMethodName, job.Job_GetInstance_FullMethodName, job.Job_ListInstanceTasks_FullMethodName}
+		want := []string{"/example.Service/Existing", job.Job_CreateJob_FullMethodName, job.Job_UpdateJob_FullMethodName, job.Job_GetJob_FullMethodName, job.Job_TriggerJob_FullMethodName, job.Job_GetExecutorGroup_FullMethodName, job.Job_GetInstance_FullMethodName, job.Job_ListInstanceTasks_FullMethodName, job.Job_GetTask_FullMethodName}
 		if conf.Middlewares.Stat != stat || !reflect.DeepEqual(conf.Middlewares.StatConf.IgnoreContentMethods, want) {
 			t.Fatalf("stat=%t ignored=%v", conf.Middlewares.Stat, conf.Middlewares.StatConf.IgnoreContentMethods)
 		}

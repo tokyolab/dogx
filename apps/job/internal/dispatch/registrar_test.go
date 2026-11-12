@@ -332,6 +332,14 @@ func (s *registrationTaskStub) RegisterAttempt(_ context.Context, write reposito
 	return s.f.retryTask, s.f.retryErr
 }
 
+func (*registrationInstanceStub) List(context.Context, repository.InstanceFilter) ([]repository.InstanceListItem, int64, error) {
+	panic("unexpected management query")
+}
+
+func (*registrationTaskStub) FindDetail(context.Context, int64, repository.TaskDataSelection) (*repository.TaskDetail, error) {
+	panic("unexpected management query")
+}
+
 func (*registrationTaskStub) ListByInstance(context.Context, int64, int64, int64) ([]repository.TaskSummary, int64, error) {
 	panic("unexpected ListByInstance")
 }

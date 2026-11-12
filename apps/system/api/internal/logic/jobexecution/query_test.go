@@ -109,13 +109,18 @@ func TestExecutionAPIRejectsIncompleteResponsesAndPreservesErrors(t *testing.T) 
 
 type executionRPCStub struct {
 	jobclient.Job
-	get         *jobclient.GetInstanceResponse
-	stop        *jobclient.StopInstanceResponse
-	list        *jobclient.ListInstanceTasksResponse
-	err         error
-	getRequest  *jobclient.GetInstanceRequest
-	stopRequest *jobclient.StopInstanceRequest
-	listRequest *jobclient.ListInstanceTasksRequest
+	get              *jobclient.GetInstanceResponse
+	stop             *jobclient.StopInstanceResponse
+	list             *jobclient.ListInstanceTasksResponse
+	err              error
+	getRequest       *jobclient.GetInstanceRequest
+	stopRequest      *jobclient.StopInstanceRequest
+	listRequest      *jobclient.ListInstanceTasksRequest
+	instances        *jobclient.ListInstancesResponse
+	instancesRequest *jobclient.ListInstancesRequest
+	task             *jobclient.GetTaskResponse
+	taskRequest      *jobclient.GetTaskRequest
+	taskReceiveLimit int
 }
 
 func (s *executionRPCStub) GetInstance(_ context.Context, in *jobclient.GetInstanceRequest, _ ...grpc.CallOption) (*jobclient.GetInstanceResponse, error) {
@@ -132,3 +137,81 @@ func (s *executionRPCStub) ListInstanceTasks(_ context.Context, in *jobclient.Li
 	s.listRequest = in
 	return s.list, s.err
 }
+
+func (s *executionRPCStub) ListInstances(_ context.Context, in *jobclient.ListInstancesRequest, _ ...grpc.CallOption) (*jobclient.ListInstancesResponse, error) {
+	s.instancesRequest = in
+	return s.instances, s.err
+}
+
+func (s *executionRPCStub) GetTask(_ context.Context, in *jobclient.GetTaskRequest, options ...grpc.CallOption) (*jobclient.GetTaskResponse, error) {
+	s.taskRequest = in
+	for _, option := range options {
+		if value, ok := option.(grpc.MaxRecvMsgSizeCallOption); ok {
+			s.taskReceiveLimit = value.MaxRecvMsgSize
+		}
+	}
+	return s.task, s.err
+}
+
+func TestExecutionHistoryKeepsFilterBoundsAndFrozenNames(t *testing.T) {
+	jobID, groupID, instanceID := int64(7), int64(8), int64(9)
+	state, trigger := int32(6), int32(3)
+	client := &executionRPCStub{instances: &jobclient.ListInstancesResponse{Total: 1, Items: []*jobclient.InstanceListItem{{
+		Id: instanceID, JobId: jobID, JobName: "name at creation", Status: state, TriggerType: trigger,
+	}}}}
+	logic := NewListInstancesLogic(context.Background(), &svc.ServiceContext{JobRpc: client})
+	request := &types.JobInstanceListReq{PageReq: types.PageReq{Page: 2, PageSize: 30}, Id: &instanceID,
+		JobId: &jobID, JobName: "name", ExecutorGroupId: &groupID, Status: &state, TriggerType: &trigger,
+		CreatedFrom: "2026-11-12T00:00:00+08:00", CreatedTo: "2026-11-13T00:00:00+08:00"}
+	result, err := logic.ListInstances(request)
+	if err != nil || result.Total != 1 || result.Items[0].JobName != "name at creation" || result.Items[0].FinishedAt != nil {
+		t.Fatalf("history projection: %+v %v", result, err)
+	}
+	forwarded := client.instancesRequest
+	if forwarded.GetId() != instanceID || forwarded.GetJobId() != jobID || forwarded.GetExecutorGroupId() != groupID ||
+		forwarded.GetStatus() != state || forwarded.GetTriggerType() != trigger || forwarded.Page != 2 || forwarded.PageSize != 30 ||
+		forwarded.JobName != request.JobName || forwarded.CreatedFrom != request.CreatedFrom || forwarded.CreatedTo != request.CreatedTo {
+		t.Fatal("history filters were changed")
+	}
+	client.instances = &jobclient.ListInstancesResponse{}
+	result, err = logic.ListInstances(request)
+	if err != nil || result.Items == nil {
+		t.Fatal("empty history must remain an empty JSON array")
+	}
+	client.instances = &jobclient.ListInstancesResponse{Items: []*jobclient.InstanceListItem{nil}}
+	if _, err := logic.ListInstances(request); status.Code(err) != codes.Internal {
+		t.Fatal("nil history item accepted")
+	}
+}
+
+func TestTaskDetailPreservesJSONTextAndAbsence(t *testing.T) {
+	client := &executionRPCStub{task: &jobclient.GetTaskResponse{Task: &jobclient.TaskListItem{Id: 9, InstanceId: 7, AttemptNo: 3}}}
+	logic := NewGetTaskLogic(context.Background(), &svc.ServiceContext{JobRpc: client})
+	for _, data := range []*string{nil, pointerText("null"), pointerText(`{"id":9007199254740993123456789}`)} {
+		client.task.Data = data
+		result, err := logic.GetTask(&types.JobTaskDetailReq{Id: 9, DataKind: "result"})
+		if err != nil || result.Data != data || result.Task.AttemptNo != 3 || client.taskRequest.DataKind != "result" || client.taskReceiveLimit != 9<<20 {
+			t.Fatalf("task data adaptation: %+v %v", result, err)
+		}
+	}
+	client.task = nil
+	if _, err := logic.GetTask(&types.JobTaskDetailReq{Id: 9}); status.Code(err) != codes.Internal {
+		t.Fatal("nil Task detail accepted")
+	}
+	if _, err := logic.GetTask(nil); status.Code(err) != codes.InvalidArgument {
+		t.Fatal("nil Task request accepted")
+	}
+}
+
+func TestInstanceDetailPreservesShardCancellationCounts(t *testing.T) {
+	client := &executionRPCStub{get: &jobclient.GetInstanceResponse{Instance: &jobclient.InstanceInfo{
+		Id: 9, ExecutionConfig: &jobclient.ExecutionConfigInfo{ExecutionMode: 2},
+		ShardStats: &jobclient.ShardStatistics{Total: 10, Succeeded: 3, Failed: 2, Canceled: 4, Unfinished: 1},
+	}}}
+	result, err := NewGetInstanceLogic(context.Background(), &svc.ServiceContext{JobRpc: client}).GetInstance(&types.IDReq{Id: 9})
+	if err != nil || result.ShardStats == nil || result.ShardStats.Canceled != 4 || result.ShardStats.Unfinished != 1 || result.ShardStats.Total != 10 {
+		t.Fatalf("shard statistics projection: %+v %v", result, err)
+	}
+}
+
+func pointerText(value string) *string { return &value }

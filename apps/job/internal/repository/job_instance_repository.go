@@ -23,6 +23,41 @@ var ErrInstanceLocked = errors.New("job instance is locked")
 // Historical records remain readable independently of the current Job or group.
 var ErrInstanceNotFound = errors.New("job instance not found")
 
+// InstanceFilter selects persisted rounds independently of current Job state.
+// Times bound CreatedAt as [CreatedFrom, CreatedTo); nil omits that bound. JobName
+// is a case-insensitive literal substring of the name captured at creation.
+// Page is one-based and PageSize is limited to 200.
+type InstanceFilter struct {
+	Page, PageSize  int64
+	ID, JobID       *int64
+	JobName         string
+	ExecutorGroupID *int64
+	Status          *model.InstanceStatus
+	TriggerType     *model.TriggerType
+	CreatedFrom     *time.Time
+	CreatedTo       *time.Time
+}
+
+// InstanceListItem excludes the execution snapshot and Task contents. JobName
+// is historical; ExecutorGroupName comes from the immutable group identity,
+// including its retained soft-deleted row, and is nil if that row is absent.
+type InstanceListItem struct {
+	ID                int64
+	JobID             int64
+	JobName           string
+	ExecutorGroupID   int64
+	ExecutorGroupName *string
+	TriggerType       model.TriggerType
+	ScheduledAt       *time.Time
+	Status            model.InstanceStatus
+	StartedAt         *time.Time
+	DeadlineAt        *time.Time
+	FinishedAt        *time.Time
+	EndReason         *string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
 // ManualIdentity contains the request identity and parameter override needed to
 // deduplicate manual triggers. ParamsOverridden distinguishes inherited Job
 // parameters from an explicit empty override; OverrideParams is nil without an override.
@@ -103,6 +138,12 @@ type InstanceCompletion struct {
 // A successful transaction-scoped call does not confirm commit; use the result
 // from TransactionRunner.
 type JobInstanceRepository interface {
+	// List returns historical rounds by descending creation time and then ID.
+	// Count and page are separate READ COMMITTED statements, so concurrent changes
+	// may affect their consistency. Empty pages are non-nil slices. The projection
+	// does not load frozen parameters or require an undeleted Job or group.
+	List(context.Context, InstanceFilter) ([]InstanceListItem, int64, error)
+
 	// ListRunningCandidates reads at most limit Running parents whose non-NULL
 	// started_at is strictly before eligibleBefore, ordered by started_at then ID.
 	// eligibleBefore must be nonzero and remain fixed for the whole traversal;
@@ -409,6 +450,57 @@ func (r *jobInstanceRepository) Exists(ctx context.Context, id int64) (bool, err
 		return false, fmt.Errorf("check job instance existence: %w", err)
 	}
 	return exists, nil
+}
+
+func (r *jobInstanceRepository) List(ctx context.Context, f InstanceFilter) ([]InstanceListItem, int64, error) {
+	if ctx == nil || f.Page < 1 || f.PageSize < 1 || f.PageSize > 200 || f.Page-1 > int64(^uint(0)>>1)/f.PageSize ||
+		(f.ID != nil && *f.ID <= 0) || (f.JobID != nil && *f.JobID <= 0) ||
+		(f.ExecutorGroupID != nil && *f.ExecutorGroupID <= 0) ||
+		(f.Status != nil && (*f.Status < model.InstanceWaiting || *f.Status > model.InstanceStopping)) ||
+		(f.TriggerType != nil && (*f.TriggerType < model.TriggerScheduled || *f.TriggerType > model.TriggerManual)) ||
+		(f.CreatedFrom != nil && f.CreatedFrom.IsZero()) || (f.CreatedTo != nil && f.CreatedTo.IsZero()) ||
+		(f.CreatedFrom != nil && f.CreatedTo != nil && !f.CreatedFrom.Before(*f.CreatedTo)) {
+		return nil, 0, errors.New("invalid instance list query")
+	}
+	db := r.db.WithContext(ctx).Model(&model.JobInstance{}).Table("job_instance AS i")
+	if f.ID != nil {
+		db = db.Where("i.id = ?", *f.ID)
+	}
+	if f.JobID != nil {
+		db = db.Where("i.job_id = ?", *f.JobID)
+	}
+	if f.JobName != "" {
+		db = db.Where("i.job_name ILIKE ? ESCAPE '!'", literalContains(f.JobName))
+	}
+	if f.ExecutorGroupID != nil {
+		db = db.Where("i.executor_group_id = ?", *f.ExecutorGroupID)
+	}
+	if f.Status != nil {
+		db = db.Where("i.status = ?", *f.Status)
+	}
+	if f.TriggerType != nil {
+		db = db.Where("i.trigger_type = ?", *f.TriggerType)
+	}
+	if f.CreatedFrom != nil {
+		db = db.Where("i.created_at >= ?", *f.CreatedFrom)
+	}
+	if f.CreatedTo != nil {
+		db = db.Where("i.created_at < ?", *f.CreatedTo)
+	}
+	var total int64
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("count job instances: %w", err)
+	}
+	items := make([]InstanceListItem, 0)
+	// Historical lookup deliberately includes soft-deleted group identities.
+	// Only their immutable names are read; credentials never enter the projection.
+	err := db.Joins("LEFT JOIN job_executor_group g ON g.id = i.executor_group_id").
+		Select("i.id, i.job_id, i.job_name, i.executor_group_id, g.name AS executor_group_name, i.trigger_type, i.scheduled_at, i.status, i.started_at, i.deadline_at, i.finished_at, i.end_reason, i.created_at, i.updated_at").
+		Order("i.created_at DESC, i.id DESC").Offset(int((f.Page - 1) * f.PageSize)).Limit(int(f.PageSize)).Find(&items).Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("list job instances: %w", err)
+	}
+	return items, total, nil
 }
 
 func (r *jobInstanceRepository) FindByID(ctx context.Context, id int64) (*model.JobInstance, error) {

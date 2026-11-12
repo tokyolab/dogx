@@ -323,13 +323,13 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
-					Path:    "/job/instance/get",
-					Handler: jobexecution.GetInstanceHandler(serverCtx),
+					Path:    "/job/task/get",
+					Handler: jobexecution.GetTaskHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/job/instance/stop",
-					Handler: jobexecution.StopInstanceHandler(serverCtx),
+					Path:    "/job/task/list",
+					Handler: jobexecution.ListInstanceTasksHandler(serverCtx),
 				},
 			}...,
 		),
@@ -342,8 +342,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
-					Path:    "/job/task/list",
-					Handler: jobexecution.ListInstanceTasksHandler(serverCtx),
+					Path:    "/job/instance/get",
+					Handler: jobexecution.GetInstanceHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/instance/list",
+					Handler: jobexecution.ListInstancesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/job/instance/stop",
+					Handler: jobexecution.StopInstanceHandler(serverCtx),
 				},
 			}...,
 		),

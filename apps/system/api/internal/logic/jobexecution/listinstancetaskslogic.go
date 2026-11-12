@@ -43,13 +43,7 @@ func (l *ListInstanceTasksLogic) ListInstanceTasks(req *types.JobTaskListReq) (r
 		if item == nil {
 			return nil, invalidResponse()
 		}
-		items = append(items, types.JobTaskListItem{
-			Id: item.Id, InstanceId: item.InstanceId, TaskType: item.TaskType, Status: item.Status,
-			AttemptNo: item.AttemptNo, UsedAttempts: item.UsedAttempts, AttemptRegisteredAt: item.AttemptRegisteredAt,
-			NextDispatchAt: item.NextDispatchAt, ExecutorInstanceId: item.ExecutorInstanceId, ExecutorAddress: item.ExecutorAddress,
-			ResultSummary: item.ResultSummary, EndReason: item.EndReason, StartedAt: item.StartedAt,
-			FinishedAt: item.FinishedAt, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
-		})
+		items = append(items, taskProjection(item))
 	}
 	return &types.JobTaskListResp{Items: items, PageMeta: types.PageMeta{Total: result.Total}}, nil
 }

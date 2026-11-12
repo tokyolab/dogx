@@ -15,6 +15,10 @@
     "business_error": "Business operation failed"
   },
   "job": {
+    "task": {
+      "not_found": "The Task does not exist",
+      "data_too_large": "The Task data exceeds the detail display size limit"
+    },
     "instance": {
       "not_found": "The Job instance does not exist"
     },

@@ -11,7 +11,7 @@ func ProtectServerContent(conf *zrpc.RpcServerConf) {
 	if conf == nil {
 		return
 	}
-	ignored := make(map[string]bool, len(conf.Middlewares.StatConf.IgnoreContentMethods)+7)
+	ignored := make(map[string]bool, len(conf.Middlewares.StatConf.IgnoreContentMethods)+8)
 	for _, method := range conf.Middlewares.StatConf.IgnoreContentMethods {
 		ignored[method] = true
 	}
@@ -23,6 +23,7 @@ func ProtectServerContent(conf *zrpc.RpcServerConf) {
 		job.Job_GetExecutorGroup_FullMethodName,
 		job.Job_GetInstance_FullMethodName,
 		job.Job_ListInstanceTasks_FullMethodName,
+		job.Job_GetTask_FullMethodName,
 	} {
 		if !ignored[method] {
 			conf.Middlewares.StatConf.IgnoreContentMethods = append(conf.Middlewares.StatConf.IgnoreContentMethods, method)

@@ -28,8 +28,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply migrations to empty PostgreSQL database: %v", err)
 	}
-	if len(results) != 27 {
-		t.Fatalf("unexpected applied migration count: got %d, want 27", len(results))
+	if len(results) != 28 {
+		t.Fatalf("unexpected applied migration count: got %d, want 28", len(results))
 	}
 	if results[0].Source.Version != 1 || results[0].Source.Path != "00001_init_system.sql" {
 		t.Fatalf(
@@ -123,8 +123,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Goose database version: %v", err)
 	}
-	if version != 20261105200000 {
-		t.Fatalf("unexpected Goose database version: got %d, want 20261105200000", version)
+	if version != 20261112120000 {
+		t.Fatalf("unexpected Goose database version: got %d, want 20261112120000", version)
 	}
 
 	expectedTables := map[string]string{
@@ -324,6 +324,18 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	}
 	if _, err := sqlDB.ExecContext(ctx, "INSERT INTO casbin_rule (ptype,v0,v1,v2) VALUES ('p','r:7','/job/instance/stop','POST')"); err != nil {
 		t.Fatal(err)
+	}
+	for _, path := range []string{"/job/instance/list", "/job/task/get"} {
+		if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_api WHERE service_name='system-api' AND path=$1 AND method='POST' AND status=1 AND is_required=FALSE AND deleted_at IS NULL", path).Scan(&seedCount); err != nil || seedCount != 1 {
+			t.Fatalf("management query API seed %s: count=%d error=%v", path, seedCount, err)
+		}
+	}
+	managementDown, err := provider.Down(ctx)
+	if err != nil || managementDown.Source.Version != 20261112120000 {
+		t.Fatalf("scheduled job management rollback: %+v %v", managementDown, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, "SELECT count(*) FROM sys_menu WHERE route_name IN ('JobScheduling','JobManagement','JobExecutions','ExecutorGroups')").Scan(&seedCount); err != nil || seedCount != 0 {
+		t.Fatalf("management rollback left menus: count=%d error=%v", seedCount, err)
 	}
 	stopDown, err := provider.Down(ctx)
 	if err != nil || stopDown.Source.Version != 20261105200000 {
@@ -679,7 +691,7 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reapply latest migration after rollback: %v", err)
 	}
-	if len(reapplyResults) != 25 ||
+	if len(reapplyResults) != 26 ||
 		reapplyResults[0].Source.Version != 20260825151501 ||
 		reapplyResults[1].Source.Version != 20260825183427 ||
 		reapplyResults[2].Source.Version != 20260826104035 ||
@@ -704,7 +716,8 @@ func TestMigrationsApplyToEmptyPostgreSQL(t *testing.T) {
 		reapplyResults[21].Source.Version != 20261016093000 ||
 		reapplyResults[22].Source.Version != 20261104143000 ||
 		reapplyResults[23].Source.Version != 20261105180000 ||
-		reapplyResults[24].Source.Version != 20261105200000 {
+		reapplyResults[24].Source.Version != 20261105200000 ||
+		reapplyResults[25].Source.Version != 20261112120000 {
 		t.Fatalf("unexpected reapplied migrations: %+v", reapplyResults)
 	}
 	assertSystemMenuSeed(t, ctx, sqlDB)

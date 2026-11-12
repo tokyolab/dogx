@@ -164,8 +164,10 @@ JobRpc:
 		{"/job/group/get", map[string]any{"id": 1}},
 		{"/job/group/list", map[string]any{"page": 1, "pageSize": 20}},
 		{"/job/group/delete", map[string]any{"id": 1}},
+		{"/job/instance/list", map[string]any{"page": 1, "pageSize": 20}},
 		{"/job/instance/get", map[string]any{"id": 1}},
 		{"/job/instance/stop", map[string]any{"id": 1}},
+		{"/job/task/get", map[string]any{"id": 1}},
 		{"/job/task/list", map[string]any{"instanceId": 1, "page": 1, "pageSize": 20}},
 	}
 	var grantedPaths []string
@@ -267,6 +269,82 @@ JobRpc:
 			}
 		}
 	})
+	readHistory := func(t testing.TB, filter map[string]any) jobE2EInstanceList {
+		t.Helper()
+		response := call(t, "/job/instance/list", filter)
+		if bytes.Contains(response.Data, []byte(`"executionConfig"`)) || bytes.Contains(response.Data, []byte(`"resultSummary"`)) {
+			t.Fatal("Instance history exposed detail-only fields")
+		}
+		var list jobE2EInstanceList
+		decodeData(t, response, &list)
+		return list
+	}
+	assertHistory := func(t testing.TB, instance jobE2EInstance) {
+		t.Helper()
+		created, err := time.Parse(time.RFC3339Nano, instance.CreatedAt)
+		if err != nil {
+			t.Fatalf("parse Instance creation time: %v", err)
+		}
+		list := readHistory(t, map[string]any{
+			"page": 1, "pageSize": 1, "id": instance.ID, "jobId": instance.JobID,
+			"jobName": instance.JobName, "executorGroupId": group.ID,
+			"status": instance.Status, "triggerType": 3,
+			"createdFrom": instance.CreatedAt, "createdTo": created.Add(time.Second).Format(time.RFC3339Nano),
+		})
+		if list.Total != 1 || len(list.Items) != 1 {
+			t.Fatalf("filtered Instance history = %+v, want one matching record", list)
+		}
+		item := list.Items[0]
+		if item.ID != instance.ID || item.JobID != instance.JobID || item.JobName != instance.JobName ||
+			item.ExecutorGroupID != group.ID || item.ExecutorGroupName == nil || *item.ExecutorGroupName != group.Name ||
+			item.Status != instance.Status || item.TriggerType != 3 || item.CreatedAt != instance.CreatedAt {
+			t.Fatalf("unexpected Instance history: %+v", item)
+		}
+	}
+	assertTaskDetail := func(t testing.TB, task jobE2ETask, mode string) {
+		t.Helper()
+		for _, kind := range []string{"", "input", "result"} {
+			body := map[string]any{"id": task.ID}
+			if kind != "" {
+				body["dataKind"] = kind
+			}
+			var detail struct {
+				Task jobE2ETask `json:"task"`
+				Data *string    `json:"data"`
+			}
+			decodeData(t, call(t, "/job/task/get", body), &detail)
+			if detail.Task.ID != task.ID || detail.Task.InstanceID != task.InstanceID || detail.Task.TaskType != 1 ||
+				detail.Task.Status != task.Status || detail.Task.AttemptNo != task.AttemptNo || detail.Task.UsedAttempts != task.UsedAttempts ||
+				detail.Task.EndReason == nil || task.EndReason == nil || *detail.Task.EndReason != *task.EndReason {
+				t.Fatalf("unexpected %q Task detail: %+v", kind, detail.Task)
+			}
+			if kind != "result" || mode == "wait" {
+				if detail.Data != nil {
+					t.Fatalf("unexpected data in %q Task detail for %s", kind, mode)
+				}
+				continue
+			}
+			if detail.Data == nil {
+				t.Fatal("Task result detail omitted persisted business data")
+			}
+			var result struct {
+				Mode         string `json:"mode"`
+				Value        string `json:"value"`
+				InvocationNo int64  `json:"invocation_no"`
+			}
+			if err := json.Unmarshal([]byte(*detail.Data), &result); err != nil {
+				t.Fatalf("decode Task business result: %v", err)
+			}
+			if result.Mode != mode || result.Value != "persisted-"+mode || result.InvocationNo != task.AttemptNo {
+				t.Fatalf("unexpected persisted Task business result: %+v", result)
+			}
+		}
+	}
+	var history []struct {
+		instance jobE2EInstance
+		task     jobE2ETask
+		mode     string
+	}
 	var jobIDs []int64
 	for _, scenario := range []struct {
 		mode       string
@@ -340,7 +418,8 @@ JobRpc:
 			if scenario.mode == "wait" && task.Status == 5 {
 				wantTaskReason = "execution_failed"
 			}
-			if instance.ID != trigger.InstanceID || instance.JobID != definition.ID || instance.TriggeredBy == nil || *instance.TriggeredBy != operator.ID ||
+			if instance.ID != trigger.InstanceID || instance.JobID != definition.ID || instance.JobName != "e2e-"+scenario.mode ||
+				instance.TriggeredBy == nil || *instance.TriggeredBy != operator.ID || string(instance.ShardStats) != "null" ||
 				instance.EndReason == nil || *instance.EndReason != wantReason || instance.FinishedAt == nil ||
 				tasks.Total != 1 || task.InstanceID != trigger.InstanceID || task.AttemptNo != wantAttempt || task.UsedAttempts != int32(wantAttempt) ||
 				task.EndReason == nil || *task.EndReason != wantTaskReason || task.FinishedAt == nil {
@@ -349,6 +428,22 @@ JobRpc:
 			if initialTaskID != 0 && task.ID != initialTaskID {
 				t.Fatal("stopping replaced the accepted Task identity")
 			}
+			assertHistory(t, instance)
+			for _, filter := range []map[string]any{
+				{"page": 1, "pageSize": 1, "jobId": instance.JobID, "createdTo": instance.CreatedAt},
+				{"page": 1, "pageSize": 1, "jobId": instance.JobID, "triggerType": 1},
+				{"page": 1, "pageSize": 1, "jobId": instance.JobID, "jobName": "missing-" + instance.JobName},
+			} {
+				list := readHistory(t, filter)
+				if list.Total != 0 || len(list.Items) != 0 {
+					t.Fatalf("nonmatching history filter %v returned %+v", filter, list)
+				}
+			}
+			page := readHistory(t, map[string]any{"page": 2, "pageSize": 1, "jobId": instance.JobID})
+			if page.Total != 1 || len(page.Items) != 0 {
+				t.Fatalf("history pagination did not preserve the total: %+v", page)
+			}
+			assertTaskDetail(t, task, scenario.mode)
 			wantBusiness := "succeeded"
 			if scenario.mode == "wait" {
 				wantBusiness = "canceled"
@@ -365,6 +460,11 @@ JobRpc:
 			if terminalStop.Status != wantInstance || terminalStop.EndReason == nil || *terminalStop.EndReason != wantReason {
 				t.Fatalf("terminal stop changed the existing result: %+v", terminalStop)
 			}
+			history = append(history, struct {
+				instance jobE2EInstance
+				task     jobE2ETask
+				mode     string
+			}{instance: instance, task: task, mode: scenario.mode})
 		})
 	}
 	if t.Failed() {
@@ -376,18 +476,49 @@ JobRpc:
 	call(t, "/job/group/delete", map[string]any{"id": group.ID})
 	status, response = postJSON(t, client, baseURL+"/job/group/get", operatorToken, map[string]any{"id": group.ID})
 	assertEnvelope(t, status, response, http.StatusOK, 100001, "job.executor_group.not_found")
+	for _, record := range history {
+		assertHistory(t, record.instance)
+		var instance jobE2EInstance
+		decodeData(t, call(t, "/job/instance/get", map[string]any{"id": record.instance.ID}), &instance)
+		if instance.ID != record.instance.ID || instance.JobID != record.instance.JobID || instance.JobName != record.instance.JobName ||
+			instance.Status != record.instance.Status || string(instance.ShardStats) != "null" {
+			t.Fatalf("deleted Job lost its historical Instance detail: %+v", instance)
+		}
+		tasks := jobE2ETasks(t, call(t, "/job/task/list", map[string]any{"instanceId": instance.ID, "page": 1, "pageSize": 20}))
+		if tasks.Total != 1 || len(tasks.Items) != 1 || tasks.Items[0].ID != record.task.ID {
+			t.Fatalf("deleted Job lost its historical Task list: %+v", tasks)
+		}
+		assertTaskDetail(t, record.task, record.mode)
+	}
 	status, response = postJSON(t, client, baseURL+"/role/api/update", adminToken, map[string]any{"roleId": role.ID, "apiIds": []int64{}})
 	assertEnvelope(t, status, response, http.StatusOK, 0, "")
 	waitForPermissionRevocation(t, client, baseURL+"/job/group/list", operatorToken, map[string]any{"page": 1, "pageSize": 20}, apiProcess)
 }
 
 type jobE2EInstance struct {
-	ID          int64   `json:"id"`
-	JobID       int64   `json:"jobId"`
-	Status      int32   `json:"status"`
-	TriggeredBy *int64  `json:"triggeredBy"`
-	EndReason   *string `json:"endReason"`
-	FinishedAt  *string `json:"finishedAt"`
+	ID          int64           `json:"id"`
+	JobID       int64           `json:"jobId"`
+	JobName     string          `json:"jobName"`
+	Status      int32           `json:"status"`
+	TriggeredBy *int64          `json:"triggeredBy"`
+	EndReason   *string         `json:"endReason"`
+	FinishedAt  *string         `json:"finishedAt"`
+	CreatedAt   string          `json:"createdAt"`
+	ShardStats  json.RawMessage `json:"shardStats"`
+}
+
+type jobE2EInstanceList struct {
+	Total int64 `json:"total"`
+	Items []struct {
+		ID                int64   `json:"id"`
+		JobID             int64   `json:"jobId"`
+		JobName           string  `json:"jobName"`
+		ExecutorGroupID   int64   `json:"executorGroupId"`
+		ExecutorGroupName *string `json:"executorGroupName"`
+		Status            int32   `json:"status"`
+		TriggerType       int32   `json:"triggerType"`
+		CreatedAt         string  `json:"createdAt"`
+	} `json:"items"`
 }
 
 type jobE2EStop struct {
@@ -397,17 +528,20 @@ type jobE2EStop struct {
 }
 
 type jobE2ETaskList struct {
-	Total int64 `json:"total"`
-	Items []struct {
-		ID              int64   `json:"id"`
-		InstanceID      int64   `json:"instanceId"`
-		Status          int32   `json:"status"`
-		AttemptNo       int64   `json:"attemptNo"`
-		UsedAttempts    int32   `json:"usedAttempts"`
-		ExecutorAddress *string `json:"executorAddress"`
-		EndReason       *string `json:"endReason"`
-		FinishedAt      *string `json:"finishedAt"`
-	} `json:"items"`
+	Total int64        `json:"total"`
+	Items []jobE2ETask `json:"items"`
+}
+
+type jobE2ETask struct {
+	ID              int64   `json:"id"`
+	InstanceID      int64   `json:"instanceId"`
+	TaskType        int32   `json:"taskType"`
+	Status          int32   `json:"status"`
+	AttemptNo       int64   `json:"attemptNo"`
+	UsedAttempts    int32   `json:"usedAttempts"`
+	ExecutorAddress *string `json:"executorAddress"`
+	EndReason       *string `json:"endReason"`
+	FinishedAt      *string `json:"finishedAt"`
 }
 
 func jobE2ETasks(t testing.TB, response responseEnvelope) jobE2ETaskList {

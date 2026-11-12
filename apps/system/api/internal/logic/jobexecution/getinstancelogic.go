@@ -39,6 +39,11 @@ func (l *GetInstanceLogic) GetInstance(req *types.IDReq) (resp *types.JobInstanc
 		return nil, invalidResponse()
 	}
 	item, config := result.Instance, result.Instance.ExecutionConfig
+	var stats *types.JobShardStatistics
+	if value := item.ShardStats; value != nil {
+		stats = &types.JobShardStatistics{Total: value.Total, Succeeded: value.Succeeded,
+			Failed: value.Failed, Canceled: value.Canceled, Unfinished: value.Unfinished}
+	}
 	return &types.JobInstanceDetail{
 		Id: item.Id, JobId: item.JobId, JobName: item.JobName, ExecutorGroupId: item.ExecutorGroupId,
 		TriggerType: item.TriggerType, ScheduledAt: item.ScheduledAt, RequestId: item.RequestId,
@@ -49,6 +54,6 @@ func (l *GetInstanceLogic) GetInstance(req *types.IDReq) (resp *types.JobInstanc
 			RetryIntervalSeconds: config.RetryIntervalSeconds, TimeoutSeconds: config.TimeoutSeconds,
 		},
 		Status: item.Status, StartedAt: item.StartedAt, DeadlineAt: item.DeadlineAt, FinishedAt: item.FinishedAt,
-		EndReason: item.EndReason, ResultSummary: item.ResultSummary, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
+		EndReason: item.EndReason, ResultSummary: item.ResultSummary, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt, ShardStats: stats,
 	}, nil
 }

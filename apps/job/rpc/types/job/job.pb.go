@@ -1695,6 +1695,403 @@ func (x *GetInstanceRequest) GetId() int64 {
 	return 0
 }
 
+// ListInstancesRequest filters persisted rounds by their immutable identity and
+// creation time. The lower time bound is inclusive; the upper bound is exclusive.
+type ListInstancesRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Page            int64                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize        int64                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	Id              *int64                 `protobuf:"varint,3,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	JobId           *int64                 `protobuf:"varint,4,opt,name=job_id,json=jobId,proto3,oneof" json:"job_id,omitempty"`
+	JobName         string                 `protobuf:"bytes,5,opt,name=job_name,json=jobName,proto3" json:"job_name,omitempty"`
+	ExecutorGroupId *int64                 `protobuf:"varint,6,opt,name=executor_group_id,json=executorGroupId,proto3,oneof" json:"executor_group_id,omitempty"`
+	Status          *int32                 `protobuf:"varint,7,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	TriggerType     *int32                 `protobuf:"varint,8,opt,name=trigger_type,json=triggerType,proto3,oneof" json:"trigger_type,omitempty"`
+	CreatedFrom     string                 `protobuf:"bytes,9,opt,name=created_from,json=createdFrom,proto3" json:"created_from,omitempty"`
+	CreatedTo       string                 `protobuf:"bytes,10,opt,name=created_to,json=createdTo,proto3" json:"created_to,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListInstancesRequest) Reset() {
+	*x = ListInstancesRequest{}
+	mi := &file_job_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInstancesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInstancesRequest) ProtoMessage() {}
+
+func (x *ListInstancesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_job_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInstancesRequest.ProtoReflect.Descriptor instead.
+func (*ListInstancesRequest) Descriptor() ([]byte, []int) {
+	return file_job_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *ListInstancesRequest) GetPage() int64 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListInstancesRequest) GetPageSize() int64 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListInstancesRequest) GetId() int64 {
+	if x != nil && x.Id != nil {
+		return *x.Id
+	}
+	return 0
+}
+
+func (x *ListInstancesRequest) GetJobId() int64 {
+	if x != nil && x.JobId != nil {
+		return *x.JobId
+	}
+	return 0
+}
+
+func (x *ListInstancesRequest) GetJobName() string {
+	if x != nil {
+		return x.JobName
+	}
+	return ""
+}
+
+func (x *ListInstancesRequest) GetExecutorGroupId() int64 {
+	if x != nil && x.ExecutorGroupId != nil {
+		return *x.ExecutorGroupId
+	}
+	return 0
+}
+
+func (x *ListInstancesRequest) GetStatus() int32 {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return 0
+}
+
+func (x *ListInstancesRequest) GetTriggerType() int32 {
+	if x != nil && x.TriggerType != nil {
+		return *x.TriggerType
+	}
+	return 0
+}
+
+func (x *ListInstancesRequest) GetCreatedFrom() string {
+	if x != nil {
+		return x.CreatedFrom
+	}
+	return ""
+}
+
+func (x *ListInstancesRequest) GetCreatedTo() string {
+	if x != nil {
+		return x.CreatedTo
+	}
+	return ""
+}
+
+// InstanceListItem excludes frozen business parameters and Task data.
+type InstanceListItem struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Id                int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	JobId             int64                  `protobuf:"varint,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	JobName           string                 `protobuf:"bytes,3,opt,name=job_name,json=jobName,proto3" json:"job_name,omitempty"`
+	ExecutorGroupId   int64                  `protobuf:"varint,4,opt,name=executor_group_id,json=executorGroupId,proto3" json:"executor_group_id,omitempty"`
+	ExecutorGroupName *string                `protobuf:"bytes,5,opt,name=executor_group_name,json=executorGroupName,proto3,oneof" json:"executor_group_name,omitempty"`
+	TriggerType       int32                  `protobuf:"varint,6,opt,name=trigger_type,json=triggerType,proto3" json:"trigger_type,omitempty"`
+	ScheduledAt       *string                `protobuf:"bytes,7,opt,name=scheduled_at,json=scheduledAt,proto3,oneof" json:"scheduled_at,omitempty"`
+	Status            int32                  `protobuf:"varint,8,opt,name=status,proto3" json:"status,omitempty"`
+	StartedAt         *string                `protobuf:"bytes,9,opt,name=started_at,json=startedAt,proto3,oneof" json:"started_at,omitempty"`
+	DeadlineAt        *string                `protobuf:"bytes,10,opt,name=deadline_at,json=deadlineAt,proto3,oneof" json:"deadline_at,omitempty"`
+	FinishedAt        *string                `protobuf:"bytes,11,opt,name=finished_at,json=finishedAt,proto3,oneof" json:"finished_at,omitempty"`
+	EndReason         *string                `protobuf:"bytes,12,opt,name=end_reason,json=endReason,proto3,oneof" json:"end_reason,omitempty"`
+	CreatedAt         string                 `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt         string                 `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *InstanceListItem) Reset() {
+	*x = InstanceListItem{}
+	mi := &file_job_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InstanceListItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InstanceListItem) ProtoMessage() {}
+
+func (x *InstanceListItem) ProtoReflect() protoreflect.Message {
+	mi := &file_job_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InstanceListItem.ProtoReflect.Descriptor instead.
+func (*InstanceListItem) Descriptor() ([]byte, []int) {
+	return file_job_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *InstanceListItem) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *InstanceListItem) GetJobId() int64 {
+	if x != nil {
+		return x.JobId
+	}
+	return 0
+}
+
+func (x *InstanceListItem) GetJobName() string {
+	if x != nil {
+		return x.JobName
+	}
+	return ""
+}
+
+func (x *InstanceListItem) GetExecutorGroupId() int64 {
+	if x != nil {
+		return x.ExecutorGroupId
+	}
+	return 0
+}
+
+func (x *InstanceListItem) GetExecutorGroupName() string {
+	if x != nil && x.ExecutorGroupName != nil {
+		return *x.ExecutorGroupName
+	}
+	return ""
+}
+
+func (x *InstanceListItem) GetTriggerType() int32 {
+	if x != nil {
+		return x.TriggerType
+	}
+	return 0
+}
+
+func (x *InstanceListItem) GetScheduledAt() string {
+	if x != nil && x.ScheduledAt != nil {
+		return *x.ScheduledAt
+	}
+	return ""
+}
+
+func (x *InstanceListItem) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *InstanceListItem) GetStartedAt() string {
+	if x != nil && x.StartedAt != nil {
+		return *x.StartedAt
+	}
+	return ""
+}
+
+func (x *InstanceListItem) GetDeadlineAt() string {
+	if x != nil && x.DeadlineAt != nil {
+		return *x.DeadlineAt
+	}
+	return ""
+}
+
+func (x *InstanceListItem) GetFinishedAt() string {
+	if x != nil && x.FinishedAt != nil {
+		return *x.FinishedAt
+	}
+	return ""
+}
+
+func (x *InstanceListItem) GetEndReason() string {
+	if x != nil && x.EndReason != nil {
+		return *x.EndReason
+	}
+	return ""
+}
+
+func (x *InstanceListItem) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *InstanceListItem) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type ListInstancesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*InstanceListItem    `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Total         int64                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListInstancesResponse) Reset() {
+	*x = ListInstancesResponse{}
+	mi := &file_job_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInstancesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInstancesResponse) ProtoMessage() {}
+
+func (x *ListInstancesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_job_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInstancesResponse.ProtoReflect.Descriptor instead.
+func (*ListInstancesResponse) Descriptor() ([]byte, []int) {
+	return file_job_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *ListInstancesResponse) GetItems() []*InstanceListItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *ListInstancesResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+// ShardStatistics counts only persisted business shards. Zero records alone do
+// not prove that preparation has finished or that its output was empty.
+type ShardStatistics struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Total         int64                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
+	Succeeded     int64                  `protobuf:"varint,2,opt,name=succeeded,proto3" json:"succeeded,omitempty"`
+	Failed        int64                  `protobuf:"varint,3,opt,name=failed,proto3" json:"failed,omitempty"`
+	Canceled      int64                  `protobuf:"varint,4,opt,name=canceled,proto3" json:"canceled,omitempty"`
+	Unfinished    int64                  `protobuf:"varint,5,opt,name=unfinished,proto3" json:"unfinished,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ShardStatistics) Reset() {
+	*x = ShardStatistics{}
+	mi := &file_job_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ShardStatistics) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShardStatistics) ProtoMessage() {}
+
+func (x *ShardStatistics) ProtoReflect() protoreflect.Message {
+	mi := &file_job_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShardStatistics.ProtoReflect.Descriptor instead.
+func (*ShardStatistics) Descriptor() ([]byte, []int) {
+	return file_job_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ShardStatistics) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ShardStatistics) GetSucceeded() int64 {
+	if x != nil {
+		return x.Succeeded
+	}
+	return 0
+}
+
+func (x *ShardStatistics) GetFailed() int64 {
+	if x != nil {
+		return x.Failed
+	}
+	return 0
+}
+
+func (x *ShardStatistics) GetCanceled() int64 {
+	if x != nil {
+		return x.Canceled
+	}
+	return 0
+}
+
+func (x *ShardStatistics) GetUnfinished() int64 {
+	if x != nil {
+		return x.Unfinished
+	}
+	return 0
+}
+
 // ExecutionConfigInfo describes the immutable snapshot saved for this round.
 type ExecutionConfigInfo struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
@@ -1712,7 +2109,7 @@ type ExecutionConfigInfo struct {
 
 func (x *ExecutionConfigInfo) Reset() {
 	*x = ExecutionConfigInfo{}
-	mi := &file_job_proto_msgTypes[26]
+	mi := &file_job_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1724,7 +2121,7 @@ func (x *ExecutionConfigInfo) String() string {
 func (*ExecutionConfigInfo) ProtoMessage() {}
 
 func (x *ExecutionConfigInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_job_proto_msgTypes[26]
+	mi := &file_job_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1737,7 +2134,7 @@ func (x *ExecutionConfigInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecutionConfigInfo.ProtoReflect.Descriptor instead.
 func (*ExecutionConfigInfo) Descriptor() ([]byte, []int) {
-	return file_job_proto_rawDescGZIP(), []int{26}
+	return file_job_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ExecutionConfigInfo) GetSchemaVersion() int32 {
@@ -1818,13 +2215,15 @@ type InstanceInfo struct {
 	ResultSummary    *string                `protobuf:"bytes,16,opt,name=result_summary,json=resultSummary,proto3,oneof" json:"result_summary,omitempty"`
 	CreatedAt        string                 `protobuf:"bytes,17,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt        string                 `protobuf:"bytes,18,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Absent for ordinary rounds; counters are read without changing the round.
+	ShardStats    *ShardStatistics `protobuf:"bytes,19,opt,name=shard_stats,json=shardStats,proto3" json:"shard_stats,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *InstanceInfo) Reset() {
 	*x = InstanceInfo{}
-	mi := &file_job_proto_msgTypes[27]
+	mi := &file_job_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1836,7 +2235,7 @@ func (x *InstanceInfo) String() string {
 func (*InstanceInfo) ProtoMessage() {}
 
 func (x *InstanceInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_job_proto_msgTypes[27]
+	mi := &file_job_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1849,7 +2248,7 @@ func (x *InstanceInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InstanceInfo.ProtoReflect.Descriptor instead.
 func (*InstanceInfo) Descriptor() ([]byte, []int) {
-	return file_job_proto_rawDescGZIP(), []int{27}
+	return file_job_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *InstanceInfo) GetId() int64 {
@@ -1978,6 +2377,13 @@ func (x *InstanceInfo) GetUpdatedAt() string {
 	return ""
 }
 
+func (x *InstanceInfo) GetShardStats() *ShardStatistics {
+	if x != nil {
+		return x.ShardStats
+	}
+	return nil
+}
+
 type GetInstanceResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Instance      *InstanceInfo          `protobuf:"bytes,1,opt,name=instance,proto3" json:"instance,omitempty"`
@@ -1987,7 +2393,7 @@ type GetInstanceResponse struct {
 
 func (x *GetInstanceResponse) Reset() {
 	*x = GetInstanceResponse{}
-	mi := &file_job_proto_msgTypes[28]
+	mi := &file_job_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1999,7 +2405,7 @@ func (x *GetInstanceResponse) String() string {
 func (*GetInstanceResponse) ProtoMessage() {}
 
 func (x *GetInstanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_job_proto_msgTypes[28]
+	mi := &file_job_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2012,7 +2418,7 @@ func (x *GetInstanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInstanceResponse.ProtoReflect.Descriptor instead.
 func (*GetInstanceResponse) Descriptor() ([]byte, []int) {
-	return file_job_proto_rawDescGZIP(), []int{28}
+	return file_job_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *GetInstanceResponse) GetInstance() *InstanceInfo {
@@ -2031,7 +2437,7 @@ type StopInstanceRequest struct {
 
 func (x *StopInstanceRequest) Reset() {
 	*x = StopInstanceRequest{}
-	mi := &file_job_proto_msgTypes[29]
+	mi := &file_job_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2043,7 +2449,7 @@ func (x *StopInstanceRequest) String() string {
 func (*StopInstanceRequest) ProtoMessage() {}
 
 func (x *StopInstanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_job_proto_msgTypes[29]
+	mi := &file_job_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2056,7 +2462,7 @@ func (x *StopInstanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopInstanceRequest.ProtoReflect.Descriptor instead.
 func (*StopInstanceRequest) Descriptor() ([]byte, []int) {
-	return file_job_proto_rawDescGZIP(), []int{29}
+	return file_job_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *StopInstanceRequest) GetId() int64 {
@@ -2079,7 +2485,7 @@ type StopInstanceResponse struct {
 
 func (x *StopInstanceResponse) Reset() {
 	*x = StopInstanceResponse{}
-	mi := &file_job_proto_msgTypes[30]
+	mi := &file_job_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2091,7 +2497,7 @@ func (x *StopInstanceResponse) String() string {
 func (*StopInstanceResponse) ProtoMessage() {}
 
 func (x *StopInstanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_job_proto_msgTypes[30]
+	mi := &file_job_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2104,7 +2510,7 @@ func (x *StopInstanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopInstanceResponse.ProtoReflect.Descriptor instead.
 func (*StopInstanceResponse) Descriptor() ([]byte, []int) {
-	return file_job_proto_rawDescGZIP(), []int{30}
+	return file_job_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *StopInstanceResponse) GetInstanceId() int64 {
@@ -2139,7 +2545,7 @@ type ListInstanceTasksRequest struct {
 
 func (x *ListInstanceTasksRequest) Reset() {
 	*x = ListInstanceTasksRequest{}
-	mi := &file_job_proto_msgTypes[31]
+	mi := &file_job_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2151,7 +2557,7 @@ func (x *ListInstanceTasksRequest) String() string {
 func (*ListInstanceTasksRequest) ProtoMessage() {}
 
 func (x *ListInstanceTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_job_proto_msgTypes[31]
+	mi := &file_job_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2164,7 +2570,7 @@ func (x *ListInstanceTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInstanceTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListInstanceTasksRequest) Descriptor() ([]byte, []int) {
-	return file_job_proto_rawDescGZIP(), []int{31}
+	return file_job_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListInstanceTasksRequest) GetInstanceId() int64 {
@@ -2214,7 +2620,7 @@ type TaskListItem struct {
 
 func (x *TaskListItem) Reset() {
 	*x = TaskListItem{}
-	mi := &file_job_proto_msgTypes[32]
+	mi := &file_job_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2226,7 +2632,7 @@ func (x *TaskListItem) String() string {
 func (*TaskListItem) ProtoMessage() {}
 
 func (x *TaskListItem) ProtoReflect() protoreflect.Message {
-	mi := &file_job_proto_msgTypes[32]
+	mi := &file_job_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2239,7 +2645,7 @@ func (x *TaskListItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskListItem.ProtoReflect.Descriptor instead.
 func (*TaskListItem) Descriptor() ([]byte, []int) {
-	return file_job_proto_rawDescGZIP(), []int{32}
+	return file_job_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *TaskListItem) GetId() int64 {
@@ -2364,7 +2770,7 @@ type ListInstanceTasksResponse struct {
 
 func (x *ListInstanceTasksResponse) Reset() {
 	*x = ListInstanceTasksResponse{}
-	mi := &file_job_proto_msgTypes[33]
+	mi := &file_job_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2376,7 +2782,7 @@ func (x *ListInstanceTasksResponse) String() string {
 func (*ListInstanceTasksResponse) ProtoMessage() {}
 
 func (x *ListInstanceTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_job_proto_msgTypes[33]
+	mi := &file_job_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2389,7 +2795,7 @@ func (x *ListInstanceTasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInstanceTasksResponse.ProtoReflect.Descriptor instead.
 func (*ListInstanceTasksResponse) Descriptor() ([]byte, []int) {
-	return file_job_proto_rawDescGZIP(), []int{33}
+	return file_job_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListInstanceTasksResponse) GetItems() []*TaskListItem {
@@ -2406,6 +2812,115 @@ func (x *ListInstanceTasksResponse) GetTotal() int64 {
 	return 0
 }
 
+// GetTaskRequest reads metadata, optionally with one JSON document. data_kind is
+// empty, "input", or "result". Documents exceeding 8 MiB or responses exceeding
+// 9 MiB return the management error job.task.data_too_large without truncation.
+type GetTaskRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	DataKind      string                 `protobuf:"bytes,2,opt,name=data_kind,json=dataKind,proto3" json:"data_kind,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTaskRequest) Reset() {
+	*x = GetTaskRequest{}
+	mi := &file_job_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTaskRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTaskRequest) ProtoMessage() {}
+
+func (x *GetTaskRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_job_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTaskRequest.ProtoReflect.Descriptor instead.
+func (*GetTaskRequest) Descriptor() ([]byte, []int) {
+	return file_job_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *GetTaskRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *GetTaskRequest) GetDataKind() string {
+	if x != nil {
+		return x.DataKind
+	}
+	return ""
+}
+
+type GetTaskResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Task  *TaskListItem          `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// Absent means SQL NULL or data was not requested. JSON null is the text "null".
+	// JSON text preserves numeric precision and is never truncated.
+	Data          *string `protobuf:"bytes,2,opt,name=data,proto3,oneof" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTaskResponse) Reset() {
+	*x = GetTaskResponse{}
+	mi := &file_job_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTaskResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTaskResponse) ProtoMessage() {}
+
+func (x *GetTaskResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_job_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTaskResponse.ProtoReflect.Descriptor instead.
+func (*GetTaskResponse) Descriptor() ([]byte, []int) {
+	return file_job_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *GetTaskResponse) GetTask() *TaskListItem {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+func (x *GetTaskResponse) GetData() string {
+	if x != nil && x.Data != nil {
+		return *x.Data
+	}
+	return ""
+}
+
 type EmptyResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2414,7 +2929,7 @@ type EmptyResponse struct {
 
 func (x *EmptyResponse) Reset() {
 	*x = EmptyResponse{}
-	mi := &file_job_proto_msgTypes[34]
+	mi := &file_job_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2426,7 +2941,7 @@ func (x *EmptyResponse) String() string {
 func (*EmptyResponse) ProtoMessage() {}
 
 func (x *EmptyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_job_proto_msgTypes[34]
+	mi := &file_job_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2439,7 +2954,7 @@ func (x *EmptyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmptyResponse.ProtoReflect.Descriptor instead.
 func (*EmptyResponse) Descriptor() ([]byte, []int) {
-	return file_job_proto_rawDescGZIP(), []int{34}
+	return file_job_proto_rawDescGZIP(), []int{40}
 }
 
 var File_job_proto protoreflect.FileDescriptor
@@ -2597,7 +3112,64 @@ const file_job_proto_rawDesc = "" +
 	"\x1aDeleteExecutorGroupRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\"$\n" +
 	"\x12GetInstanceRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x03R\x02id\"\xc5\x02\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"\x8f\x03\n" +
+	"\x14ListInstancesRequest\x12\x12\n" +
+	"\x04page\x18\x01 \x01(\x03R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x03R\bpageSize\x12\x13\n" +
+	"\x02id\x18\x03 \x01(\x03H\x00R\x02id\x88\x01\x01\x12\x1a\n" +
+	"\x06job_id\x18\x04 \x01(\x03H\x01R\x05jobId\x88\x01\x01\x12\x19\n" +
+	"\bjob_name\x18\x05 \x01(\tR\ajobName\x12/\n" +
+	"\x11executor_group_id\x18\x06 \x01(\x03H\x02R\x0fexecutorGroupId\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\a \x01(\x05H\x03R\x06status\x88\x01\x01\x12&\n" +
+	"\ftrigger_type\x18\b \x01(\x05H\x04R\vtriggerType\x88\x01\x01\x12!\n" +
+	"\fcreated_from\x18\t \x01(\tR\vcreatedFrom\x12\x1d\n" +
+	"\n" +
+	"created_to\x18\n" +
+	" \x01(\tR\tcreatedToB\x05\n" +
+	"\x03_idB\t\n" +
+	"\a_job_idB\x14\n" +
+	"\x12_executor_group_idB\t\n" +
+	"\a_statusB\x0f\n" +
+	"\r_trigger_type\"\xd1\x04\n" +
+	"\x10InstanceListItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x15\n" +
+	"\x06job_id\x18\x02 \x01(\x03R\x05jobId\x12\x19\n" +
+	"\bjob_name\x18\x03 \x01(\tR\ajobName\x12*\n" +
+	"\x11executor_group_id\x18\x04 \x01(\x03R\x0fexecutorGroupId\x123\n" +
+	"\x13executor_group_name\x18\x05 \x01(\tH\x00R\x11executorGroupName\x88\x01\x01\x12!\n" +
+	"\ftrigger_type\x18\x06 \x01(\x05R\vtriggerType\x12&\n" +
+	"\fscheduled_at\x18\a \x01(\tH\x01R\vscheduledAt\x88\x01\x01\x12\x16\n" +
+	"\x06status\x18\b \x01(\x05R\x06status\x12\"\n" +
+	"\n" +
+	"started_at\x18\t \x01(\tH\x02R\tstartedAt\x88\x01\x01\x12$\n" +
+	"\vdeadline_at\x18\n" +
+	" \x01(\tH\x03R\n" +
+	"deadlineAt\x88\x01\x01\x12$\n" +
+	"\vfinished_at\x18\v \x01(\tH\x04R\n" +
+	"finishedAt\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"end_reason\x18\f \x01(\tH\x05R\tendReason\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\r \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x0e \x01(\tR\tupdatedAtB\x16\n" +
+	"\x14_executor_group_nameB\x0f\n" +
+	"\r_scheduled_atB\r\n" +
+	"\v_started_atB\x0e\n" +
+	"\f_deadline_atB\x0e\n" +
+	"\f_finished_atB\r\n" +
+	"\v_end_reason\"Z\n" +
+	"\x15ListInstancesResponse\x12+\n" +
+	"\x05items\x18\x01 \x03(\v2\x15.job.InstanceListItemR\x05items\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x03R\x05total\"\x99\x01\n" +
+	"\x0fShardStatistics\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x03R\x05total\x12\x1c\n" +
+	"\tsucceeded\x18\x02 \x01(\x03R\tsucceeded\x12\x16\n" +
+	"\x06failed\x18\x03 \x01(\x03R\x06failed\x12\x1a\n" +
+	"\bcanceled\x18\x04 \x01(\x03R\bcanceled\x12\x1e\n" +
+	"\n" +
+	"unfinished\x18\x05 \x01(\x03R\n" +
+	"unfinished\"\xc5\x02\n" +
 	"\x13ExecutionConfigInfo\x12%\n" +
 	"\x0eschema_version\x18\x01 \x01(\x05R\rschemaVersion\x12%\n" +
 	"\x0eprocessor_name\x18\x02 \x01(\tR\rprocessorName\x12%\n" +
@@ -2607,7 +3179,7 @@ const file_job_proto_rawDesc = "" +
 	"\vmax_retries\x18\x06 \x01(\x05R\n" +
 	"maxRetries\x124\n" +
 	"\x16retry_interval_seconds\x18\a \x01(\x05R\x14retryIntervalSeconds\x12'\n" +
-	"\x0ftimeout_seconds\x18\b \x01(\x05R\x0etimeoutSeconds\"\x9d\x06\n" +
+	"\x0ftimeout_seconds\x18\b \x01(\x05R\x0etimeoutSeconds\"\xd4\x06\n" +
 	"\fInstanceInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\x03R\x05jobId\x12\x19\n" +
@@ -2634,7 +3206,9 @@ const file_job_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x11 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x12 \x01(\tR\tupdatedAtB\x0f\n" +
+	"updated_at\x18\x12 \x01(\tR\tupdatedAt\x125\n" +
+	"\vshard_stats\x18\x13 \x01(\v2\x14.job.ShardStatisticsR\n" +
+	"shardStatsB\x0f\n" +
 	"\r_scheduled_atB\r\n" +
 	"\v_request_idB\x0f\n" +
 	"\r_triggered_byB\r\n" +
@@ -2694,8 +3268,15 @@ const file_job_proto_rawDesc = "" +
 	"\f_finished_at\"Z\n" +
 	"\x19ListInstanceTasksResponse\x12'\n" +
 	"\x05items\x18\x01 \x03(\v2\x11.job.TaskListItemR\x05items\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x03R\x05total\"\x0f\n" +
-	"\rEmptyResponse2\x94\b\n" +
+	"\x05total\x18\x02 \x01(\x03R\x05total\"=\n" +
+	"\x0eGetTaskRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
+	"\tdata_kind\x18\x02 \x01(\tR\bdataKind\"Z\n" +
+	"\x0fGetTaskResponse\x12%\n" +
+	"\x04task\x18\x01 \x01(\v2\x11.job.TaskListItemR\x04task\x12\x17\n" +
+	"\x04data\x18\x02 \x01(\tH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x05_data\"\x0f\n" +
+	"\rEmptyResponse2\x92\t\n" +
 	"\x03Job\x127\n" +
 	"\bListJobs\x12\x14.job.ListJobsRequest\x1a\x15.job.ListJobsResponse\x121\n" +
 	"\x06GetJob\x12\x12.job.GetJobRequest\x1a\x13.job.GetJobResponse\x12:\n" +
@@ -2710,9 +3291,11 @@ const file_job_proto_rawDesc = "" +
 	"\x10GetExecutorGroup\x12\x1c.job.GetExecutorGroupRequest\x1a\x1d.job.GetExecutorGroupResponse\x12U\n" +
 	"\x12ListExecutorGroups\x12\x1e.job.ListExecutorGroupsRequest\x1a\x1f.job.ListExecutorGroupsResponse\x12J\n" +
 	"\x13DeleteExecutorGroup\x12\x1f.job.DeleteExecutorGroupRequest\x1a\x12.job.EmptyResponse\x12@\n" +
-	"\vGetInstance\x12\x17.job.GetInstanceRequest\x1a\x18.job.GetInstanceResponse\x12C\n" +
+	"\vGetInstance\x12\x17.job.GetInstanceRequest\x1a\x18.job.GetInstanceResponse\x12F\n" +
+	"\rListInstances\x12\x19.job.ListInstancesRequest\x1a\x1a.job.ListInstancesResponse\x12C\n" +
 	"\fStopInstance\x12\x18.job.StopInstanceRequest\x1a\x19.job.StopInstanceResponse\x12R\n" +
-	"\x11ListInstanceTasks\x12\x1d.job.ListInstanceTasksRequest\x1a\x1e.job.ListInstanceTasksResponseB\aZ\x05./jobb\x06proto3"
+	"\x11ListInstanceTasks\x12\x1d.job.ListInstanceTasksRequest\x1a\x1e.job.ListInstanceTasksResponse\x124\n" +
+	"\aGetTask\x12\x13.job.GetTaskRequest\x1a\x14.job.GetTaskResponseB\aZ\x05./jobb\x06proto3"
 
 var (
 	file_job_proto_rawDescOnce sync.Once
@@ -2726,7 +3309,7 @@ func file_job_proto_rawDescGZIP() []byte {
 	return file_job_proto_rawDescData
 }
 
-var file_job_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_job_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
 var file_job_proto_goTypes = []any{
 	(*JobInput)(nil),                    // 0: job.JobInput
 	(*ListJobsRequest)(nil),             // 1: job.ListJobsRequest
@@ -2754,15 +3337,21 @@ var file_job_proto_goTypes = []any{
 	(*ListExecutorGroupsResponse)(nil),  // 23: job.ListExecutorGroupsResponse
 	(*DeleteExecutorGroupRequest)(nil),  // 24: job.DeleteExecutorGroupRequest
 	(*GetInstanceRequest)(nil),          // 25: job.GetInstanceRequest
-	(*ExecutionConfigInfo)(nil),         // 26: job.ExecutionConfigInfo
-	(*InstanceInfo)(nil),                // 27: job.InstanceInfo
-	(*GetInstanceResponse)(nil),         // 28: job.GetInstanceResponse
-	(*StopInstanceRequest)(nil),         // 29: job.StopInstanceRequest
-	(*StopInstanceResponse)(nil),        // 30: job.StopInstanceResponse
-	(*ListInstanceTasksRequest)(nil),    // 31: job.ListInstanceTasksRequest
-	(*TaskListItem)(nil),                // 32: job.TaskListItem
-	(*ListInstanceTasksResponse)(nil),   // 33: job.ListInstanceTasksResponse
-	(*EmptyResponse)(nil),               // 34: job.EmptyResponse
+	(*ListInstancesRequest)(nil),        // 26: job.ListInstancesRequest
+	(*InstanceListItem)(nil),            // 27: job.InstanceListItem
+	(*ListInstancesResponse)(nil),       // 28: job.ListInstancesResponse
+	(*ShardStatistics)(nil),             // 29: job.ShardStatistics
+	(*ExecutionConfigInfo)(nil),         // 30: job.ExecutionConfigInfo
+	(*InstanceInfo)(nil),                // 31: job.InstanceInfo
+	(*GetInstanceResponse)(nil),         // 32: job.GetInstanceResponse
+	(*StopInstanceRequest)(nil),         // 33: job.StopInstanceRequest
+	(*StopInstanceResponse)(nil),        // 34: job.StopInstanceResponse
+	(*ListInstanceTasksRequest)(nil),    // 35: job.ListInstanceTasksRequest
+	(*TaskListItem)(nil),                // 36: job.TaskListItem
+	(*ListInstanceTasksResponse)(nil),   // 37: job.ListInstanceTasksResponse
+	(*GetTaskRequest)(nil),              // 38: job.GetTaskRequest
+	(*GetTaskResponse)(nil),             // 39: job.GetTaskResponse
+	(*EmptyResponse)(nil),               // 40: job.EmptyResponse
 }
 var file_job_proto_depIdxs = []int32{
 	0,  // 0: job.CreateJobRequest.config:type_name -> job.JobInput
@@ -2771,44 +3360,51 @@ var file_job_proto_depIdxs = []int32{
 	10, // 3: job.GetJobResponse.job:type_name -> job.JobInfo
 	19, // 4: job.GetExecutorGroupResponse.group:type_name -> job.ExecutorGroupInfo
 	22, // 5: job.ListExecutorGroupsResponse.items:type_name -> job.ExecutorGroupListItem
-	26, // 6: job.InstanceInfo.execution_config:type_name -> job.ExecutionConfigInfo
-	27, // 7: job.GetInstanceResponse.instance:type_name -> job.InstanceInfo
-	32, // 8: job.ListInstanceTasksResponse.items:type_name -> job.TaskListItem
-	1,  // 9: job.Job.ListJobs:input_type -> job.ListJobsRequest
-	2,  // 10: job.Job.GetJob:input_type -> job.GetJobRequest
-	3,  // 11: job.Job.CreateJob:input_type -> job.CreateJobRequest
-	4,  // 12: job.Job.UpdateJob:input_type -> job.UpdateJobRequest
-	5,  // 13: job.Job.UpdateJobStatus:input_type -> job.UpdateJobStatusRequest
-	6,  // 14: job.Job.DeleteJob:input_type -> job.DeleteJobRequest
-	7,  // 15: job.Job.PreviewJobCron:input_type -> job.PreviewJobCronRequest
-	8,  // 16: job.Job.TriggerJob:input_type -> job.TriggerJobRequest
-	16, // 17: job.Job.CreateExecutorGroup:input_type -> job.CreateExecutorGroupRequest
-	18, // 18: job.Job.GetExecutorGroup:input_type -> job.GetExecutorGroupRequest
-	21, // 19: job.Job.ListExecutorGroups:input_type -> job.ListExecutorGroupsRequest
-	24, // 20: job.Job.DeleteExecutorGroup:input_type -> job.DeleteExecutorGroupRequest
-	25, // 21: job.Job.GetInstance:input_type -> job.GetInstanceRequest
-	29, // 22: job.Job.StopInstance:input_type -> job.StopInstanceRequest
-	31, // 23: job.Job.ListInstanceTasks:input_type -> job.ListInstanceTasksRequest
-	11, // 24: job.Job.ListJobs:output_type -> job.ListJobsResponse
-	12, // 25: job.Job.GetJob:output_type -> job.GetJobResponse
-	13, // 26: job.Job.CreateJob:output_type -> job.CreateJobResponse
-	34, // 27: job.Job.UpdateJob:output_type -> job.EmptyResponse
-	34, // 28: job.Job.UpdateJobStatus:output_type -> job.EmptyResponse
-	34, // 29: job.Job.DeleteJob:output_type -> job.EmptyResponse
-	14, // 30: job.Job.PreviewJobCron:output_type -> job.PreviewJobCronResponse
-	15, // 31: job.Job.TriggerJob:output_type -> job.TriggerJobResponse
-	17, // 32: job.Job.CreateExecutorGroup:output_type -> job.CreateExecutorGroupResponse
-	20, // 33: job.Job.GetExecutorGroup:output_type -> job.GetExecutorGroupResponse
-	23, // 34: job.Job.ListExecutorGroups:output_type -> job.ListExecutorGroupsResponse
-	34, // 35: job.Job.DeleteExecutorGroup:output_type -> job.EmptyResponse
-	28, // 36: job.Job.GetInstance:output_type -> job.GetInstanceResponse
-	30, // 37: job.Job.StopInstance:output_type -> job.StopInstanceResponse
-	33, // 38: job.Job.ListInstanceTasks:output_type -> job.ListInstanceTasksResponse
-	24, // [24:39] is the sub-list for method output_type
-	9,  // [9:24] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	27, // 6: job.ListInstancesResponse.items:type_name -> job.InstanceListItem
+	30, // 7: job.InstanceInfo.execution_config:type_name -> job.ExecutionConfigInfo
+	29, // 8: job.InstanceInfo.shard_stats:type_name -> job.ShardStatistics
+	31, // 9: job.GetInstanceResponse.instance:type_name -> job.InstanceInfo
+	36, // 10: job.ListInstanceTasksResponse.items:type_name -> job.TaskListItem
+	36, // 11: job.GetTaskResponse.task:type_name -> job.TaskListItem
+	1,  // 12: job.Job.ListJobs:input_type -> job.ListJobsRequest
+	2,  // 13: job.Job.GetJob:input_type -> job.GetJobRequest
+	3,  // 14: job.Job.CreateJob:input_type -> job.CreateJobRequest
+	4,  // 15: job.Job.UpdateJob:input_type -> job.UpdateJobRequest
+	5,  // 16: job.Job.UpdateJobStatus:input_type -> job.UpdateJobStatusRequest
+	6,  // 17: job.Job.DeleteJob:input_type -> job.DeleteJobRequest
+	7,  // 18: job.Job.PreviewJobCron:input_type -> job.PreviewJobCronRequest
+	8,  // 19: job.Job.TriggerJob:input_type -> job.TriggerJobRequest
+	16, // 20: job.Job.CreateExecutorGroup:input_type -> job.CreateExecutorGroupRequest
+	18, // 21: job.Job.GetExecutorGroup:input_type -> job.GetExecutorGroupRequest
+	21, // 22: job.Job.ListExecutorGroups:input_type -> job.ListExecutorGroupsRequest
+	24, // 23: job.Job.DeleteExecutorGroup:input_type -> job.DeleteExecutorGroupRequest
+	25, // 24: job.Job.GetInstance:input_type -> job.GetInstanceRequest
+	26, // 25: job.Job.ListInstances:input_type -> job.ListInstancesRequest
+	33, // 26: job.Job.StopInstance:input_type -> job.StopInstanceRequest
+	35, // 27: job.Job.ListInstanceTasks:input_type -> job.ListInstanceTasksRequest
+	38, // 28: job.Job.GetTask:input_type -> job.GetTaskRequest
+	11, // 29: job.Job.ListJobs:output_type -> job.ListJobsResponse
+	12, // 30: job.Job.GetJob:output_type -> job.GetJobResponse
+	13, // 31: job.Job.CreateJob:output_type -> job.CreateJobResponse
+	40, // 32: job.Job.UpdateJob:output_type -> job.EmptyResponse
+	40, // 33: job.Job.UpdateJobStatus:output_type -> job.EmptyResponse
+	40, // 34: job.Job.DeleteJob:output_type -> job.EmptyResponse
+	14, // 35: job.Job.PreviewJobCron:output_type -> job.PreviewJobCronResponse
+	15, // 36: job.Job.TriggerJob:output_type -> job.TriggerJobResponse
+	17, // 37: job.Job.CreateExecutorGroup:output_type -> job.CreateExecutorGroupResponse
+	20, // 38: job.Job.GetExecutorGroup:output_type -> job.GetExecutorGroupResponse
+	23, // 39: job.Job.ListExecutorGroups:output_type -> job.ListExecutorGroupsResponse
+	40, // 40: job.Job.DeleteExecutorGroup:output_type -> job.EmptyResponse
+	32, // 41: job.Job.GetInstance:output_type -> job.GetInstanceResponse
+	28, // 42: job.Job.ListInstances:output_type -> job.ListInstancesResponse
+	34, // 43: job.Job.StopInstance:output_type -> job.StopInstanceResponse
+	37, // 44: job.Job.ListInstanceTasks:output_type -> job.ListInstanceTasksResponse
+	39, // 45: job.Job.GetTask:output_type -> job.GetTaskResponse
+	29, // [29:46] is the sub-list for method output_type
+	12, // [12:29] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_job_proto_init() }
@@ -2823,16 +3419,19 @@ func file_job_proto_init() {
 	file_job_proto_msgTypes[8].OneofWrappers = []any{}
 	file_job_proto_msgTypes[9].OneofWrappers = []any{}
 	file_job_proto_msgTypes[10].OneofWrappers = []any{}
+	file_job_proto_msgTypes[26].OneofWrappers = []any{}
 	file_job_proto_msgTypes[27].OneofWrappers = []any{}
-	file_job_proto_msgTypes[30].OneofWrappers = []any{}
-	file_job_proto_msgTypes[32].OneofWrappers = []any{}
+	file_job_proto_msgTypes[31].OneofWrappers = []any{}
+	file_job_proto_msgTypes[34].OneofWrappers = []any{}
+	file_job_proto_msgTypes[36].OneofWrappers = []any{}
+	file_job_proto_msgTypes[39].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_job_proto_rawDesc), len(file_job_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   35,
+			NumMessages:   41,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

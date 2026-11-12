@@ -27,6 +27,14 @@ type (
   PageMeta
   Items []JobTaskListItem `json:"items"`
  }
+ JobTaskDetailReq {
+  Id int64 `json:"id" validate:"gt=0"`
+  DataKind string `json:"dataKind,optional" validate:"omitempty,oneof=input result"`
+ }
+ JobTaskDetailResp {
+  Task JobTaskListItem `json:"task"`
+  Data *string `json:"data"`
+ }
 )
 
 @server (
@@ -35,6 +43,9 @@ type (
  middleware: SessionAuth, Authorization
 )
 service system-api {
+ @handler getTask
+ post /job/task/get (JobTaskDetailReq) returns (JobTaskDetailResp)
+
  @handler listInstanceTasks
  post /job/task/list (JobTaskListReq) returns (JobTaskListResp)
 }

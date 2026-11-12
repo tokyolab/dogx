@@ -20,6 +20,10 @@ func assertSystemMenuSeed(t testing.TB, ctx context.Context, db *sql.DB) {
 		kind, sort                    int
 	}
 	want := map[string]menuSeed{
+		"JobScheduling":        {"定时任务", "", "/job", "", 1, 20},
+		"JobManagement":        {"任务管理", "JobScheduling", "/job/definition", "job/definition/index", 2, 10},
+		"JobExecutions":        {"执行记录", "JobScheduling", "/job/execution", "job/execution/index", 2, 20},
+		"ExecutorGroups":       {"执行器组", "JobScheduling", "/job/group", "job/group/index", 2, 30},
 		"SecuritySettings":     {"安全设置", "SystemManagement", "/system/security", "system/security/index", 2, 70},
 		"LoginLog":             {"登录日志", "SystemManagement", "/system/login-log", "system/login-log/index", 2, 60},
 		"DictionaryManagement": {"字典管理", "SystemManagement", "/system/dictionary", "system/dictionary/index", 2, 50},

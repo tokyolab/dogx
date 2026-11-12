@@ -1,6 +1,44 @@
 import "base.api"
 
 type (
+ JobInstanceListReq {
+  PageReq
+  Id *int64 `json:"id,optional" validate:"omitempty,gt=0"`
+  JobId *int64 `json:"jobId,optional" validate:"omitempty,gt=0"`
+  JobName string `json:"jobName,optional"`
+  ExecutorGroupId *int64 `json:"executorGroupId,optional" validate:"omitempty,gt=0"`
+  Status *int32 `json:"status,optional" validate:"omitempty,oneof=1 2 3 4 5 6"`
+  TriggerType *int32 `json:"triggerType,optional" validate:"omitempty,oneof=1 2 3"`
+  CreatedFrom string `json:"createdFrom,optional"`
+  CreatedTo string `json:"createdTo,optional"`
+ }
+ JobInstanceListItem {
+  Id int64 `json:"id"`
+  JobId int64 `json:"jobId"`
+  JobName string `json:"jobName"`
+  ExecutorGroupId int64 `json:"executorGroupId"`
+  ExecutorGroupName *string `json:"executorGroupName"`
+  TriggerType int32 `json:"triggerType"`
+  ScheduledAt *string `json:"scheduledAt"`
+  Status int32 `json:"status"`
+  StartedAt *string `json:"startedAt"`
+  DeadlineAt *string `json:"deadlineAt"`
+  FinishedAt *string `json:"finishedAt"`
+  EndReason *string `json:"endReason"`
+  CreatedAt string `json:"createdAt"`
+  UpdatedAt string `json:"updatedAt"`
+ }
+ JobInstanceListResp {
+  PageMeta
+  Items []JobInstanceListItem `json:"items"`
+ }
+ JobShardStatistics {
+  Total int64 `json:"total"`
+  Succeeded int64 `json:"succeeded"`
+  Failed int64 `json:"failed"`
+  Canceled int64 `json:"canceled"`
+  Unfinished int64 `json:"unfinished"`
+ }
  JobExecutionConfig {
   SchemaVersion int32 `json:"schemaVersion"`
   ProcessorName string `json:"processorName"`
@@ -30,6 +68,7 @@ type (
   ResultSummary *string `json:"resultSummary"`
   CreatedAt string `json:"createdAt"`
   UpdatedAt string `json:"updatedAt"`
+  ShardStats *JobShardStatistics `json:"shardStats"`
  }
  JobInstanceStopResp {
   InstanceId int64 `json:"instanceId"`
@@ -44,6 +83,9 @@ type (
  middleware: SessionAuth, Authorization
 )
 service system-api {
+ @handler listInstances
+ post /job/instance/list (JobInstanceListReq) returns (JobInstanceListResp)
+
  @handler getInstance
  post /job/instance/get (IDReq) returns (JobInstanceDetail)
 

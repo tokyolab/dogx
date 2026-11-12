@@ -312,11 +312,47 @@ type TaskSummary struct {
 	UpdatedAt           time.Time
 }
 
+// TaskDataSelection limits a management detail read to one optional document.
+// Its zero value reads metadata only and does not inspect either JSONB column.
+type TaskDataSelection string
+
+const (
+	TaskMetadataOnly TaskDataSelection = ""
+	TaskInputData    TaskDataSelection = "input"
+	TaskResultData   TaskDataSelection = "result"
+	// TaskDetailDataLimit bounds the selected JSONB value after text expansion,
+	// in bytes. It does not limit stored execution data or change execution RPCs.
+	TaskDetailDataLimit = 8 << 20
+)
+
+// ErrTaskNotFound identifies an absent Task management record.
+var ErrTaskNotFound = errors.New("job task not found")
+
+// ErrTaskDataTooLarge means the requested JSON text exceeds TaskDetailDataLimit.
+// No truncated document or successful detail result is returned.
+var ErrTaskDataTooLarge = errors.New("job task data exceeds the management detail limit")
+
+// TaskDetail preserves metadata and, when requested, one JSON document as text.
+// Data is nil for SQL NULL or a metadata-only read; JSON null is the text "null".
+// JSONB normalization may change formatting but never rounds numbers to float64.
+type TaskDetail struct {
+	TaskSummary `gorm:"embedded"`
+	Data        *string
+}
+
 // JobTaskRepository persists execution facts without sending RPCs. Its context
 // governs database requests, not business cancellation. A successful call using
 // a transaction handle does not confirm its outer commit; callers must not
 // dispatch work or publish a saved result before that commit succeeds.
 type JobTaskRepository interface {
+	// FindDetail reads one positive Task ID without a parent, Job or group lookup.
+	// Selection must be metadata-only, input or result. The single unlocked query
+	// bounds the selected document's expanded text before returning it to Go;
+	// the other document is not read. Missing records return ErrTaskNotFound and
+	// oversized selected data returns ErrTaskDataTooLarge, both with a nil result.
+	// Other errors retain their cause. A nil result with nil error is never valid.
+	FindDetail(context.Context, int64, TaskDataSelection) (*TaskDetail, error)
+
 	// ListCancelTargets reads at most limit distinct saved addresses for one
 	// positive Instance ID, in the address column's database collation order.
 	// An empty after starts the traversal; otherwise addresses are strictly after
@@ -851,6 +887,43 @@ func (r *jobTaskRepository) RegisterAttempt(ctx context.Context, write AttemptRe
 		AttemptNo: task.AttemptNo, UsedAttempts: task.UsedAttempts, RegisteredAt: *task.AttemptRegisteredAt}, nil
 }
 
+const taskSummaryColumns = "id, instance_id, task_type, status, attempt_no, used_attempts, attempt_registered_at, next_dispatch_at, executor_instance_id, executor_address, result_summary, end_reason, started_at, finished_at, created_at, updated_at"
+
+func (r *jobTaskRepository) FindDetail(ctx context.Context, id int64, selection TaskDataSelection) (*TaskDetail, error) {
+	if ctx == nil || id <= 0 || (selection != TaskMetadataOnly && selection != TaskInputData && selection != TaskResultData) {
+		return nil, errors.New("invalid task detail query")
+	}
+	db := r.db.WithContext(ctx).Model(&model.JobTask{}).Where("id = ?", id)
+	var row struct {
+		TaskDetail   `gorm:"embedded"`
+		DataTooLarge bool
+	}
+	if selection == TaskMetadataOnly {
+		db = db.Select(taskSummaryColumns)
+	} else {
+		column := "input_data"
+		if selection == TaskResultData {
+			column = "result_data"
+		}
+		// JSONB may expand short numeric input into large text, and TOAST size is
+		// not the wire size. CASE prevents an oversized value from crossing the DB
+		// connection; size and content share the same statement snapshot.
+		db = db.Select(taskSummaryColumns+", COALESCE(octet_length("+column+"::text) > ?, FALSE) AS data_too_large, CASE WHEN octet_length("+column+"::text) <= ? THEN "+column+"::text END AS data",
+			TaskDetailDataLimit, TaskDetailDataLimit)
+	}
+	err := db.Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrTaskNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find job task detail: %w", err)
+	}
+	if row.DataTooLarge {
+		return nil, ErrTaskDataTooLarge
+	}
+	return &row.TaskDetail, nil
+}
+
 func (r *jobTaskRepository) ListByInstance(ctx context.Context, instanceID, page, pageSize int64) ([]TaskSummary, int64, error) {
 	if instanceID <= 0 || page < 1 || pageSize < 1 || pageSize > 200 || page-1 > int64(^uint(0)>>1)/pageSize {
 		return nil, 0, errors.New("invalid task list pagination")
@@ -861,7 +934,7 @@ func (r *jobTaskRepository) ListByInstance(ctx context.Context, instanceID, page
 		return nil, 0, fmt.Errorf("count instance tasks: %w", err)
 	}
 	items := make([]TaskSummary, 0)
-	err := db.Select("id, instance_id, task_type, status, attempt_no, used_attempts, attempt_registered_at, next_dispatch_at, executor_instance_id, executor_address, result_summary, end_reason, started_at, finished_at, created_at, updated_at").
+	err := db.Select(taskSummaryColumns).
 		Order("id ASC").Limit(int(pageSize)).Offset(int((page - 1) * pageSize)).Find(&items).Error
 	if err != nil {
 		return nil, 0, fmt.Errorf("list instance tasks: %w", err)

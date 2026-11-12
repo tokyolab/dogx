@@ -35,7 +35,7 @@ func TestLookupFallsBackToChinese(t *testing.T) {
 }
 
 func TestJobErrorTranslations(t *testing.T) {
-	for _, key := range []string{"job.definition.not_found", "job.definition.state_not_allowed", "job.definition.active_instances", "job.definition.executor_group_unavailable", "job.trigger.blocked", "job.trigger.request_conflict", "job.trigger.capacity_busy", "job.executor_group.not_found", "job.executor_group.name_exists", "job.executor_group.discovery_key_exists", "job.executor_group.in_use", "job.instance.not_found"} {
+	for _, key := range []string{"job.definition.not_found", "job.definition.state_not_allowed", "job.definition.active_instances", "job.definition.executor_group_unavailable", "job.trigger.blocked", "job.trigger.request_conflict", "job.trigger.capacity_busy", "job.executor_group.not_found", "job.executor_group.name_exists", "job.executor_group.discovery_key_exists", "job.executor_group.in_use", "job.instance.not_found", "job.task.not_found", "job.task.data_too_large"} {
 		for _, locale := range []string{ZhCN, EnUS} {
 			if text, ok := catalogs[locale][key]; !ok || text == "" {
 				t.Fatalf("missing Job translation locale=%s key=%s", locale, key)

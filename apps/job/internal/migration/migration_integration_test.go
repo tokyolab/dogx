@@ -24,13 +24,13 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	results, err := provider.Up(ctx)
-	if err != nil || len(results) != 6 {
+	if err != nil || len(results) != 7 {
 		t.Fatalf("Up results=%v error=%v", results, err)
 	}
 	if results, err := provider.Up(ctx); err != nil || len(results) != 0 {
 		t.Fatalf("second Up results=%v error=%v", results, err)
 	}
-	if version, err := provider.GetDBVersion(ctx); err != nil || version != 20261111120000 {
+	if version, err := provider.GetDBVersion(ctx); err != nil || version != 20261112150000 {
 		t.Fatalf("Job version=%d err=%v", version, err)
 	}
 	updatedAtComments := map[string]string{
@@ -86,6 +86,9 @@ func TestJobMigrationStructureAndRoundTrip(t *testing.T) {
 		}
 	}
 	indexes := map[string]string{
+		"idx_job_instance_history_created":    "created_at DESC, id DESC",
+		"idx_job_instance_history_job":        "job_id, created_at DESC, id DESC",
+		"idx_job_instance_history_group":      "executor_group_id, created_at DESC, id DESC",
 		"idx_job_task_instance":               "instance_id, id",
 		"uq_job_instance_auto_identity":       "UNIQUE INDEX|job_id, scheduled_at|scheduled_at IS NOT NULL",
 		"uq_job_instance_manual_identity":     "UNIQUE INDEX|job_id, request_id|request_id IS NOT NULL",
@@ -173,6 +176,14 @@ FROM pg_index WHERE indexrelid = 'idx_job_task_dispatch_due'::regclass`).
 	if _, err := provider.Down(ctx); err != nil {
 		t.Fatal(err)
 	}
+	var historyIndexesRemoved bool
+	if err := sqlDB.QueryRowContext(ctx, `SELECT to_regclass('idx_job_instance_history_created') IS NULL
+AND to_regclass('idx_job_instance_history_job') IS NULL AND to_regclass('idx_job_instance_history_group') IS NULL`).Scan(&historyIndexesRemoved); err != nil || !historyIndexesRemoved {
+		t.Fatalf("history index rollback left schema changes: removed=%v err=%v", historyIndexesRemoved, err)
+	}
+	if _, err := provider.Down(ctx); err != nil {
+		t.Fatal(err)
+	}
 	var inputRemoved, dispatchIndexRemoved bool
 	if err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS (
 SELECT 1 FROM pg_attribute WHERE attrelid = 'job_task'::regclass AND attname = 'input_data' AND NOT attisdropped),
@@ -227,7 +238,7 @@ to_regclass('idx_job_task_dispatch_due') IS NULL`).Scan(&inputRemoved, &dispatch
 			t.Fatalf("Down left %s: missing=%v error=%v", table, missing, err)
 		}
 	}
-	if results, err := provider.Up(ctx); err != nil || len(results) != 6 {
+	if results, err := provider.Up(ctx); err != nil || len(results) != 7 {
 		t.Fatalf("Up after Down results=%v error=%v", results, err)
 	}
 }
@@ -258,7 +269,7 @@ func TestJobAndSystemMigrationsUseIndependentLedgers(t *testing.T) {
 		t.Fatal(err)
 	}
 	jobVersion, err := job.GetDBVersion(ctx)
-	if err != nil || jobVersion != 20261111120000 {
+	if err != nil || jobVersion != 20261112150000 {
 		t.Fatalf("Job version=%d err=%v", jobVersion, err)
 	}
 	if _, err := job.DownTo(ctx, 0); err != nil {

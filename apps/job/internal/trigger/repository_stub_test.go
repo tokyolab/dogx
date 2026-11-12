@@ -148,6 +148,14 @@ func (*repositoryStub) StartExecution(context.Context, int64, time.Time, time.Ti
 // keeping group-specific CRUD signatures separate from the Job repository.
 type groupRepositoryStub struct{ *repositoryStub }
 
+// instanceRepositoryStub preserves shared fixture state without mixing the
+// Instance history List signature with the Job definition List signature.
+type instanceRepositoryStub struct{ *repositoryStub }
+
+func (*instanceRepositoryStub) List(context.Context, repository.InstanceFilter) ([]repository.InstanceListItem, int64, error) {
+	panic("unexpected instance history query")
+}
+
 func (*groupRepositoryStub) Create(context.Context, *model.ExecutorGroup) (int64, error) {
 	panic("unexpected executor group creation")
 }

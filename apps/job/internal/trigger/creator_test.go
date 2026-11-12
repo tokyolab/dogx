@@ -28,7 +28,7 @@ func testCreator(t *testing.T) (*Creator, *repositoryStub) {
 	t.Helper()
 	r := &repositoryStub{job: validDefinition(), available: true, created: true, failures: map[string]error{}}
 	s, err := New(func(ctx context.Context, fn func(repository.Repositories) error) error {
-		return fn(repository.Repositories{Jobs: r, Groups: &groupRepositoryStub{r}, Instances: r})
+		return fn(repository.Repositories{Jobs: r, Groups: &groupRepositoryStub{r}, Instances: &instanceRepositoryStub{r}})
 	}, WithClock(func() time.Time { return testNow }))
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func TestAutomaticFailureDoesNotPublish(t *testing.T) {
 			failure := errors.New("database transport failure")
 			if step == "commit" {
 				s.transact = func(ctx context.Context, fn func(repository.Repositories) error) error {
-					if err := fn(repository.Repositories{Jobs: r, Groups: &groupRepositoryStub{r}, Instances: r}); err != nil {
+					if err := fn(repository.Repositories{Jobs: r, Groups: &groupRepositoryStub{r}, Instances: &instanceRepositoryStub{r}}); err != nil {
 						return err
 					}
 					return failure
@@ -214,7 +214,7 @@ func TestManualFailuresNeverPublishUnconfirmedInstance(t *testing.T) {
 			failure := errors.New("manual transaction failed")
 			if step == "commit" {
 				s.transact = func(ctx context.Context, fn func(repository.Repositories) error) error {
-					if err := fn(repository.Repositories{Jobs: r, Groups: &groupRepositoryStub{r}, Instances: r}); err != nil {
+					if err := fn(repository.Repositories{Jobs: r, Groups: &groupRepositoryStub{r}, Instances: &instanceRepositoryStub{r}}); err != nil {
 						return err
 					}
 					return failure
@@ -298,7 +298,7 @@ func TestAutomaticSkipLogsOnlyConfirmedCommitWithDecisionFacts(t *testing.T) {
 			r.active = true
 			if commitFails {
 				s.transact = func(ctx context.Context, fn func(repository.Repositories) error) error {
-					if err := fn(repository.Repositories{Jobs: r, Groups: &groupRepositoryStub{r}, Instances: r}); err != nil {
+					if err := fn(repository.Repositories{Jobs: r, Groups: &groupRepositoryStub{r}, Instances: &instanceRepositoryStub{r}}); err != nil {
 						return err
 					}
 					return errors.New("commit response lost")

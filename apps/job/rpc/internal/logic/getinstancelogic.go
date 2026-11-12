@@ -43,5 +43,20 @@ func (l *GetInstanceLogic) GetInstance(in *job.GetInstanceRequest) (*job.GetInst
 	if config.SchemaVersion != 1 || (config.ExecutionMode != model.ExecutionModeNormal && config.ExecutionMode != model.ExecutionModeSharded) {
 		return nil, status.Error(codes.Internal, "stored instance execution configuration is invalid")
 	}
-	return &job.GetInstanceResponse{Instance: instanceInfo(instance)}, nil
+	info := instanceInfo(instance)
+	if config.ExecutionMode == model.ExecutionModeSharded {
+		// Statistics describe the current Task snapshot. They do not authorize
+		// progression, and zero rows do not prove successful empty preparation.
+		counts, err := l.svcCtx.TaskRepo.CountShards(l.ctx, instance.ID)
+		if err != nil {
+			return nil, rpcOperationError("count instance shards", err)
+		}
+		unfinished := counts.Total - counts.Succeeded - counts.Failed - counts.Canceled
+		if counts.Total < 0 || counts.Succeeded < 0 || counts.Failed < 0 || counts.Canceled < 0 || unfinished < 0 {
+			return nil, status.Error(codes.Internal, "task repository returned invalid shard statistics")
+		}
+		info.ShardStats = &job.ShardStatistics{Total: counts.Total, Succeeded: counts.Succeeded,
+			Failed: counts.Failed, Canceled: counts.Canceled, Unfinished: unfinished}
+	}
+	return &job.GetInstanceResponse{Instance: info}, nil
 }

@@ -88,6 +88,11 @@ func (s *JobServer) GetInstance(ctx context.Context, in *job.GetInstanceRequest)
 	return l.GetInstance(in)
 }
 
+func (s *JobServer) ListInstances(ctx context.Context, in *job.ListInstancesRequest) (*job.ListInstancesResponse, error) {
+	l := logic.NewListInstancesLogic(ctx, s.svcCtx)
+	return l.ListInstances(in)
+}
+
 func (s *JobServer) StopInstance(ctx context.Context, in *job.StopInstanceRequest) (*job.StopInstanceResponse, error) {
 	l := logic.NewStopInstanceLogic(ctx, s.svcCtx)
 	return l.StopInstance(in)
@@ -96,4 +101,9 @@ func (s *JobServer) StopInstance(ctx context.Context, in *job.StopInstanceReques
 func (s *JobServer) ListInstanceTasks(ctx context.Context, in *job.ListInstanceTasksRequest) (*job.ListInstanceTasksResponse, error) {
 	l := logic.NewListInstanceTasksLogic(ctx, s.svcCtx)
 	return l.ListInstanceTasks(in)
+}
+
+func (s *JobServer) GetTask(ctx context.Context, in *job.GetTaskRequest) (*job.GetTaskResponse, error) {
+	l := logic.NewGetTaskLogic(ctx, s.svcCtx)
+	return l.GetTask(in)
 }

@@ -300,24 +300,59 @@ type JobExecutionConfig struct {
 }
 
 type JobInstanceDetail struct {
-	Id               int64              `json:"id"`
-	JobId            int64              `json:"jobId"`
-	JobName          string             `json:"jobName"`
-	ExecutorGroupId  int64              `json:"executorGroupId"`
-	TriggerType      int32              `json:"triggerType"`
-	ScheduledAt      *string            `json:"scheduledAt"`
-	RequestId        *string            `json:"requestId"`
-	ParamsOverridden bool               `json:"paramsOverridden"`
-	TriggeredBy      *int64             `json:"triggeredBy"`
-	ExecutionConfig  JobExecutionConfig `json:"executionConfig"`
-	Status           int32              `json:"status"`
-	StartedAt        *string            `json:"startedAt"`
-	DeadlineAt       *string            `json:"deadlineAt"`
-	FinishedAt       *string            `json:"finishedAt"`
-	EndReason        *string            `json:"endReason"`
-	ResultSummary    *string            `json:"resultSummary"`
-	CreatedAt        string             `json:"createdAt"`
-	UpdatedAt        string             `json:"updatedAt"`
+	Id               int64               `json:"id"`
+	JobId            int64               `json:"jobId"`
+	JobName          string              `json:"jobName"`
+	ExecutorGroupId  int64               `json:"executorGroupId"`
+	TriggerType      int32               `json:"triggerType"`
+	ScheduledAt      *string             `json:"scheduledAt"`
+	RequestId        *string             `json:"requestId"`
+	ParamsOverridden bool                `json:"paramsOverridden"`
+	TriggeredBy      *int64              `json:"triggeredBy"`
+	ExecutionConfig  JobExecutionConfig  `json:"executionConfig"`
+	Status           int32               `json:"status"`
+	StartedAt        *string             `json:"startedAt"`
+	DeadlineAt       *string             `json:"deadlineAt"`
+	FinishedAt       *string             `json:"finishedAt"`
+	EndReason        *string             `json:"endReason"`
+	ResultSummary    *string             `json:"resultSummary"`
+	CreatedAt        string              `json:"createdAt"`
+	UpdatedAt        string              `json:"updatedAt"`
+	ShardStats       *JobShardStatistics `json:"shardStats"`
+}
+
+type JobInstanceListItem struct {
+	Id                int64   `json:"id"`
+	JobId             int64   `json:"jobId"`
+	JobName           string  `json:"jobName"`
+	ExecutorGroupId   int64   `json:"executorGroupId"`
+	ExecutorGroupName *string `json:"executorGroupName"`
+	TriggerType       int32   `json:"triggerType"`
+	ScheduledAt       *string `json:"scheduledAt"`
+	Status            int32   `json:"status"`
+	StartedAt         *string `json:"startedAt"`
+	DeadlineAt        *string `json:"deadlineAt"`
+	FinishedAt        *string `json:"finishedAt"`
+	EndReason         *string `json:"endReason"`
+	CreatedAt         string  `json:"createdAt"`
+	UpdatedAt         string  `json:"updatedAt"`
+}
+
+type JobInstanceListReq struct {
+	PageReq
+	Id              *int64 `json:"id,optional" validate:"omitempty,gt=0"`
+	JobId           *int64 `json:"jobId,optional" validate:"omitempty,gt=0"`
+	JobName         string `json:"jobName,optional"`
+	ExecutorGroupId *int64 `json:"executorGroupId,optional" validate:"omitempty,gt=0"`
+	Status          *int32 `json:"status,optional" validate:"omitempty,oneof=1 2 3 4 5 6"`
+	TriggerType     *int32 `json:"triggerType,optional" validate:"omitempty,oneof=1 2 3"`
+	CreatedFrom     string `json:"createdFrom,optional"`
+	CreatedTo       string `json:"createdTo,optional"`
+}
+
+type JobInstanceListResp struct {
+	PageMeta
+	Items []JobInstanceListItem `json:"items"`
 }
 
 type JobInstanceStopResp struct {
@@ -352,6 +387,24 @@ type JobListReq struct {
 type JobListResp struct {
 	Items []JobListItem `json:"items"`
 	Total int64         `json:"total"`
+}
+
+type JobShardStatistics struct {
+	Total      int64 `json:"total"`
+	Succeeded  int64 `json:"succeeded"`
+	Failed     int64 `json:"failed"`
+	Canceled   int64 `json:"canceled"`
+	Unfinished int64 `json:"unfinished"`
+}
+
+type JobTaskDetailReq struct {
+	Id       int64  `json:"id" validate:"gt=0"`
+	DataKind string `json:"dataKind,optional" validate:"omitempty,oneof=input result"`
+}
+
+type JobTaskDetailResp struct {
+	Task JobTaskListItem `json:"task"`
+	Data *string         `json:"data"`
 }
 
 type JobTaskListItem struct {

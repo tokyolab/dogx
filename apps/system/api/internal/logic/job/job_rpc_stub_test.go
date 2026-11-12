@@ -93,6 +93,14 @@ func (s *jobRPCStub) ListExecutorGroups(context.Context, *jobclient.ListExecutor
 func (s *jobRPCStub) DeleteExecutorGroup(context.Context, *jobclient.DeleteExecutorGroupRequest, ...grpc.CallOption) (*jobclient.EmptyResponse, error) {
 	panic("unexpected executor group RPC in Job-only test")
 }
+func (*jobRPCStub) ListInstances(context.Context, *jobclient.ListInstancesRequest, ...grpc.CallOption) (*jobclient.ListInstancesResponse, error) {
+	panic("unexpected execution query in Job-only test")
+}
+
+func (*jobRPCStub) GetTask(context.Context, *jobclient.GetTaskRequest, ...grpc.CallOption) (*jobclient.GetTaskResponse, error) {
+	panic("unexpected execution query in Job-only test")
+}
+
 func (*jobRPCStub) GetInstance(context.Context, *jobclient.GetInstanceRequest, ...grpc.CallOption) (*jobclient.GetInstanceResponse, error) {
 	panic("unexpected execution query in Job-only test")
 }

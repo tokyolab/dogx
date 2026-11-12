@@ -2,6 +2,8 @@ package subcode
 
 const (
 	InstanceNotFound                = "job.instance.not_found"
+	TaskNotFound                    = "job.task.not_found"
+	TaskDataTooLarge                = "job.task.data_too_large"
 	JobNotFound                     = "job.definition.not_found"
 	JobStateNotAllowed              = "job.definition.state_not_allowed"
 	JobActiveInstances              = "job.definition.active_instances"

@@ -586,6 +586,10 @@ type saverTaskRepositoryStub struct {
 	onFind, onSave, onProbe    func(context.Context)
 }
 
+func (*saverTaskRepositoryStub) FindDetail(context.Context, int64, repository.TaskDataSelection) (*repository.TaskDetail, error) {
+	panic("unexpected management query")
+}
+
 func (*saverTaskRepositoryStub) ListByInstance(context.Context, int64, int64, int64) ([]repository.TaskSummary, int64, error) {
 	panic("unexpected ListByInstance")
 }

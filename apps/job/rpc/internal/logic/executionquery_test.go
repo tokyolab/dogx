@@ -159,7 +159,7 @@ func TestGetInstanceRejectsUninterpretableSnapshotsWithoutDefaults(t *testing.T)
 		config := model.ExecutionConfig{SchemaVersion: 1, ExecutionMode: mode, ProcessorName: "test.processor", MaxRetries: 0,
 			RetryIntervalSeconds: 10, TimeoutSeconds: 60, PostEnabled: mode == model.ExecutionModeSharded}
 		instances := &executionInstanceStub{row: &model.JobInstance{ID: 9, ExecutionConfig: config}}
-		response, err := NewGetInstanceLogic(context.Background(), &svc.ServiceContext{InstanceRepo: instances}).GetInstance(&job.GetInstanceRequest{Id: 9})
+		response, err := NewGetInstanceLogic(context.Background(), &svc.ServiceContext{InstanceRepo: instances, TaskRepo: &executionTasksStub{}}).GetInstance(&job.GetInstanceRequest{Id: 9})
 		if err != nil || response.Instance.ExecutionConfig.ExecutionMode != int32(mode) || response.Instance.ExecutionConfig.MaxRetries != 0 ||
 			response.Instance.ExecutionConfig.Params != "" || response.Instance.ExecutionConfig.PostEnabled != config.PostEnabled {
 			t.Fatal("valid snapshot values were replaced with defaults")
@@ -178,6 +178,15 @@ type executionInstanceStub struct {
 	exists      bool
 	findCalls   int
 	existsCalls int
+	listItems   []repository.InstanceListItem
+	listTotal   int64
+	listFilter  repository.InstanceFilter
+}
+
+func (s *executionInstanceStub) List(_ context.Context, filter repository.InstanceFilter) ([]repository.InstanceListItem, int64, error) {
+	s.calls++
+	s.listFilter = filter
+	return s.listItems, s.listTotal, s.err
 }
 
 func (s *executionInstanceStub) FindByID(_ context.Context, id int64) (*model.JobInstance, error) {
@@ -199,6 +208,23 @@ type executionTasksStub struct {
 	err                        error
 	instanceID, page, pageSize int64
 	calls                      int
+	detail                     *repository.TaskDetail
+	detailID                   int64
+	selection                  repository.TaskDataSelection
+	counts                     repository.ShardCounts
+	countCalls                 int
+}
+
+func (s *executionTasksStub) FindDetail(_ context.Context, id int64, selection repository.TaskDataSelection) (*repository.TaskDetail, error) {
+	s.calls++
+	s.detailID, s.selection = id, selection
+	return s.detail, s.err
+}
+
+func (s *executionTasksStub) CountShards(_ context.Context, id int64) (repository.ShardCounts, error) {
+	s.countCalls++
+	s.instanceID = id
+	return s.counts, s.err
 }
 
 func (s *executionTasksStub) ListByInstance(_ context.Context, id, page, pageSize int64) ([]repository.TaskSummary, int64, error) {

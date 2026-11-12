@@ -9,6 +9,16 @@ import (
 
 type routeJobRPCStub struct{ recorder *routeSystemRPCStub }
 
+func (s *routeJobRPCStub) ListInstances(context.Context, *jobclient.ListInstancesRequest, ...grpc.CallOption) (*jobclient.ListInstancesResponse, error) {
+	s.record("ListInstances")
+	return &jobclient.ListInstancesResponse{}, nil
+}
+
+func (s *routeJobRPCStub) GetTask(context.Context, *jobclient.GetTaskRequest, ...grpc.CallOption) (*jobclient.GetTaskResponse, error) {
+	s.record("GetTask")
+	return &jobclient.GetTaskResponse{Task: &jobclient.TaskListItem{Id: 7}}, nil
+}
+
 func (s *routeJobRPCStub) StopInstance(context.Context, *jobclient.StopInstanceRequest, ...grpc.CallOption) (*jobclient.StopInstanceResponse, error) {
 	s.record("StopInstance")
 	return &jobclient.StopInstanceResponse{InstanceId: 7, Status: 6}, nil

@@ -102,6 +102,47 @@ message ExecutorGroupListItem {
 message ListExecutorGroupsResponse { repeated ExecutorGroupListItem items = 1; int64 total = 2; }
 message DeleteExecutorGroupRequest { int64 id = 1; }
 message GetInstanceRequest { int64 id = 1; }
+// ListInstancesRequest filters persisted rounds by their immutable identity and
+// creation time. The lower time bound is inclusive; the upper bound is exclusive.
+message ListInstancesRequest {
+  int64 page = 1;
+  int64 page_size = 2;
+  optional int64 id = 3;
+  optional int64 job_id = 4;
+  string job_name = 5;
+  optional int64 executor_group_id = 6;
+  optional int32 status = 7;
+  optional int32 trigger_type = 8;
+  string created_from = 9;
+  string created_to = 10;
+}
+// InstanceListItem excludes frozen business parameters and Task data.
+message InstanceListItem {
+  int64 id = 1;
+  int64 job_id = 2;
+  string job_name = 3;
+  int64 executor_group_id = 4;
+  optional string executor_group_name = 5;
+  int32 trigger_type = 6;
+  optional string scheduled_at = 7;
+  int32 status = 8;
+  optional string started_at = 9;
+  optional string deadline_at = 10;
+  optional string finished_at = 11;
+  optional string end_reason = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+message ListInstancesResponse { repeated InstanceListItem items = 1; int64 total = 2; }
+// ShardStatistics counts only persisted business shards. Zero records alone do
+// not prove that preparation has finished or that its output was empty.
+message ShardStatistics {
+  int64 total = 1;
+  int64 succeeded = 2;
+  int64 failed = 3;
+  int64 canceled = 4;
+  int64 unfinished = 5;
+}
 // ExecutionConfigInfo describes the immutable snapshot saved for this round.
 message ExecutionConfigInfo {
   int32 schema_version = 1;
@@ -134,6 +175,8 @@ message InstanceInfo {
   optional string result_summary = 16;
   string created_at = 17;
   string updated_at = 18;
+  // Absent for ordinary rounds; counters are read without changing the round.
+  ShardStatistics shard_stats = 19;
 }
 message GetInstanceResponse { InstanceInfo instance = 1; }
 message StopInstanceRequest { int64 id = 1; }
@@ -166,6 +209,16 @@ message TaskListItem {
   string updated_at = 16;
 }
 message ListInstanceTasksResponse { repeated TaskListItem items = 1; int64 total = 2; }
+// GetTaskRequest reads metadata, optionally with one JSON document. data_kind is
+// empty, "input", or "result". Documents exceeding 8 MiB or responses exceeding
+// 9 MiB return the management error job.task.data_too_large without truncation.
+message GetTaskRequest { int64 id = 1; string data_kind = 2; }
+message GetTaskResponse {
+  TaskListItem task = 1;
+  // Absent means SQL NULL or data was not requested. JSON null is the text "null".
+  // JSON text preserves numeric precision and is never truncated.
+  optional string data = 2;
+}
 message EmptyResponse {}
 service Job {
   rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
@@ -181,6 +234,8 @@ service Job {
   rpc ListExecutorGroups(ListExecutorGroupsRequest) returns (ListExecutorGroupsResponse);
   rpc DeleteExecutorGroup(DeleteExecutorGroupRequest) returns (EmptyResponse);
   rpc GetInstance(GetInstanceRequest) returns (GetInstanceResponse);
+  rpc ListInstances(ListInstancesRequest) returns (ListInstancesResponse);
   rpc StopInstance(StopInstanceRequest) returns (StopInstanceResponse);
   rpc ListInstanceTasks(ListInstanceTasksRequest) returns (ListInstanceTasksResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
 }

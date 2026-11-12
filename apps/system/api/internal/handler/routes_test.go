@@ -70,6 +70,8 @@ type routeSecurityCase struct {
 }
 
 var routeSecurityMatrix = []routeSecurityCase{
+	{name: "ListInstances", method: http.MethodPost, path: "/job/instance/list", body: `{"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListInstances"},
+	{name: "GetTask", method: http.MethodPost, path: "/job/task/get", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "GetTask"},
 	{name: "GetInstance", method: http.MethodPost, path: "/job/instance/get", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "GetInstance"},
 	{name: "StopInstance", method: http.MethodPost, path: "/job/instance/stop", body: `{"id":7}`, level: routeAuthorized, rpcMethod: "StopInstance"},
 	{name: "ListInstanceTasks", method: http.MethodPost, path: "/job/task/list", body: `{"instanceId":7,"page":1,"pageSize":20}`, level: routeAuthorized, rpcMethod: "ListInstanceTasks"},

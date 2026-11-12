@@ -57,6 +57,10 @@ func TestGroupDetailClientLogsOmitCredentialsOnNormalSlowAndFailedCalls(t *testi
 		if err != nil || len(tasks.GetItems()) != 1 || tasks.Items[0].GetResultSummary() != "execution-response-must-not-be-logged" {
 			t.Fatal("task query did not deliver its summary")
 		}
+		task, err := client.GetTask(ctx, &job.GetTaskRequest{Id: id, DataKind: "result"})
+		if err != nil || task.GetData() != "execution-response-must-not-be-logged" {
+			t.Fatal("task detail did not deliver its data")
+		}
 	}
 	if _, err := client.GetExecutorGroup(ctx, &job.GetExecutorGroupRequest{Id: 9988776611}); status.Code(err) != codes.Internal {
 		t.Fatalf("group detail error=%v", err)
@@ -67,6 +71,9 @@ func TestGroupDetailClientLogsOmitCredentialsOnNormalSlowAndFailedCalls(t *testi
 	if _, err := client.ListInstanceTasks(ctx, &job.ListInstanceTasksRequest{InstanceId: 9988776611, Page: 1, PageSize: 20}); status.Code(err) != codes.Internal {
 		t.Fatal("task query failure classification changed")
 	}
+	if _, err := client.GetTask(ctx, &job.GetTaskRequest{Id: 9988776611, DataKind: "input"}); status.Code(err) != codes.Internal {
+		t.Fatal("task detail failure classification changed")
+	}
 	output := logs.String()
 	if !strings.Contains(output, "slowcall") || !strings.Contains(output, "fail -") || !strings.Contains(output, job.Job_GetExecutorGroup_FullMethodName) {
 		t.Fatal("RPC duration/error metadata was not preserved")
@@ -76,7 +83,7 @@ func TestGroupDetailClientLogsOmitCredentialsOnNormalSlowAndFailedCalls(t *testi
 			t.Fatal("group RPC content appeared in client logs")
 		}
 	}
-	if !strings.Contains(output, job.Job_GetInstance_FullMethodName) || !strings.Contains(output, job.Job_ListInstanceTasks_FullMethodName) {
+	if !strings.Contains(output, job.Job_GetInstance_FullMethodName) || !strings.Contains(output, job.Job_ListInstanceTasks_FullMethodName) || !strings.Contains(output, job.Job_GetTask_FullMethodName) {
 		t.Fatal("execution query protection removed method statistics")
 	}
 }
@@ -116,6 +123,14 @@ func (s *groupLoggingServer) ListInstanceTasks(ctx context.Context, req *job.Lis
 	}
 	summary := "execution-response-must-not-be-logged"
 	return &job.ListInstanceTasksResponse{Items: []*job.TaskListItem{{Id: 7, InstanceId: req.InstanceId, ResultSummary: &summary}}, Total: 1}, nil
+}
+
+func (s *groupLoggingServer) GetTask(ctx context.Context, req *job.GetTaskRequest) (*job.GetTaskResponse, error) {
+	if _, err := s.GetExecutorGroup(ctx, &job.GetExecutorGroupRequest{Id: req.Id}); err != nil {
+		return nil, err
+	}
+	data := "execution-response-must-not-be-logged"
+	return &job.GetTaskResponse{Task: &job.TaskListItem{Id: req.Id}, Data: &data}, nil
 }
 
 type groupLogBuffer struct {
