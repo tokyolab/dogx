@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -242,10 +243,11 @@ func TestCleanupStartsImmediatelyAndWaitsAfterActualReturn(t *testing.T) {
 		c, instances, _, now := fixture(t)
 		c.config.Interval, c.config.OperationTimeout = time.Minute, time.Hour
 		release := make(chan struct{})
-		calls := 0
+		// Wait exposes earlier writes, but does not order these assertions before
+		// the next timed pass's writes. The shared counter needs its own synchronization.
+		var calls atomic.Int32
 		instances.clock = func(context.Context) (time.Time, error) {
-			calls++
-			if calls == 1 {
+			if calls.Add(1) == 1 {
 				<-release
 			}
 			return now, nil
@@ -255,25 +257,25 @@ func TestCleanupStartsImmediatelyAndWaitsAfterActualReturn(t *testing.T) {
 		done := make(chan error, 1)
 		go func() { done <- c.Run(ctx) }()
 		synctest.Wait()
-		if calls != 1 {
-			t.Fatalf("initial pass not started: %d", calls)
+		if got := calls.Load(); got != 1 {
+			t.Fatalf("initial pass not started: %d", got)
 		}
 		time.Sleep(3 * time.Minute)
 		synctest.Wait()
-		if calls != 1 {
+		if calls.Load() != 1 {
 			t.Fatal("overlapping pass started")
 		}
 		close(release)
 		synctest.Wait()
 		time.Sleep(time.Minute - time.Second)
 		synctest.Wait()
-		if calls != 1 {
+		if calls.Load() != 1 {
 			t.Fatal("missed ticks were replayed")
 		}
 		time.Sleep(time.Second)
 		synctest.Wait()
-		if calls != 2 {
-			t.Fatalf("next pass did not start after completion-relative interval: %d", calls)
+		if got := calls.Load(); got != 2 {
+			t.Fatalf("next pass did not start after completion-relative interval: %d", got)
 		}
 		cancel()
 		if err := <-done; !errors.Is(err, context.Canceled) {
@@ -319,10 +321,9 @@ func TestCleanupPassFailureWaitsAndRestartsWithFreshDatabaseTime(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c, instances, _, now := fixture(t)
 		c.config.Interval = time.Minute
-		calls := 0
+		var calls atomic.Int32
 		instances.clock = func(context.Context) (time.Time, error) {
-			calls++
-			if calls == 1 {
+			if calls.Add(1) == 1 {
 				return time.Time{}, errors.New("database unavailable")
 			}
 			return now.Add(time.Hour), nil
@@ -337,13 +338,13 @@ func TestCleanupPassFailureWaitsAndRestartsWithFreshDatabaseTime(t *testing.T) {
 		done := make(chan error, 1)
 		go func() { done <- c.Run(ctx) }()
 		synctest.Wait()
-		if calls != 1 {
-			t.Fatalf("initial clock calls: %d", calls)
+		if got := calls.Load(); got != 1 {
+			t.Fatalf("initial clock calls: %d", got)
 		}
 		time.Sleep(time.Minute)
 		synctest.Wait()
-		if calls != 2 {
-			t.Fatalf("failed pass did not wait before retry: %d", calls)
+		if got := calls.Load(); got != 2 {
+			t.Fatalf("failed pass did not wait before retry: %d", got)
 		}
 		cancel()
 		<-done
