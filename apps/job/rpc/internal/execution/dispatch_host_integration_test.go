@@ -150,10 +150,13 @@ func testDispatchHost(t *testing.T, endpoint string) {
 		{name: "commit hint", hint: true},
 		{name: "peer scanner"},
 	} {
-		t.Run(scenario.name, func(t *testing.T) {
+		if !t.Run(scenario.name, func(t *testing.T) {
 			config := c
 			config.Dispatch.ScanInterval = 50 * time.Millisecond
 			if scenario.hint {
+				// Keep the production capacity so a discovery page's reservation
+				// cannot consume every slot before the sole commit hint arrives.
+				config.Dispatch.WaitingCapacity = 256
 				config.Dispatch.ScanInterval = time.Hour
 			}
 			host, err := svc.NewServiceContext(config)
@@ -280,7 +283,11 @@ func testDispatchHost(t *testing.T, endpoint string) {
 				}
 				return count == 0
 			})
-		})
+		}) {
+			// Both scenarios share persisted work and the admission channel. A
+			// failed scenario can leave an Instance for the next host to discover.
+			return
+		}
 	}
 }
 
