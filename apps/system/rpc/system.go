@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/tokyolab/dogx/apps/system/internal/job"
 	"github.com/tokyolab/dogx/apps/system/internal/rpclog"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/config"
 	"github.com/tokyolab/dogx/apps/system/rpc/internal/server"
@@ -24,12 +25,14 @@ var configFile = flag.String("f", "etc/system-rpc.yaml", "the config file")
 
 func main() {
 	flag.Parse()
-	// No production System job has been specified yet. Register concrete
-	// processors here when their business behavior is defined.
-	if err := run(context.Background(), *configFile, nil); err != nil {
+	if err := run(context.Background(), *configFile, registerProcessors); err != nil {
 		fmt.Fprintf(os.Stderr, "system RPC process failed: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func registerProcessors(_ *svc.ServiceContext, registry *jobexecutor.Registry) error {
+	return registry.Register("demo.echo", job.EchoProcessor{})
 }
 
 // run assembles both System RPC servers and their shared process lifecycle.
