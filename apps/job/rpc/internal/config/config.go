@@ -19,6 +19,7 @@ type Config struct {
 	Dispatch           DispatchConf
 	InstanceCheck      InstanceCheckConf
 	InstanceRecovery   InstanceRecoveryConf
+	HistoryCleanup     HistoryCleanupConf
 	UnboundRecovery    UnboundRecoveryConf
 	Stopping           StoppingConf
 	CancelNotification CancelNotificationConf
@@ -120,6 +121,22 @@ func (c InstanceRecoveryConf) Validate() error {
 	return nil
 }
 
+// HistoryCleanupConf controls elected cleanup of terminal Instance history.
+// RetentionDays counts fixed 24-hour periods, independent of calendar timezones.
+// Interval starts after the previous pass returns; each new leader runs once
+// immediately. Page size and database operation budgets are internal limits.
+type HistoryCleanupConf struct {
+	RetentionDays int           `json:",default=7"`
+	Interval      time.Duration `json:",default=4h"`
+}
+
+func (c HistoryCleanupConf) Validate() error {
+	if c.RetentionDays <= 0 || c.RetentionDays > int((1<<63-1)/(24*time.Hour)) || c.Interval <= 0 {
+		return errors.New("history cleanup retention days and interval must be positive and retention duration representable")
+	}
+	return nil
+}
+
 // DispatchConf controls process-wide dispatch supply and each admission attempt.
 // WaitingCapacity includes reserved query pages and hints, but not work already
 // taken by the fixed consumers. These limits are independent of leadership,
@@ -158,8 +175,9 @@ func (c ResultPersistenceConf) Validate() error {
 	return nil
 }
 
-// PrepareExecution validates execution transport, dispatch, recovery and result persistence
-// settings, then gives both RPC servers the host's process-wide ServiceConf.
+// PrepareExecution validates execution transport, dispatch, recovery, history
+// cleanup and result persistence, then gives both RPC servers the host's
+// process-wide ServiceConf.
 // Call it after normalizing the host shutdown policy and before constructing
 // either server. It leaves the configuration unchanged on error.
 //
@@ -181,6 +199,9 @@ func (c *Config) PrepareExecution() error {
 		return err
 	}
 	if err := c.InstanceRecovery.Validate(); err != nil {
+		return err
+	}
+	if err := c.HistoryCleanup.Validate(); err != nil {
 		return err
 	}
 	if err := c.UnboundRecovery.Validate(); err != nil {

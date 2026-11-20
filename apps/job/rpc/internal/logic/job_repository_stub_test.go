@@ -178,6 +178,16 @@ var (
 // Instance list signature separate from Job management's List method.
 type managementInstanceStub struct{ *jobRepositoryStub }
 
+func (*managementInstanceStub) ListExpiredHistory(context.Context, time.Time, *repository.HistoryCandidate, int) ([]repository.HistoryCandidate, error) {
+	panic("unexpected expired instance history query")
+}
+func (*managementInstanceStub) LockForHistoryCleanup(context.Context, int64) (*repository.HistoryInstance, error) {
+	panic("unexpected history cleanup lock")
+}
+func (*managementInstanceStub) DeleteHistory(context.Context, int64, time.Time) (bool, error) {
+	panic("unexpected instance history deletion")
+}
+
 func (*managementInstanceStub) List(context.Context, repository.InstanceFilter) ([]repository.InstanceListItem, int64, error) {
 	panic("unexpected instance history query")
 }

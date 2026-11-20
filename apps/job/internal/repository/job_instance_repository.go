@@ -115,6 +115,21 @@ type RunningCandidate struct {
 	StartedAt time.Time
 }
 
+// HistoryCandidate retains only the immutable pagination position of one
+// expired terminal Instance. It does not grant permission to delete that row.
+type HistoryCandidate struct {
+	ID         int64
+	FinishedAt time.Time
+}
+
+// HistoryInstance contains the facts rechecked under the parent lock before
+// deleting history. It is valid only inside the transaction holding that lock.
+type HistoryInstance struct {
+	ID         int64
+	Status     model.InstanceStatus
+	FinishedAt *time.Time
+}
+
 // InstanceCompletion reads a parent and its singleton ordinary Task from one
 // statement snapshot, without locking. A nil TaskID identifies a missing child;
 // nullable child fields must not be interpreted as an execution result on their
@@ -138,6 +153,28 @@ type InstanceCompletion struct {
 // A successful transaction-scoped call does not confirm commit; use the result
 // from TransactionRunner.
 type JobInstanceRepository interface {
+	// ListExpiredHistory returns terminal Instances with finished_at strictly
+	// before the nonzero cutoff, ordered by finished_at then ID. limit is 1..100.
+	// A nil cursor starts a traversal; otherwise its ID must be positive and its
+	// nonzero FinishedAt must precede the same fixed cutoff. It reads only IDs and
+	// finish times, takes no locks and returns a non-nil empty slice on exhaustion.
+	// Each page has normal statement visibility; later traversals restart at nil
+	// to cover late commits. Errors return nil and do not authorize cursor movement.
+	ListExpiredHistory(ctx context.Context, before time.Time, after *HistoryCandidate, limit int) ([]HistoryCandidate, error)
+
+	// LockForHistoryCleanup attempts a primary-key FOR UPDATE NOWAIT lock for a
+	// positive ID in the caller's explicit transaction. Missing rows return nil,
+	// nil; contention wraps ErrInstanceLocked and the driver cause. The caller
+	// must recheck terminal status and FinishedAt before deleting any children.
+	LockForHistoryCleanup(ctx context.Context, id int64) (*HistoryInstance, error)
+
+	// DeleteHistory physically deletes one terminal parent strictly older than
+	// the nonzero cutoff only when no child Task remains. The caller holds its
+	// history-cleanup lock and deletes terminal children in this same explicit
+	// transaction. False means the transaction must roll back its child deletion;
+	// true is an affected-row result, not a confirmed commit. id must be positive.
+	DeleteHistory(ctx context.Context, id int64, before time.Time) (bool, error)
+
 	// List returns historical rounds by descending creation time and then ID.
 	// Count and page are separate READ COMMITTED statements, so concurrent changes
 	// may affect their consistency. Empty pages are non-nil slices. The projection
@@ -317,6 +354,69 @@ func NewJobInstanceRepository(db *gorm.DB) (JobInstanceRepository, error) {
 		return nil, errors.New("job instance repository database is nil")
 	}
 	return &jobInstanceRepository{db: db}, nil
+}
+
+func (r *jobInstanceRepository) ListExpiredHistory(ctx context.Context, before time.Time, after *HistoryCandidate, limit int) ([]HistoryCandidate, error) {
+	if before.IsZero() || limit <= 0 || limit > 100 || (after != nil &&
+		(after.ID <= 0 || after.FinishedAt.IsZero() || !after.FinishedAt.Before(before))) {
+		return nil, errors.New("invalid history candidate bounds")
+	}
+	// Literal terminal states let PostgreSQL use the matching partial index
+	// even when the time and cursor parameters use a prepared query plan.
+	query := r.db.WithContext(ctx).Model(&model.JobInstance{}).Select("id", "finished_at").
+		Where("status IN (3, 4, 5) AND finished_at IS NOT NULL AND finished_at < ?", before)
+	if after != nil {
+		query = query.Where("(finished_at, id) > (?, ?)", after.FinishedAt, after.ID)
+	}
+	items := make([]HistoryCandidate, 0)
+	if err := query.Order("finished_at, id").Limit(limit).Find(&items).Error; err != nil {
+		return nil, fmt.Errorf("list expired instance history: %w", err)
+	}
+	return items, nil
+}
+
+func (r *jobInstanceRepository) LockForHistoryCleanup(ctx context.Context, id int64) (*HistoryInstance, error) {
+	if id <= 0 {
+		return nil, errors.New("history instance ID must be positive")
+	}
+	if !r.inTransaction() {
+		return nil, errors.New("history instance lock requires an explicit transaction")
+	}
+	var instance HistoryInstance
+	// The parent lock serializes cleaners with each other and with execution
+	// authorization, preventing children from being created during deletion.
+	err := r.db.WithContext(ctx).Model(&model.JobInstance{}).
+		Select("id", "status", "finished_at").
+		Clauses(clause.Locking{Strength: "UPDATE", Options: "NOWAIT"}).
+		Where("id = ?", id).Take(&instance).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		var driverErr *pgconn.PgError
+		if errors.As(err, &driverErr) && driverErr.Code == "55P03" {
+			return nil, fmt.Errorf("lock history instance: %w: %w", ErrInstanceLocked, err)
+		}
+		return nil, fmt.Errorf("lock history instance: %w", err)
+	}
+	return &instance, nil
+}
+
+func (r *jobInstanceRepository) DeleteHistory(ctx context.Context, id int64, before time.Time) (bool, error) {
+	if id <= 0 || before.IsZero() {
+		return false, errors.New("invalid instance history deletion")
+	}
+	if !r.inTransaction() {
+		return false, errors.New("instance history deletion requires an explicit transaction")
+	}
+	db := r.db.WithContext(ctx)
+	remaining := db.Model(&model.JobTask{}).Select("1").Where("instance_id = job_instance.id")
+	result := db.Where("id = ? AND status IN (3, 4, 5) AND finished_at < ?", id, before).
+		Where("NOT EXISTS (?)", remaining).Delete(&model.JobInstance{})
+	if result.Error != nil {
+		return false, fmt.Errorf("delete instance history: %w", result.Error)
+	}
+	return result.RowsAffected == 1, nil
 }
 
 func (r *jobInstanceRepository) LockForStop(ctx context.Context, id int64, nowait bool) (*StoppingInstance, error) {

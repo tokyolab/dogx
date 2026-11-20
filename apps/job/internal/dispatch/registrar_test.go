@@ -221,6 +221,16 @@ type registrationInstanceStub struct {
 	t *testing.T
 }
 
+func (*registrationInstanceStub) ListExpiredHistory(context.Context, time.Time, *repository.HistoryCandidate, int) ([]repository.HistoryCandidate, error) {
+	panic("unexpected ListExpiredHistory")
+}
+func (*registrationInstanceStub) LockForHistoryCleanup(context.Context, int64) (*repository.HistoryInstance, error) {
+	panic("unexpected LockForHistoryCleanup")
+}
+func (*registrationInstanceStub) DeleteHistory(context.Context, int64, time.Time) (bool, error) {
+	panic("unexpected DeleteHistory")
+}
+
 func (*registrationInstanceStub) Exists(context.Context, int64) (bool, error) {
 	panic("unexpected Exists")
 }
@@ -298,6 +308,10 @@ func (*registrationInstanceStub) LoadWaiting(context.Context, []int64) ([]reposi
 type registrationTaskStub struct {
 	f *registrationFixture
 	t *testing.T
+}
+
+func (*registrationTaskStub) DeleteHistoryForInstance(context.Context, int64) (int64, error) {
+	panic("unexpected DeleteHistoryForInstance")
 }
 
 func (*registrationTaskStub) FindUnboundTargets(context.Context, []int64) ([]repository.UnboundTarget, error) {

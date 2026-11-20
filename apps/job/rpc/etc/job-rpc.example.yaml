@@ -42,6 +42,12 @@ InstanceRecovery:
   RunTimeout: 5s
   SQLTimeout: 1s
 
+HistoryCleanup:
+  # Fixed 24-hour days; only terminal history older than this is removed.
+  RetentionDays: 7
+  # The leader runs immediately, then waits this interval after each pass returns.
+  Interval: 4h
+
 Dispatch:
   Concurrency: 64
   # Includes waiting hints and reserved candidate pages, excluding active workers.

@@ -345,6 +345,14 @@ type TaskDetail struct {
 // a transaction handle does not confirm its outer commit; callers must not
 // dispatch work or publish a saved result before that commit succeeds.
 type JobTaskRepository interface {
+	// DeleteHistoryForInstance physically deletes all terminal Tasks belonging
+	// to one positive Instance ID in one statement. The caller must hold that
+	// parent's history-cleanup lock, confirm its terminal state and expired finish
+	// time, and delete the parent in this same explicit transaction. Unfinished or
+	// unknown Task states remain and must prevent parent deletion. The returned
+	// affected count is not a confirmed commit; errors return zero with their cause.
+	DeleteHistoryForInstance(ctx context.Context, instanceID int64) (int64, error)
+
 	// FindDetail reads one positive Task ID without a parent, Job or group lookup.
 	// Selection must be metadata-only, input or result. The single unlocked query
 	// bounds the selected document's expanded text before returning it to Go;
@@ -1289,6 +1297,21 @@ func (r *jobTaskRepository) CheckResultData(ctx context.Context, data model.Task
 		return false, errors.New("result JSONB validation returned no definite answer")
 	}
 	return *answer.Valid, nil
+}
+
+func (r *jobTaskRepository) DeleteHistoryForInstance(ctx context.Context, instanceID int64) (int64, error) {
+	if instanceID <= 0 {
+		return 0, errors.New("history task instance ID must be positive")
+	}
+	if !r.inTransaction() {
+		return 0, errors.New("task history deletion requires an explicit transaction")
+	}
+	result := r.db.WithContext(ctx).
+		Where("instance_id = ? AND status IN (4, 5, 6)", instanceID).Delete(&model.JobTask{})
+	if result.Error != nil {
+		return 0, fmt.Errorf("delete task history: %w", result.Error)
+	}
+	return result.RowsAffected, nil
 }
 
 func (r *jobTaskRepository) inTransaction() bool {

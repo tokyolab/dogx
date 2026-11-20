@@ -1,6 +1,7 @@
-// Package scheduler runs the Job trigger leader and elected candidate discovery
-// in the management RPC process. Consumers reread durable facts before acting on
-// hints. No Task execution or Instance ownership lives here.
+// Package scheduler runs the Job trigger leader, elected candidate discovery and
+// independent history maintenance in the management RPC process. Consumers reread
+// durable facts before acting on hints. No Task execution or Instance ownership
+// lives here.
 package scheduler
 
 import (
@@ -66,10 +67,11 @@ type cronEngine interface {
 	Stop() context.Context
 }
 
-// Runtime manages election, rule synchronization, Cron, and missed-trigger
-// recovery, not Task execution. Construct it with New. Only one Run may be active
-// per instance; Notify and Stats may run concurrently. The caller owns the etcd
-// client and must close it only after Run and other calls have finished.
+// Runtime manages election, rule synchronization, Cron, missed-trigger recovery
+// and elected maintenance, not Task execution. Construct it with New. Only one
+// Run may be active per instance; Notify and Stats may run concurrently. The
+// caller owns the etcd client and must close it only after Run and other calls
+// have finished.
 type Runtime struct {
 	config           Config
 	keys             keys
@@ -83,9 +85,10 @@ type Runtime struct {
 	counters         counters
 	log              rateLog
 	recoverInstances func(context.Context) error
+	cleanupHistory   func(context.Context) error
 }
 
-// Option binds elected-term discovery before Run begins.
+// Option binds elected-term discovery or maintenance before Run begins.
 type Option func(*Runtime) error
 
 // WithInstanceRecovery installs serial candidate discovery for each elected
@@ -99,6 +102,21 @@ func WithInstanceRecovery(run func(context.Context) error) Option {
 			return errors.New("instance recovery callback is nil")
 		}
 		r.recoverInstances = run
+		return nil
+	}
+}
+
+// WithHistoryCleanup installs independent history maintenance for each elected
+// term. The callback owns its immediate pass and interval, must propagate term
+// cancellation, and must wait for database operations to actually exit before
+// returning. It must not panic or return before cancellation. Cleanup has no
+// trigger or discovery queue; a new local term waits for its actual return.
+func WithHistoryCleanup(run func(context.Context) error) Option {
+	return func(r *Runtime) error {
+		if run == nil {
+			return errors.New("history cleanup callback is nil")
+		}
+		r.cleanupHistory = run
 		return nil
 	}
 }
@@ -168,8 +186,8 @@ func (r *Runtime) Notify(ctx context.Context) error {
 
 // Run blocks while managing consecutive candidacies and leader terms, retrying
 // election failures with backoff. A concurrent Run on the same Runtime fails.
-// Cancellation returns ctx.Err() after in-flight operations, Cron callbacks, and
-// session cleanup have exited; it does not promise to return at the deadline.
+// Cancellation returns ctx.Err() after in-flight operations, maintenance, Cron
+// callbacks and session cleanup exit; it does not promise to return at the deadline.
 // A new local term cannot start before the old term exits. Run does not close the
 // caller's etcd client.
 func (r *Runtime) Run(ctx context.Context) error {

@@ -114,9 +114,9 @@ go run ./apps/system/api -f 'apps/system/api/etc/system-api.yaml'
 
 API 与 RPC 必须使用完全相同的 `DOGX_ACCESS_SECRET`。受保护请求先由 API 本地验证携带 `userId`、`sessionId`、`roleIds` 和 `isSuperAdmin` 的 JWT，再通过精确 Redis `GET` 检查 Session；有效超级管理员直接放行，普通用户最后由本地 Casbin 快照判定接口权限。普通业务请求随后仍只调用一次业务 RPC。Session 的创建、轮换和撤销仍只由 RPC 负责。
 
-## Job 调度域（执行模块开发中）
+## Job 调度域
 
-管理入口为 `system-api → job-rpc → PostgreSQL`。`job-rpc` 是独立进程，副本通过 etcd 选主；只有 Leader 维护 Cron 规则和触发恢复，各副本均可处理管理请求及结果回报。Job 已接通独立的管理／回报两个 Server，回报使用真实组认证、结果队列与单条保存。System 已内嵌公共执行器，以独立 Server 接收派发和取消；当前没有注册生产业务处理器，未知名称明确拒绝。**实际 Task 派发编排、父 Instance 完成和执行查询仍在开发，不代表普通任务已能完整执行。** 组管理接口已实现，尚无组管理页面或隐含默认组。
+管理入口为 `system-api → job-rpc → PostgreSQL`。`job-rpc` 是独立进程，副本通过 etcd 选主；只有 Leader 维护 Cron 规则和触发恢复，各副本均可处理管理请求及结果回报。Job 已接通独立的管理／回报两个 Server，回报使用真实组认证、结果队列与单条保存。System 已内嵌公共执行器，以独立 Server 接收派发和取消，当前显式注册 `demo.echo` 演示处理器，未知名称明确拒绝。普通与分片执行已完成适用范围验收；“定时任务”下的任务管理、执行记录、执行器组页面及查询能力已实现，不创建隐含默认组。最新管理 CI 见[验证记录](docs/design/scheduler/management.md#management-ci)；历史清理已实现并完成本机功能验证，提交状态、测试边界和其他发布余项见[当前工作](docs/design/scheduler/progress.md#history-cleanup-progress)，不将模块验收等同于第一版全部交付。
 
 ```powershell
 Copy-Item 'apps/job/rpc/etc/job-rpc.example.yaml' 'apps/job/rpc/etc/job-rpc.yaml'
@@ -143,9 +143,15 @@ ResultPersistence:
   Capacity: 512
   Concurrency: 8
   SaveTimeout: 2s
+
+HistoryCleanup:
+  RetentionDays: 7
+  Interval: 4h
 ```
 
 `ExecutionRPC.Name` 是原生解码的必填项；实际日志、监控、模式与退出等 ServiceConf 配置统一取自顶层，不能配置成另一套进程设置。ResultPersistence 三项均须为正值；保留数含等待、退避与在途，单条预算含读取和提交，不是结果 TTL。新建本地配置时复制示例；已有私有配置须自行按示例补齐，本次不自动改写。缺失或非法配置明确启动失败，不回退为旧的单入口模式。
+
+`HistoryCleanup` 两项省略时使用上述默认值，非法值拒绝启动；各副本应配置一致。清理是 Job 内部的 Leader 维护工作，新 Leader 就绪后立即执行一趟，再从每趟实际返回起等待 `Interval`；串行运行且不补跑。每趟只取一次数据库时间，清理 `finished_at` 严格早于该时间减 `RetentionDays × 24 小时` 的 成功／失败／取消 Instance 及其全部 Task，包含输入和结果。WAITING／RUNNING／STOPPING 受保护；Job／组定义、文件系统日志不在范围内，也无手动清理页面。每个 Instance 在父主键 NOWAIT 锁和复核后，以同一事务先批量删 Task、再删父；内部页大小 100、单次数据库操作与单个 Instance 事务预算 5 秒，均非部署参数或硬退出保证。迁移 `20261120120000` 须显式执行，完整协议及清理后的有限防重边界见[历史记录与维护](docs/design/scheduler/operations.md#history-cleanup)。
 
 初始化成功、组快照与结果消费者准备好后才启动两个 Server，不等待 Leader；Health 仅表示标准服务健康，不代表数据库结果已保存。停机先拒绝新结果，已接纳结果在整个进程共享的 Shutdown.WaitTime（默认 30 秒）内善后，实际工作与入站请求结束后才释放依赖。初始化 I/O 尚未全部接入宿主 Context，不能保证收到停止信号就立即中断连接或初始加载。当前实现和本轮验证见[Job 生产接线记录](docs/design/scheduler/ordinary-readiness-review.md#ordinary-result-wiring-progress)。
 
@@ -153,17 +159,17 @@ ResultPersistence:
 
 人工停止入口为 `POST /job/instance/stop`，沿用 System API 登录与权限校验。接口先保存停止决定，再独立交接数据库取消和远端通知；响应不代表执行器业务已退出。`Stopping` 控制分批收敛及 STOPPING 补扫的独立预算，`CancelNotification` 控制按 Instance／去重地址的尽力通知，两者都使用宿主共享退出预算。重新发现已存在的 STOPPING 只收敛数据库，不周期重发远端通知；RUNNING 复核新提交超时决定时，仍交接一次尽力通知。
 
-Leader 的 RUNNING／STOPPING 发现共用 `InstanceRecovery.Interval`，默认 2 分钟，新 Leader 就绪后各执行一次有界扫描；各分支独立分页、不重叠、不积累补跑。RUNNING 每趟固定数据库时间减 4 分钟的开始门槛，默认每页 256、每次扫描交接 5 秒、单次查询 1 秒，并在本地检查集合半容量水位内补充。普通 Task 完整最终结果优先正常结束，明确未完成且到期才锁父重新取数据库时间决定超时；分片模式暂跳过。当前普通阶段 1～5 核心已接通，阶段 6 进行中；最新执行器骤停、etcd 恢复及本机收尾结果见[本机收尾记录](docs/design/scheduler/ordinary-readiness-review.md#ordinary-local-checkpoint)。GitHub Linux 实际运行、race、覆盖率和代表性负载尚待验证。
+Leader 的 RUNNING／STOPPING 发现共用 `InstanceRecovery.Interval`，默认 2 分钟，新 Leader 就绪后各执行一次有界扫描；各分支独立分页、不重叠、不积累补跑。RUNNING 每趟固定数据库时间减 4 分钟的开始门槛，默认每页 256、每次扫描交接 5 秒、单次查询 1 秒，并在本地检查集合半容量水位内补充。完整最终结果优先正常结束，明确未完成且到期才锁父重新取数据库时间决定超时；普通与分片均已接通。执行器骤停、etcd 恢复及普通本机收尾结果见[普通验收记录](docs/design/scheduler/ordinary-readiness-review.md#ordinary-local-checkpoint)，分片、Linux CI 和代表性负载证据见[分片验收记录](docs/design/scheduler/sharded-readiness-review.md#sharded-ci-closeout)；这些结果不替代历史清理或长期大表负载验证。
 
 System 域另有增量迁移登记八条 Job 接口权限，按原 System 迁移命令执行，不由 Job 迁移跨域写入。`/job/list`、`/job/get`、`/job/create`、`/job/update`、`/job/status/update`、`/job/delete`、`/job/cron/preview`、`/job/trigger` 均为受 Session 和 Casbin 保护的 POST 路由。
 
-执行基础迁移已增加 `job_task`、Instance 停止中状态相关索引，以及组的完整发现 Key／Token 和全表唯一约束。Job 启动时必须能够读取完整的未删除组配置；各节点随后每 60 秒刷新一次凭据缓存，查询预算复用 `Scheduler.QueryTimeout`。迁移不回填开发中间态的旧组，不在启动时迁移或修复数据；执行器组创建／详情／列表／删除入口已实现，完整 Task 执行链路仍在开发，详见[当前实施进度](docs/design/scheduler/ordinary-readiness-review.md#ordinary-stage2-progress)。
+执行基础迁移已增加 `job_task`、Instance 停止中状态相关索引，以及组的完整发现 Key／Token 和全表唯一约束。Job 启动时必须能够读取完整的未删除组配置；各节点随后每 60 秒刷新一次凭据缓存，查询预算复用 `Scheduler.QueryTimeout`。迁移不回填开发中间态的旧组，不在启动时迁移或修复数据；执行器组创建／详情／列表／删除、普通与分片执行及管理查询已实现，详见[当前实施进度](docs/design/scheduler/progress.md)。
 
 API 的 Job 客户端按首次请求初始化，不在 `system-api` 初始化或 `/ready` 中增加主动 Job 探测。初始化请求仍有超时，并只允许一个在途初始化。go-zero 首次 etcd 发现使用其共享客户端持续重试，无法由单次请求取消；关闭后晚到的连接会被释放，持续断连时最多保留该进程级初始化操作直到进程退出，不随请求数增加。System RPC 的内嵌执行器另有 etcd 注册和首次发现依赖，不能将 API 的懒初始化边界解释成 System RPC 可在 etcd 离线时完成冷启动。
 
 ### System 内嵌执行器接入
 
-先启动已完成迁移的 Job RPC，通过组管理入口创建执行器组，并从详情取得生成的 Token。组名和发现 Key 由部署方填写且创建后不可修改，示例使用 `system.executor` 与 `/dogx/development/default/executor/system.executor`；不要把组名当作仅供显示的名称。首次空库部署尚未启动 System API／RPC 时，通过 Job 管理 RPC 的 `CreateExecutorGroup`／`GetExecutorGroup` 完成创建和详情读取，沿用部署方的原生 RPC 鉴权配置；已有后台服务时可使用组管理 HTTP 接口，当前尚无组管理页面。不直接写组表，不增加临时 Token 或额外 CLI。System 初始化只校验配置中的凭据格式，不远程查询组记录，也不创建默认组或跳过认证。
+先启动已完成迁移的 Job RPC，通过组管理入口创建执行器组，并从详情取得生成的 Token。组名和发现 Key 由部署方填写且创建后不可修改，示例使用 `system.executor` 与 `/dogx/development/default/executor/system.executor`；不要把组名当作仅供显示的名称。首次空库部署尚未启动 System API／RPC 时，通过 Job 管理 RPC 的 `CreateExecutorGroup`／`GetExecutorGroup` 完成创建和详情读取，沿用部署方的原生 RPC 鉴权配置；已有后台服务时可使用组管理 HTTP 接口或“定时任务 → 执行器组”页面。不直接写组表，不增加临时 Token 或额外 CLI。System 初始化只校验配置中的凭据格式，不远程查询组记录，也不创建默认组或跳过认证。
 
 随后复制并补齐 [System RPC 示例配置](apps/system/rpc/etc/system-rpc.example.yaml)，将组详情 Token 注入 `DOGX_JOB_EXECUTOR_TOKEN`。部署值的对应关系如下：
 
@@ -178,7 +184,7 @@ API 的 Job 客户端按首次请求初始化，不在 `system-api` 初始化或
 
 执行器 Server 与 ReportClient 使用原生 zrpc＋etcd 配置，禁止将组 Token 填入原生 `App/Token`。执行器 Server 固定 `Auth: false`、保留 Health；原业务 RPC 的鉴权配置保持独立。`Server.Name` 是原生解码必填项，其实际 ServiceConf 仍由宿主顶层统一。回报连接采用非阻塞拨号，调度服务暂不可达不等于原业务接口必须启动失败；但首次发现和注册仍需可用 etcd，非阻塞拨号不消除这一依赖。
 
-业务接入通过 `NewServiceContext(c, register RegisterProcessors)`，在 System 依赖初始化后、接单开始前注册处理器并注入依赖。当前 Main 使用空注册回调；`system.cleanup` 只是设计示例，未实现任何清理任务。具体业务确定后，处理器放入 `apps/system/internal/job` 并显式注册；当前不创建空包，也不增加独立 Worker 入口。启动和停机实现、当前验证状态见 [System 内嵌接线记录](docs/design/scheduler/ordinary-readiness-review.md#ordinary-system-executor-wiring-progress)。
+业务接入通过 `NewServiceContext(c, register RegisterProcessors)`，在 System 依赖初始化后、接单开始前注册处理器并注入依赖。当前 Main 显式注册 `apps/system/internal/job` 中的 `demo.echo`，仅记录并返回 `hello world` 摘要，供普通执行演示；具体生产业务仍需独立实现和验证。`system.cleanup` 仍只是设计示例，Job 历史清理由上述内部维护组件负责。业务处理器继续在该域内显式注册，不增加独立 Worker 入口。启动和停机边界见 [System 内嵌接线记录](docs/design/scheduler/ordinary-readiness-review.md#ordinary-system-executor-wiring-progress)。
 
 完整范围和验证要求见[触发模块总审](docs/design/scheduler/trigger-readiness-review.md)。数据库迁移须明确执行，不会在服务启动时自动运行；本段命令不代表已有测试完成或已迁移开发数据库。
 

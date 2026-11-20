@@ -10,6 +10,7 @@ import (
 
 	"github.com/tokyolab/dogx/apps/job/internal/dispatch"
 	"github.com/tokyolab/dogx/apps/job/internal/groupcache"
+	"github.com/tokyolab/dogx/apps/job/internal/historycleanup"
 	"github.com/tokyolab/dogx/apps/job/internal/instancecheck"
 	"github.com/tokyolab/dogx/apps/job/internal/instancestop"
 	"github.com/tokyolab/dogx/apps/job/internal/repository"
@@ -36,7 +37,8 @@ type InstanceStopper interface {
 // ServiceContext assembles data access, trigger, and scheduler lifecycle
 // dependencies for Job RPC. Instances created by NewServiceContext own their
 // database connection, etcd client, group clients, scheduler, group cache, dispatch
-// workers, unbound scans, result consumers, Instance checks and stop processing.
+// workers, unbound scans, result consumers, Instance checks, stop processing and
+// elected history cleanup.
 // Stop closes new admission and
 // cancels discovery, while Drain gives accepted work the host's
 // remaining shutdown budget. Wait observes actual completion;
@@ -90,6 +92,8 @@ type ServiceContext struct {
 // independently of election. Manual stopping and cancellation notifications are
 // process-owned. Leader discovery resumes old RUNNING rounds and persisted stopping decisions;
 // process-owned checks coordinate normal completion and automatic timeout.
+// History cleanup runs independently within the elected term; leadership loss
+// cancels it and scheduler shutdown waits for its database operations to exit.
 // Diagnostics are safe to log.
 // Initialization failures release acquired resources; on success, the returned
 // instance's Close owns their cleanup.
@@ -110,6 +114,9 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		return nil, err
 	}
 	if err := c.InstanceRecovery.Validate(); err != nil {
+		return nil, err
+	}
+	if err := c.HistoryCleanup.Validate(); err != nil {
 		return nil, err
 	}
 	if err := c.UnboundRecovery.Validate(); err != nil {
@@ -182,6 +189,13 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 		return nil, err
 	}
 	result.InstanceRepo, result.TaskRepo = instances, tasks
+	cleaner, err := historycleanup.New(instances, transactions, historycleanup.Config{
+		Retention: time.Duration(c.HistoryCleanup.RetentionDays) * 24 * time.Hour,
+		Interval:  c.HistoryCleanup.Interval, PageSize: 100, OperationTimeout: 5 * time.Second,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("initialize history cleanup: %w", err)
+	}
 	stopper, err := instancestop.NewController(transactions, instancestop.WithSQLTimeout(c.Stopping.SQLTimeout), instancestop.WithBatchSize(c.Stopping.BatchSize))
 	if err != nil {
 		return nil, err
@@ -282,7 +296,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 	}
 	runtime, err := scheduler.New(etcd, jobs, creator, scheduler.Config{Prefix: c.Scheduler.Prefix, QueueCapacity: c.Scheduler.QueueCapacity, CreationConcurrency: c.Scheduler.CreationConcurrency, LeaseTTLSeconds: c.Scheduler.LeaseTTLSeconds, RecoveryLimit: c.Scheduler.RecoveryLimit, QueryTimeout: c.Scheduler.QueryTimeout}, scheduler.WithInstanceRecovery(func(ctx context.Context) error {
 		return runInstanceRecovery(ctx, c.InstanceRecovery.Interval, runningRecovery.Run, stopRecovery.Run)
-	}))
+	}), scheduler.WithHistoryCleanup(cleaner.Run))
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +344,7 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 }
 
 // Stop cancels unbound observation, closes dispatch, result, completion and stop
-// admission, and cancels scheduler and group refresh without waiting. Accepted
+// admission, and cancels scheduler, history cleanup and group refresh without waiting. Accepted
 // dispatches, result saves, Instance checks and stop work retain independent work
 // Contexts until Drain's shared budget expires. It does not stop inbound RPCs or
 // close connections.
@@ -403,8 +417,8 @@ func (s *ServiceContext) Drain(ctx context.Context) error {
 	return result
 }
 
-// Wait waits for discovery, unbound scans, dispatches, results, checks and stopping
-// using a non-nil Context.
+// Wait waits for discovery, history cleanup, unbound scans, dispatches, results,
+// checks and stopping using a non-nil Context.
 // It does not request cancellation, install another deadline, or close shared
 // etcd/database dependencies. A Context error means only that this caller stopped
 // waiting; producers or saves may still be using those dependencies. Later calls may

@@ -51,6 +51,7 @@ func jobServiceConfig(t *testing.T, db *sql.DB) (config.Config, string) {
 		ResultPersistence:  config.ResultPersistenceConf{Capacity: 512, Concurrency: 8, SaveTimeout: 2 * time.Second},
 		InstanceCheck:      config.InstanceCheckConf{Capacity: 512, Concurrency: 8, Timeout: 2 * time.Second},
 		InstanceRecovery:   config.InstanceRecoveryConf{Interval: 2 * time.Minute, PageSize: 256, RunTimeout: 5 * time.Second, SQLTimeout: time.Second},
+		HistoryCleanup:     config.HistoryCleanupConf{RetentionDays: 7, Interval: 4 * time.Hour},
 		UnboundRecovery:    config.UnboundRecoveryConf{ScanInterval: 10 * time.Second, PageSize: 128, RunTimeout: 5 * time.Second, OperationTimeout: time.Second, ObservationPeriod: 30 * time.Second},
 		Stopping:           config.StoppingConf{Capacity: 256, Concurrency: 2, BatchSize: 256, MaxBatches: 4, RunTimeout: 2 * time.Second, SQLTimeout: time.Second, RecoveryPageSize: 256, RecoveryTimeout: 5 * time.Second},
 		CancelNotification: config.CancelNotificationConf{InstanceCapacity: 256, PageSize: 32, TargetCapacity: 256, Concurrency: 16, QueryTimeout: time.Second, InstanceTimeout: time.Minute},
@@ -156,6 +157,7 @@ func TestNewServiceContextInitializationFailuresReleaseConnections(t *testing.T)
 	}{
 		{"discovery", "job discovery", func(c *config.Config) { c.Etcd.Hosts = nil }},
 		{"scheduler capacity", "scheduler capacities", func(c *config.Config) { c.Scheduler.CreationConcurrency = 0 }},
+		{"history retention", "history cleanup retention", func(c *config.Config) { c.HistoryCleanup.RetentionDays = 0 }},
 		{"unbound scan budget", "unbound recovery limits", func(c *config.Config) { c.UnboundRecovery.RunTimeout = 0 }},
 		{"TLS files", "etcd TLS", func(c *config.Config) {
 			dir := t.TempDir()

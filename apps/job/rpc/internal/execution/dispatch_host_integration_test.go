@@ -310,6 +310,7 @@ func dispatchHostConfig(t *testing.T, db *sql.DB, endpoint string) (config.Confi
 		ResultPersistence:  config.ResultPersistenceConf{Capacity: 4, Concurrency: 1, SaveTimeout: time.Second},
 		InstanceCheck:      config.InstanceCheckConf{Capacity: 512, Concurrency: 8, Timeout: 2 * time.Second},
 		InstanceRecovery:   config.InstanceRecoveryConf{Interval: 2 * time.Minute, PageSize: 256, RunTimeout: 5 * time.Second, SQLTimeout: time.Second},
+		HistoryCleanup:     config.HistoryCleanupConf{RetentionDays: 7, Interval: 4 * time.Hour},
 		UnboundRecovery:    config.UnboundRecoveryConf{ScanInterval: 10 * time.Second, PageSize: 128, RunTimeout: 5 * time.Second, OperationTimeout: time.Second, ObservationPeriod: 30 * time.Second},
 		Stopping:           config.StoppingConf{Capacity: 256, Concurrency: 2, BatchSize: 256, MaxBatches: 4, RunTimeout: 2 * time.Second, SQLTimeout: time.Second, RecoveryPageSize: 256, RecoveryTimeout: 5 * time.Second},
 		CancelNotification: config.CancelNotificationConf{InstanceCapacity: 256, PageSize: 32, TargetCapacity: 256, Concurrency: 16, QueryTimeout: time.Second, InstanceTimeout: time.Minute},

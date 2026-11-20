@@ -586,6 +586,10 @@ type saverTaskRepositoryStub struct {
 	onFind, onSave, onProbe    func(context.Context)
 }
 
+func (*saverTaskRepositoryStub) DeleteHistoryForInstance(context.Context, int64) (int64, error) {
+	panic("result saving must not delete history")
+}
+
 func (*saverTaskRepositoryStub) FindDetail(context.Context, int64, repository.TaskDataSelection) (*repository.TaskDetail, error) {
 	panic("unexpected management query")
 }

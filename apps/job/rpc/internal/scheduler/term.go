@@ -52,6 +52,15 @@ func (r *Runtime) runTerm(ctx context.Context) {
 			}
 		})
 	}
+	if r.cleanupHistory != nil {
+		// Maintenance shares only term cancellation and the actual-return barrier;
+		// a slow cleanup never occupies trigger workers or discovery callbacks.
+		sources.Go(func() {
+			if err := r.cleanupHistory(ctx); err != nil && ctx.Err() == nil {
+				r.log.error("history-cleanup", 0, err)
+			}
+		})
+	}
 	t.signalReload()
 	<-ctx.Done()
 	t.queue.close()

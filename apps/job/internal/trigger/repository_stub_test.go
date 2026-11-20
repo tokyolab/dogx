@@ -152,6 +152,16 @@ type groupRepositoryStub struct{ *repositoryStub }
 // Instance history List signature with the Job definition List signature.
 type instanceRepositoryStub struct{ *repositoryStub }
 
+func (*instanceRepositoryStub) ListExpiredHistory(context.Context, time.Time, *repository.HistoryCandidate, int) ([]repository.HistoryCandidate, error) {
+	panic("unexpected expired instance history query")
+}
+func (*instanceRepositoryStub) LockForHistoryCleanup(context.Context, int64) (*repository.HistoryInstance, error) {
+	panic("unexpected history cleanup lock")
+}
+func (*instanceRepositoryStub) DeleteHistory(context.Context, int64, time.Time) (bool, error) {
+	panic("unexpected instance history deletion")
+}
+
 func (*instanceRepositoryStub) List(context.Context, repository.InstanceFilter) ([]repository.InstanceListItem, int64, error) {
 	panic("unexpected instance history query")
 }
