@@ -116,7 +116,7 @@ API 与 RPC 必须使用完全相同的 `DOGX_ACCESS_SECRET`。受保护请求�
 
 ## Job 调度域
 
-管理入口为 `system-api → job-rpc → PostgreSQL`。`job-rpc` 是独立进程，副本通过 etcd 选主；只有 Leader 维护 Cron 规则和触发恢复，各副本均可处理管理请求及结果回报。Job 已接通独立的管理／回报两个 Server，回报使用真实组认证、结果队列与单条保存。System 已内嵌公共执行器，以独立 Server 接收派发和取消，当前显式注册 `demo.echo` 演示处理器，未知名称明确拒绝。普通与分片执行已完成适用范围验收；“定时任务”下的任务管理、执行记录、执行器组页面及查询能力已实现，不创建隐含默认组。最新管理 CI 见[验证记录](docs/design/scheduler/management.md#management-ci)；历史清理已实现、推送并通过最终 CI，测试修正与准确覆盖率见[清理 CI 收尾](docs/design/scheduler/progress.md#history-cleanup-ci-closeout)；历史存量与并行清理持续负载已按批准方案执行，A2 空闲基线和 B1 持续执行通过；原始机械盘 C1 及诊断复现均未通过，NVMe 对照完成相同规模、原门槛的 30 分钟并行清理并通过。当前存储 I/O 压力与技术超时后的既定恢复节奏已取得诊断证据，产品行为保持不变，详见[历史负载实测](docs/design/scheduler/history-load-validation.md)，不将模块验收等同于第一版全部交付。
+管理入口为 `system-api → job-rpc → PostgreSQL`。`job-rpc` 是独立进程，副本通过 etcd 选主；只有 Leader 维护 Cron 规则和触发恢复，各副本均可处理管理请求及结果回报。Job 已接通独立的管理／回报两个 Server，回报使用真实组认证、结果队列与单条保存。System 已内嵌公共执行器，以独立 Server 接收派发和取消，当前显式注册普通任务 `demo.echo` 与分片任务 `demo.sharding` 演示处理器，未知名称明确拒绝。普通与分片执行已完成适用范围验收；“定时任务”下的任务管理、执行记录、执行器组页面及查询能力已实现，不创建隐含默认组。最新管理 CI 见[验证记录](docs/design/scheduler/management.md#management-ci)；历史清理已实现、推送并通过最终 CI，测试修正与准确覆盖率见[清理 CI 收尾](docs/design/scheduler/progress.md#history-cleanup-ci-closeout)；历史存量与并行清理持续负载已按批准方案执行，A2 空闲基线和 B1 持续执行通过；原始机械盘 C1 及诊断复现均未通过，NVMe 对照完成相同规模、原门槛的 30 分钟并行清理并通过。当前存储 I/O 压力与技术超时后的既定恢复节奏已取得诊断证据，产品行为保持不变，详见[历史负载实测](docs/design/scheduler/history-load-validation.md)，不将模块验收等同于第一版全部交付。
 
 ```powershell
 Copy-Item 'apps/job/rpc/etc/job-rpc.example.yaml' 'apps/job/rpc/etc/job-rpc.yaml'
@@ -184,7 +184,7 @@ API 的 Job 客户端按首次请求初始化，不在 `system-api` 初始化或
 
 执行器 Server 与 ReportClient 使用原生 zrpc＋etcd 配置，禁止将组 Token 填入原生 `App/Token`。执行器 Server 固定 `Auth: false`、保留 Health；原业务 RPC 的鉴权配置保持独立。`Server.Name` 是原生解码必填项，其实际 ServiceConf 仍由宿主顶层统一。回报连接采用非阻塞拨号，调度服务暂不可达不等于原业务接口必须启动失败；但首次发现和注册仍需可用 etcd，非阻塞拨号不消除这一依赖。
 
-业务接入通过 `NewServiceContext(c, register RegisterProcessors)`，在 System 依赖初始化后、接单开始前注册处理器并注入依赖。当前 Main 显式注册 `apps/system/internal/job` 中的 `demo.echo`，仅记录并返回 `hello world` 摘要，供普通执行演示；具体生产业务仍需独立实现和验证。`system.cleanup` 仍只是设计示例，Job 历史清理由上述内部维护组件负责。业务处理器继续在该域内显式注册，不增加独立 Worker 入口。启动和停机边界见 [System 内嵌接线记录](docs/design/scheduler/ordinary-readiness-review.md#ordinary-system-executor-wiring-progress)。
+业务接入通过 `NewServiceContext(c, register RegisterProcessors)`，在 System 依赖初始化后、接单开始前注册处理器并注入依赖。当前 Main 显式注册 `apps/system/internal/job` 中的 `demo.echo` 与 `demo.sharding`：前者记录并返回 `hello world` 摘要，后者准备三个姓名对象、逐片返回问候 JSON，并在启用 Post 时记录最终片数。业务代码位置、注册方法、页面配置、结果查看与停止操作见[定时任务接入与操作](docs/development/job-executor.md)；具体生产业务仍需独立实现和验证。`system.cleanup` 仍只是设计示例，Job 历史清理由上述内部维护组件负责。业务处理器继续在该域内显式注册，不增加独立 Worker 入口。启动和停机边界见 [System 内嵌接线记录](docs/design/scheduler/ordinary-readiness-review.md#ordinary-system-executor-wiring-progress)。
 
 完整范围和验证要求见[触发模块总审](docs/design/scheduler/trigger-readiness-review.md)。数据库迁移须明确执行，不会在服务启动时自动运行；本段命令不代表已有测试完成或已迁移开发数据库。
 

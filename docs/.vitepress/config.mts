@@ -72,6 +72,7 @@ const config = withMermaid({
         text: '开发规范',
         items: [
           { text: '文档站使用', link: '/development/documentation' },
+          { text: '定时任务接入与操作', link: '/development/job-executor' },
           { text: '代码生成', link: '/development/code-generation' },
           { text: '数据库迁移', link: '/development/database-migrations' },
           { text: '数据库索引', link: '/development/database-indexes' },

@@ -32,7 +32,10 @@ func main() {
 }
 
 func registerProcessors(_ *svc.ServiceContext, registry *jobexecutor.Registry) error {
-	return registry.Register("demo.echo", job.EchoProcessor{})
+	if err := registry.Register("demo.echo", job.EchoProcessor{}); err != nil {
+		return err
+	}
+	return registry.RegisterSharding("demo.sharding", job.ShardingProcessor{})
 }
 
 // run assembles both System RPC servers and their shared process lifecycle.
