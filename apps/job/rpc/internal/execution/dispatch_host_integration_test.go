@@ -153,11 +153,14 @@ func testDispatchHost(t *testing.T, endpoint string) {
 		if !t.Run(scenario.name, func(t *testing.T) {
 			config := c
 			config.Dispatch.ScanInterval = 50 * time.Millisecond
+			var awaitInitialScan func()
 			if scenario.hint {
 				// Keep the production capacity so a discovery page's reservation
 				// cannot consume every slot before the sole commit hint arrives.
 				config.Dispatch.WaitingCapacity = 256
 				config.Dispatch.ScanInterval = time.Hour
+				config.Postgres.MaxOpenConns = 2
+				awaitInitialScan = dispatchHostInitialScanBarrier(t, sqlDB, applicationName)
 			}
 			host, err := svc.NewServiceContext(config)
 			if err != nil {
@@ -175,19 +178,8 @@ func testDispatchHost(t *testing.T, endpoint string) {
 					t.Errorf("close dispatch host: %v", err)
 				}
 			})
-			// Observe a completed empty query rather than sleeping and assuming
-			// the initial scan ran. Its one-hour pause makes the commit hint the
-			// only possible source of the new candidate in the first scenario.
 			if scenario.hint {
-				dispatchHostEventually(t, "initial empty waiting scan", func(ctx context.Context) bool {
-					var done bool
-					if err := sqlDB.QueryRowContext(ctx, `SELECT EXISTS (
-						SELECT 1 FROM pg_stat_activity WHERE application_name = $1 AND state = 'idle'
-						AND (query LIKE '%job_instance%ORDER BY id DESC%' OR query LIKE '%job_task%next_dispatch_at%'))`, applicationName).Scan(&done); err != nil {
-						t.Fatal(err)
-					}
-					return done
-				})
+				awaitInitialScan()
 			}
 			rpcCtx, rpcCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer rpcCancel()
@@ -324,6 +316,65 @@ func dispatchHostConfig(t *testing.T, db *sql.DB, endpoint string) (config.Confi
 		Dispatch: config.DispatchConf{Concurrency: 2, WaitingCapacity: 4, ScanInterval: time.Second,
 			TotalTimeout: 10 * time.Second, RPCTimeout: 3 * time.Second, BusyDelay: time.Second},
 	}, applicationName
+}
+
+// dispatchHostInitialScanBarrier holds the isolated schema's Task table before
+// the caller starts a host. Its returned function observes that host's first due
+// Task query waiting on this exact transaction, then releases the lock. The serial
+// scanner visits the empty waiting-Instance source first, so this proves that its
+// initial horizon is closed before the test creates work. With an hour-long scan
+// interval, only the production commit hint can start the new Instance.
+//
+// The host needs two database connections because unbound recovery also queries
+// Task at startup. WaitingCapacity must leave room for a hint alongside a reserved
+// discovery page. Callers register host cleanup before calling the returned wait;
+// its deferred rollback runs before host cleanup even when observation fails.
+func dispatchHostInitialScanBarrier(t *testing.T, db *sql.DB, applicationName string) func() {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	t.Cleanup(cancel)
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin initial dispatch scan barrier: %v", err)
+	}
+	release := func() {
+		_ = tx.Rollback()
+		cancel()
+	}
+	t.Cleanup(release)
+	var blockerPID int
+	if err := tx.QueryRowContext(ctx, "SELECT pg_backend_pid()").Scan(&blockerPID); err != nil {
+		t.Fatalf("identify initial dispatch scan barrier: %v", err)
+	}
+	// Only the test's isolated schema is locked. Hold the due query at a stable
+	// boundary instead of racing an idle backend's replaceable last-SQL value.
+	if _, err := tx.ExecContext(ctx, "LOCK TABLE job_task IN ACCESS EXCLUSIVE MODE"); err != nil {
+		t.Fatalf("hold initial dispatch scan: %v", err)
+	}
+	return func() {
+		t.Helper()
+		defer release()
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			var blocked bool
+			err := db.QueryRowContext(ctx, `SELECT EXISTS (
+				SELECT 1 FROM pg_stat_activity WHERE application_name = $1 AND state = 'active'
+				AND query LIKE 'SELECT t.id AS task_id,%' AND query LIKE '%t.next_dispatch_at%'
+				AND $2::integer = ANY(pg_blocking_pids(pid)))`, applicationName, blockerPID).Scan(&blocked)
+			if err != nil {
+				t.Fatalf("observe initial dispatch scan for %s: %v", applicationName, err)
+			}
+			if blocked {
+				return
+			}
+			select {
+			case <-ctx.Done():
+				t.Fatalf("timed out waiting for initial dispatch scan for %s: %v", applicationName, ctx.Err())
+			case <-ticker.C:
+			}
+		}
+	}
 }
 
 func assertDispatchHostBinding(t *testing.T, db *gorm.DB, invocation jobexecutor.Invocation, executorID uuid.UUID, address string) {

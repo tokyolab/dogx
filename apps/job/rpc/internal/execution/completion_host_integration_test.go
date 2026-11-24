@@ -82,6 +82,9 @@ func testCompletionHost(t *testing.T, endpoint string, retryScenarios bool) {
 	c.Dispatch.ScanInterval = time.Hour
 	if retryScenarios {
 		c.Dispatch.ScanInterval = 50 * time.Millisecond
+	} else {
+		c.Dispatch.WaitingCapacity = 256
+		c.Postgres.MaxOpenConns = 2
 	}
 	group := model.ExecutorGroup{Name: "completion-host-workers", DiscoveryKey: c.Scheduler.Prefix + "/executor", Token: "00000000000040008000000000000001"}
 	if err := db.Create(&group).Error; err != nil {
@@ -103,6 +106,10 @@ func testCompletionHost(t *testing.T, endpoint string, retryScenarios bool) {
 	if err := leader.Campaign(ctx, "test-owned-leader"); err != nil {
 		t.Fatal(err)
 	}
+	var awaitInitialScan func()
+	if !retryScenarios {
+		awaitInitialScan = dispatchHostInitialScanBarrier(t, sqlDB, applicationName)
+	}
 	host, err := svc.NewServiceContext(c)
 	if err != nil {
 		t.Fatalf("initialize production completion host: %v", err)
@@ -121,15 +128,9 @@ func testCompletionHost(t *testing.T, endpoint string, retryScenarios bool) {
 	})
 	// In the first-attempt scenarios the next scan is an hour away, requiring
 	// production trigger hints. Retry scenarios use the real periodic scanner.
-	dispatchHostEventually(t, "initial empty waiting scan", func(ctx context.Context) bool {
-		var done bool
-		if err := sqlDB.QueryRowContext(ctx, `SELECT EXISTS (
-			SELECT 1 FROM pg_stat_activity WHERE application_name = $1 AND state = 'idle'
-			AND (query LIKE '%job_instance%ORDER BY id DESC%' OR query LIKE '%job_task%next_dispatch_at%'))`, applicationName).Scan(&done); err != nil {
-			t.Fatal(err)
-		}
-		return done
-	})
+	if !retryScenarios {
+		awaitInitialScan()
+	}
 	resultConfig := completionHostServerConfig(t, endpoint, c.Scheduler.Prefix+"/results")
 	resultServer, err := execution.NewServer(resultConfig, func() *execution.Receiver { return host.ResultReceiver })
 	if err != nil {

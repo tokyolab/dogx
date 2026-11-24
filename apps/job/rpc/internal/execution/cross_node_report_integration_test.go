@@ -59,6 +59,8 @@ func testCrossNodeReport(t *testing.T, endpoint string) {
 	db, sqlDB := testutil.OpenMigratedPostgres(t)
 	c, applicationName := dispatchHostConfig(t, sqlDB, endpoint)
 	c.Dispatch.ScanInterval = time.Hour
+	c.Dispatch.WaitingCapacity = 256
+	c.Postgres.MaxOpenConns = 2
 	group := model.ExecutorGroup{Name: "cross-node-workers", DiscoveryKey: c.Scheduler.Prefix + "/executor", Token: "00000000000040008000000000000001"}
 	if err := db.Create(&group).Error; err != nil {
 		t.Fatal(err)
@@ -87,6 +89,7 @@ func testCrossNodeReport(t *testing.T, endpoint string) {
 	}
 	newHost := func(name string) *svc.ServiceContext {
 		t.Setenv("PGAPPNAME", name)
+		awaitInitialScan := dispatchHostInitialScanBarrier(t, sqlDB, name)
 		host, err := svc.NewServiceContext(c)
 		if err != nil {
 			t.Fatalf("initialize cross-node host: %v", err)
@@ -103,17 +106,7 @@ func testCrossNodeReport(t *testing.T, endpoint string) {
 				t.Errorf("close cross-node host: %v", err)
 			}
 		})
-		// Observe each independent initial scan before creating work. With the
-		// next scan an hour away, only A's production trigger hint can dispatch.
-		dispatchHostEventually(t, "initial empty cross-node scan", func(ctx context.Context) bool {
-			var done bool
-			if err := sqlDB.QueryRowContext(ctx, `SELECT EXISTS (
-				SELECT 1 FROM pg_stat_activity WHERE application_name = $1 AND state = 'idle'
-				AND (query LIKE '%job_instance%ORDER BY id DESC%' OR query LIKE '%job_task%next_dispatch_at%'))`, name).Scan(&done); err != nil {
-				t.Fatal(err)
-			}
-			return done
-		})
+		awaitInitialScan()
 		return host
 	}
 	hostA := newHost(applicationName + "-a")
