@@ -286,6 +286,13 @@ type jobShardedLoadInstanceTimes struct {
 // wave. Event timestamps measure stages and shared-check handoffs, not exact commit
 // times. Only fingerprints are stored by business, including the near-4MiB case.
 func readJobShardedLoadWave(t testing.TB, db *sql.DB, scenario jobShardedLoadScenario, number int, ids []int64, observed time.Time, stopped bool, workers map[string]string) jobShardedLoadWave {
+	return readJobShardedLoadFacts(t, db, scenario, number, ids, observed, stopped, workers, true)
+}
+
+// readJobShardedLoadFacts also supports continuous workload time slices. Those
+// slices validate allowed workers here and require every executor to participate
+// across the complete measured window, rather than in each arbitrary minute.
+func readJobShardedLoadFacts(t testing.TB, db *sql.DB, scenario jobShardedLoadScenario, number int, ids []int64, observed time.Time, stopped bool, workers map[string]string, requireEveryExecutor bool) jobShardedLoadWave {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -462,7 +469,7 @@ func readJobShardedLoadWave(t testing.TB, db *sql.DB, scenario jobShardedLoadSce
 		t.Fatal("load Instance mode counts differ from configured workload")
 	}
 	for _, name := range workers {
-		if result.ExecutorCalls[name] == 0 {
+		if requireEveryExecutor && result.ExecutorCalls[name] == 0 {
 			t.Fatalf("executor %s did not participate in this load wave", name)
 		}
 	}

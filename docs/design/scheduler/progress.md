@@ -2,21 +2,21 @@
 
 本页用于团队掌握设计与交付进度；系统本身的说明从[总览](index.md)开始。正文按主题维护，评审按依赖推进，避免把文档目录顺序机械地变成工作顺序。
 
-更新日期：2026-11-20。当前实施和验证结论见下方“当前工作”。
+更新日期：2026-11-24。当前实施和验证结论见下方“当前工作”。
 
 > 历史设计与开工阶段汇总：范围与总体架构、B1 状态语义和 B2 执行故障规则均已通过，作为各模块详细设计的共同输入。触发闭环已实现、提交并通过本地功能验证及已记录的 CI；普通 Task 主路径、处理器注册及同进程双 RPC Server 边界已通过。处理器接口分工、输入输出语义及共同执行约束已收口，普通任务仍不支持 Post；分片 Post 只接收公共输入和统计，业务明细由业务自行查询，不增加结果查询 RPC。派发接单、结果上报及取消处理与响应语义均已通过：结果首版采用单条异步上报，保留有限重传及落库后同节点按 Instance 合并完成检查，不做网络合批。取消按 Instance 向已知目标分别通知，不校验预期进程 ID；完成本机取消操作即回复，无匹配活动也成功，不等待业务退出，通信故障只有限重试同一目标。接入配置、组依赖及启动退出规则已收口；当前推进 Task 持久化与状态，Task 公共字段与单例唯一索引、[普通首次创建与重复推进 SQL](data-contracts.md#ordinary-start-sql)、[接单 ACK 绑定 SQL](data-contracts.md#executor-binding-sql)、[普通结果保存与状态转换](data-contracts.md#task-result-persistence)、[普通重试登记 SQL](data-contracts.md#ordinary-retry-registration)、[普通未知结算 SQL](data-contracts.md#ordinary-unknown-settlement)、[普通 BUSY 返还 SQL](data-contracts.md#ordinary-busy-settlement)及[停止超时与统一子取消 SQL](data-contracts.md#instance-termination-sql)已通过，派发工作协程默认每进程 64 个。[Instance 完成判定、父条件写入、摘要及超时衔接](data-contracts.md#instance-completion-contract)也已通过；[恢复资源分工](execution.md#recovery-resources)、[可派发候选查询及索引](data-contracts.md#dispatch-recovery-query)、[绑定缺失观察到期查询与索引](data-contracts.md#unbound-recovery-query)及[运行中 Instance 统一复核及查询索引](data-contracts.md#instance-recheck-query)已通过：Leader 每 2 分钟启动或续扫，筛选本趟数据库时间之前已开始超过 4 分钟的 RUNNING Instance，每页 256 条；阶段遗漏推进、正常结束及到期处理共用既有检查组件。[停止协议](data-contracts.md#instance-termination-sql)于 2026-10-23 修订通过：先持久化 `STOPPING = 6` 和停止原因，统一分批取消未结束 Task，确认全部子记录终态后再保存父终态；远端取消独立、尽力执行。STOPPING 候选由同一 Leader 每 2 分钟独立发现，不套用 4 分钟开始时间门槛，新 Leader 就绪后有界检查；使用既有后台恢复容量、独立预算和公平遍历。[STOPPING 取消竞争与容量](execution.md#stopping-processing)于 2026-10-26 收口：每批父主键 NOWAIT 后才查子 Task，竞争失败退出且不立即重排；已确定扫描、本地容量、子批及公平份额初值，不扩展到派发竞争。[远端取消通知](execution.md#cancel-notification-capacity)及[地址查询与索引](data-contracts.md#cancel-target-query)同日通过：按 Instance 向去重地址通知，不逐 Task；新停止决定确认提交后独立交接，不随子批或两分钟恢复重发，父终态不撤销已接纳通知。[派发候选合并与跨节点竞争](execution.md#dispatch-contention)同日单独通过：普通首次启动与已有 Task 新尝试登记改为父行 NOWAIT，本地合并重复候选、同 Instance 登记不自相竞争，失败跳过本次同组且不立即重排；补查独立抖动、已接纳候选分组后不同起点处理。[排队、并发与满载处理](execution.md#capacity-model)于 2026-10-28 通过：共享派发与 Instance 小批轮转保持；同日明确[执行器处理流程](execution.md#executor-processing-flow)：有界业务等待队列、有限业务并发、有界结果队列及独立有限回报并发，队满由交接等待向接单传递压力；按六条原则优先采用简单实现，不新增跨阶段统一配额，不提前固定 Go 并发原语。同日[派发候选容量、分页与退避](execution.md#dispatch-supply-defaults)另行通过：等待总量 256、查询最多 128、空闲补查 1 秒上下浮动 20%、每 Instance 先补 8 项、连续无有效登记进展最多 4 页，临时分页与本轮成功登记恢复预算规则已确认。同日另已通过[单次派发时间预算](execution.md#dispatch-time-budgets)：总处理 10 秒、登记事务 2 秒、接单 RPC 3 秒、响应保存阶段 4 秒，保存最多 3 次含首次、单次 1 秒及间隔 200 毫秒；无绑定观察 30 秒、BUSY 独立延期 5 秒上下浮动 20%，各阶段受剩余预算限制。同日通过[执行器回报安排与初值](execution.md#reporting-defaults)：回报组件默认保留 256 条结果，覆盖待首发、待重试和在途；最多 16 次 RPC 并发，单次调用结束即释放发送能力，退避继续保留原结果位置。按已到期的最早可发送时间选择，同时间稳定排序，不切首发／重试固定份额；单次 RPC 2 秒、最多 7 次应用层调用含首次，六次退避为 1／2／4／8／16／16 秒、各上下浮动 20%。256／16 为部署配置，其余为内部常量，47 秒是基准退避合计而非 TTL。同日通过[执行器业务处理初值](execution.md#executor-business-defaults)：每执行器进程默认业务处理并发 32、业务等待队列 128，均为可调整的部署配置。32 包含业务运行及业务已完成但结果尚未交接完的处理，128 只计尚未领取的等待任务、不含处理中；普通、准备、分片和收尾共用，不按 Job／Instance 叠加。2026-10-29 后续通过[调度端结果保存安排与初值](execution.md#scheduler-result-defaults)：每节点组件默认保留 512 条待首次处理、待重试和在途结果，保存并发 8，单条一次处理超时 2 秒，三项均可部署调整。每条关联查询 Task／Instance 归属、认证组及本轮冻结重试配置，再按原尝试、执行中状态及绑定身份条件 UPDATE、独立提交，不设整批总超时或超时拆批。一次处理结束即释放处理能力，退避保留原条目原位置；按已到期最早可处理时间及稳定同时间顺序选择，退避基准 1／2／4／8／16／30 秒、以后封顶 30 秒，各次上下浮动 20%，可恢复故障不按次数或 TTL 丢弃。[回报错误分类与无效结果处理](data-contracts.md#result-error-classification)已通过，[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)与[非 BUSY 明确拒绝结算](data-contracts.md#dispatch-rejection-settlement)均已通过；[派发与取消错误码映射](data-contracts.md#dispatch-cancel-errors)已通过，Proto 已生成，SQL 和完整运行装配验证仍待完成；其余恢复参数、状态查询与分片协议继续闭合，结果无效判定和技术故障保留按[已定分类](data-contracts.md#result-error-classification)执行，不沿用 STOPPING 数值，阶段 1 已获授权开始实施。后续仍按“详细设计 → 评审 → 实现和测试”推进，不等待全系统细节全部完成。Task 默认额外执行重试 3 次、间隔 10 秒，整轮超时必须有限、不允许 `0`，新增表单预填 900 秒，API 必填。
 
 ## 当前工作
 
-管理模块已按批准范围实施：一级菜单采用“定时任务”，与系统管理同级；二级为任务管理、执行记录及执行器组。页面、历史查询、Task 按需数据、菜单及接口登记已实现，本机验证与最新远端结果统一记录于[定时任务管理](management.md#management-ci)。历史清理、具体生产处理器及完整发布条件仍分别推进。
+管理模块已按批准范围实施：一级菜单采用“定时任务”，与系统管理同级；二级为任务管理、执行记录及执行器组。页面、历史查询、Task 按需数据、菜单及接口登记已实现，本机验证与对应远端结果统一记录于[定时任务管理](management.md#management-ci)。历史清理已实现、推送并通过最终 CI，见下方[清理提交与 CI 收尾](#history-cleanup-ci-closeout)。2026-11-23 已按[批准方案](verification.md#history-load-proposal)在隔离环境执行：A2 五分钟基线、B1 三十分钟持续执行通过，原始机械盘 C1 未通过，后续机械盘诊断再次复现；NVMe 对照按原规模、原门槛完整完成 30 分钟及两批清理并通过。当前存储 I/O 压力与阶段检查技术超时已定位，详见[实测与失败记录](history-load-validation.md)。本次增量只保存测试和诊断文档，产品行为与既定恢复规则保持不变，远端验证按本次提交单独核对；具体生产处理器按业务需求接入，不把已有框架功能重复列为待开发项。
 
-本轮清理改动前最近已推送节点：后端 `bc80257` 的 [CI 44654845836](https://github.com/tokyolab/dogx/actions/runs/44654845836) 所有任务成功；前端 `d7da434` 的 [CI 44655106435](https://github.com/tokyolab/dogx-web/actions/runs/44655106435) 成功，包含 780 项测试。`demo.echo` 的 Codecov patch 为 0%，用户已明确暂缓补测，本轮不处理。普通及分片历史验收、覆盖率口径和[查询与负载记录](sharded-load-validation.md)继续保留；这些结果不覆盖本轮历史清理改动，也不代表第一版全部发布条件完成。
+清理改动前的历史基线：后端 `bc80257` 的 [CI 44654845836](https://github.com/tokyolab/dogx/actions/runs/44654845836) 所有任务成功；前端 `d7da434` 的 [CI 44655106435](https://github.com/tokyolab/dogx-web/actions/runs/44655106435) 成功，包含 780 项测试。`demo.echo` 的 Codecov patch 为 0%，用户已明确暂缓补测，本轮不处理。普通及分片历史验收、覆盖率口径和[查询与负载记录](sharded-load-validation.md)继续保留；清理改动使用下方 `8c0f40f` 的最终 CI 数据，不以该历史基线替代，也不代表第一版全部发布条件完成。本轮没有前端改动。
 
 ### 历史清理（2026-11-20） {#history-cleanup-progress}
 
 用户已确认[清理契约](operations.md#history-cleanup)并授权实施：既有 Leader 任期内自动维护，新 Leader 立即执行；默认按 `finished_at` 保留 7 个 24 小时，每趟实际返回后等待 4 小时，两项部署可调。固定数据库 cutoff、终态候选键集分页、逐 Instance 父主键 NOWAIT 与父子原子删除、失主停止新工作并等待实际返回均为本轮范围。内部页大小 100、单次数据库操作／单个 Instance 事务预算 5 秒；不增加手动清理入口、日志文件清理或永久去重墓碑。
 
-当前状态：历史清理实现及本机功能验证已完成，达到可提交节点，尚未 commit／push。单条删除失败采用本趟跳过并继续后续候选的策略，避免持续失败记录阻塞后续历史；数据库时间／页查询失败结束当前遍历，任期取消停止新工作。新增迁移编号为 `20261120120000`，验收要求见[清理检查](verification.md#history-cleanup-checks)。本轮没有 Linux、race、远端 CI 或覆盖率结论，既有管理 CI 不覆盖这些改动。
+当前状态：历史清理实现及本机功能验证已完成，代码和两次测试修正已推送至 `main`，最终提交 `8c0f40f` 的 Linux race、integration、E2E 及其他 CI 检查全部成功，准确范围和覆盖率见[清理提交与 CI 收尾](#history-cleanup-ci-closeout)。单条删除失败采用本趟跳过并继续后续候选的策略，避免持续失败记录阻塞后续历史；数据库时间／页查询失败结束当前遍历，任期取消停止新工作。新增迁移编号为 `20261120120000`，验收要求见[清理检查](verification.md#history-cleanup-checks)。下表保留提交前本机检查的结果和边界，后续远端结果不覆盖或抹去首次失败记录。
 
 | 检查 | 本机结果与边界 |
 | --- | --- |
@@ -32,11 +32,35 @@
 
 integration 首轮失败为 `TestSaverDoesNotOverwriteCompletedOrNewAttempt` 的初次结果保存超时；该用例直接使用 Saver，不启动清理组件，写入对象为 `job_task`，本轮新索引只涉及父表。未为复跑修改产品代码或测试超时；首次瞬时失败根因未证实，不将共享资源压力写为确定结论，也不将整组回归描述为首轮一次通过。本轮日志位于忽略目录 `bin/test-tools/history-cleanup-20261120-a8ff858308b146b8b50d8063d08f0079`。
 
-大历史存量、持续写入和大 JSONB 删除的长期持续负载尚未验证，上述本地功能结果不构成吞吐或固定完成时限保证，也不宣称第一版已经全部完成。迁移须由部署方按既有命令显式执行；本轮隔离测试不表示已迁移开发或生产数据库。
+本节的清理功能测试不覆盖大历史存量和持续写入性能；后续 30 分钟历史负载及 HDD／NVMe 对照见[专项记录](history-load-validation.md)，多日稳定性仍未验证。上述本地功能结果不构成吞吐或固定完成时限保证，也不宣称第一版已经全部完成。迁移须由部署方按既有命令显式执行；本轮隔离测试不表示已迁移开发或生产数据库。
+
+### 清理提交与 CI 收尾（2026-11-20） {#history-cleanup-ci-closeout}
+
+历史清理实现 `d7fb0d6`、测试计数同步修正 `41d7e68` 和 follower 派发夹具修正 `8c0f40f` 均已推送至 `main`。最终提交完整 SHA 为 `8c0f40fb8a9537d273a768b2a80eb463ce3229ae`，[CI 44666744563](https://github.com/tokyolab/dogx/actions/runs/44666744563) 的 Go lint、Windows tests、Linux fast checks 和 PostgreSQL／Redis／etcd integration 全部成功。Linux 包含 race 和 unit coverage；integration 任务中的服务接线、迁移、仓储、分布式触发、System 鉴权／RBAC、普通及分片 E2E、停机／进程骤停、阶段恢复、执行器宕机观察门槛及 etcd 重启检查均通过。此结果不替代长期持续负载验收。
+
+本轮 CI 曾失败两次，修正范围和证据保留如下：
+
+| 提交与运行 | 实际结果及修正 |
+| --- | --- |
+| `d7fb0d6`，[CI 44664132260](https://github.com/tokyolab/dogx/actions/runs/44664132260) | lint、Windows 和 integration 成功，Linux race 在新清理组件测试中发现两个计数器的并发读写。`41d7e68` 仅将相关测试计数器改为 `atomic.Int32`，保留时间及行为断言，未修改产品逻辑 |
+| `41d7e68`，[CI 44665514545](https://github.com/tokyolab/dogx/actions/runs/44665514545) | lint、Windows 和 Linux race 成功，integration 的 `TestServiceContextDispatchesOnFollower/commit_hint` 在 5 秒内未收到业务调用；后续子用例受到前一场景迟到调用影响。审查确认夹具将容量设为 4 且关闭常规补查一小时，初始扫描可能占满容量而合法拒绝提示；失败运行未记录 `Hint` 返回值，因此不将该路径写成已证实的唯一根因。`8c0f40f` 仅让 commit-hint 场景使用生产默认容量 256，并在子用例失败后退出，保留原 5 秒等待、一小时补查间隔和成功断言。真实 PostgreSQL／etcd 定向测试连续 10 次通过，带标签 lint 通过 |
+| `8c0f40f`，[CI 44666744563](https://github.com/tokyolab/dogx/actions/runs/44666744563) | 所有任务及步骤成功；前两次失败、跳过的步骤和修正仍作为本轮历史保留，不描述为首轮一次通过 |
+
+最终提交的 Codecov 状态为 complete，unit 和 integration 两份本次上传均为 merged，口径如下：
+
+| 覆盖率口径 | 最终结果 | 边界 |
+| --- | --- | --- |
+| 合并项目 | 91.58%，11,421／12,470 行 | 遵循仓库既有排除规则，共 376 个计入文件，不代表仓库所有文件或所有文本行 |
+| unit | 79.05%，9,858／12,470 行 | 本次 Linux 普通测试上传 |
+| integration | 91.57%，11,420／12,470 行 | 包含工作流选定范围的普通测试及 integration 标签测试，不是纯集成测试的独立贡献；E2E 不作为该报告的独立覆盖率来源 |
+| 最后一次提交 patch | 不适用 | `41d7e684eeb84d66ce0794784d47ccee16915115` → `8c0f40fb8a9537d273a768b2a80eb463ce3229ae` 只修改测试，没有可计量的产品差异行；不是测得 0% |
+| 清理改动累计 patch | 92.78%，180／194 行，14 行未命中 | 明确比较 `bc80257a149cc0ba5b8fde133025aab9b2f42f31` → `8c0f40fb8a9537d273a768b2a80eb463ce3229ae`，使用最终提交两份报告，不替换为中间提交数据 |
+
+原始结果位于本轮忽略的证据目录：`ci-first-final.json`、`ci-correction-final.json`、`ci-final.json`、`codecov-8c0f40f-summary.json` 及 `dispatch-fixture-recheck.log`。开发数据库未执行新增迁移，开发服务未因本轮验证而重启；该轮清理功能测试环境已结束，不把隔离验收等同于完成部署。2026-11-23 后续已按[批准方案](verification.md#history-load-proposal)执行本机历史存量验收，A2／B1 通过、机械盘 C1 未通过；后续 NVMe 对照完整通过，环境差异、失败诊断及验证边界见[负载实测](history-load-validation.md)；本段历史 CI 结果不覆盖这轮本机负载验收。
 
 2026-11-04 修订：[产品版本兼容边界](../../development/database-migrations.md#release-compatibility)已确定；同一产品版本不为开发中间态编写兼容，仅在已有历史 Release、明确升级到后续版本且实际不兼容时允许必要兼容。此前旧组回填、分阶段升级及历史 NULL 例外撤销，组字段统一完整非空；该次规则修订本身不授予编码权限；后续已批准的开发安排及当前进度见下段。
 
-当前开发安排：[普通六阶段计划](ordinary-readiness-review.md#ordinary-implementation-order)和[分片五阶段安排](sharded-readiness-review.md#sharded-implementation-order)的实施与已确认范围验收均已完成。分片阶段 1～4 已接通输入及迁移、Pre 清单保存和原子生成、统一派发、Post 与整轮完成，并验证故障和跨节点接续；阶段 5 已完成本机查询计划、两调度／两执行器代表性负载及必要回归。全部分片改动已于 2026-11-12 提交并推送，对应 CI 全成功，实际范围及限制见[CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)和[查询与负载记录](sharded-load-validation.md)。管理模块状态以上文为准，历史清理及其他运维、完整发布余项继续按各自范围推进，不把分片验收扩展为完整第一版完成。
+当前开发安排：[普通六阶段计划](ordinary-readiness-review.md#ordinary-implementation-order)和[分片五阶段安排](sharded-readiness-review.md#sharded-implementation-order)的实施与已确认范围验收均已完成。分片阶段 1～4 已接通输入及迁移、Pre 清单保存和原子生成、统一派发、Post 与整轮完成，并验证故障和跨节点接续；阶段 5 已完成本机查询计划、两调度／两执行器代表性负载及必要回归。全部分片改动已于 2026-11-12 提交并推送，对应 CI 全成功，实际范围及限制见[CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)和[查询与负载记录](sharded-load-validation.md)。管理模块和历史清理当前状态以上文为准，历史存量 A2／B1、HDD 失败诊断与 NVMe 对照已完成；当前收尾为测试和文档提交及对应 CI，其他发布事项按明确需求分别推进，不把分片验收扩展为完整第一版完成。
 
 ### 分片提交与 CI 收尾（2026-11-12） {#sharded-ci-verification}
 

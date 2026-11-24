@@ -329,6 +329,72 @@ go test -p 2 -exec $testRunner '-tags=integration,e2e,load' -run '^TestJobSharde
 
 每条构建成功后再继续，完整结果须结合负载断言、报告和最终退出码判断。Windows 的两项组件命令也使用固定包装器；恢复其他 E2E 前重新按原命令构建生产 Job 程序及不带 `load` 的 System 测试宿主，并清除 `DOGX_LOAD_RESOURCES`。负载采样只有测试宿主启用，生产入口和配置不变。
 
+### 历史存量与并行清理持续负载 {#history-load-validation}
+
+`TestJobHistoryLoadEndToEnd` 是额外启用的本机验收入口，固定使用两个调度进程、两个执行器及真实依赖。每组从 100,000 个历史 Instance、1,150,000 个 Task 开始，包含 10,000 条约 32 KiB 的业务输入／结果；各组独立建立相同数据，不复用上一组已经清理过的表。已确认规模、延迟门槛和指标口径见[历史持续负载方案](../design/scheduler/verification.md#history-load-proposal)。本节记录复现步骤，命令存在不表示验收已经通过。
+
+2026-11-23 原始机械盘结果为 A／B 通过、C 在首趟清理附近超过 30 秒成功可见门槛失败。后续机械盘诊断再次复现，NVMe 对照则完整完成原规模、原门槛的 30 分钟及两批历史清理；具体设置、诊断采样与环境差异见[历史负载验收记录](../design/scheduler/history-load-validation.md)。C 的未完成窗口与最终审计不能用部分统计代替；诊断增强会保留失败前已观察的成功明细，并输出当次已读取的目标父 ID／状态，不放宽门槛。
+
+按 A → B → C 顺序执行，禁止在同一 checkout 同时运行多个 Go 测试命令：
+
+| `DOGX_HISTORY_LOAD_CASE` | 正式观察窗口与工作 |
+| --- | --- |
+| `A` | 历史静置 5 分钟，无在线任务；保留 365 天 |
+| `B` | 持续执行 30 分钟，每分钟 100 个普通 Instance＋100 个各含 10 片及 Pre／Post 的 Instance；保留 365 天，不发生实际历史删除 |
+| `C` | 与 B 相同的在线负载及窗口，保留 7 天，由真实 Leader 清理预计到期的 20,000 个父与 230,000 个子 |
+
+三组清理间隔均配置为 10 分钟，以在本轮观察窗口内包含多趟清理；产品默认间隔仍为 4 小时，逐父事务与查询预算保持不变。B、C 各预期 6,000 个在线 Instance、39,000 个 Task／业务调用，按各自计划时刻测量，不将分散到一分钟内的任务当作同秒波次。正式窗口合计 65 分钟，数据准备、约 5 分钟的启动余量、B／C 各最多 1 分钟排空及最终核对另计。下面的 `-timeout=65m` 是**每组整个测试进程**的保护上限，不是扩大正式测量窗口。
+
+PostgreSQL 必须是本轮独占、可读取本地日志的隔离进程，数据库名称以 `_test` 结尾，Schema 由现有夹具创建；不要指向共享或开发业务库。除前文 `DOGX_TEST_POSTGRES_DSN`、`DOGX_TEST_REDIS_HOST`、`DOGX_TEST_ETCD_BINARY` 外，还必须准备以下 PostgreSQL 配置并在启动该隔离进程前生效：
+
+```conf
+logging_collector = on
+log_destination = 'csvlog'
+log_directory = 'history-csv'
+log_min_duration_statement = -1
+log_parameter_max_length = 128
+log_autovacuum_min_duration = 0
+```
+
+`history-csv` 是隔离 PostgreSQL 数据目录下的日志目录；将 `DOGX_HISTORY_PG_LOG_DIR` 设置为它的实际绝对路径。`log_parameter_max_length` 至少须保留完整的时间戳参数，示例 128 字节足够恢复真实清理 cutoff，不能设为 0。测试仅在两个 Job 进程的 `PGOPTIONS` 中启用 `log_min_duration_statement=0`；System 业务执行器不启用 SQL 跟踪。CSV 中的候选查询参数与应用清理完成日志共同确定每趟实际时间、cutoff 及删除数，不依靠估算的第 10／20 分钟代替证据。日志目录与结果目录均保留在忽略的测试资料目录内。
+
+准备阶段先构造近期历史，再统一对齐父子时间；在正式窗口外执行 `VACUUM (ANALYZE)` 和完整初始数据核对，清除时间对齐 UPDATE 产生的死元组。三组使用相同准备及预热步骤，不称冷缓存测试。起点留约 5 分钟用于对齐、核对、进程就绪和计划检查；余量不足或首趟提前删掉目标数据时，记录准备失败，不缩小数据或跳过检查进入正式窗口。正式观察期间不强制 VACUUM。专项诊断为增加准备余量，使用忽略目录中的 Go overlay 将预定起点由 5 分钟改为 8 分钟；两种磁盘对照使用相同 overlay，正式源码仍为 5 分钟，负载规模、正式窗口和通过门槛未变。复现诊断结果时须同时记录这一差异，不将准备阶段失败当成在线业务失败。
+
+测试会自动调用 Job 测试宿主中的 `TestJobHistoryLoadQueryPlans`，在前后两个检查点使用真实仓储生成的只读查询执行 `EXPLAIN (ANALYZE, BUFFERS)`。该 helper 不启动调度、不写业务状态；`DOGX_HISTORY_PLAN_OUTPUT` 与 `DOGX_HISTORY_PLAN_CUTOFF` 由主测试设置，计划文件和报告保存在同一结果目录，不需要单独运行 helper。
+
+在仓库根目录配置好独立依赖及 `DOGX_HISTORY_PG_LOG_DIR` 后执行；每条构建成功才进入下一步，固定程序路径仍受 Windows 测试包装器管理：
+
+```powershell
+$env:GOMAXPROCS = '2'
+$env:DOGX_E2E_JOB_RPC_BINARY = Join-Path (Get-Location) 'bin/windows-tests/e2e-job-rpc.exe'
+$env:DOGX_E2E_JOB_MIGRATE_BINARY = Join-Path (Get-Location) 'bin/windows-tests/e2e-job-migrate.exe'
+$env:DOGX_E2E_SYSTEM_EXECUTOR_BINARY = Join-Path (Get-Location) 'bin/windows-tests/e2e-system-executor.test.exe'
+go build -p 2 -o $env:DOGX_E2E_JOB_MIGRATE_BINARY ./apps/job/cmd/migrate
+if ($LASTEXITCODE -ne 0) { throw 'Job migration build failed' }
+go test -p 2 -c '-tags=integration,e2e,load' -o $env:DOGX_E2E_JOB_RPC_BINARY ./apps/job/rpc
+if ($LASTEXITCODE -ne 0) { throw 'Job load host build failed' }
+go test -p 2 -c '-tags=integration,e2e,load' -o $env:DOGX_E2E_SYSTEM_EXECUTOR_BINARY ./apps/system/rpc
+if ($LASTEXITCODE -ne 0) { throw 'System load host build failed' }
+if ([string]::IsNullOrWhiteSpace($env:DOGX_HISTORY_PG_LOG_DIR) -or
+    -not (Test-Path -LiteralPath $env:DOGX_HISTORY_PG_LOG_DIR -PathType Container)) {
+    throw 'Set DOGX_HISTORY_PG_LOG_DIR to the isolated PostgreSQL CSV directory'
+}
+$historyEvidence = Join-Path (Get-Location) ('bin/test-tools/history-load-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $historyEvidence | Out-Null
+$env:DOGX_LOAD_RESOURCES = '1'
+$testRunner = 'pwsh -NoProfile -File "' + (Resolve-Path 'scripts/test-exec-windows.ps1').Path + '"'
+foreach ($historyCase in @('A', 'B', 'C')) {
+    $env:DOGX_HISTORY_LOAD_CASE = $historyCase
+    $env:DOGX_LOAD_REPORT = Join-Path $historyEvidence ($historyCase + '-report.json')
+    go test -p 2 -exec $testRunner '-tags=integration,e2e,load' -run '^TestJobHistoryLoadEndToEnd$' -count=1 -timeout=65m -v ./apps/system/e2e
+    if ($LASTEXITCODE -ne 0) { throw ('History load case ' + $historyCase + ' failed; retain its report and logs') }
+}
+```
+
+报告和退出码共同判断执行结果；保留准备失败、正式失败及复跑记录。每组结束核对预期身份集合与无孤儿，再将实际清理期间的延迟单列与 B 对照。Go 堆不称进程工作集，行时间差不称 COMMIT 延迟；自然 autovacuum 没有出现时明确缺少该成本样本。此测试不补 `demo.echo` 单元测试，也不采集子进程覆盖率或加入日常 CI 的性能门槛。运行结束后清除本节设置的 `DOGX_HISTORY_LOAD_CASE`、`DOGX_HISTORY_PG_LOG_DIR`、`DOGX_LOAD_REPORT`、`DOGX_LOAD_RESOURCES`；恢复其他 E2E 前按其命令重新构建对应宿主。
+
+上述 Go 入口自动记录 Go 堆／goroutine 和 PostgreSQL 统计；本轮 Windows CPU／工作集由证据目录中的 `sample-processes.ps1` 每秒采样，日志与匹配窗口分析由 `analyze-results.py` 完成，不能把只执行 Go 命令视为已采到这些额外指标。识别独立 TOAST VACUUM 时还需保留该隔离 Schema 的父表与 TOAST 表名映射；本轮每个 B／C 各用一次只读系统目录查询保存 `relation-identities.json`，不根据其他 Schema 的日志猜测归属。验收结果和这些本机辅助证据保留在忽略目录，不加入常规 CI。
+
 端到端命令没有为子进程采集覆盖率；不能把这些通过结论计入 `coverage/integration.txt` 或推算 patch 覆盖率。
 
 Linux 环境执行 Race、覆盖率和集成测试；Windows 环境执行普通单元测试，用于发现开发环境和生产环境之间的跨平台问题。

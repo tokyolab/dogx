@@ -1,6 +1,6 @@
 # 6 数据与接口契约
 
-本章把架构职责转为持久化和跨模块契约的边界。普通核心开发及阶段 6 适用验收已完成，实际交付与 CI 见[当前进度](progress.md)。分片单份输入、输入列及索引迁移已实现，验证见[阶段 1 记录](sharded-readiness-review.md#sharded-stage1-progress)；Pre 保存、整组生成和统一派发组件已实现，验证及接线边界见[阶段 2 记录](sharded-readiness-review.md#sharded-stage2-progress)。完整阶段检查、Post 创建及生产宿主接线已实现并通过本机专项验证，见[阶段 3 记录](sharded-readiness-review.md#sharded-stage3-progress)；分片本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；远端 CI 尚未取得。本章描述契约，实际实现与验证分开记录。
+本章把架构职责转为持久化和跨模块契约的边界。普通核心开发及阶段 6 适用验收已完成，实际交付与 CI 见[当前进度](progress.md)。分片单份输入、输入列及索引迁移已实现，验证见[阶段 1 记录](sharded-readiness-review.md#sharded-stage1-progress)；Pre 保存、整组生成和统一派发组件已实现，验证及接线边界见[阶段 2 记录](sharded-readiness-review.md#sharded-stage2-progress)。完整阶段检查、Post 创建及生产宿主接线已实现并通过本机专项验证，见[阶段 3 记录](sharded-readiness-review.md#sharded-stage3-progress)；分片本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；对应分片提交的远端 CI 已通过，准确范围见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)，历史清理实现提交的 CI 见[清理记录](progress.md#history-cleanup-ci-closeout)。本章描述契约，实际实现与验证分开记录。
 
 **2026-11-06 已批准：Pre 返回最终分片清单，外层每个元素对应一个分片 Task，每轮最多 500 个，平台不再二次拆分或组合。** Pre 首次执行与本轮启动原子登记；成功 Pre 与完整清单原子保存后，再由独立事务一次插入整轮全部待执行分片，按实际派发容量登记首次尝试。不增加分片编号、生成进度或独立完成标志。单片输入的 `ShardInput.Item`、Proto `bytes item` 及 `input_data JSONB` 迁移已在阶段 1 落实；准备输出仍为清单，不把两者混为一份数组接口。详见[处理器契约](#processor-contract)、[分片 JSON 与输入存储](#shard-input-storage-contract)、[全量生成存储协议](#shard-generation-storage-contract)、[Pre 启动与分片首次登记](#sharded-start-dispatch-contract)及[分片职责](task-model.md#explicit-shard-contract)。2026-11-09 另通过 Post 锁外稳定统计、固定输入保存、父 NOWAIT 唯一创建及待执行供给衔接，见[Post 创建与固定输入](#post-creation-contract)；随后通过[分片查询、索引与输入迁移契约](#sharded-query-contract)，Task 待执行与重试合并为同一到期来源。统一候选和分片执行组件的实施见[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)，完整阶段运行链路及生产宿主专项验证见[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)；本机专项通过不代表分片整体故障、性能及 CI 验收完成。
 
@@ -439,7 +439,7 @@ COMMIT;
 
 2026-11-09 已通过统一 Task 到期查询及 `(next_dispatch_at,id) WHERE status IN (1,3)` 部分索引替换方案，复用固定数据库时间和临时复合游标，见[候选查询契约](#dispatch-recovery-query)。迁移、仓储适配和实际执行计划仍待落实验证，不把原 `status=3` 索引当作已经覆盖 `status=1`。授权返回的数据须包含发送所需的阶段及固定输入，避免登记后按 Task 逐条补查；不以查询后的当前 Job 或重新拆分清单构造请求。
 
-Registrar、候选校验及仓储条件已扩展到 Pre 首次启动、分片／Post 零编号首次登记和各阶段重试，复用已有事务及派发组织，并校验冻结配置、阶段输入和相应状态谓词。公共 ACK／绑定、BUSY、明确拒绝、结果保存与取消语义保持不变。[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)记录迁移、协议适配和组件验证，[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)记录完整阶段与生产宿主专项验证；本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；远端 CI 尚未取得。
+Registrar、候选校验及仓储条件已扩展到 Pre 首次启动、分片／Post 零编号首次登记和各阶段重试，复用已有事务及派发组织，并校验冻结配置、阶段输入和相应状态谓词。公共 ACK／绑定、BUSY、明确拒绝、结果保存与取消语义保持不变。[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)记录迁移、协议适配和组件验证，[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)记录完整阶段与生产宿主专项验证；本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；对应分片提交的远端 CI 已通过，准确范围见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)，历史清理实现提交的 CI 见[清理记录](progress.md#history-cleanup-ci-closeout)。
 
 ### 接单 ACK 的执行器绑定 SQL {#executor-binding-sql}
 
@@ -505,7 +505,7 @@ WHERE id = :task_id
 
 ### 普通 Task 结果保存与状态转换 {#task-result-persistence}
 
-**后台归属校验、结果条件更新、三种状态分支及提交后处理规则已通过；2026-10-29 已确认单条 JOIN、逐条条件 UPDATE 和独立提交，以及结果保留、保存并发、超时和退避初值。2026-11-04 已实现普通单条 Saver 与仓储，随后实现结果 Queue、退避消费者及 RPC 接纳适配；Job 结果生产入口已接线，本轮实际验证见[生产接线记录](ordinary-readiness-review.md#ordinary-result-wiring-progress)，父完成已接线，见[普通完成记录](ordinary-readiness-review.md#ordinary-completion-progress)。** 本节以普通 Task 为主，沿用单条异步回报、调度端入队 ACK 和后台有限并发保存，不将多个结果绑定在同一事务中；不展开准备工作项存储、分片生成或 Instance 汇总 SQL。[回报错误分类与无效结果处理](#result-error-classification)已于 2026-10-30 通过；[执行 RPC 消息与装配](#execution-rpc-contract)已生成协议及通信适配，普通运行装配与适用进程验收已完成，分片生产宿主专项验证见[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)，本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；远端 CI 尚未取得。
+**后台归属校验、结果条件更新、三种状态分支及提交后处理规则已通过；2026-10-29 已确认单条 JOIN、逐条条件 UPDATE 和独立提交，以及结果保留、保存并发、超时和退避初值。2026-11-04 已实现普通单条 Saver 与仓储，随后实现结果 Queue、退避消费者及 RPC 接纳适配；Job 结果生产入口已接线，本轮实际验证见[生产接线记录](ordinary-readiness-review.md#ordinary-result-wiring-progress)，父完成已接线，见[普通完成记录](ordinary-readiness-review.md#ordinary-completion-progress)。** 本节以普通 Task 为主，沿用单条异步回报、调度端入队 ACK 和后台有限并发保存，不将多个结果绑定在同一事务中；不展开准备工作项存储、分片生成或 Instance 汇总 SQL。[回报错误分类与无效结果处理](#result-error-classification)已于 2026-10-30 通过；[执行 RPC 消息与装配](#execution-rpc-contract)已生成协议及通信适配，普通运行装配与适用进程验收已完成，分片生产宿主专项验证见[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)，本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；对应分片提交的远端 CI 已通过，准确范围见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)，历史清理实现提交的 CI 见[清理记录](progress.md#history-cleanup-ci-closeout)。
 
 当前实现的原生 `Report` 与 `Outcome` 位于 Job 域 `internal/taskresult`，RPC 层负责认证和协议适配；Saver 不依赖 RPC DTO。失败保存为等待重试只是本条结果的持久化分支，不表示已登记新尝试或实现重试调度。
 
@@ -1035,7 +1035,7 @@ WHERE status = 2;
 
 ### Instance 完成与超时裁决契约 {#instance-completion-contract}
 
-**本节规则已通过；普通完成读取与父条件 UPDATE 已实现，见[阶段 3 记录](ordinary-readiness-review.md#ordinary-completion-progress)。普通自动超时衔接已接通；分片阶段检查及其与超时的衔接已通过[阶段 3 本机专项验证](sharded-readiness-review.md#sharded-stage3-progress)。** 普通与分片共用最终状态写入机制，按各自阶段判断完成事实，不各建一套并发控制。[全量生成及完整性事实](#shard-generation-storage-contract)已确认，不新增生成完成字段；阶段读取及索引复用已按[分片查询契约](#sharded-query-contract)通过，生成与查询仓储、迁移及阶段接线已实现，本机专项范围见[分片阶段记录](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；远端 CI 尚未取得。
+**本节规则已通过；普通完成读取与父条件 UPDATE 已实现，见[阶段 3 记录](ordinary-readiness-review.md#ordinary-completion-progress)。普通自动超时衔接已接通；分片阶段检查及其与超时的衔接已通过[阶段 3 本机专项验证](sharded-readiness-review.md#sharded-stage3-progress)。** 普通与分片共用最终状态写入机制，按各自阶段判断完成事实，不各建一套并发控制。[全量生成及完整性事实](#shard-generation-storage-contract)已确认，不新增生成完成字段；阶段读取及索引复用已按[分片查询契约](#sharded-query-contract)通过，生成与查询仓储、迁移及阶段接线已实现，本机专项范围见[分片阶段记录](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；对应分片提交的远端 CI 已通过，准确范围见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)，历史清理实现提交的 CI 见[清理记录](progress.md#history-cleanup-ci-closeout)。
 
 - 正常完成先在父锁外读取最少的稳定完成事实，具备整轮最终结束条件时，条件更新仍运行中的 Instance。即使检查或有效结果保存发生在截止后，只要父仍 RUNNING，仍允许按结果结束；STOPPING 不能走正常完成；不保证严格按截止时刻裁决结果。UPDATE 本身仍有行锁及可能的锁等待，不是无锁方案。
 - 普通与分片共用完成判定，不能只凭“当前查到的 Task 全部终态”结束。按适用阶段确认分片已全量提交、Task 最终态不可逆、等待重试不算终态，以及本轮应执行的 Post 已满足最终结果要求。成功 Pre 持久化的显式空数组本身就是零分片事实；非空清单须已有全量分片，单纯查不到 Task 不构成完成证据。准备最终失败仍按既有规则直接结束，不要求生成分片或执行 Post；阶段差异不增加另一套普通任务并发协议。
@@ -1493,7 +1493,7 @@ READ COMMITTED 每条语句取得自己的快照。初始 Job 锁查询可能等
 - 用实际驱动和足够历史数据验证各查询及部分索引；检查两个唯一索引只覆盖各自适用记录。
 - 在大历史存量、持续创建及状态更新、历史清理并行的条件下，测量查询和事务延迟、索引体积、WAL、I/O 与 vacuum 负担；不能只测空表或瞬时插入吞吐。部分索引减少无关历史查询，不消除索引维护、MVCC 死元组及清理成本。
 
-上述是实现后的验收要求，尚未执行数据库功能或性能测试。当前暂不考虑月分区，不因此确定历史保留期或清理机制。竞品路径和 PostgreSQL 语义依据见[触发持久化比较](references.md#trigger-persistence-evidence)。
+上述是验收要求，实际覆盖范围以[触发验证记录](progress.md#trigger-ci-verification)、[查询与负载记录](sharded-load-validation.md)及[本轮历史负载实测](history-load-validation.md)为准；A2／B1 通过，原始机械盘 C1 及诊断复现失败，后续 NVMe 对照按原规模和门槛完整通过，不表示上述全部要求或长期稳定性已经验证。当前暂不考虑月分区；历史保留期、清理机制及相应功能验证已另行确定，见[历史记录与维护](operations.md#history-cleanup)。竞品路径和 PostgreSQL 语义依据见[触发持久化比较](references.md#trigger-persistence-evidence)。
 
 ### Leader 到期 Job 恢复查询 {#trigger-recovery-scan-proposal}
 
@@ -2149,7 +2149,7 @@ HTTP 管理请求沿用 go-zero 的整体请求体限制，当前依赖默认 1 
 
 ### 结果回报错误分类与无效结果处理 {#result-error-classification}
 
-**2026-10-30 已通过；协议、通信边界及普通运行装配已实现。** 当前交付及验证见[普通执行记录](ordinary-readiness-review.md)，分片扩展见[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)。 本节收口普通 Task 执行闭环中回报入口、执行器重传及调度端后台保存的错误判定；不改变已定 ACK、次数、队列、并发、状态机及易失结果边界，也不将本节编码直接推广为派发 BUSY 或取消接口的完整错误契约。同日后续已通过[执行 RPC 协议与装配](#execution-rpc-contract)，生成、适配与普通运行验证已完成；分片本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；远端 CI 尚未取得。
+**2026-10-30 已通过；协议、通信边界及普通运行装配已实现。** 当前交付及验证见[普通执行记录](ordinary-readiness-review.md)，分片扩展见[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)。 本节收口普通 Task 执行闭环中回报入口、执行器重传及调度端后台保存的错误判定；不改变已定 ACK、次数、队列、并发、状态机及易失结果边界，也不将本节编码直接推广为派发 BUSY 或取消接口的完整错误契约。同日后续已通过[执行 RPC 协议与装配](#execution-rpc-contract)，生成、适配与普通运行验证已完成；分片本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；对应分片提交的远端 CI 已通过，准确范围见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)，历史清理实现提交的 CI 见[清理记录](progress.md#history-cleanup-ci-closeout)。
 
 #### 回报入口与执行器判断
 
@@ -2271,7 +2271,7 @@ type PostProcessor interface {
 
 #### 分片 JSON 与输入存储 {#shard-input-storage-contract}
 
-**2026-11-06 已确认以下分片表达与存储方向；2026-11-09 另通过 Post 复用 `input_data` 保存固定统计。尚未修改公共接口、Proto 或数据库迁移。**
+**2026-11-06 已确认以下分片表达与存储方向；2026-11-09 另通过 Post 复用 `input_data` 保存固定统计。公共接口、Proto、数据库迁移及运行链路已落实，实施与验收见[分片阶段记录](sharded-readiness-review.md#sharded-implementation-order)。**
 
 | 位置 | 已确认表达与含义 |
 | --- | --- |

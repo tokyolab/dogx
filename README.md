@@ -116,7 +116,7 @@ API 与 RPC 必须使用完全相同的 `DOGX_ACCESS_SECRET`。受保护请求�
 
 ## Job 调度域
 
-管理入口为 `system-api → job-rpc → PostgreSQL`。`job-rpc` 是独立进程，副本通过 etcd 选主；只有 Leader 维护 Cron 规则和触发恢复，各副本均可处理管理请求及结果回报。Job 已接通独立的管理／回报两个 Server，回报使用真实组认证、结果队列与单条保存。System 已内嵌公共执行器，以独立 Server 接收派发和取消，当前显式注册 `demo.echo` 演示处理器，未知名称明确拒绝。普通与分片执行已完成适用范围验收；“定时任务”下的任务管理、执行记录、执行器组页面及查询能力已实现，不创建隐含默认组。最新管理 CI 见[验证记录](docs/design/scheduler/management.md#management-ci)；历史清理已实现并完成本机功能验证，提交状态、测试边界和其他发布余项见[当前工作](docs/design/scheduler/progress.md#history-cleanup-progress)，不将模块验收等同于第一版全部交付。
+管理入口为 `system-api → job-rpc → PostgreSQL`。`job-rpc` 是独立进程，副本通过 etcd 选主；只有 Leader 维护 Cron 规则和触发恢复，各副本均可处理管理请求及结果回报。Job 已接通独立的管理／回报两个 Server，回报使用真实组认证、结果队列与单条保存。System 已内嵌公共执行器，以独立 Server 接收派发和取消，当前显式注册 `demo.echo` 演示处理器，未知名称明确拒绝。普通与分片执行已完成适用范围验收；“定时任务”下的任务管理、执行记录、执行器组页面及查询能力已实现，不创建隐含默认组。最新管理 CI 见[验证记录](docs/design/scheduler/management.md#management-ci)；历史清理已实现、推送并通过最终 CI，测试修正与准确覆盖率见[清理 CI 收尾](docs/design/scheduler/progress.md#history-cleanup-ci-closeout)；历史存量与并行清理持续负载已按批准方案执行，A2 空闲基线和 B1 持续执行通过；原始机械盘 C1 及诊断复现均未通过，NVMe 对照完成相同规模、原门槛的 30 分钟并行清理并通过。当前存储 I/O 压力与技术超时后的既定恢复节奏已取得诊断证据，产品行为保持不变，详见[历史负载实测](docs/design/scheduler/history-load-validation.md)，不将模块验收等同于第一版全部交付。
 
 ```powershell
 Copy-Item 'apps/job/rpc/etc/job-rpc.example.yaml' 'apps/job/rpc/etc/job-rpc.yaml'

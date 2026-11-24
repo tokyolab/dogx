@@ -6,7 +6,7 @@
 
 ## 5.1 一轮执行的主路径 {#main-flow}
 
-普通核心开发及阶段 6 适用验收已完成，实际交付与 CI 见[当前进度](progress.md)。2026-11-06 已批准[最终分片清单](task-model.md#explicit-shard-contract)，同日后续通过[Pre 首次启动与分片首次派发](#sharded-start-dispatch)；2026-11-09 又通过[Post 创建、固定输入与首次派发衔接](#post-creation)，随后通过[查询与索引](data-contracts.md#sharded-query-contract)及[组件交接](#sharded-component-handoff)。Pre、整组生成及统一派发组件已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)实现；完整 Checker 阶段选择、Post 和生产宿主接线已实现并通过[阶段 3 本机专项验证](sharded-readiness-review.md#sharded-stage3-progress)。本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；远端 CI 尚未取得，不将本机专项通过作为全部交付结论。
+普通核心开发及阶段 6 适用验收已完成，实际交付与 CI 见[当前进度](progress.md)。2026-11-06 已批准[最终分片清单](task-model.md#explicit-shard-contract)，同日后续通过[Pre 首次启动与分片首次派发](#sharded-start-dispatch)；2026-11-09 又通过[Post 创建、固定输入与首次派发衔接](#post-creation)，随后通过[查询与索引](data-contracts.md#sharded-query-contract)及[组件交接](#sharded-component-handoff)。Pre、整组生成及统一派发组件已在[阶段 2](sharded-readiness-review.md#sharded-stage2-progress)实现；完整 Checker 阶段选择、Post 和生产宿主接线已实现并通过[阶段 3 本机专项验证](sharded-readiness-review.md#sharded-stage3-progress)。本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；对应分片提交的远端 CI 已通过，准确范围见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)，历史清理实现提交的 CI 见[清理记录](progress.md#history-cleanup-ci-closeout)，不将本机专项通过作为全部交付结论。
 
 ### 普通任务 {#ordinary-flow}
 
@@ -1062,7 +1062,7 @@ Instance 已 STOPPING、已终态或到期，不再授权新尝试或允许迟�
 
 影响一行且确认该条保存已提交，才表示本次结果生效；无错误但零行只表示本次未应用，不补查猜测原因，也不证明此前已经保存成功。单条保存正常完成后释放该条已处理结果，可对已核实归属的 Instance 发本地检查提示，包括重复结果重做后零行的情况；检查只按数据库当前事实推进，不恢复父终态或直接重派，不再向执行器反向确认落库。单次数据库操作仍须限制等待，并使用后台组件生命周期及剩余停机宽限控制，不沿用已经返回的入站 RPC Context；超时不能被当作确定回滚或结果已保存的证据。
 
-执行器结果缓冲条数和发送并发，以及调度端结果保留条数、保存并发和单条保存预算属于部署参数，不进入 Job 页面；执行器不设置网络合批窗口或批次数量参数，调度端不设置结果合批提交参数。执行器按[回报初值](#reporting-defaults)、调度端按[保存初值](#scheduler-result-defaults)分别执行，不因数值相同就共享配置含义。[进程停机](operations.md#process-shutdown)采用已确认的共享有限宽限。逐条结果保存不取消下面的分片完成检查合并；回报错误分类及[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)已定，当前协议、普通单条保存与结果队列实现见[结果队列进度](ordinary-readiness-review.md#ordinary-result-queue-progress)，普通生产装配与适用进程验收已完成，分片生产宿主专项验证见[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)，本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；远端 CI 尚未取得。
+执行器结果缓冲条数和发送并发，以及调度端结果保留条数、保存并发和单条保存预算属于部署参数，不进入 Job 页面；执行器不设置网络合批窗口或批次数量参数，调度端不设置结果合批提交参数。执行器按[回报初值](#reporting-defaults)、调度端按[保存初值](#scheduler-result-defaults)分别执行，不因数值相同就共享配置含义。[进程停机](operations.md#process-shutdown)采用已确认的共享有限宽限。逐条结果保存不取消下面的分片完成检查合并；回报错误分类及[执行 RPC 协议与装配](data-contracts.md#execution-rpc-contract)已定，当前协议、普通单条保存与结果队列实现见[结果队列进度](ordinary-readiness-review.md#ordinary-result-queue-progress)，普通生产装配与适用进程验收已完成，分片生产宿主专项验证见[阶段 3](sharded-readiness-review.md#sharded-stage3-progress)，本机故障与跨节点验证见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)，本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；对应分片提交的远端 CI 已通过，准确范围见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)，历史清理实现提交的 CI 见[清理记录](progress.md#history-cleanup-ci-closeout)。
 
 ### 调度端写库故障与结果积压 {#scheduler-result-retention}
 
@@ -1498,7 +1498,7 @@ RUNNING Instance 统一复核的 2 分钟周期、4 分钟门槛、每页 256 �
 
 ## 5.12 本章待决事项与完成条件 {#chapter-exit}
 
-本章已确认的本地直接派发、父行授权、终态条件竞争、绑定、回报、结果保留、提交结果不明恢复及完成推进规则继续有效；终态裁决以本轮修订的[行为规则](behavior.md#terminal-order)为准，不再沿用所有入口到期一律超时的旧要求。触发模块已经实现、提交并通过[本地及 CI 验证](progress.md#trigger-ci-verification)。[普通执行六阶段计划](ordinary-readiness-review.md#ordinary-implementation-order)的核心开发与适用验收已完成；分片完整阶段选择、Post 和生产宿主接线已通过[阶段 3 本机专项验证](sharded-readiness-review.md#sharded-stage3-progress)。完成与终态机制按普通和分片共用设计；分片本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；远端 CI 尚未取得，不将本机专项通过作为全部交付结论。
+本章已确认的本地直接派发、父行授权、终态条件竞争、绑定、回报、结果保留、提交结果不明恢复及完成推进规则继续有效；终态裁决以本轮修订的[行为规则](behavior.md#terminal-order)为准，不再沿用所有入口到期一律超时的旧要求。触发模块已经实现、提交并通过[本地及 CI 验证](progress.md#trigger-ci-verification)。[普通执行六阶段计划](ordinary-readiness-review.md#ordinary-implementation-order)的核心开发与适用验收已完成；分片完整阶段选择、Post 和生产宿主接线已通过[阶段 3 本机专项验证](sharded-readiness-review.md#sharded-stage3-progress)。完成与终态机制按普通和分片共用设计；分片本机故障与跨节点验证已完成，范围见[阶段 4 记录](sharded-readiness-review.md#sharded-stage4-progress)；本机查询与代表性负载已按确认范围通过，见[查询与负载记录](sharded-load-validation.md)；对应分片提交的远端 CI 已通过，准确范围见[分片 CI 收尾](sharded-readiness-review.md#sharded-ci-closeout)，历史清理实现提交的 CI 见[清理记录](progress.md#history-cleanup-ci-closeout)，不将本机专项通过作为全部交付结论。
 
 已落地的触发能力包括 etcd 选主及任期资源管理、配置通知和串行差异同步、首次装载、长期 Cron、触发容量和每分钟限量恢复，以及创建 Instance、快照和进度原子保存的事务、约束、索引与管理接口。其正式吞吐及长期资源稳定性验收仍未完成。
 
